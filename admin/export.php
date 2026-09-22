@@ -46,6 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'build_zip') {
     $darkCss = $palette ? $colorAnalyzer->toCss(json_decode($palette['dark_palette'], true) ?: [], ':root') : '';
 
     // 🔗 متغیرهای جایگذاری در قالب
+    $paletteRow = $db->fetch('SELECT light_palette FROM color_palettes WHERE brand_id = ?', [$brandId]);
+    $lightPaletteData = $paletteRow ? (json_decode($paletteRow['light_palette'], true) ?: []) : [];
+    $themeColor = (string)($lightPaletteData['--color-primary'] ?? '#1e40af');
     $replacements = [
         '{{BRAND_ID}}'        => (string)$brand['id'],
         '{{BRAND_API_KEY}}'   => (string)$brand['api_key'],
@@ -55,6 +58,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'build_zip') {
         '{{BRANDMAKER_URL}}'  => BASE_URL,
         '{{PALETTE_LIGHT_CSS}}' => $lightCss,
         '{{PALETTE_DARK_CSS}}'  => $darkCss,
+        '{{THEME_COLOR}}'     => $themeColor,
+        '{{BRAND_LOGO}}'      => $brand['logo'] ? (strpos($brand['logo'], 'http') === 0 ? $brand['logo'] : BASE_URL . '/' . $brand['logo']) : '',
     ];
 
     // 📦 بسته‌بندی هسته

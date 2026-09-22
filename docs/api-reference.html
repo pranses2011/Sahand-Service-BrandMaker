@@ -1,0 +1,83 @@
+<div dir="rtl">
+<h2>🔌 راهنمای API داخلی سایت ساز</h2>
+<p>آدرس پایه: <code>https://brandmaker.ea-fixer.ir/api</code></p>
+
+<h3>🔑 احراز هویت</h3>
+<p>تمام اندپوینت‌ها (به جز مسیرهای عمومی) نیاز به کلید API در هدر دارند:</p>
+<pre><code>X-API-Key: bmk_یکلید_نمونه...</code></pre>
+<p>کلید هر برند از «ویرایش برند ← تب API» قابل مشاهده است. محدودیت: ۱۲۰ درخواست در دقیقه برای هر IP.</p>
+
+<h3>🌐 اندپوینت‌های سایت برند</h3>
+<table>
+<tr><th>متد</th><th>مسیر</th><th>توضیح</th></tr>
+<tr><td>GET</td><td><code>brand/{id}</code></td><td>اطلاعات کامل برند: لوگو، پالت رنگ، تماس‌ها، سئو</td></tr>
+<tr><td>GET</td><td><code>brand/{id}/page/{type}</code></td><td>محتوای صفحه (home, services, ...)</td></tr>
+<tr><td>GET</td><td><code>brand/{id}/articles?page=1</code></td><td>لیست مقالات با صفحه‌بندی</td></tr>
+<tr><td>GET</td><td><code>brand/{id}/article/{slug}</code></td><td>مقاله تکی + مرتبط‌ها</td></tr>
+<tr><td>GET</td><td><code>brand/{id}/devices</code></td><td>دستگاه‌های فعال برند</td></tr>
+<tr><td>GET</td><td><code>brand/{id}/faqs</code></td><td>سوالات متداول</td></tr>
+<tr><td>GET</td><td><code>brand/{id}/error-codes?q=E1&device=...</code></td><td>کدهای خطا + جستجو</td></tr>
+<tr><td>GET</td><td><code>brand/{id}/menu/{header|footer}</code></td><td>منوی درختی</td></tr>
+<tr><td>GET</td><td><code>brands</code></td><td>لیست عمومی برندهای منتشرشده</td></tr>
+<tr><td>GET</td><td><code>settings</code></td><td>تنظیمات عمومی (نیاز به کلید)</td></tr>
+<tr><td>GET</td><td><code>fonts</code></td><td>لیست ۳۰ فونت + URL فایل CSS</td></tr>
+</table>
+
+<h3>📨 ثبت درخواست (عمومی — کلید در بدنه)</h3>
+<pre><code>POST /api/brand/{id}/request
+Content-Type: application/json
+
+{
+  "api_key": "bmk_...",
+  "full_name": "علی محمدی",
+  "phone": "09123456789",
+  "phone2": "",
+  "address": "تهران، خیابان ...",
+  "device_type": "washing_machine",
+  "device_other": "",
+  "device_model": "WD-1234",
+  "description": "شرح ایراد",
+  "preferred_date": "2025-10-01",
+  "preferred_time": "۹ تا ۱۲"
+}</code></pre>
+<p>پاسخ موفق: <code>{"success": true, "data": {"request_id": 12, "message": "..."}}</code></p>
+<p>پاسخ خطا (422): <code>{"success": false, "errors": ["شماره تماس معتبر نیست"]}</code></p>
+
+<h3>📊 ردیابی بازدید (عمومی)</h3>
+<pre><code>POST /api/track
+{"brand_id": 1, "session": "hex32...", "page": "/", "referrer": "...", "resolution": "1920x1080", "language": "fa-IR"}</code></pre>
+
+<h3>🤖 اندپوینت‌های موتور AI</h3>
+<table>
+<tr><th>متد</th><th>مسیر</th><th>ورودی</th></tr>
+<tr><td>POST</td><td><code>ai/generate-content</code></td><td>{brand_id, type: brand_intro|brand_history|...}</td></tr>
+<tr><td>POST</td><td><code>ai/generate-article</code></td><td>{brand_id, topic_type, device_key, auto_save}</td></tr>
+<tr><td>POST</td><td><code>ai/generate-seo</code></td><td>{brand_id, page_type, content}</td></tr>
+<tr><td>POST</td><td><code>ai/generate-brand-info</code></td><td>{brand_id} — پکیج کامل</td></tr>
+<tr><td>POST</td><td><code>ai/generate-faq</code></td><td>{brand_id, count}</td></tr>
+<tr><td>POST</td><td><code>ai/analyze-keywords</code></td><td>{text, focus_keyword, brand_id}</td></tr>
+<tr><td>POST</td><td><code>ai/check-uniqueness</code></td><td>{content, brand_id}</td></tr>
+<tr><td>POST</td><td><code>ai/suggest-improvements</code></td><td>{content, title, focus_keyword}</td></tr>
+<tr><td>GET</td><td><code>ai/templates</code></td><td>خلاصه قالب‌های محتوایی</td></tr>
+<tr><td>GET</td><td><code>ai/knowledge/{brand}</code></td><td>دانش برند (مثلاً samsung)</td></tr>
+</table>
+
+<h3>🧪 نمونه کد PHP</h3>
+<pre><code>// دریافت اطلاعات برند
+$ch = curl_init('https://brandmaker.ea-fixer.ir/api/brand/1');
+curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_HTTPHEADER =&gt; ['X-API-Key: bmk_YOUR_KEY'],
+]);
+$response = json_decode(curl_exec($ch), true);</code></pre>
+
+<h3>⚠️ کدهای خطا</h3>
+<table>
+<tr><th>کد</th><th>معنی</th></tr>
+<tr><td>401</td><td>کلید API نامعتبر یا ارسال نشده</td></tr>
+<tr><td>404</td><td>منبع یافت نشد</td></tr>
+<tr><td>422</td><td>خطای اعتبارسنجی (آرایه errors)</td></tr>
+<tr><td>429</td><td>محدودیت نرخ — یک دقیقه صبر کنید</td></tr>
+<tr><td>500</td><td>خطای داخلی سرور</td></tr>
+</table>
+</div>

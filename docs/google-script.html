@@ -1,0 +1,74 @@
+<div dir="rtl">
+<h2>📜 راهنمای واسط Google Apps Script برای تلگرام</h2>
+<p>در زمان تحریم سرورهای تلگرام، ارسال مستقیم ممکن است خطا دهد. این واسط درخواست را از سرور گوگل به تلگرام می‌فرستد.</p>
+
+<div class="alert alert-warning">⚠️ <b>الزام مهم سند:</b> Bot Token و Chat ID <b>داخل اسکریپت ذخیره نمی‌شوند</b> — با هر درخواست به عنوان پارامتر ارسال می‌شوند و از تنظیمات تلگرام در پنل سایت ساز خوانده می‌شوند.</div>
+
+<h3>🔧 راه‌اندازی گام به گام</h3>
+<ol>
+<li>به <a href="https://script.google.com" target="_blank" rel="nofollow">script.google.com</a> بروید و با حساب گوگل وارد شوید</li>
+<li>روی <b>پروژه جدید (New Project)</b> کلیک کنید</li>
+<li>محتوای فایل <code>google-apps-script.js</code> (از پوشه assets/scripts یا پایین همین صفحه) را در ویرایشگر کپی کنید</li>
+<li>روی <b>Deploy ← New deployment</b> کلیک کنید</li>
+<li>نوع را <b>Web app</b> انتخاب کنید:
+<ul>
+<li>Execute as: <b>Me</b> (من)</li>
+<li>Who has access: <b>Anyone</b> (هر کسی)</li>
+</ul></li>
+<li>روی Deploy کلیک و مجوزها را تأیید کنید</li>
+<li>آدرس <b>Web App URL</b> را کپی کنید</li>
+</ol>
+
+<h3>⚙️ اتصال به سایت ساز</h3>
+<ol>
+<li>در پنل: <b>تنظیمات ← ارسال درخواست ← واسط Google Apps Script</b></li>
+<li>فعال‌سازی را بزنید و آدرس Web App را وارد کنید</li>
+<li>Bot Token و Chat ID را در بخش «کانال تلگرام (مستقیم)» همان صفحه وارد کنید (این مقادیر به واسط گوگل هم پاس داده می‌شوند)</li>
+<li>با دکمه «ارسال مجدد» در یک درخواست، تست کنید</li>
+</ol>
+
+<h3>📥 کد کامل اسکریپت (قابل کپی)</h3>
+<pre><code>function doPost(e) {
+  try {
+    var params = JSON.parse(e.postData.contents);
+    if (!params.bot_token || !params.chat_id || !params.message) {
+      return jsonResult({ success: false, error: 'پارامترهای الزامی ارسال نشده' });
+    }
+    if (params.photo_url) {
+      try {
+        UrlFetchApp.fetch('https://api.telegram.org/bot' + params.bot_token + '/sendPhoto', {
+          method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+          payload: JSON.stringify({ chat_id: params.chat_id, photo: params.photo_url, caption: params.caption || '' })
+        });
+      } catch (err) {}
+    }
+    var response = UrlFetchApp.fetch('https://api.telegram.org/bot' + params.bot_token + '/sendMessage', {
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      payload: JSON.stringify({ chat_id: params.chat_id, text: params.message, parse_mode: 'HTML' })
+    });
+    var result = JSON.parse(response.getContentText());
+    return jsonResult(result.ok
+      ? { success: true, message_id: result.result.message_id }
+      : { success: false, error: result.description });
+  } catch (err) {
+    return jsonResult({ success: false, error: err.toString() });
+  }
+}
+function doGet() {
+  return jsonResult({ success: true, service: 'Sahand Telegram Bridge' });
+}
+function jsonResult(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}</code></pre>
+
+<h3>🧪 تست سلامت</h3>
+<p>آدرس Web App را در مرورگر باز کنید (GET) — باید پاسخ JSON با success:true ببینید.</p>
+
+<h3>❗ رفع اشکال</h3>
+<table>
+<tr><th>مشکل</th><th>راه‌حل</th></tr>
+<tr><td>پاسخ 401/403</td><td>در تنظیمات Deploy حتماً Anyone باشد</td></tr>
+<tr><td>پیام نمی‌رسد</td><td>Bot Token و Chat ID را در پنل (بخش تلگرام) بررسی کنید — با getUpdates صحت Chat ID را بگیرید</td></tr>
+<tr><td>تغییرات اعمال نمی‌شود</td><td>پس از هر ویرایش اسکریپت، دوباره Deploy ← Manage deployments ← Edit ← New version</td></tr>
+</table>
+</div>
