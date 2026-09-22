@@ -163,8 +163,11 @@ class Database
      */
     public function count(string $table, string $whereClause = '1=1', array $params = []): int
     {
+        // پشتیبانی از alias: «table_name alias» → `table_name` alias
+        $parts = explode(' ', trim(str_replace('`', '', $table)));
+        $tableSql = '`' . $parts[0] . '`' . (isset($parts[1]) ? ' ' . $parts[1] : '');
         return (int)$this->fetchValue(
-            sprintf('SELECT COUNT(*) FROM `%s` WHERE %s', str_replace('`', '', $table), $whereClause),
+            sprintf('SELECT COUNT(*) FROM %s WHERE %s', $tableSql, $whereClause),
             $params
         );
     }
