@@ -401,8 +401,8 @@ CREATE TABLE IF NOT EXISTS `webmaster_tags` (
 CREATE TABLE IF NOT EXISTS `visits` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `brand_id` INT UNSIGNED NOT NULL,
-  `session_hash` CHAR(40) NOT NULL COMMENT 'هش نشست (بدون IP خام — حفظ حریم خصوصی)',
-  `ip_hash` CHAR(40) NULL COMMENT 'هش IP برای شمارش یکتا',
+  `session_hash` CHAR(64) NOT NULL COMMENT 'هش نشست (بدون IP خام — حفظ حریم خصوصی)',
+  `ip_hash` CHAR(64) NULL COMMENT 'هش IP برای شمارش یکتا',
   `ip_prefix` VARCHAR(20) NULL COMMENT 'پیشوند IP برای GeoIP محلی',
   `user_agent` VARCHAR(500) NULL,
   `device_type` ENUM('mobile','desktop','tablet','bot') NOT NULL DEFAULT 'desktop',

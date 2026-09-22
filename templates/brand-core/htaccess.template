@@ -1,0 +1,67 @@
+# ⚙️ تنظیمات Apache سایت برند
+# =============================
+
+# 🚫 غیرفعال‌سازی فهرست پوشه‌ها
+Options -Indexes
+
+# 📌 فایل پیش‌فرض
+DirectoryIndex index.php
+
+# 🔀 URL Rewriting — آدرس‌های تمیز
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # خدمات
+    RewriteRule ^services/?$ pages/services.php [L]
+    # محدوده خدمات
+    RewriteRule ^service-area/?$ pages/service-area.php [L]
+    # ضمانت
+    RewriteRule ^warranty/?$ pages/warranty.php [L]
+    # مقالات
+    RewriteRule ^blog/?$ pages/blog.php [L]
+    RewriteRule ^blog/article/?$ pages/article.php [L]
+    # درباره‌ها
+    RewriteRule ^about-agency/?$ pages/about-agency.php [L]
+    RewriteRule ^about-brand/?$ pages/about-brand.php [L]
+    # تماس
+    RewriteRule ^contact/?$ pages/contact.php [L]
+    # ثبت درخواست
+    RewriteRule ^request/?$ pages/request.php [L]
+    # سایر برندها
+    RewriteRule ^other-brands/?$ pages/other-brands.php [L]
+    # کدهای خطا
+    RewriteRule ^error-codes/?$ pages/error-codes.php [L]
+    # سوالات متداول
+    RewriteRule ^faq/?$ pages/faq.php [L]
+    # نقشه سایت HTML
+    RewriteRule ^sitemap-page/?$ pages/sitemap-page.php [L]
+    # قوانین
+    RewriteRule ^terms/?$ pages/terms.php [L]
+    RewriteRule ^privacy/?$ pages/privacy.php [L]
+
+    # 🚫 جلوگیری از دسترسی مستقیم به فایل‌های حساس
+    RewriteRule ^config\.php$ - [F,L]
+    RewriteRule ^includes/ - [F,L]
+    RewriteRule ^cache/ - [F,L]
+</IfModule>
+
+# ⛔ صفحه ۴۰۴ سفارشی
+ErrorDocument 404 /404.php
+
+/* 🛡️ هدرهای امنیتی */
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+/* ⚡ فشرده‌سازی و کش */
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 year"
+</IfModule>

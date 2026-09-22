@@ -210,3 +210,35 @@
 
 ### 📦 کامیت‌ها
 - `phase-7-8: مقالات + مرکز سئو ۴ تب + کدهای خطا + NotificationService چهارکاناله + GeoIP محلی + داشبورد آماری Canvas + مدیریت درخواست‌ها`
+
+---
+
+## 8️⃣ فاز ۹ — API داخلی + خروجی ZIP + هسته سایت برند 📅 2025-09-24
+
+### ✅ API داخلی (11 فایل اندپوینت + 3 میان‌افزار)
+- `api/index.php` — روتر کامل با ۲۵+ مسیر: برند، صفحه، مقالات، مقاله تکی، کدهای خطا، FAQ، دستگاه‌ها، منو، درخواست، ردیابی، تنظیمات، آیکون، فونت، برندها + ۱۰ اندپوینت AI
+- `middleware/auth.php` — X-API-Key با تأخیر ضد کشف کلید + آمار استفاده
+- `middleware/rate-limit.php` — سقف ۱۲۰ درخواست/دقیقه/IP با پاکسازی احتمالی
+- `middleware/cors.php` — دسترسی سایت‌های برند
+- مسیرهای عمومی هوشمند: request (کلید در بدنه)، track، icon (تگ img)، brands
+
+### ✅ هسته سایت برند (templates/brand-core — ۳۳ فایل)
+- `config.php` (قالب با placeholder) + `index.php` صفحه اصلی کامل (هیرو/معرفی/خدمات/چرا ما/CTA/مقالات) + `404.php` زیبا
+- `includes/` — header (سئو کامل + OG + Schema + منو + لوگوی دوگانه + سوییچ تم)، footer (تماس + سایر برندها + لینک سایت اصلی)، floating-btn انیمیشنی، seo، functions
+- `pages/` — ۱۵ صفحه کامل: services، blog + article (مرتبط + CTA)، request (۱۰ فیلد + فیلد شرطی «سایر» + پیش‌نمایش تصاویر + AJAX)، contact، other-brands، faq (آکاردئون + Schema)، error-codes (جستجو + فیلتر + رنگ‌بندی شدت)، warranty، service-area، about×2، terms، privacy، sitemap-page
+- `css/style.css` — تم کامل RTL (۷۰۰+ خط): ریسپانسیو، تم روشن/تاریک، FAB، کارت، فرم، جدول
+- `js/` — tracker (session یکتا + sendBeacon + مدت حضور)، app (شمارنده + آفلاین)، form
+- `htaccess.template` — URL rewriting کامل + امنیت + gzip
+
+### ✅ خروجی ZIP
+- `admin/export.php` — انتخاب برند → جایگذاری ۸ متغیر (کلید API، برند، پالت CSS) + تولید خودکار sitemap.xml (صفحات + مقالات) + robots.txt + راهنمای استقرار + لیست ZIP های موجود
+
+### 🐛 رفع اشکال
+- ip_hash/session_hash از CHAR(40) به CHAR(64) (sha256) — اسکیما + دیتابیس تست
+- مسیرهای عمومی track/icon از احراز هویت مستثنا شدند
+
+### 🧪 تست فاز ۹: ۳۳/۳۳ موفق
+- ۱۳ اندپوینت API + احراز هویت 401 + ثبت درخواست معتبر/نامعتبر 422 + ۳ اندپوینت AI + ردیابی بازدید + ZIP (۳۳ فایل، sitemap، robots، htaccess، جایگذاری کلید و پالت) + سرو SVG
+
+### 📦 کامیت‌ها
+- `phase-9: API کامل ۲۵+ مسیر + هسته سایت برند ۳۳ فایل + خروجی ZIP با جایگذاری متغیر — ۳۳ تست`

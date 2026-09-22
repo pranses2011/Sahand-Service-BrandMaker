@@ -1,0 +1,7 @@
+/* 🌙 تم تاریک — متغیرها از پالت برند (هنگام تولید ZIP تزریق می‌شود) */
+:root {
+{{PALETTE_DARK_CSS}}}
+
+/* تنظیمات مخصوص تم تاریک */
+[data-theme="dark"] .site-header { background: var(--color-background); }
+[data-theme="dark"] .section:nth-child(even) { background: var(--color-surface); }
