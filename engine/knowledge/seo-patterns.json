@@ -1,0 +1,63 @@
+{
+  "title_patterns": [
+    "{{page}} {{brand_fa}} | {{agency}}",
+    "{{page}} {{brand_fa}} ({{brand_en}}) | {{agency}}",
+    "{{brand_fa}} — {{page}} | {{agency}}",
+    "{{page}} {{brand_fa}} با ضمانت | {{agency}}",
+    "{{agency}} | {{page}} {{brand_fa}}"
+  ],
+  "meta_patterns": [
+    "{{excerpt}}",
+    "{{excerpt}} برای دریافت خدمات {{brand_fa}} با {{agency}} تماس بگیرید.",
+    "{{excerpt}} خدمات تخصصی با ضمانت کتبی.",
+    "{{excerpt}} — {{agency}}"
+  ],
+  "heading_rules": {
+    "h1_max_per_page": 1,
+    "h2_min_per_page": 2,
+    "h3_use_for_subsections": true,
+    "heading_word_limit": 12
+  },
+  "density_targets": {
+    "focus_keyword_min": 0.8,
+    "focus_keyword_max": 3.0,
+    "brand_name_in_first_paragraph": true,
+    "synonyms_usage": true
+  },
+  "schema_types": {
+    "LocalBusiness": {
+      "required": ["name", "url", "telephone"],
+      "optional": ["geo", "openingHours", "address", "priceRange"]
+    },
+    "Service": {
+      "required": ["name", "provider"],
+      "optional": ["areaServed", "serviceType"]
+    },
+    "Article": {
+      "required": ["headline", "author", "datePublished"],
+      "optional": ["image", "publisher"]
+    },
+    "FAQPage": {
+      "required": ["mainEntity"],
+      "optional": []
+    },
+    "BreadcrumbList": {
+      "required": ["itemListElement"],
+      "optional": []
+    }
+  },
+  "og_requirements": {
+    "image_size": "1200x630",
+    "title_max": 60,
+    "description_max": 110,
+    "locale": "fa_IR"
+  },
+  "robots_defaults": {
+    "home": "index,follow",
+    "request": "index,follow",
+    "terms": "noindex,follow",
+    "privacy": "noindex,follow",
+    "search_results": "noindex,follow",
+    "admin": "noindex,nofollow"
+  }
+}

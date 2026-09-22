@@ -2,7 +2,7 @@
 
 > 📋 **این فایل، نقشه راه و ردیاب رسمی پیشرفت پروژه است.**
 > بعد از تکمیل هر بخش، مورد مربوطه تیک می‌خورد و همراه با ورک‌لاگ (`WORKLOG.md`) کامیت و پوش می‌شود.
-> 📅 تاریخ شروع: ۲ مهر ۱۴۰۴ (2025-09-24) | 🔄 آخرین بروزرسانی: 2025-09-24 — تکمیل فاز ۱ ✅
+> 📅 تاریخ شروع: ۲ مهر ۱۴۰۴ (2025-09-24) | 🔄 آخرین بروزرسانی: 2025-09-24 — تکمیل فاز ۲ ✅
 
 ---
 
@@ -11,10 +11,10 @@
 | 📊 شاخص | مقدار |
 |---------|-------|
 | 🎯 کل موارد کار | **۲۲۰+ مورد** |
-| ✅ انجام‌شده | 19 |
+| ✅ انجام‌شده | 43 |
 | 🔄 در حال انجام | 0 |
-| ⬜ باقی‌مانده | 201 |
-| 📈 درصد پیشرفت کلی | `██░░░░░░░░ 9%` |
+| ⬜ باقی‌مانده | 177 |
+| 📈 درصد پیشرفت کلی | `███░░░░░░░ 20%` |
 
 ### 🗝️ راهنمای وضعیت‌ها
 
@@ -33,7 +33,7 @@
 |:---:|----------|--------------------|:--------:|:--------:|
 | ۰ | 🚀 راه‌اندازی ریپو و مستندات پایه | BrandMaker.md، CHECKLIST.md، WORKLOG.md | ✅ | `94692cf` |
 | ۱ | 🏗️ زیرساخت هسته و دیتابیس | core/، config.php، install.php، database.sql | ✅ | `phase-1` |
-| ۲ | 🤖 موتور هوش مصنوعی داخلی | engine/ + پایگاه دانش | ⬜ | — |
+| ۲ | 🤖 موتور هوش مصنوعی داخلی | engine/ + پایگاه دانش | ✅ | `phase-2` |
 | ۳ | 🖥️ پنل مدیریت پایه | login، dashboard، settings | ⬜ | — |
 | ۴ | 🎨 برندها + تحلیل لوگو و رنگ | brands CRUD، ColorAnalyzer، پالت | ⬜ | — |
 | ۵ | 🎭 قالب‌ساز، تم و منوها | template-builder، themes، menus | ⬜ | — |
@@ -84,30 +84,30 @@
 
 | # | مورد | توضیح | وضعیت |
 |:-:|------|-------|:-----:|
-| 2.1 | ☐ `engine/SahandAI.php` | کلاس اصلی موتور AI | ⬜ |
-| 2.2 | ☐ `generators/ContentGenerator.php` | تولید محتوای یکتا (قالب + مترادف + بازنویسی) | ⬜ |
-| 2.3 | ☐ `generators/ArticleGenerator.php` | تولید مقاله ۸۰۰-۱۵۰۰ کلمه‌ای | ⬜ |
-| 2.4 | ☐ `generators/SeoGenerator.php` | عنوان، متا، Schema، OG، Twitter | ⬜ |
-| 2.5 | ☐ `generators/BrandInfoGenerator.php` | معرفی و تاریخچه برند | ⬜ |
-| 2.6 | ☐ `generators/FaqGenerator.php` | تولید FAQ | ⬜ |
-| 2.7 | ☐ `generators/ErrorCodeGenerator.php` | تولید کدهای خطای رایج | ⬜ |
-| 2.8 | ☐ `analyzers/KeywordAnalyzer.php` | استخراج و تحلیل کلیدواژه | ⬜ |
-| 2.9 | ☐ `analyzers/SeoAnalyzer.php` | امتیازدهی سئو ۰-۱۰۰ | ⬜ |
-| 2.10 | ☐ `analyzers/UniquenessChecker.php` | بررسی یکتایی (Anti-Duplicate) | ⬜ |
-| 2.11 | ☐ `analyzers/ColorAnalyzer.php` | تحلیل لوگو K-Means + پالت | ⬜ |
-| 2.12 | ☐ `knowledge/brands.json` | پایگاه دانش ۵۰+ برند لوازم خانگی | ⬜ |
-| 2.13 | ☐ `knowledge/devices.json` | دانش دستگاه‌ها و ایرادات رایج | ⬜ |
-| 2.14 | ☐ `knowledge/templates.json` | قالب‌های محتوایی (۱۰+ از هر نوع) | ⬜ |
-| 2.15 | ☐ `knowledge/synonyms.json` | دیکشنری مترادف‌های فارسی | ⬜ |
-| 2.16 | ☐ `knowledge/keywords.json` | کلیدواژه‌های SEO لوازم خانگی | ⬜ |
-| 2.17 | ☐ `knowledge/sentences.json` | ساختارهای جمله‌سازی | ⬜ |
-| 2.18 | ☐ `knowledge/seo-patterns.json` | الگوهای SEO و Schema | ⬜ |
-| 2.19 | ☐ `knowledge/error-codes.json` | کدهای خطای مرجع | ⬜ |
-| 2.20 | ☐ `utils/TextProcessor.php` | پردازش متن فارسی | ⬜ |
-| 2.21 | ☐ `utils/SlugGenerator.php` | تولید اسلاگ فارسی/انگلیسی | ⬜ |
-| 2.22 | ☐ `utils/Validator.php` | اعتبارسنجی | ⬜ |
-| 2.23 | ☐ الگوریتم تنوع‌سازی و بازنویسی جملات | Variation + Synonym + Restructure | ⬜ |
-| 2.24 | ☐ ۹ اندپوینت API موتور AI | generate-content تا templates | ⬜ |
+| 2.1 | ☑️ `engine/SahandAI.php` | کلاس اصلی موتور AI | ✅ |
+| 2.2 | ☑️ `generators/ContentGenerator.php` | تولید محتوای یکتا (قالب + مترادف + بازنویسی) | ✅ |
+| 2.3 | ☑️ `generators/ArticleGenerator.php` | تولید مقاله ۸۰۰-۱۵۰۰ کلمه‌ای | ✅ |
+| 2.4 | ☑️ `generators/SeoGenerator.php` | عنوان، متا، Schema، OG، Twitter | ✅ |
+| 2.5 | ☑️ `generators/BrandInfoGenerator.php` | معرفی و تاریخچه برند | ✅ |
+| 2.6 | ☑️ `generators/FaqGenerator.php` | تولید FAQ | ✅ |
+| 2.7 | ☑️ `generators/ErrorCodeGenerator.php` | تولید کدهای خطای رایج | ✅ |
+| 2.8 | ☑️ `analyzers/KeywordAnalyzer.php` | استخراج و تحلیل کلیدواژه | ✅ |
+| 2.9 | ☑️ `analyzers/SeoAnalyzer.php` | امتیازدهی سئو ۰-۱۰۰ | ✅ |
+| 2.10 | ☑️ `analyzers/UniquenessChecker.php` | بررسی یکتایی (Anti-Duplicate) | ✅ |
+| 2.11 | ☑️ `analyzers/ColorAnalyzer.php` | تحلیل لوگو K-Means + پالت | ✅ |
+| 2.12 | ☑️ `knowledge/brands.json` | پایگاه دانش ۵۰+ برند لوازم خانگی | ✅ |
+| 2.13 | ☑️ `knowledge/devices.json` | دانش دستگاه‌ها و ایرادات رایج | ✅ |
+| 2.14 | ☑️ `knowledge/templates.json` | قالب‌های محتوایی (۱۰+ از هر نوع) | ✅ |
+| 2.15 | ☑️ `knowledge/synonyms.json` | دیکشنری مترادف‌های فارسی | ✅ |
+| 2.16 | ☑️ `knowledge/keywords.json` | کلیدواژه‌های SEO لوازم خانگی | ✅ |
+| 2.17 | ☑️ `knowledge/sentences.json` | ساختارهای جمله‌سازی | ✅ |
+| 2.18 | ☑️ `knowledge/seo-patterns.json` | الگوهای SEO و Schema | ✅ |
+| 2.19 | ☑️ `knowledge/error-codes.json` | کدهای خطای مرجع | ✅ |
+| 2.20 | ☑️ `utils/TextProcessor.php` | پردازش متن فارسی | ✅ |
+| 2.21 | ☑️ `utils/SlugGenerator.php` | تولید اسلاگ فارسی/انگلیسی | ✅ |
+| 2.22 | ☑️ `utils/Validator.php` | اعتبارسنجی | ✅ |
+| 2.23 | ☑️ الگوریتم تنوع‌سازی و بازنویسی جملات | Variation + Synonym + Restructure | ✅ |
+| 2.24 | ☑️ ۹ اندپوینت API موتور AI | generate-content تا templates | ✅ |
 
 ---
 
@@ -320,7 +320,7 @@
 |:---:|-------|:----:|:---:|-------------|
 | ۰ | 🚀 راه‌اندازی | 5 | 5 | `██████████ 100%` |
 | ۱ | 🏗️ هسته و دیتابیس | 16 | 16 | `██████████ 100%` |
-| ۲ | 🤖 موتور AI | 0 | 24 | `░░░░░░░░░░ 0%` |
+| ۲ | 🤖 موتور AI | 24 | 24 | `██████████ 100%` |
 | ۳ | 🖥️ پنل مدیریت | 0 | 15 | `░░░░░░░░░░ 0%` |
 | ۴ | 🎨 برند و رنگ | 0 | 13 | `░░░░░░░░░░ 0%` |
 | ۵ | 🎭 قالب و تم | 0 | 9 | `░░░░░░░░░░ 0%` |

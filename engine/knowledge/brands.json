@@ -1,0 +1,1259 @@
+{
+  "samsung": {
+    "name_fa": "سامسونگ",
+    "name_en": "Samsung",
+    "country_fa": "کره جنوبی",
+    "country_en": "South Korea",
+    "founded": "1938",
+    "devices": [
+      "refrigerator",
+      "washing_machine",
+      "dishwasher",
+      "microwave",
+      "air_conditioner",
+      "tv",
+      "vacuum",
+      "oven"
+    ],
+    "strengths": [
+      "فناوری اینورتر دیجیتال",
+      "طراحی مدرن و مینیمال",
+      "قطعات در دسترس",
+      "تنوع محصول بالا"
+    ],
+    "history_facts": "سامسونگ در سال ۱۹۳۸ در کره جنوبی تأسیس شد و امروز یکی از بزرگ‌ترین تولیدکنندگان لوازم خانگی جهان است. یخچال‌های این برند با کمپرسور اینورتر دیجیتال شناخته می‌شوند که مصرف انرژی را به شکل چشمگیری کاهش می‌دهند. لباسشویی‌های سامسونگ با فناوری Eco Bubble اجازه شست‌وشو مؤثر در دمای پایین را فراهم می‌کنند."
+  },
+  "lg": {
+    "name_fa": "ال‌جی",
+    "name_en": "LG",
+    "country_fa": "کره جنوبی",
+    "country_en": "South Korea",
+    "founded": "1958",
+    "devices": [
+      "refrigerator",
+      "washing_machine",
+      "dishwasher",
+      "air_conditioner",
+      "tv",
+      "microwave",
+      "vacuum",
+      "oven"
+    ],
+    "strengths": [
+      "موتور دایرکت درایو",
+      "فناوری اسمارت تشخیص خطا",
+      "ضمانت موتور ۱۰ ساله",
+      "بهره‌وری انرژی بالا"
+    ],
+    "history_facts": "ال‌جی فعالیت خود را از سال ۱۹۵۸ در سئول آغاز کرد و به سرعت به یکی از پیشروان صنعت لوازم خانگی آسیا تبدیل شد. فناوری موتور دایرکت درایو در لباسشویی‌های ال‌جی با حذف تسمه و پولی، صدای کمتر و دوام بیشتر را به ارمغان آورد. یخچال‌های ساید بای ساید این برند با کمپرسور اینورتر لینیر معروف‌اند."
+  },
+  "bosch": {
+    "name_fa": "بوش",
+    "name_en": "Bosch",
+    "country_fa": "آلمان",
+    "country_en": "Germany",
+    "founded": "1886",
+    "devices": [
+      "washing_machine",
+      "dishwasher",
+      "refrigerator",
+      "oven",
+      "cooktop",
+      "range_hood",
+      "vacuum",
+      "coffee_maker"
+    ],
+    "strengths": [
+      "کیفیت ساخت آلمانی",
+      "دوام بی‌رقیب",
+      "موتور Eco Silence",
+      "استاندارد اروپایی"
+    ],
+    "history_facts": "رابرت بوش کارخانه خود را در سال ۱۸۸۶ در اشتوتگارت آلمان بنا نهاد. لباسشویی‌های بوش با موتور Eco Silence Drive شهرتی جهانی دارند. ظرفشویی‌های این برند با سیستم Zeolith که رطوبت را به حرارت تبدیل می‌کند، خشک‌کردن بی‌نقصی ارائه می‌دهند."
+  },
+  "siemens": {
+    "name_fa": "زیمنس",
+    "name_en": "Siemens",
+    "country_fa": "آلمان",
+    "country_en": "Germany",
+    "founded": "1847",
+    "devices": [
+      "washing_machine",
+      "dishwasher",
+      "refrigerator",
+      "oven",
+      "cooktop",
+      "range_hood",
+      "coffee_maker"
+    ],
+    "strengths": [
+      "مهندسی دقیق آلمانی",
+      "فناوری iSensoric",
+      "طراحی لوکس",
+      "بهره‌وری انرژی A+++"
+    ],
+    "history_facts": "زیمنس در سال ۱۸۴۷ توسط ورنر فون زیمنس در برلین تأسیس شد و نامش با اختراع تلگراف گره خورده است. امروز محصولات خانگی زیمنس با سنسورهای هوشمند iSensoric، مصرف آب و برق را بهینه می‌کنند. ظرفشویی‌های Zeolith این برند در بازار ایران محبوبیت زیادی دارند."
+  },
+  "electrolux": {
+    "name_fa": "الکترولوکس",
+    "name_en": "Electrolux",
+    "country_fa": "سوئد",
+    "country_en": "Sweden",
+    "founded": "1919",
+    "devices": [
+      "refrigerator",
+      "washing_machine",
+      "dishwasher",
+      "vacuum",
+      "oven",
+      "air_conditioner"
+    ],
+    "strengths": [
+      "میراث سوئدی",
+      "فناوری اشباع بخار",
+      "سیستم فیلتراسیون پیشرفته",
+      "طراحی اسکاندیناوی"
+    ],
+    "history_facts": "الکترولوکس در سال ۱۹۱۹ در سوئد متولد شد و جاروبرقی‌های آن از دهه ۱۹۲۰ وارد خانه‌های سلطنتی اروپا شد. یخچال‌های این برند با تکنولوژی TwinTech دو رطوبت متفاوت برای یخچال و فریزر فراهم می‌کنند."
+  },
+  "whirlpool": {
+    "name_fa": "ویرپول",
+    "name_en": "Whirlpool",
+    "country_fa": "آمریکا",
+    "country_en": "USA",
+    "founded": "1911",
+    "devices": [
+      "washing_machine",
+      "refrigerator",
+      "dishwasher",
+      "oven",
+      "microwave",
+      "dryer"
+    ],
+    "strengths": [
+      "بزرگ‌ترین تولیدکننده آمریکایی",
+      "فناوری شست‌وشوی 6th Sense",
+      "ظرفیت‌های بزرگ",
+      "دوام بالا"
+    ],
+    "history_facts": "ویرپول از سال ۱۹۱۱ در میشیگان آمریکا لوازم خانگی تولید می‌کند و به بزرگ‌ترین تولیدکننده این صنعت در جهان تبدیل شده است. فناوری حسگر ششم در محصولات این برند، میزان آب و زمان شست‌وشو را متناسب با بار لباس تنظیم می‌کند."
+  },
+  "ariston": {
+    "name_fa": "اریستون",
+    "name_en": "Ariston",
+    "country_fa": "ایتالیا",
+    "country_en": "Italy",
+    "founded": "1960",
+    "devices": [
+      "water_heater",
+      "washing_machine",
+      "dishwasher",
+      "oven",
+      "package",
+      "refrigerator"
+    ],
+    "strengths": [
+      "تخصص در آبگرمکن",
+      "کیفیت ایتالیایی",
+      "مقاوم به آب سخت",
+      "راندمان بالا"
+    ],
+    "history_facts": "اریستون از سال ۱۹۶۰ در ایتالیا فعالیت می‌کند و آبگرمکن‌های برقی آن از محبوب‌ترین محصولات این برند در ایران هستند. پکیج‌های دیواری اریستون با راندمان بالا و مصرف بهینه گاز شناخته می‌شوند."
+  },
+  "indesit": {
+    "name_fa": "ایندزیت",
+    "name_en": "Indesit",
+    "country_fa": "ایتالیا",
+    "country_en": "Italy",
+    "founded": "1953",
+    "devices": [
+      "washing_machine",
+      "dishwasher",
+      "refrigerator",
+      "oven",
+      "cooktop"
+    ],
+    "strengths": [
+      "قیمت مناسب",
+      "طراحی ساده و کاربردی",
+      "قطعات در دسترس",
+      "اقتصادی"
+    ],
+    "history_facts": "ایندزیت از دهه ۱۹۵۰ در ایتالیا لوازم خانگی اقتصادی تولید می‌کند و بخشی از گروه آرچلیک است. لباسشویی‌های این برند با سادگی عملکرد و قیمت مناسب، انتخاب بسیاری از خانواده‌ها هستند."
+  },
+  "beko": {
+    "name_fa": "بکو",
+    "name_en": "Beko",
+    "country_fa": "ترکیه",
+    "country_en": "Turkey",
+    "founded": "1955",
+    "devices": [
+      "refrigerator",
+      "washing_machine",
+      "dishwasher",
+      "oven",
+      "cooktop",
+      "package",
+      "air_conditioner",
+      "tv"
+    ],
+    "strengths": [
+      "ارزش خرید بالا",
+      "فناوری Air Flow",
+      "دسترسی آسان قطعات",
+      "گارانتی مناسب"
+    ],
+    "history_facts": "بکو از سال ۱۹۵۵ زیر نظر گروه آرچلیک در ترکیه تولید می‌شود و امروز در بیش از ۱۳۰ کشور حضور دارد. یخچال‌های بکو با فناوری EverFresh ماندگاری سبزیجات را تا ۳۰ روز افزایش می‌دهند."
+  },
+  "vestel": {
+    "name_fa": "وستل",
+    "name_en": "Vestel",
+    "country_fa": "ترکیه",
+    "country_en": "Turkey",
+    "founded": "1984",
+    "devices": [
+      "tv",
+      "refrigerator",
+      "washing_machine",
+      "dishwasher",
+      "air_conditioner",
+      "oven"
+    ],
+    "strengths": [
+      "تنوع محصول",
+      "قیمت رقابتی",
+      "تولیدات مدرن",
+      "پشتیبانی منطقه‌ای"
+    ],
+    "history_facts": "وستل از سال ۱۹۸۴ در ترکیه فعالیت می‌کند و یکی از بزرگ‌ترین تولیدکنندگان تلویزیون و لوازم خانگی اروپا از نظر حجم تولید است. محصولات این برند با قیمت رقابتی و کیفیت قابل قبول در بازار ایران حضور گسترده‌ای دارند."
+  },
+  "gorenje": {
+    "name_fa": "گورنیه",
+    "name_en": "Gorenje",
+    "country_fa": "اسلوونی",
+    "country_en": "Slovenia",
+    "founded": "1950",
+    "devices": [
+      "refrigerator",
+      "washing_machine",
+      "dishwasher",
+      "oven",
+      "cooktop",
+      "range_hood"
+    ],
+    "strengths": [
+      "طراحی منحصربه‌فرد",
+      "کیفیت اروپای شرقی",
+      "یخچال‌های کم‌مصرف",
+      "دوام بالا"
+    ],
+    "history_facts": "گورنیه از سال ۱۹۵۰ در اسلوونی لوازم خانگی تولید می‌کند و به طراحی‌های خاص و رنگ‌های متنوع یخچال‌هایش معروف است. لباسشویی‌های این برند با موتورهای کم‌صدا و برنامه‌های متنوع، تجربه شست‌وشوی اروپایی ارائه می‌دهند."
+  },
+  "haier": {
+    "name_fa": "هایر",
+    "name_en": "Haier",
+    "country_fa": "چین",
+    "country_en": "China",
+    "founded": "1984",
+    "devices": [
+      "refrigerator",
+      "washing_machine",
+      "air_conditioner",
+      "dishwasher",
+      "tv",
+      "water_heater"
+    ],
+    "strengths": [
+      "بزرگ‌ترین برند چینی",
+      "فناوری Fabric Care",
+      "قیمت به صرفه",
+      "نوآوری مستمر"
+    ],
+    "history_facts": "هایر از سال ۱۹۸۴ در چینگدائو چین فعالیت خود را آغاز کرد و امروز بزرگ‌ترین تولیدکننده لوازم خانگی جهان از نظر سهم بازار است. این برند یخچال‌های کم‌عمق مخصوص آپارتمان‌های کوچک را به جهان معرفی کرد."
+  },
+  "midea": {
+    "name_fa": "میدیا",
+    "name_en": "Midea",
+    "country_fa": "چین",
+    "country_en": "China",
+    "founded": "1968",
+    "devices": [
+      "air_conditioner",
+      "refrigerator",
+      "washing_machine",
+      "water_heater",
+      "dishwasher",
+      "package"
+    ],
+    "strengths": [
+      "تخصص در تهویه",
+      "تولیدات انبوه",
+      "قیمت اقتصادی",
+      "همکاری با برندهای معتبر"
+    ],
+    "history_facts": "میدیا از سال ۱۹۶۸ در چین فعالیت می‌کند و یکی از بزرگ‌ترین تولیدکنندگان کولر گازی جهان است. این شرکت قطعات و محصولات خود را برای بسیاری از برندهای مطرح جهان نیز تولید می‌کند."
+  },
+  "tcl": {
+    "name_fa": "تی‌سی‌ال",
+    "name_en": "TCL",
+    "country_fa": "چین",
+    "country_en": "China",
+    "founded": "1981",
+    "devices": [
+      "tv",
+      "air_conditioner",
+      "refrigerator",
+      "washing_machine"
+    ],
+    "strengths": [
+      "پیشرو در تلویزیون",
+      "پنل‌های QLED",
+      "قیمت رقابتی",
+      "فناوری مدرن"
+    ],
+    "history_facts": "تی‌سی‌ال از سال ۱۹۸۱ در چین فعالیت می‌کند و امروز یکی از دو تولیدکننده بزرگ پنل تلویزیون جهان است. کولرهای گازی این برند با اینورترهای کم‌مصرف در بازار ایران رشد سریعی داشته‌اند."
+  },
+  "hisense": {
+    "name_fa": "های‌سنس",
+    "name_en": "Hisense",
+    "country_fa": "چین",
+    "country_en": "China",
+    "founded": "1969",
+    "devices": [
+      "tv",
+      "refrigerator",
+      "air_conditioner",
+      "washing_machine",
+      "oven"
+    ],
+    "strengths": [
+      "تکنولوژی ULED",
+      "یخچال‌های ساید بای ساید",
+      "بهره‌وری انرژی",
+      "طراحی شیک"
+    ],
+    "history_facts": "های‌سنس از سال ۱۹۶۹ در چینگدائو تأسیس شد و در حوزه تلویزیون‌های ULED و یخچال‌های بزرگ فعال است. این برند حامی مالی رویدادهای ورزشی بزرگی مانند جام جهانی فوتبال بوده است."
+  },
+  "panasonic": {
+    "name_fa": "پاناسونیک",
+    "name_en": "Panasonic",
+    "country_fa": "ژاپن",
+    "country_en": "Japan",
+    "founded": "1918",
+    "devices": [
+      "refrigerator",
+      "washing_machine",
+      "air_conditioner",
+      "microwave",
+      "tv",
+      "iron",
+      "vacuum"
+    ],
+    "strengths": [
+      "کیفیت ژاپنی",
+      "دوام استثنایی",
+      "فناوری نانوئی",
+      "موتورهای کم‌صدا"
+    ],
+    "history_facts": "پاناسونیک توسط ماتسوشیتا در سال ۱۹۱۸ در اوساکای ژاپن تأسیس شد. یخچال‌های این برند با فناوری نانوئی-X از ماندگاری مواد غذایی میزان بیشتری محافظت می‌کنند. تلویزیون‌های پاناسونیک با کیفیت ساخت بی‌نقص شهرت جهانی دارند."
+  },
+  "toshiba": {
+    "name_fa": "توشیبا",
+    "name_en": "Toshiba",
+    "country_fa": "ژاپن",
+    "country_en": "Japan",
+    "founded": "1875",
+    "devices": [
+      "refrigerator",
+      "washing_machine",
+      "air_conditioner",
+      "tv",
+      "microwave",
+      "iron"
+    ],
+    "strengths": [
+      "میراث ژاپنی",
+      "یخچال‌های اینورتر",
+      "دوام بالا",
+      "قطعات باکیفیت"
+    ],
+    "history_facts": "توشیبا یکی از قدیمی‌ترین شرکت‌های فناوری ژاپن است که از سال ۱۸۷۵ فعالیت می‌کند. یخچال‌های اینورتر توشیبا با کمپرسورهای کم‌مصرف و دوام بالا در ایران شهرت دارند."
+  },
+  "sharp": {
+    "name_fa": "شارپ",
+    "name_en": "Sharp",
+    "country_fa": "ژاپن",
+    "country_en": "Japan",
+    "founded": "1912",
+    "devices": [
+      "refrigerator",
+      "air_conditioner",
+      "washing_machine",
+      "tv",
+      "microwave",
+      "kettle"
+    ],
+    "strengths": [
+      "فناوری پلاسماکلاستر",
+      "طراحی خلاقانه",
+      "کیفیت ژاپنی",
+      "نوآوری مداوم"
+    ],
+    "history_facts": "شارپ از سال 1912 در ژاپن فعالیت می‌کند و مخترع مدادَپاک‌کن مکانیکی و نمایشگر LCD است. کولرهای گازی شارپ با فناوری پلاسماکلاستر هوای محیط را تصفیه و ضدعفونی می‌کنند."
+  },
+  "daikin": {
+    "name_fa": "دایکین",
+    "name_en": "Daikin",
+    "country_fa": "ژاپن",
+    "country_en": "Japan",
+    "founded": "1924",
+    "devices": [
+      "air_conditioner",
+      "ducted_split",
+      "package"
+    ],
+    "strengths": [
+      "پیشرو جهانی تهویه",
+      "اینورترهای پرقدرت",
+      "دوام صنعتی",
+      "تکنولوژی Streamer"
+    ],
+    "history_facts": "دایکین از سال ۱۹۲۴ در اوساکا فعالیت می‌کند و بزرگ‌ترین تولیدکننده سیستم‌های تهویه مطبوع جهان است. کولرهای گازی دایکین با فناوری Streamer، آلرژن‌ها و ویروس‌های هوا را از بین می‌برند."
+  },
+  "mitsubishi": {
+    "name_fa": "میتسوبیشی",
+    "name_en": "Mitsubishi",
+    "country_fa": "ژاپن",
+    "country_en": "Japan",
+    "founded": "1921",
+    "devices": [
+      "air_conditioner",
+      "ducted_split",
+      "refrigerator",
+      "tv"
+    ],
+    "strengths": [
+      "کیفیت صنعت سنگین",
+      "کولرهای بی‌رقیب",
+      "موتورهای پرقدرت",
+      "دوام چند دهه"
+    ],
+    "history_facts": "میتسوبیشی الکتریک از سال ۱۹۲۱ از دل شرکت میتسوبیشی بزرگ متولد شد. کولرهای گازی میتسوبیشی سری MSZ با عملکرد بی‌نقص در دماهای بالا، در خاورمیانه محبوبیت ویژه‌ای دارند."
+  },
+  "gree": {
+    "name_fa": "گری",
+    "name_en": "Gree",
+    "country_fa": "چین",
+    "country_en": "China",
+    "founded": "1991",
+    "devices": [
+      "air_conditioner",
+      "ducted_split",
+      "package"
+    ],
+    "strengths": [
+      "بزرگ‌ترین تولیدکننده کولر",
+      "اینورتر эконом",
+      "قیمت مناسب",
+      "تنوع ظرفیت"
+    ],
+    "history_facts": "گری از سال ۱۹۹۱ در ژوهای چین کولر گازی تولید می‌کند و امروز بزرگ‌ترین تولیدکننده تجهیزات تهویه جهان است. محصولات این برند به بیش از ۱۶۰ کشور صادر می‌شود."
+  },
+  "carrier": {
+    "name_fa": "کریر",
+    "name_en": "Carrier",
+    "country_fa": "آمریکا",
+    "country_en": "USA",
+    "founded": "1915",
+    "devices": [
+      "air_conditioner",
+      "ducted_split",
+      "package",
+      "refrigerator"
+    ],
+    "strengths": [
+      "مخترع کولر مدرن",
+      "کیفیت آمریکایی",
+      "شبکه خدمات گسترده",
+      "دوام بالا"
+    ],
+    "history_facts": "ویلیس کریر در سال ۱۹۰۲ اولین سیستم تهویه مطبوع مدرن جهان را اختراع کرد و شرکت کریر بر همین اساس شکل گرفت. کولرهای گازی کریر امروزه در بسیاری از کشورهای خاورمیانه تولید و عرضه می‌شوند."
+  },
+  "general_fujitsu": {
+    "name_fa": "جنرال",
+    "name_en": "Fujitsu General",
+    "country_fa": "ژاپن",
+    "country_en": "Japan",
+    "founded": "1936",
+    "devices": [
+      "air_conditioner",
+      "ducted_split"
+    ],
+    "strengths": [
+      "کیفیت اصیل ژاپنی",
+      "عملکرد بی‌نقص",
+      "صدای بسیار کم",
+      "دوام عالی"
+    ],
+    "history_facts": "جنرال (فوجیتسو ژنرال) از سال ۱۹۳۶ در ژاپن فعال است و کولرهای گازی آن یکی از محبوب‌ترین برندهای کولر در ایران هستند. کولرهای اوجی‌تی (OGT) این برند با کیفیت بالا و قطعات در دسترس شناخته می‌شوند."
+  },
+  "hyundai": {
+    "name_fa": "هیوندای",
+    "name_en": "Hyundai",
+    "country_fa": "کره جنوبی",
+    "country_en": "South Korea",
+    "founded": "1967",
+    "devices": [
+      "air_conditioner",
+      "washing_machine",
+      "refrigerator",
+      "tv",
+      "microwave"
+    ],
+    "strengths": [
+      "برند جهانی",
+      "قیمت متعادل",
+      "طراحی شیک",
+      "کیفیت کره‌ای"
+    ],
+    "history_facts": "هیوندای بیشتر به عنوان خودروساز کره‌ای شناخته می‌شود اما گروه بزرگ این شرکت در صنعت لوازم خانگی نیز فعال است. کولرهای گازی و لباسشویی‌های هیوندای در بازار ایران با قیمت متعادل عرضه می‌شوند."
+  },
+  "delonghi": {
+    "name_fa": "دلونگی",
+    "name_en": "De'Longhi",
+    "country_fa": "ایتالیا",
+    "country_en": "Italy",
+    "founded": "1902",
+    "devices": [
+      "coffee_maker",
+      "kettle",
+      "heater",
+      "air_conditioner",
+      "fryer",
+      "toaster",
+      "iron"
+    ],
+    "strengths": [
+      "تخصص در اسپرسوساز",
+      "طراحی ایتالیایی",
+      "لوکس بودن",
+      "کیفیت بی‌نظیر"
+    ],
+    "history_facts": "دلونگی از سال ۱۹۰۲ در ایتالیا فعالیت می‌کند و اسپرسوسازهای خانگی آن در سراسر جهان شهرت دارند. بخاری‌های نفتی و روغنی دلونگی نیز در ایران بسیار محبوب‌اند."
+  },
+  "philips": {
+    "name_fa": "فیلیپس",
+    "name_en": "Philips",
+    "country_fa": "هلند",
+    "country_en": "Netherlands",
+    "founded": "1891",
+    "devices": [
+      "iron",
+      "kettle",
+      "coffee_maker",
+      "air_fryer",
+      "blender",
+      "juicer",
+      "toaster",
+      "hair_dryer",
+      "vacuum",
+      "tv"
+    ],
+    "strengths": [
+      "برند چندصدساله",
+      "کیفیت هلندی",
+      "لوازم شخصی بی‌رقیب",
+      "نوآوری مداوم"
+    ],
+    "history_facts": "فیلیپس از سال ۱۸۹۱ با تولید لامپ در آیندهروگن هلند آغاز به کار کرد. امروز اتوها، سشوارها و جاروبرقی‌های فیلیپس از محبوب‌ترین لوازم خانگی کوچک در بازار ایران هستند."
+  },
+  "braun": {
+    "name_fa": "براون",
+    "name_en": "Braun",
+    "country_fa": "آلمان",
+    "country_en": "Germany",
+    "founded": "1921",
+    "devices": [
+      "iron",
+      "blender",
+      "mixer",
+      "kettle",
+      "hair_dryer",
+      "meat_grinder"
+    ],
+    "strengths": [
+      "طراحی ارگونومیک",
+      "کیفیت آلمانی",
+      "موتورهای قوی",
+      "دوام بالا"
+    ],
+    "history_facts": "براون از سال ۱۹۲۱ در آلمان لوازم خانگی کوچک تولید می‌کند و به طراحی کاربرمحور و مینیمال محصولاتش معروف است. غذاسازها و چرخ‌گوشت‌های براون در ایران مشتریان وفاداری دارند."
+  },
+  "moulinex": {
+    "name_fa": "موولینکس",
+    "name_en": "Moulinex",
+    "country_fa": "فرانسه",
+    "country_en": "France",
+    "founded": "1937",
+    "devices": [
+      "blender",
+      "juicer",
+      "mixer",
+      "meat_grinder",
+      "fryer",
+      "kettle",
+      "toaster",
+      "iron",
+      "food_processor"
+    ],
+    "strengths": [
+      "میراث فرانسوی",
+      "قیمت مناسب",
+      "تنوع محصول",
+      "محبوب در ایران"
+    ],
+    "history_facts": "موولینکس از سال ۱۹۳۷ در فرانسه فعالیت می‌کند و غذاسازها و آبمیوه‌گیری‌های آن سال‌هاست در آشپزخانه خانواده‌های ایرانی حضور دارند."
+  },
+  "tefal": {
+    "name_fa": "تفال",
+    "name_en": "Tefal",
+    "country_fa": "فرانسه",
+    "country_en": "France",
+    "founded": "1956",
+    "devices": [
+      "iron",
+      "fryer",
+      "kettle",
+      "toaster",
+      "blender",
+      "food_processor"
+    ],
+    "strengths": [
+      "مخترع تابه نچسب",
+      "اتوهای بخار قوی",
+      "قیمت مناسب",
+      "کیفیت فرانسوی"
+    ],
+    "history_facts": "تفال در سال ۱۹۵۶ اولین تابه نچسب جهان را با پوشش تفلون معرفی کرد. اتوهای بخار و سرخ‌کن‌های بدون روغن تفال در بازار ایران بسیار محبوب‌اند."
+  },
+  "kenwood": {
+    "name_fa": "کنوود",
+    "name_en": "Kenwood",
+    "country_fa": "انگلستان",
+    "country_en": "UK",
+    "founded": "1947",
+    "devices": [
+      "food_processor",
+      "blender",
+      "mixer",
+      "kettle",
+      "toaster",
+      "juicer",
+      "meat_grinder"
+    ],
+    "strengths": [
+      "غذاسازهای حرفه‌ای",
+      "کیفیت انگلیسی",
+      "موتورهای قدرتمند",
+      "دوام بالا"
+    ],
+    "history_facts": "کنوود از سال ۱۹۴۷ در انگلستان غذاساز تولید می‌کند و سری Chef آن برای علاقه‌مندان آشپزی حرفه‌ای شناخته‌شده است. غذاسازهای کنوود در آشپزخانه ایرانی جایگاه ویژه‌ای دارند."
+  },
+  "snowa": {
+    "name_fa": "اسنوا",
+    "name_en": "Snowa",
+    "country_fa": "ایران",
+    "country_en": "Iran",
+    "founded": "1968",
+    "devices": [
+      "refrigerator",
+      "washing_machine",
+      "dishwasher",
+      "tv",
+      "air_conditioner",
+      "microwave",
+      "oven",
+      "vacuum",
+      "kettle",
+      "iron",
+      "water_heater"
+    ],
+    "strengths": [
+      "برند ملی ایران",
+      "شبکه خدمات گسترده",
+      "قطعات در دسترس",
+      "تنوع کامل محصول"
+    ],
+    "history_facts": "اسنوا با نام انتخاب از دهه ۱۳۴۰ در اصفهان فعالیت خود را آغاز کرد و امروز پرچمدار صنعت لوازم خانگی ایران است. این برند با تولید یخچال‌ها و لباسشویی‌های متنوع، سهم بزرگی از بازار داخلی را در اختیار دارد."
+  },
+  "entekhab": {
+    "name_fa": "انتخاب",
+    "name_en": "Entekhab",
+    "country_fa": "ایران",
+    "country_en": "Iran",
+    "founded": "1974",
+    "devices": [
+      "refrigerator",
+      "washing_machine",
+      "tv",
+      "air_conditioner",
+      "dishwasher",
+      "vacuum"
+    ],
+    "strengths": [
+      "گروه صنعتی بزرگ",
+      "قیمت اقتصادی",
+      "خدمات سراسری",
+      "تولید داخلی"
+    ],
+    "history_facts": "گروه صنعتی انتخاب از دهه ۱۳۵۰ در اصفهان فعالیت می‌کند و با برند اسنوا و امرسون محصولات متنوعی تولید می‌کند. این مجموعه یکی از بزرگ‌ترین تولیدکنندگان لوازم خانگی خاورمیانه است."
+  },
+  "himalia": {
+    "name_fa": "هیمالیا",
+    "name_en": "Himalia",
+    "country_fa": "ایران",
+    "country_en": "Iran",
+    "founded": "2000",
+    "devices": [
+      "washing_machine",
+      "refrigerator",
+      "dishwasher",
+      "tv",
+      "air_conditioner"
+    ],
+    "strengths": [
+      "برند جوان ایرانی",
+      "طراحی مدرن",
+      "قیمت رقابتی",
+      "خدمات مناسب"
+    ],
+    "history_facts": "هیمالیا از برندهای نوظهور صنعت لوازم خانگی ایران است که با تمرکز بر طراحی مدرن و قیمت رقابتی، به سرعت در بازار داخلی رشد کرد."
+  },
+  "emersun": {
+    "name_fa": "امرسون",
+    "name_en": "Emersun",
+    "country_fa": "ایران",
+    "country_en": "Iran",
+    "founded": "1975",
+    "devices": [
+      "refrigerator",
+      "freezer",
+      "washing_machine",
+      "air_conditioner",
+      "vacuum"
+    ],
+    "strengths": [
+      "تخصص در یخچال و فریزر",
+      "قیمت اقتصادی",
+      "شبکه خدمات ملی",
+      "بومی‌سازی قطعات"
+    ],
+    "history_facts": "امرسون از برندهای قدیمی صنعت لوازم خانگی ایران است که در تولید یخچال و فریزر تخصص دارد و محصولات اقتصادی آن در سراسر کشور عرضه می‌شوند."
+  },
+  "pakshoma": {
+    "name_fa": "پاکشوما",
+    "name_en": "Pakshoma",
+    "country_fa": "ایران",
+    "country_en": "Iran",
+    "founded": "1354",
+    "devices": [
+      "washing_machine",
+      "dryer",
+      "refrigerator",
+      "dishwasher"
+    ],
+    "strengths": [
+      "تخصص در لباسشویی",
+      "قطعات در دسترس",
+      "قیمت مناسب",
+      "سرویس‌کاران آشنا"
+    ],
+    "history_facts": "پاکشوما از دهه ۱۳۵۰ در ایران تولیدکننده ماشین‌های لباسشویی است و نام آن با لباسشویی‌های دوقلو در خانه‌های ایرانی گره خورده است. امروز محصولات اتوماتیک متنوعی عرضه می‌کند."
+  },
+  "aabsal": {
+    "name_fa": "آبسال",
+    "name_en": "Aabsal",
+    "country_fa": "ایران",
+    "country_en": "Iran",
+    "founded": "1356",
+    "devices": [
+      "water_heater",
+      "package",
+      "heater",
+      "air_conditioner"
+    ],
+    "strengths": [
+      "تخصص در آبگرمکن",
+      "مقاوم به آب سخت",
+      "خدمات سراسری",
+      "قیمت مناسب"
+    ],
+    "history_facts": "آبسال از سال ۱۳۵۶ در ایران آبگرمکن برقی تولید می‌کند و یکی از شناخته‌شده‌ترین برندهای آبگرمکن کشور است. محصولات این برند برای مناطق با آب سخت مناسب‌سازی شده‌اند."
+  },
+  "butane": {
+    "name_fa": "بوتان",
+    "name_en": "Butane",
+    "country_fa": "ایران",
+    "country_en": "Iran",
+    "founded": "1334",
+    "devices": [
+      "stove",
+      "oven",
+      "cooktop",
+      "range_hood",
+      "water_heater",
+      "package"
+    ],
+    "strengths": [
+      "پیشتاز صنعت اجاق",
+      "کیفیت قطعات ملی",
+      "شبکه فروش گسترده",
+      "میراث نیم‌قرنی"
+    ],
+    "history_facts": "بوتان از سال ۱۳۳۴ در ایران اجاق گاز تولید می‌کند و نام آن با پخت‌وپز در خانه‌های ایرانی عجین شده است. محصولاتی مانند فر، گاز و هود امروزه عرضه می‌کند."
+  },
+  "iran_radiator": {
+    "name_fa": "ایران رادیاتور",
+    "name_en": "Iran Radiator",
+    "country_fa": "ایران",
+    "country_en": "Iran",
+    "founded": "1347",
+    "devices": [
+      "package",
+      "water_heater",
+      "heater",
+      "radiator"
+    ],
+    "strengths": [
+      "تخصص در سیستم گرمایشی",
+      "کیفیت ساخت ملی",
+      "خدمات گسترده",
+      "قیمت مناسب"
+    ],
+    "history_facts": "ایران رادیاتور از سال ۱۳۴۷ در حوزه تجهیزات گرمایشی فعالیت می‌کند و پکیج‌های دیواری آن یکی از پرطرفدارترین‌های بازار ایران هستند."
+  },
+  "master_fan": {
+    "name_fa": "مستر",
+    "name_en": "Master",
+    "country_fa": "ایران",
+    "country_en": "Iran",
+    "founded": "1370",
+    "devices": [
+      "cooler",
+      "fan",
+      "air_conditioner",
+      "water_heater"
+    ],
+    "strengths": [
+      "تخصص کولر آبی",
+      "قیمت اقتصادی",
+      "قطعات در دسترس",
+      "محبوبیت بالا"
+    ],
+    "history_facts": "برند مستر در تولید کولرهای آبی و پنکه در ایران فعالیت دارد و محصولات آن در مناطق گرمسیری کشور بسیار پرطرفدار است."
+  },
+  "daewoo": {
+    "name_fa": "دوو",
+    "name_en": "Daewoo",
+    "country_fa": "کره جنوبی",
+    "country_en": "South Korea",
+    "founded": "1967",
+    "devices": [
+      "refrigerator",
+      "washing_machine",
+      "microwave",
+      "air_conditioner",
+      "tv",
+      "vacuum"
+    ],
+    "strengths": [
+      "قیمت مناسب",
+      "کیفیت کره‌ای",
+      "محبوب در ایران",
+      "قطعات موجود"
+    ],
+    "history_facts": "دوو از سال ۱۹۶۷ در کره جنوبی فعالیت می‌کرد و لوازم خانگی آن در دهه‌های اخیر بازار ایران را تسخیر کرد. جاروبرقی‌های دوو هنوز در خانه‌های ایرانی فراوان‌اند."
+  },
+  "sony": {
+    "name_fa": "سونی",
+    "name_en": "Sony",
+    "country_fa": "ژاپن",
+    "country_en": "Japan",
+    "founded": "1946",
+    "devices": [
+      "tv"
+    ],
+    "strengths": [
+      "کیفیت تصویر بی‌رقیب",
+      "فناوری اوجی LED",
+      "طراحی لوکس",
+      "برند افسانه‌ای"
+    ],
+    "history_facts": "سونی از سال ۱۹۴۶ در توکیو فعالیت می‌کند و تلویزیون‌های آن با پردازنده X1 معیار کیفیت تصویر بازار هستند. براویا سونی شهرتی افسانه‌ای در دنیای تلویزیون دارد."
+  },
+  "xiaomi": {
+    "name_fa": "شیائومی",
+    "name_en": "Xiaomi",
+    "country_fa": "چین",
+    "country_en": "China",
+    "founded": "2010",
+    "devices": [
+      "tv",
+      "air_conditioner",
+      "vacuum",
+      "kettle",
+      "air_fryer",
+      "iron",
+      "hair_dryer"
+    ],
+    "strengths": [
+      "اکوسیستم هوشمند",
+      "قیمت خوش‌حساب",
+      "طراحی مدرن",
+      "اتصال IoT"
+    ],
+    "history_facts": "شیائومی در سال ۲۰۱۰ تأسیس شد و به سرعت از گوشی هوشمند به اکوسیستم کامل خانه هوشمند رسید. جاروربات‌های شیائومی در بازار ایران بسیار محبوب‌اند."
+  },
+  "viomi": {
+    "name_fa": "ویومی",
+    "name_en": "Viomi",
+    "country_fa": "چین",
+    "country_en": "China",
+    "founded": "2015",
+    "devices": [
+      "water_heater",
+      "refrigerator",
+      "washing_machine",
+      "air_conditioner",
+      "kettle"
+    ],
+    "strengths": [
+      "خانه هوشمند",
+      "قیمت مناسب",
+      "طراحی مدرن",
+      "اتصال به اینترنت"
+    ],
+    "history_facts": "ویومی از شرکت‌های زیرمجموعه اکوسیستم شیائومی است و بر لوازم خانگی هوشمند با قیمت مناسب تمرکز دارد."
+  },
+  "kitchenaid": {
+    "name_fa": "کچن‌ایید",
+    "name_en": "KitchenAid",
+    "country_fa": "آمریکا",
+    "country_en": "USA",
+    "founded": "1919",
+    "devices": [
+      "food_processor",
+      "mixer",
+      "blender",
+      "kettle",
+      "toaster",
+      "coffee_maker"
+    ],
+    "strengths": [
+      "لوکس‌ترین برند آشپزخانه",
+      "طراحی کلاسیک",
+      "دوام فوق‌العاده",
+      "رنگ‌های خاص"
+    ],
+    "history_facts": "کچن‌ایید از سال ۱۹۱۹ غذاساز خانگی تولید می‌کند و همزن‌های ایستاده آن نماد آشپزخانه‌های لوکس جهان هستند."
+  },
+  "bomann": {
+    "name_fa": "بومان",
+    "name_en": "Bomann",
+    "country_fa": "آلمان",
+    "country_en": "Germany",
+    "founded": "1984",
+    "devices": [
+      "refrigerator",
+      "washing_machine",
+      "dishwasher",
+      "microwave",
+      "kettle",
+      "toaster"
+    ],
+    "strengths": [
+      "قیمت اقتصادی",
+      "کیفیت آلمانی",
+      "مناسب آپارتمان",
+      "مصرف پایین"
+    ],
+    "history_facts": "بومان برند اقتصادی لوازم خانگی آلمان است که محصولات جمع‌وجور و کم‌مصرف برای آپارتمان‌های کوچک اروپایی تولید می‌کند."
+  },
+  "teka": {
+    "name_fa": "تکا",
+    "name_en": "Teka",
+    "country_fa": "اسپانیا",
+    "country_en": "Spain",
+    "founded": "1924",
+    "devices": [
+      "oven",
+      "cooktop",
+      "range_hood",
+      "dishwasher",
+      "refrigerator",
+      "sink"
+    ],
+    "strengths": [
+      "تخصص لوازم آشپزخانه",
+      "استیل ضدزنگ",
+      "طراحی اروپایی",
+      "کیفیت بالا"
+    ],
+    "history_facts": "تکا از سال ۱۹۲۴ در اسپانیا فعالیت می‌کند و در حوزه هود، گاز و فر حرفه‌ای تخصص دارد. محصولات این برند در آشپزخانه‌های مدرن ایرانی نیز رایج‌اند."
+  },
+  "fagor": {
+    "name_fa": "فوگور",
+    "name_en": "Fagor",
+    "country_fa": "اسپانیا",
+    "country_en": "Spain",
+    "founded": "1954",
+    "devices": [
+      "washing_machine",
+      "dishwasher",
+      "oven",
+      "cooktop",
+      "refrigerator",
+      "range_hood"
+    ],
+    "strengths": [
+      "کیفیت اسپانیایی",
+      "طراحی کاربردی",
+      "بهره‌وری انرژی",
+      "قیمت متعادل"
+    ],
+    "history_facts": "فوگور از سال ۱۹۵۴ در اسپانیا لوازم خانگی تولید می‌کند و در حوزه ظرفشویی و لباسشویی محصولات متنوعی دارد."
+  },
+  "miele": {
+    "name_fa": "میله",
+    "name_en": "Miele",
+    "country_fa": "آلمان",
+    "country_en": "Germany",
+    "founded": "1899",
+    "devices": [
+      "washing_machine",
+      "dishwasher",
+      "vacuum",
+      "oven",
+      "coffee_maker",
+      "refrigerator"
+    ],
+    "strengths": [
+      "لوکس‌ترین برند جهان",
+      "دوام ۲۰ ساله تضمینی",
+      "آزمون‌های سخت‌گیرانه",
+      "بی‌رقیب در کیفیت"
+    ],
+    "history_facts": "میله از سال ۱۸۹۹ در آلمان لوازم خانگی لوکس تولید می‌کند و شعار آن «Immer Besser» (همیشه بهتر) است. محصولات این برند به دوام ۲۰ سال طراحی می‌شوند."
+  },
+  "aeg": {
+    "name_fa": "ای‌ای‌جی",
+    "name_en": "AEG",
+    "country_fa": "آلمان",
+    "country_en": "Germany",
+    "founded": "1883",
+    "devices": [
+      "washing_machine",
+      "dishwasher",
+      "oven",
+      "cooktop",
+      "vacuum",
+      "refrigerator"
+    ],
+    "strengths": [
+      "مهندسی آلمانی",
+      "فناوری ProSteam",
+      "طراحی حرفه‌ای",
+      "بهره‌وری بالا"
+    ],
+    "history_facts": "ای‌ای‌جی از سال ۱۸۸۳ در آلمان فعالیت می‌کند و امروز بخشی از گروه الکترولوکس است. لباسشویی‌های آن با فناوری بخار ProSteam چین‌وچروک لباس را کاهش می‌دهند."
+  },
+  "candy": {
+    "name_fa": "کندی",
+    "name_en": "Candy",
+    "country_fa": "ایتالیا",
+    "country_en": "Italy",
+    "founded": "1945",
+    "devices": [
+      "washing_machine",
+      "dishwasher",
+      "refrigerator",
+      "oven",
+      "cooktop"
+    ],
+    "strengths": [
+      "قیمت مناسب",
+      "طراحی ایتالیایی",
+      "تنوع مدل",
+      "قطعات در دسترس"
+    ],
+    "history_facts": "کندی از سال ۱۹۴۵ در ایتالیا لوازم خانگی تولید می‌کند و به لباسشویی‌های اقتصادی و کاربردی شهرت دارد."
+  },
+  "rowenta": {
+    "name_fa": "رونتا",
+    "name_en": "Rowenta",
+    "country_fa": "آلمان",
+    "country_en": "Germany",
+    "founded": "1884",
+    "devices": [
+      "iron",
+      "vacuum",
+      "kettle",
+      "hair_dryer",
+      "toaster"
+    ],
+    "strengths": [
+      "تخصص اتو و بخار",
+      "کیفیت آلمانی",
+      "طراحی حرفه‌ای",
+      "دوام بالا"
+    ],
+    "history_facts": "رونتا از سال ۱۸۸۴ در آلمان فعالیت می‌کند و اتوهای بخار آن در دنیا شناخته‌شده هستند. جاروبرقی‌های بدون کیسه این برند نیز محبوبیت دارند."
+  },
+  "black_decker": {
+    "name_fa": "بلک اند دکر",
+    "name_en": "Black+Decker",
+    "country_fa": "آمریکا",
+    "country_en": "USA",
+    "founded": "1910",
+    "devices": [
+      "kettle",
+      "toaster",
+      "blender",
+      "mixer",
+      "iron",
+      "vacuum",
+      "fryer",
+      "juicer",
+      "meat_grinder"
+    ],
+    "strengths": [
+      "برند جهانی ابزار",
+      "قیمت مناسب",
+      "تنوع محصول",
+      "کیفیت پایدار"
+    ],
+    "history_facts": "بلک اند دکر از سال ۱۹۱۰ در آمریکا فعالیت می‌کند و اگرچه بیشتر در ابزار برقی شناخته می‌شود، لوازم خانگی کوچک آن نیز بازار جهانی دارد."
+  },
+  "russell_hobbs": {
+    "name_fa": "راسل هابز",
+    "name_en": "Russell Hobbs",
+    "country_fa": "انگلستان",
+    "country_en": "UK",
+    "founded": "1952",
+    "devices": [
+      "kettle",
+      "toaster",
+      "coffee_maker",
+      "iron",
+      "blender",
+      "fryer"
+    ],
+    "strengths": [
+      "تخصص کتری و توستر",
+      "طراحی بریتانیایی",
+      "قیمت مناسب",
+      "کیفیت خوب"
+    ],
+    "history_facts": "راسل هابز از سال ۱۹۵۲ در انگلستان لوازم خانگی کوچک تولید می‌کند و کتری‌های برقی سریع‌جوش آن محبوبیت جهانی دارند."
+  },
+  "arnica": {
+    "name_fa": "آرنیکا",
+    "name_en": "Arnica",
+    "country_fa": "ترکیه",
+    "country_en": "Turkey",
+    "founded": "1966",
+    "devices": [
+      "iron",
+      "kettle",
+      "toaster",
+      "blender",
+      "vacuum",
+      "mixer",
+      "fryer",
+      "hair_dryer",
+      "juicer"
+    ],
+    "strengths": [
+      "محبوب در ایران",
+      "قیمت اقتصادی",
+      "کیفیت ترکیه‌ای",
+      "تنوع بالا"
+    ],
+    "history_facts": "آرنیکا از سال ۱۹۶۶ در ترکیه لوازم خانگی کوچک تولید می‌کند و اتوها و جاروبرقی‌های آن در بازار ایران بسیار پرطرفدارند."
+  },
+  "gc": {
+    "name_fa": "جی‌سی",
+    "name_en": "GC",
+    "country_fa": "ایتالیا",
+    "country_en": "Italy",
+    "founded": "1967",
+    "devices": [
+      "kettle",
+      "toaster",
+      "blender",
+      "juicer",
+      "mixer",
+      "iron",
+      "hair_dryer",
+      "fryer"
+    ],
+    "strengths": [
+      "قیمت اقتصادی",
+      "تنوع محصول",
+      "دسترسی آسان",
+      "مناسب مصرف روزمره"
+    ],
+    "history_facts": "برند جی‌سی از برندهای ایتالیایی لوازم خانگی کوچک است که با قیمت اقتصادی در بازار ایران حضور گسترده‌ای دارد."
+  },
+  "violet": {
+    "name_fa": "وایولت",
+    "name_en": "Violet",
+    "country_fa": "ایران",
+    "country_en": "Iran",
+    "founded": "1385",
+    "devices": [
+      "blender",
+      "juicer",
+      "mixer",
+      "kettle",
+      "toaster",
+      "fryer",
+      "iron",
+      "meat_grinder",
+      "food_processor"
+    ],
+    "strengths": [
+      "تولید ملی",
+      "قیمت مناسب",
+      "خدمات سراسری",
+      "تنوع محصول"
+    ],
+    "history_facts": "وایولت از تولیدکنندگان داخلی لوازم خانگی کوچک است که با تنوع محصول و قیمت مناسب، جایگاه خوبی در بازار ایران پیدا کرده است."
+  },
+  "asoodgar": {
+    "name_fa": "آسودگار",
+    "name_en": "Asoodgar",
+    "country_fa": "ایران",
+    "country_en": "Iran",
+    "founded": "1379",
+    "devices": [
+      "kettle",
+      "toaster",
+      "blender",
+      "juicer",
+      "mixer",
+      "fryer",
+      "iron",
+      "meat_grinder",
+      "food_processor",
+      "hair_dryer"
+    ],
+    "strengths": [
+      "برند ایرانی",
+      "قیمت اقتصادی",
+      "شبکه خدمات ملی",
+      "کیفیت رو به رشد"
+    ],
+    "history_facts": "آسودگار از برندهای ایرانی لوازم خانگی کوچک است که از سال ۱۳۷۹ فعالیت می‌کند و محصولات متنوعی برای آشپزخانه ایرانی عرضه می‌کند."
+  }
+}
