@@ -1,0 +1,150 @@
+/* ============================================================
+   🎭 استایل قالب‌ساز درگ‌اند‌دراپ
+   ============================================================ */
+
+.builder {
+    display: grid;
+    grid-template-columns: 250px 1fr 260px;
+    gap: 16px;
+    min-height: 70vh;
+}
+
+/* 📚 پنل بلوک‌ها */
+.block-library {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    overflow-y: auto;
+    max-height: 82vh;
+    position: sticky;
+    top: 80px;
+}
+.block-lib-title { font-size: 12.5px; font-weight: 800; margin-bottom: 10px; color: var(--text); }
+.block-cat { font-size: 10.5px; color: var(--text-light); margin: 12px 0 6px; font-weight: 700; }
+.block-item {
+    border: 1.5px dashed var(--border);
+    border-radius: 9px;
+    padding: 8px 11px;
+    font-size: 12px;
+    margin-bottom: 6px;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg);
+    transition: all .15s;
+    user-select: none;
+}
+.block-item:hover { border-color: var(--primary); background: var(--primary-light); }
+.block-item:active { cursor: grabbing; }
+.block-item .icon { font-size: 15px; }
+
+/* 🎨 بوم چیدمان */
+.builder-canvas {
+    background: var(--card);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    min-height: 60vh;
+}
+.canvas-empty {
+    text-align: center;
+    color: var(--text-light);
+    padding: 70px 20px;
+    font-size: 13px;
+}
+.canvas-block {
+    position: relative;
+    border: 1.5px solid var(--border);
+    border-radius: 11px;
+    padding: 18px 44px 18px 16px;
+    margin-bottom: 10px;
+    background: #fff;
+    cursor: grab;
+    transition: all .15s;
+}
+.canvas-block:hover { border-color: var(--primary); box-shadow: 0 3px 14px rgba(30,64,175,.12); }
+.canvas-block.selected { border-color: var(--primary); background: rgba(30,64,175,.04); }
+.canvas-block.dragging { opacity: .45; border-style: dashed; }
+.canvas-block.drop-above::before {
+    content: '';
+    position: absolute;
+    top: -7px; right: 0; left: 0;
+    height: 3px;
+    background: var(--primary);
+    border-radius: 3px;
+}
+.canvas-block .block-label {
+    font-size: 12.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.canvas-block .block-preview {
+    font-size: 10.5px;
+    color: var(--text-light);
+    margin-top: 4px;
+}
+.canvas-block .block-tools {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    display: none;
+    gap: 4px;
+}
+.canvas-block:hover .block-tools { display: flex; }
+.canvas-block .block-tools button {
+    width: 26px; height: 26px;
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.canvas-block .block-tools button:hover { background: var(--bg); }
+
+/* 🎛️ پنل ویژگی‌ها */
+.block-props {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    position: sticky;
+    top: 80px;
+    max-height: 82vh;
+    overflow-y: auto;
+}
+.prop-title { font-size: 12.5px; font-weight: 800; margin-bottom: 12px; }
+
+/* 🖥️ تولبار دستگاه */
+.device-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    background: var(--bg);
+    padding: 5px;
+    border-radius: 10px;
+    width: fit-content;
+}
+.device-tab {
+    border: none;
+    background: none;
+    padding: 6px 15px;
+    border-radius: 8px;
+    font-family: var(--font);
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text-light);
+}
+.device-tab.active { background: var(--card); color: var(--primary); font-weight: 700; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.device-tab:hover:not(.active) { color: var(--text); }
+
+@media (max-width: 1100px) {
+    .builder { grid-template-columns: 1fr; }
+    .block-library, .block-props { position: static; max-height: none; }
+}

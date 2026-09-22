@@ -1,0 +1,625 @@
+{
+  "pack": "home-appliance-icons",
+  "name_fa": "آیکون‌های لوازم خانگی",
+  "icons": [
+    {
+      "name": "refrigerator",
+      "label_fa": "یخچال",
+      "file": "refrigerator.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "refrigerator-2door",
+      "label_fa": "یخچال دو درب",
+      "file": "refrigerator-2door.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "freezer",
+      "label_fa": "فریزر",
+      "file": "freezer.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "side-by-side",
+      "label_fa": "ساید بای ساید",
+      "file": "side-by-side.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "washing-machine",
+      "label_fa": "لباسشویی",
+      "file": "washing-machine.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "washer-front",
+      "label_fa": "لباسشویی دستی",
+      "file": "washer-front.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "dishwasher",
+      "label_fa": "ظرفشویی",
+      "file": "dishwasher.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "microwave",
+      "label_fa": "مایکروویو",
+      "file": "microwave.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "oven",
+      "label_fa": "فر",
+      "file": "oven.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "stove",
+      "label_fa": "اجاق گاز",
+      "file": "stove.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "cooktop",
+      "label_fa": "گاز صفحه‌ای",
+      "file": "cooktop.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "range-hood",
+      "label_fa": "هود",
+      "file": "range-hood.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "vacuum",
+      "label_fa": "جاروبرقی",
+      "file": "vacuum.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "vacuum-robot",
+      "label_fa": "جاروربات",
+      "file": "vacuum-robot.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "air-conditioner",
+      "label_fa": "کولر گازی",
+      "file": "air-conditioner.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "split-indoor",
+      "label_fa": "پنل داخلی کولر",
+      "file": "split-indoor.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "outdoor-unit",
+      "label_fa": "پنل خارجی",
+      "file": "outdoor-unit.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "ducted-split",
+      "label_fa": "داکت اسپلیت",
+      "file": "ducted-split.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "fan",
+      "label_fa": "پنکه",
+      "file": "fan.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "cooler",
+      "label_fa": "کولر آبی",
+      "file": "cooler.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "heater",
+      "label_fa": "بخاری",
+      "file": "heater.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "radiator",
+      "label_fa": "رادیاتور",
+      "file": "radiator.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "water-heater",
+      "label_fa": "آبگرمکن",
+      "file": "water-heater.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "package",
+      "label_fa": "پکیج",
+      "file": "package.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "boiler",
+      "label_fa": "بویلر",
+      "file": "boiler.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "tv",
+      "label_fa": "تلویزیون",
+      "file": "tv.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "smart-tv",
+      "label_fa": "تلویزیون هوشمند",
+      "file": "smart-tv.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "dryer",
+      "label_fa": "خشک‌کن",
+      "file": "dryer.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "blender",
+      "label_fa": "مخلوط‌کن",
+      "file": "blender.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "juicer",
+      "label_fa": "آبمیوه‌گیری",
+      "file": "juicer.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "mixer",
+      "label_fa": "میکسر",
+      "file": "mixer.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "food-processor",
+      "label_fa": "غذاساز",
+      "file": "food-processor.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "meat-grinder",
+      "label_fa": "چرخ گوشت",
+      "file": "meat-grinder.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "toaster",
+      "label_fa": "توستر",
+      "file": "toaster.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "sandwich-maker",
+      "label_fa": "ساندویچ‌ساز",
+      "file": "sandwich-maker.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "kettle",
+      "label_fa": "کتری برقی",
+      "file": "kettle.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "coffee-maker",
+      "label_fa": "قهوه‌ساز",
+      "file": "coffee-maker.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "espresso",
+      "label_fa": "اسپرسوساز",
+      "file": "espresso.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "air-fryer",
+      "label_fa": "سرخ‌کن بدون روغن",
+      "file": "air-fryer.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "fryer",
+      "label_fa": "سرخ‌کن",
+      "file": "fryer.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "rice-cooker",
+      "label_fa": "پلوپز",
+      "file": "rice-cooker.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "iron",
+      "label_fa": "اتو",
+      "file": "iron.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "steamer",
+      "label_fa": "بخارشور",
+      "file": "steamer.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "hair-dryer",
+      "label_fa": "سشوار",
+      "file": "hair-dryer.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "scale",
+      "label_fa": "ترازو",
+      "file": "scale.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "thermometer",
+      "label_fa": "دماسنج",
+      "file": "thermometer.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "wrench",
+      "label_fa": "آچار",
+      "file": "wrench.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "screwdriver",
+      "label_fa": "پیچ‌گوشتی",
+      "file": "screwdriver.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "gear",
+      "label_fa": "تنظیمات",
+      "file": "gear.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "shield-check",
+      "label_fa": "ضمانت",
+      "file": "shield-check.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "lightning",
+      "label_fa": "برق",
+      "file": "lightning.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "water-drop",
+      "label_fa": "قطره آب",
+      "file": "water-drop.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "snowflake",
+      "label_fa": "برف",
+      "file": "snowflake.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "fire",
+      "label_fa": "گرما",
+      "file": "fire.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "clock",
+      "label_fa": "زمان",
+      "file": "clock.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "phone",
+      "label_fa": "تلفن",
+      "file": "phone.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "location",
+      "label_fa": "موقعیت",
+      "file": "location.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "truck",
+      "label_fa": "ارسال",
+      "file": "truck.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "search",
+      "label_fa": "جستجو",
+      "file": "search.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "error-code",
+      "label_fa": "کد خطا",
+      "file": "error-code.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "compressor",
+      "label_fa": "کمپرسور",
+      "file": "compressor.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "motor",
+      "label_fa": "موتور",
+      "file": "motor.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "thermostat",
+      "label_fa": "ترموستات",
+      "file": "thermostat.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "sensor",
+      "label_fa": "سنسور",
+      "file": "sensor.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "valve",
+      "label_fa": "شیر آب",
+      "file": "valve.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "filter",
+      "label_fa": "فیلتر",
+      "file": "filter.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "pipe",
+      "label_fa": "لوله",
+      "file": "pipe.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "hose",
+      "label_fa": "شیلنگ",
+      "file": "hose.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "gas",
+      "label_fa": "گاز",
+      "file": "gas.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "electricity",
+      "label_fa": "برق",
+      "file": "electricity.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "battery",
+      "label_fa": "باتری",
+      "file": "battery.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "plunger",
+      "label_fa": "زیمنس",
+      "file": "plunger.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "multimeter",
+      "label_fa": "مولتی‌متر",
+      "file": "multimeter.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "level-tool",
+      "label_fa": "تراز",
+      "file": "level-tool.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "tape-measure",
+      "label_fa": "متر",
+      "file": "tape-measure.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "air-purifier",
+      "label_fa": "تصفیه هوا",
+      "file": "air-purifier.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "humidifier",
+      "label_fa": "رطوبت‌ساز",
+      "file": "humidifier.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "dehumidifier",
+      "label_fa": "رطوبت‌گیر",
+      "file": "dehumidifier.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "dish-rack",
+      "label_fa": "جاظرفی",
+      "file": "dish-rack.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "sink",
+      "label_fa": "سینک",
+      "file": "sink.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "shower",
+      "label_fa": "دوش",
+      "file": "shower.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "bathroom-scale",
+      "label_fa": "ترازوی حمام",
+      "file": "bathroom-scale.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "extractor-fan",
+      "label_fa": "فن تخلیه",
+      "file": "extractor-fan.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "ceiling-fan",
+      "label_fa": "پنکه سقفی",
+      "file": "ceiling-fan.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "laundry-basket",
+      "label_fa": "سبد لباس",
+      "file": "laundry-basket.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "shirt",
+      "label_fa": "لباس",
+      "file": "shirt.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "socks",
+      "label_fa": "جوراب",
+      "file": "socks.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "detergent",
+      "label_fa": "مایع شوینده",
+      "file": "detergent.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "stain-removal",
+      "label_fa": "لکه‌گیر",
+      "file": "stain-removal.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "thermo-cold",
+      "label_fa": "دماسنج سرد",
+      "file": "thermo-cold.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "thermo-hot",
+      "label_fa": "دماسنج گرم",
+      "file": "thermo-hot.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "sun",
+      "label_fa": "آفتاب",
+      "file": "sun.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "temperature-control",
+      "label_fa": "کنترل دما",
+      "file": "temperature-control.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "check-circle",
+      "label_fa": "تأیید",
+      "file": "check-circle.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "alert-triangle",
+      "label_fa": "هشدار",
+      "file": "alert-triangle.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "info-circle",
+      "label_fa": "اطلاعات",
+      "file": "info-circle.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "x-circle",
+      "label_fa": "خطا",
+      "file": "x-circle.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "refresh",
+      "label_fa": "بازنشانی",
+      "file": "refresh.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "schedule-repair",
+      "label_fa": "زمان‌بندی تعمیر",
+      "file": "schedule-repair.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "technician",
+      "label_fa": "تکنسین",
+      "file": "technician.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "tools",
+      "label_fa": "ابزار",
+      "file": "tools.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "toolbox",
+      "label_fa": "جعبه ابزار",
+      "file": "toolbox.svg",
+      "category": "home-appliance"
+    },
+    {
+      "name": "sparkles",
+      "label_fa": "درخشش",
+      "file": "sparkles.svg",
+      "category": "home-appliance"
+    }
+  ],
+  "icon_count": 103
+}

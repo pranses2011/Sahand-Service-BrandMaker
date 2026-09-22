@@ -1,0 +1,56 @@
+{
+  "pack": "feather-icons",
+  "name_fa": "فدر آیکون",
+  "description": "آیکون‌های ساده و زیبا",
+  "icons": [
+    {
+      "name": "home",
+      "label_fa": "خانه",
+      "file": "home.svg",
+      "category": "general"
+    },
+    {
+      "name": "settings",
+      "label_fa": "تنظیمات",
+      "file": "settings.svg",
+      "category": "general"
+    },
+    {
+      "name": "user",
+      "label_fa": "کاربر",
+      "file": "user.svg",
+      "category": "general"
+    },
+    {
+      "name": "star",
+      "label_fa": "ستاره",
+      "file": "star.svg",
+      "category": "general"
+    },
+    {
+      "name": "heart",
+      "label_fa": "قلب",
+      "file": "heart.svg",
+      "category": "general"
+    },
+    {
+      "name": "calendar",
+      "label_fa": "تقویم",
+      "file": "calendar.svg",
+      "category": "general"
+    },
+    {
+      "name": "mail",
+      "label_fa": "ایمیل",
+      "file": "mail.svg",
+      "category": "general"
+    },
+    {
+      "name": "menu",
+      "label_fa": "منو",
+      "file": "menu.svg",
+      "category": "general"
+    }
+  ],
+  "import_hint": "۲۸۰+"
+}

@@ -1,0 +1,353 @@
+{
+  "fonts": {
+    "fa": [
+      {
+        "slug": "iransans",
+        "name": "ایران‌سنس",
+        "weights": [
+          "thin",
+          "light",
+          "regular",
+          "medium",
+          "bold",
+          "black"
+        ],
+        "category": "عمومی"
+      },
+      {
+        "slug": "iransansx",
+        "name": "ایران‌سنس ایکس",
+        "weights": [
+          "thin",
+          "light",
+          "regular",
+          "medium",
+          "demibold",
+          "bold",
+          "black",
+          "extrablack",
+          "heavy"
+        ],
+        "category": "عمومی مدرن"
+      },
+      {
+        "slug": "vazir",
+        "name": "وزیر",
+        "weights": [
+          "thin",
+          "light",
+          "regular",
+          "medium",
+          "bold",
+          "black"
+        ],
+        "category": "عمومی"
+      },
+      {
+        "slug": "vazirmatn",
+        "name": "وزیرمتن",
+        "weights": [
+          "thin",
+          "light",
+          "regular",
+          "medium",
+          "semibold",
+          "bold",
+          "extrabold",
+          "black"
+        ],
+        "category": "عمومی"
+      },
+      {
+        "slug": "samim",
+        "name": "صمیم",
+        "weights": [
+          "regular",
+          "bold"
+        ],
+        "category": "ساده"
+      },
+      {
+        "slug": "shabnam",
+        "name": "شبنم",
+        "weights": [
+          "thin",
+          "light",
+          "regular",
+          "medium",
+          "bold"
+        ],
+        "category": "زیبا"
+      },
+      {
+        "slug": "gandom",
+        "name": "گندم",
+        "weights": [
+          "regular"
+        ],
+        "category": "خوانا"
+      },
+      {
+        "slug": "tanha",
+        "name": "تنها",
+        "weights": [
+          "regular",
+          "bold"
+        ],
+        "category": "مدرن"
+      },
+      {
+        "slug": "parastoo",
+        "name": "پرستو",
+        "weights": [
+          "regular",
+          "bold"
+        ],
+        "category": "کتابی"
+      },
+      {
+        "slug": "yekan-bakh",
+        "name": "یکان بخ",
+        "weights": [
+          "thin",
+          "light",
+          "regular",
+          "medium",
+          "demibold",
+          "bold",
+          "extrabold",
+          "black",
+          "heavy"
+        ],
+        "category": "حرفه‌ای"
+      },
+      {
+        "slug": "dana",
+        "name": "دانا",
+        "weights": [
+          "thin",
+          "light",
+          "regular",
+          "medium",
+          "demibold",
+          "bold",
+          "black",
+          "heavy"
+        ],
+        "category": "مدرن"
+      },
+      {
+        "slug": "esteghlal",
+        "name": "استقلال",
+        "weights": [
+          "regular"
+        ],
+        "category": "تیتر"
+      },
+      {
+        "slug": "mikhak",
+        "name": "میخک",
+        "weights": [
+          "regular",
+          "bold"
+        ],
+        "category": "خلاقانه"
+      },
+      {
+        "slug": "fantasy",
+        "name": "فانتزی",
+        "weights": [
+          "regular"
+        ],
+        "category": "تزئینی"
+      },
+      {
+        "slug": "azad",
+        "name": "آزاد",
+        "weights": [
+          "regular",
+          "bold"
+        ],
+        "category": "خطی"
+      },
+      {
+        "slug": "lalezar",
+        "name": "لاله‌زار",
+        "weights": [
+          "regular"
+        ],
+        "category": "تیتر"
+      },
+      {
+        "slug": "bahij",
+        "name": "بهیج",
+        "weights": [
+          "thin",
+          "light",
+          "regular",
+          "medium",
+          "bold",
+          "extrabold"
+        ],
+        "category": "حرفه‌ای"
+      },
+      {
+        "slug": "nazanin",
+        "name": "نازنین",
+        "weights": [
+          "regular",
+          "bold"
+        ],
+        "category": "کلاسیک"
+      },
+      {
+        "slug": "traffic",
+        "name": "ترافیک",
+        "weights": [
+          "regular",
+          "bold"
+        ],
+        "category": "ساده"
+      },
+      {
+        "slug": "mashq",
+        "name": "مشق",
+        "weights": [
+          "regular"
+        ],
+        "category": "خوشنویسی"
+      }
+    ],
+    "en": [
+      {
+        "slug": "roboto",
+        "name": "Roboto",
+        "weights": [
+          "light",
+          "regular",
+          "medium",
+          "bold",
+          "black"
+        ],
+        "category": "عمومی"
+      },
+      {
+        "slug": "open-sans",
+        "name": "Open Sans",
+        "weights": [
+          "light",
+          "regular",
+          "semibold",
+          "bold",
+          "extrabold"
+        ],
+        "category": "عمومی"
+      },
+      {
+        "slug": "montserrat",
+        "name": "Montserrat",
+        "weights": [
+          "thin",
+          "light",
+          "regular",
+          "medium",
+          "semibold",
+          "bold",
+          "extrabold",
+          "black"
+        ],
+        "category": "تیتر"
+      },
+      {
+        "slug": "poppins",
+        "name": "Poppins",
+        "weights": [
+          "thin",
+          "light",
+          "regular",
+          "medium",
+          "semibold",
+          "bold",
+          "extrabold",
+          "black"
+        ],
+        "category": "مدرن"
+      },
+      {
+        "slug": "inter",
+        "name": "Inter",
+        "weights": [
+          "light",
+          "regular",
+          "medium",
+          "semibold",
+          "bold",
+          "black"
+        ],
+        "category": "UI"
+      },
+      {
+        "slug": "nunito",
+        "name": "Nunito",
+        "weights": [
+          "light",
+          "regular",
+          "medium",
+          "semibold",
+          "bold",
+          "black"
+        ],
+        "category": "گرد"
+      },
+      {
+        "slug": "raleway",
+        "name": "Raleway",
+        "weights": [
+          "thin",
+          "light",
+          "regular",
+          "medium",
+          "semibold",
+          "bold",
+          "black"
+        ],
+        "category": "ظریف"
+      },
+      {
+        "slug": "lato",
+        "name": "Lato",
+        "weights": [
+          "light",
+          "regular",
+          "bold",
+          "black"
+        ],
+        "category": "ساده"
+      },
+      {
+        "slug": "playfair-display",
+        "name": "Playfair Display",
+        "weights": [
+          "regular",
+          "medium",
+          "semibold",
+          "bold"
+        ],
+        "category": "سریف"
+      },
+      {
+        "slug": "source-sans-pro",
+        "name": "Source Sans Pro",
+        "weights": [
+          "light",
+          "regular",
+          "semibold",
+          "bold",
+          "black"
+        ],
+        "category": "حرفه‌ای"
+      }
+    ]
+  },
+  "note": "فایل‌های باینری فونت (ttf/woff2) از طریق پنل مدیریت → فونت‌ها آپلود می‌شوند و در همین ساختار ذخیره می‌گردند."
+}

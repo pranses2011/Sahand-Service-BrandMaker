@@ -338,7 +338,7 @@ CREATE TABLE IF NOT EXISTS `fonts` (
 -- ============================================================
 CREATE TABLE IF NOT EXISTS `menus` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `brand_id` INT UNSIGNED NOT NULL,
+  `brand_id` INT UNSIGNED NULL COMMENT 'خالی = منوی عمومی پیش‌فرض',
   `location` ENUM('header','footer') NOT NULL DEFAULT 'header' COMMENT 'محل نمایش منو',
   `name` VARCHAR(191) NOT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
