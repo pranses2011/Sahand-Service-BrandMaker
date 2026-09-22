@@ -1,5 +1,12 @@
-config.php
+config.local.php
 install.lock
 *.log
-uploads/
-!uploads/.gitkeep
+logs/*.log
+cache/*.cache
+uploads/logos/*
+uploads/articles/*
+uploads/temp/*
+!uploads/logos/.gitkeep
+!uploads/articles/.gitkeep
+!uploads/temp/.gitkeep
+*.zip

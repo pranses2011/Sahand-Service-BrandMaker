@@ -40,4 +40,37 @@
 
 ---
 
+## 2️⃣ فاز ۱ — زیرساخت هسته و دیتابیس 📅 2025-09-24
+
+### ✅ اقدامات انجام‌شده
+- ساختار کامل پوشه‌ها مطابق بخش ۱۸ سند (admin/api/engine/assets/core/templates/uploads/docs/geoip/includes)
+- `config.php` — تنظیمات کلیدی + autoloader بدون Composer + مدیریت خطا + نشست امن + پشتیبانی config.local.php
+- `.htaccess` — امنیت (RewriteRule مسدودسازی فایل‌های حساس)، CORS منابع، gzip، کش مرورگر
+- `robots.txt` ریشه سایت ساز
+- `core/Database.php` — Singleton با PDO + Prepared Statements + تراکنش + helper های insert/update/delete/count
+- `core/Auth.php` — ورود با محدودیت تلاش (۵ تلاش/۱۵ دقیقه قفل)، CAPTCHA تصویری GD، CSRF کامل، session fixation protection
+- `core/Router.php` — مسیریابی /api/* با پارامترهای نام‌دار + میان‌افزار
+- `core/Config.php` — مدیریت تنظیمات Key/Value با JSON + کش درون‌حافظه + ثابت‌های کلیدهای استاندارد
+- `core/Logger.php` — لاگ فعالیت دیتابیس + لاگ فایلی ۴ سطحی + تشخیص IP پشت پروکسی
+- `core/Cache.php` — کش فایل‌محور با TTL + الگوی remember + آمار
+- `core/FileManager.php` — آپلود امن (تشخیص MIME واقعی، ضد XSS در SVG، امضای باینری فونت، ضد Directory Traversal)
+- `core/ZipGenerator.php` — بسته‌بندی ZIP با جایگذاری متغیرها در فایل‌های متنی + پاکسازی خودکار + دانلود
+- `core/ImageProcessor.php` — تغییر اندازه، فشرده‌سازی، thumbnail مربعی، placeholder
+- `core/Mailer.php` — mail() + کلاینت SMTP خام (بدون وابستگی) + قالب HTML فارسی ایمیل درخواست
+- `includes/helpers.php` — ۳۰+ تابع: تاریخ جلالی کامل، اعداد فارسی، اعتبارسنجی موبایل/تلفن ایرانی، slug، فلش‌مسیج
+- `database.sql` — اسکیمای کامل ۳۱ جدول + داده‌های اولیه (دسته‌بندی مقالات، تگ‌های وبمستر، تنظیمات پیش‌فرض)
+- `install.php` — نصب‌کننده ۴ مرحله‌ای فارسی RTL با بررسی الزامات + ساخت ادمین + کلید API + قفل نصب
+- تست سینتکس تمام ۱۱ فایل PHP با php -l — ✅ همه سالم
+
+### 🔧 تصمیمات فنی
+- ۳۱ جدول (بیشتر از ۲۵ جدول الزامی سند): جداول تکمیلی api_keys، rate_limits، service_areas، faqs، testimonials، article_categories، request_attachments اضافه شدند
+- IP خام ذخیره نمی‌شود — فقط هش + پیشوند برای GeoIP (حریم خصوصی)
+- رابط‌های JSON برای داده‌های ساختاریافته (tags، categories، palette) — انعطاف‌پذیری بدون تغییر اسکیما
+- config.local.php برای اطلاعات حساس (در .gitignore)
+
+### 📦 کامیت‌ها
+- `phase-1: زیرساخت هسته — ۱۰ کلاس core + دیتابیس ۳۱ جدول + نصب‌کننده فارسی + helpers`
+
+---
+
 > ⚡ **ورودیه‌های بعدی در ادامه همین فایل ثبت می‌شوند.**

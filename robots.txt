@@ -1,0 +1,18 @@
+# 🤖 فایل robots.txt سایت ساز برند سهند سرویس
+# سایت ساز خودش نیازی به ایندکس ندارد؛ فقط مستندات عمومی مجاز است
+User-agent: *
+Disallow: /admin/
+Disallow: /api/
+Disallow: /core/
+Disallow: /engine/
+Disallow: /cache/
+Disallow: /logs/
+Disallow: /uploads/
+Disallow: /install.php
+Allow: /assets/
+
+# 🚫 خزنده‌های نامطلوب
+User-agent: AhrefsBot
+Disallow: /
+User-agent: SemrushBot
+Disallow: /

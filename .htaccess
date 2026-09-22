@@ -1,0 +1,64 @@
+# 🛡️ فایل تنظیمات Apache — سایت ساز برند سهند سرویس
+# ================================================
+
+# فعال‌سازی موتور بازنویسی آدرس‌ها
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 📌 مسیریابی API داخلی — تمام درخواست‌های /api/* به روتر ارجاع می‌شوند
+    RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+
+    # 📌 جلوگیری از دسترسی مستقیم به فایل‌های حساس
+    RewriteRule ^(config|config\.local)\.php$ - [F,L]
+    RewriteRule ^database\.sql$ - [F,L]
+    RewriteRule ^core/ - [F,L]
+    RewriteRule ^engine/knowledge/ - [F,L]
+    RewriteRule ^logs/ - [F,L]
+    RewriteRule ^cache/ - [F,L]
+    RewriteRule ^install\.php$ - [L]
+</IfModule>
+
+# ⛔ غیرفعال‌سازی فهرست پوشه‌ها (Directory Listing)
+Options -Indexes
+
+# 📌 فایل پیش‌فرض
+DirectoryIndex index.php admin/login.php
+
+# 🛡️ هدرهای امنیتی
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+
+    # 🔓 دسترسی CORS برای سایت‌های برند (فراخوانی API و منابع مشترک)
+    <FilesMatch "\.(js|css|woff2?|ttf|eot|svg|png|jpg|jpeg|webp|ico)$">
+        Header set Access-Control-Allow-Origin "*"
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+</IfModule>
+
+# ⚡ فشرده‌سازی Gzip برای بهبود سرعت
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml
+    AddOutputFilterByType DEFLATE application/javascript application/json
+    AddOutputFilterByType DEFLATE image/svg+xml
+    AddOutputFilterByType DEFLATE font/woff2 application/font-woff2
+</IfModule>
+
+# ⏱️ کش مرورگر برای منابع ایستا
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
+
+# 🚫 محافظت از فایل htaccess خودش
+<FilesMatch "^\.ht">
+    Require all denied
+</FilesMatch>
