@@ -1,0 +1,143 @@
+/**
+ * 🧠 اسکریپت اصلی پنل مدیریت سایت ساز برند سهند سرویس
+ * تعاملات: تب‌ها، مودال، حذف با تأیید، AJAX، سایدبار موبایل
+ */
+
+/* 📱 باز/بسته کردن سایدبار در موبایل */
+function toggleSidebar() {
+    document.querySelector('.sidebar').classList.toggle('open');
+}
+
+/* 🗂️ سیستم تب‌ها */
+function switchTab(btn, paneId) {
+    document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+    document.querySelectorAll('.tab-pane').forEach(function (p) { p.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById(paneId).classList.add('active');
+}
+
+/* 🖼️ باز و بسته کردن مودال */
+function openModal(id) {
+    document.getElementById(id).classList.add('show');
+}
+function closeModal(id) {
+    document.getElementById(id).classList.remove('show');
+}
+/* بستن مودال با کلیک روی پس‌زمینه */
+document.addEventListener('click', function (e) {
+    if (e.target.classList && e.target.classList.contains('modal-backdrop')) {
+        e.target.classList.remove('show');
+    }
+});
+/* بستن با کلید Escape */
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-backdrop.show').forEach(function (m) { m.classList.remove('show'); });
+    }
+});
+
+/* 🗑️ حذف با تأیید — برای همه فرم‌های دارای data-confirm */
+document.addEventListener('submit', function (e) {
+    var form = e.target;
+    if (form.hasAttribute('data-confirm')) {
+        var message = form.getAttribute('data-confirm') || 'آیا از انجام این عملیات مطمئن هستید؟';
+        if (!window.confirm(message)) {
+            e.preventDefault();
+        }
+    }
+});
+
+/* 🔗 لینک‌های حذف با تأیید */
+document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-confirm-link]');
+    if (el) {
+        if (!window.confirm(el.getAttribute('data-confirm-link') || 'آیا مطمئن هستید؟')) {
+            e.preventDefault();
+        }
+    }
+});
+
+/* 🔁 رفرش کپچا */
+function refreshCaptcha(img) {
+    img.src = img.src.split('?')[0] + '?t=' + Date.now();
+}
+
+/* 🌐 هلپر AJAX — ارسال فرم بدون رفرش */
+function sahandFetch(url, options) {
+    options = options || {};
+    options.headers = Object.assign({
+        'X-Requested-With': 'XMLHttpRequest'
+    }, options.headers || {});
+    if (options.json) {
+        options.headers['Content-Type'] = 'application/json';
+        options.body = JSON.stringify(options.json);
+        delete options.json;
+    }
+    return fetch(url, options).then(function (res) { return res.json(); });
+}
+
+/* ➕ افزودن ردیف تکرارشونده (برای فرم‌های چندتایی مثل تلفن‌ها) */
+function addRepeatRow(containerId, template) {
+    var container = document.getElementById(containerId);
+    var index = container.querySelectorAll('.repeat-row').length;
+    var html = template.replaceAll('{i}', index);
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+/* 🗑️ حذف ردیف تکرارشونده */
+function removeRepeatRow(btn) {
+    var row = btn.closest('.repeat-row');
+    if (row) {
+        row.remove();
+    }
+}
+
+/* 📋 کپی متن در کلیپ‌بورد */
+function copyText(text, btn) {
+    var temp = document.createElement('input');
+    document.body.appendChild(temp);
+    temp.value = text;
+    temp.select();
+    document.execCommand('copy');
+    document.body.removeChild(temp);
+    if (btn) {
+        var original = btn.innerHTML;
+        btn.innerHTML = '✅ کپی شد';
+        setTimeout(function () { btn.innerHTML = original; }, 1600);
+    }
+}
+
+/* ⏳ دکمه در حال بارگذاری */
+function setLoading(btn, loading) {
+    if (loading) {
+        btn.dataset.original = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> در حال پردازش...';
+    } else {
+        btn.disabled = false;
+        if (btn.dataset.original) {
+            btn.innerHTML = btn.dataset.original;
+        }
+    }
+}
+
+/* 🎨 پیش‌نمایش تصویر قبل از آپلود */
+function previewImage(input, previewId) {
+    var preview = document.getElementById(previewId);
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function (e) { preview.src = e.target.result; preview.style.display = 'block'; };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+/* 💬 نمایش پیام فلش خودکار مخفی‌شونده */
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.alert-auto').forEach(function (el) {
+        setTimeout(function () {
+            el.style.transition = 'opacity .5s';
+            el.style.opacity = '0';
+            setTimeout(function () { el.remove(); }, 500);
+        }, 4500);
+    });
+});
