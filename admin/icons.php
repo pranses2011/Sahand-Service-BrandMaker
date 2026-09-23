@@ -137,9 +137,10 @@ if ($searchIcon !== '') {
     }
 }
 
-/* 🗂️ مرور پک انتخاب‌شده: دسته‌بندی + صفحه‌بندی */
+/* 🗂️ مرور پک انتخاب‌شده: دسته‌بندی + جستجوی داخل پک + صفحه‌بندی */
 $browsePack = preg_match('/^[a-z0-9\-]+$/', (string)get_param('pack')) ? (string)get_param('pack') : '';
 $browseCat = (string)get_param('cat');
+$browseQ = trim((string)get_param('q'));
 $browsePage = max(1, (int)get_param('ipage'));
 $perPage = 96;
 $browse = null;
@@ -176,6 +177,17 @@ if ($browsePack !== '') {
             ? array_values(array_filter($icons, fn($ic) => $ic['category'] === $browseCat))
             : $icons;
 
+        /* 🔎 جستجوی داخل همین پک (v2.7) — بدون نیاز به گردش در صفحات */
+        if ($browseQ !== '') {
+            $filtered = array_values(array_filter($filtered, function ($ic) use ($browseQ) {
+                $catFa = iconCatFa($ic['category'] ?? '');
+                return stripos($ic['name'] ?? '', $browseQ) !== false
+                    || stripos($ic['label_fa'] ?? '', $browseQ) !== false
+                    || stripos($ic['category'] ?? '', $browseQ) !== false
+                    || stripos($catFa, $browseQ) !== false;
+            }));
+        }
+
         $totalPages = max(1, (int)ceil(count($filtered) / $perPage));
         $browsePage = min($browsePage, $totalPages);
         $pageIcons = array_slice($filtered, ($browsePage - 1) * $perPage, $perPage);
@@ -192,14 +204,16 @@ if ($browsePack !== '') {
             'page' => $browsePage,
             'total_pages' => $totalPages,
             'has_source' => !empty($cfg['archive']),
+            'q' => $browseQ,
+            'filtered_count' => count($filtered),
         ];
     }
 }
 
-/** 🔗 ساخت لینک مرور با حفظ پارامترها */
-function browseUrl(string $pack, string $cat, int $page): string
+/** 🔗 ساخت لینک مرور با حفظ پارامترها (شامل جستجو) */
+function browseUrl(string $pack, string $cat, int $page, string $q = ''): string
 {
-    $qs = http_build_query(['pack' => $pack, 'cat' => $cat, 'ipage' => $page]);
+    $qs = http_build_query(['pack' => $pack, 'cat' => $cat, 'ipage' => $page, 'q' => $q]);
     return 'icons.php?' . $qs . '#browse';
 }
 
@@ -302,6 +316,22 @@ function iconCatFa(string $cat): string
         </div>
     </div>
     <div class="card-body">
+        <!-- 🔎 جستجوی داخل همین پک (v2.7) -->
+        <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding:12px 14px;background:#f8fafc;border:1px solid var(--border);border-radius:11px">
+            <input type="hidden" name="pack" value="<?= e($browse['slug']) ?>">
+            <input type="hidden" name="cat" value="<?= e($browse['active_cat']) ?>">
+            <input type="text" name="q" class="form-control" value="<?= e($browse['q']) ?>"
+                   placeholder="🔎 جستجوی نام آیکون در همین پک (فارسی یا انگلیسی) — بدون گردش در صفحات..."
+                   style="flex:1;min-width:200px">
+            <button type="submit" class="btn btn-primary btn-sm">جستجو</button>
+            <?php if ($browse['q'] !== ''): ?>
+                <a href="<?= e(browseUrl($browse['slug'], $browse['active_cat'], 1)) ?>" class="btn btn-outline btn-sm">✖ پاک کردن</a>
+            <?php endif; ?>
+        </form>
+        <?php if ($browse['q'] !== ''): ?>
+            <div class="hint" style="margin:-6px 0 14px">🔎 <?= en_to_fa_digits((string)$browse['filtered_count']) ?> آیکون منطبق با «<b><?= e($browse['q']) ?></b>» از <?= en_to_fa_digits((string)$browse['total']) ?> آیکون این پک</div>
+        <?php endif; ?>
+
         <!-- 📁 نوار پوشه‌بندی (دسته‌ها) -->
         <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding-bottom:14px;border-bottom:1px dashed var(--border)">
             <span style="font-size:12px;font-weight:700;color:var(--text-light)">📁 پوشه‌ها:</span>
@@ -329,14 +359,14 @@ function iconCatFa(string $cat): string
                     <?php if ($p === $browse['page']): ?>
                         <span class="current"><?= en_to_fa_digits((string)$p) ?></span>
                     <?php elseif ($p <= 2 || $p > $browse['total_pages'] - 2 || abs($p - $browse['page']) <= 2): ?>
-                        <a href="<?= e(browseUrl($browse['slug'], $browse['active_cat'], $p)) ?>"><?= en_to_fa_digits((string)$p) ?></a>
+                        <a href="<?= e(browseUrl($browse['slug'], $browse['active_cat'], $p, $browse['q'])) ?>"><?= en_to_fa_digits((string)$p) ?></a>
                     <?php elseif (abs($p - $browse['page']) === 3): ?>
                         <span style="color:var(--text-light)">…</span>
                     <?php endif; ?>
                 <?php endfor; ?>
             </div>
         <?php endif; ?>
-        <div class="hint" style="margin-top:10px">📄 نمایش <?= en_to_fa_digits((string)count($browse['icons'])) ?> آیکون از <?= en_to_fa_digits((string)$browse['total']) ?> آیکون — صفحه <?= en_to_fa_digits((string)$browse['page']) ?> از <?= en_to_fa_digits((string)$browse['total_pages']) ?></div>
+        <div class="hint" style="margin-top:10px">📄 نمایش <?= en_to_fa_digits((string)count($browse['icons'])) ?> آیکون از <?= en_to_fa_digits((string)$browse['filtered_count']) ?><?= $browse['q'] !== '' ? ' (نتیجه جستجو)' : '' ?> — صفحه <?= en_to_fa_digits((string)$browse['page']) ?> از <?= en_to_fa_digits((string)$browse['total_pages']) ?></div>
     </div>
 </div>
 <?php endif; ?>
@@ -346,7 +376,7 @@ function iconCatFa(string $cat): string
     <div class="card-header"><h3>📥 ایمپورت پک آیکون (ZIP)</h3></div>
     <div class="card-body">
         <div class="alert alert-success" style="margin-bottom:14px">
-            ⬇️ <b>راه سریع‌تر:</b> برای ۹ پک معروف (لوسید، فدر، تبلر، هیروآیکون، رمیکس، باکس‌آیکون، متریال، فونت‌اوسام، فسفر) از دکمه سبز «نصب کامل پک» بالای همین صفحه استفاده کنید —
+            ⬇️ <b>راه سریع‌تر:</b> برای ۱۱ پک معروف (لوسید، فدر، تبلر، هیروآیکون، رمیکس، باکس‌آیکون، متریال، فونت‌اوسام، فسفر، آیکونویر، بوت‌استرپ) از دکمه سبز «نصب کامل پک» بالای همین صفحه استفاده کنید —
             کل پک مستقیماً روی سرور سایت‌ساز دانلود و نصب می‌شود و نیازی به دانلود ZIP روی کامپیوتر و آپلود مجدد نیست.
         </div>
         <form method="post" enctype="multipart/form-data">
