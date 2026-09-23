@@ -11,10 +11,20 @@ require_once dirname(__DIR__) . '/config.php';
 
 $db = Database::getInstance();
 $fm = new FileManager();
+$downloader = new AssetDownloader();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Auth::enforceCsrf();
     $action = post('action');
+
+    /* ⬇️ دانلود و نصب کامل پک روی سرور — مستقیم از منبع رسمی */
+    if ($action === 'install_pack_online') {
+        $packSlug = post('pack_slug');
+        $result = $downloader->installIconPack($packSlug, true);
+        flash($result['success'] ? 'success' : 'danger', $result['message']);
+        (new Cache())->delete('icon_packs_all');
+        redirect('icons.php');
+    }
 
     /* 📥 ایمپورت پک ZIP — استخراج SVG ها */
     if ($action === 'import_pack' && !empty($_FILES['pack_zip']['name'])) {
@@ -74,19 +84,23 @@ require __DIR__ . '/includes/header.php';
 
 /* 📚 خواندن پک‌ها از دیتابیس یا ساخت خودکار از فایل‌ها */
 $packsOnDisk = glob(ASSETS_PATH . '/icons/*', GLOB_ONLYDIR) ?: [];
+$iconSourcesCfg = AssetDownloader::iconSources();
 $packs = [];
 foreach ($packsOnDisk as $dir) {
     $slug = basename($dir);
     $manifestFile = $dir . '/manifest.json';
     $manifest = file_exists($manifestFile) ? json_decode((string)file_get_contents($manifestFile), true) : null;
     $svgCount = count(glob($dir . '/*.svg') ?: []);
+    $sourceCfg = $iconSourcesCfg[$slug] ?? [];
     $packs[] = [
         'slug' => $slug,
-        'name_fa' => $manifest['name_fa'] ?? $slug,
-        'description' => $manifest['description'] ?? '',
+        'name_fa' => $manifest['name_fa'] ?? ($sourceCfg['name_fa'] ?? $slug),
+        'description' => $manifest['description'] ?? ($sourceCfg['description'] ?? ''),
         'count' => $svgCount,
         'full' => $manifest['import_hint'] ?? null,
         'manifest' => $manifest,
+        'has_source' => !empty($sourceCfg['archive']),
+        'source_full_count' => (int)($sourceCfg['max_icons'] ?? 0),
     ];
 }
 usort($packs, fn($a, $b) => $b['count'] <=> $a['count']);
@@ -145,8 +159,22 @@ if ($searchIcon !== '') {
 <?php foreach ($packs as $pack): ?>
     <div class="card">
         <div class="card-header">
-            <h3>📦 <?= e($pack['name_fa']) ?> <span class="badge badge-info"><?= en_to_fa_digits((string)$pack['count']) ?> آیکون</span></h3>
-            <div class="tools">
+            <h3>📦 <?= e($pack['name_fa']) ?> <span class="badge badge-info"><?= en_to_fa_digits((string)$pack['count']) ?> آیکون</span>
+                <?php if ($pack['has_source'] && $pack['source_full_count'] > $pack['count']): ?>
+                    <span class="badge badge-warning" title="با دکمه دانلود مستقیم، کل پک نصب می‌شود">کامل: ~<?= en_to_fa_digits((string)$pack['source_full_count']) ?></span>
+                <?php endif; ?>
+            </h3>
+            <div class="tools" style="display:flex;gap:8px;flex-wrap:wrap">
+                <?php if ($pack['has_source']): ?>
+                    <form method="post" data-confirm="کل پک مستقیم روی سرور از منبع رسمی دانلود و نصب می‌شود (چند مگابایت — کمی زمان می‌برد). ادامه؟">
+                        <?= Auth::csrfField() ?>
+                        <input type="hidden" name="action" value="install_pack_online">
+                        <input type="hidden" name="pack_slug" value="<?= e($pack['slug']) ?>">
+                        <button type="submit" class="btn <?= $pack['count'] > 20 ? 'btn-outline' : 'btn-success' ?> btn-sm">
+                            <?= $pack['count'] > 20 ? '🔄 نصب مجدد کامل' : '⬇️ نصب کامل پک' ?>
+                        </button>
+                    </form>
+                <?php endif; ?>
                 <button type="button" class="btn btn-outline btn-sm" onclick="togglePack('pack-<?= e($pack['slug']) ?>')">👁️ نمایش / مخفی</button>
             </div>
         </div>
@@ -169,6 +197,10 @@ if ($searchIcon !== '') {
 <div class="card">
     <div class="card-header"><h3>📥 ایمپورت پک آیکون (ZIP)</h3></div>
     <div class="card-body">
+        <div class="alert alert-success" style="margin-bottom:14px">
+            ⬇️ <b>راه سریع‌تر:</b> برای ۹ پک معروف (لوسید، فدر، تبلر، هیروآیکون، رمیکس، باکس‌آیکون، متریال، فونت‌اوسام، فسفر) از دکمه سبز «نصب کامل پک» بالای همین صفحه استفاده کنید —
+            کل پک مستقیماً روی سرور سایت‌ساز دانلود و نصب می‌شود و نیازی به دانلود ZIP روی کامپیوتر و آپلود مجدد نیست.
+        </div>
         <form method="post" enctype="multipart/form-data">
             <?= Auth::csrfField() ?>
             <input type="hidden" name="action" value="import_pack">

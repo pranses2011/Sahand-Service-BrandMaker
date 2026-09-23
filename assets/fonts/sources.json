@@ -1,0 +1,207 @@
+{
+    "_comment": "نقشه منابع دانلود مستقیم فونت‌ها — با زدن دکمه دانلود، فونت مستقیم روی سرور سایت‌ساز نصب می‌شود. فونت‌های تجاری (ایران‌سنس، دانا، یکان‌بخ و...) منبع آزاد ندارند و باید دستی آپلود شوند.",
+    "fa": {
+        "vazirmatn": {
+            "name": "وزیرمتن",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "thin": "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Thin.woff2",
+                "light": "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Light.woff2",
+                "regular": "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Regular.woff2",
+                "medium": "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Medium.woff2",
+                "semibold": "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-SemiBold.woff2",
+                "bold": "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Bold.woff2",
+                "extrabold": "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-ExtraBold.woff2",
+                "black": "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Black.woff2"
+            }
+        },
+        "vazir": {
+            "name": "وزیر",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "thin": "https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/Vazir-Thin.woff2",
+                "light": "https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/Vazir-Light.woff2",
+                "regular": "https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/Vazir.woff2",
+                "medium": "https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/Vazir-Medium.woff2",
+                "bold": "https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/Vazir-Bold.woff2",
+                "black": "https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/Vazir-Black.woff2"
+            }
+        },
+        "samim": {
+            "name": "صمیم",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/rastikerdar/samim-font@v3.1.0/dist/Samim.woff2",
+                "bold": "https://cdn.jsdelivr.net/gh/rastikerdar/samim-font@v3.1.0/dist/Samim-Bold.woff2"
+            }
+        },
+        "shabnam": {
+            "name": "شبنم",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "thin": "https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/Shabnam-Thin.woff2",
+                "light": "https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/Shabnam-Light.woff2",
+                "regular": "https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/Shabnam.woff2",
+                "medium": "https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/Shabnam-Medium.woff2",
+                "bold": "https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/Shabnam-Bold.woff2"
+            }
+        },
+        "gandom": {
+            "name": "گندم",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/rastikerdar/gandom-font@v0.6/dist/Gandom.woff2"
+            }
+        },
+        "tanha": {
+            "name": "تنها",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/rastikerdar/tanha-font@0.10/dist/Tanha.woff2"
+            }
+        },
+        "parastoo": {
+            "name": "پرستو",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/rastikerdar/parastoo-font@2.0.1/dist/Parastoo.woff2",
+                "bold": "https://cdn.jsdelivr.net/gh/rastikerdar/parastoo-font@2.0.1/dist/Parastoo-Bold.woff2"
+            }
+        },
+        "mikhak": {
+            "name": "میخک",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/aminabedi68/Mikhak@3.4/fonts/webfonts/statics/Mikhak-Regular.woff2",
+                "bold": "https://cdn.jsdelivr.net/gh/aminabedi68/Mikhak@3.4/fonts/webfonts/statics/Mikhak-Bold.woff2"
+            }
+        },
+        "lalezar": {
+            "name": "لاله‌زار",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/lalezar/Lalezar-Regular.ttf"
+            }
+        }
+    },
+    "en": {
+        "roboto": {
+            "name": "Roboto",
+            "license": "Apache (متن‌باز)",
+            "weights": {
+                "thin": "https://cdn.jsdelivr.net/npm/@fontsource/roboto@5/files/roboto-latin-100-normal.woff2",
+                "light": "https://cdn.jsdelivr.net/npm/@fontsource/roboto@5/files/roboto-latin-300-normal.woff2",
+                "regular": "https://cdn.jsdelivr.net/npm/@fontsource/roboto@5/files/roboto-latin-400-normal.woff2",
+                "medium": "https://cdn.jsdelivr.net/npm/@fontsource/roboto@5/files/roboto-latin-500-normal.woff2",
+                "bold": "https://cdn.jsdelivr.net/npm/@fontsource/roboto@5/files/roboto-latin-700-normal.woff2"
+            }
+        },
+        "open-sans": {
+            "name": "Open Sans",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "light": "https://cdn.jsdelivr.net/npm/@fontsource/open-sans@5/files/open-sans-latin-300-normal.woff2",
+                "regular": "https://cdn.jsdelivr.net/npm/@fontsource/open-sans@5/files/open-sans-latin-400-normal.woff2",
+                "semibold": "https://cdn.jsdelivr.net/npm/@fontsource/open-sans@5/files/open-sans-latin-600-normal.woff2",
+                "bold": "https://cdn.jsdelivr.net/npm/@fontsource/open-sans@5/files/open-sans-latin-700-normal.woff2",
+                "extrabold": "https://cdn.jsdelivr.net/npm/@fontsource/open-sans@5/files/open-sans-latin-800-normal.woff2"
+            }
+        },
+        "montserrat": {
+            "name": "Montserrat",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "thin": "https://cdn.jsdelivr.net/npm/@fontsource/montserrat@5/files/montserrat-latin-100-normal.woff2",
+                "light": "https://cdn.jsdelivr.net/npm/@fontsource/montserrat@5/files/montserrat-latin-300-normal.woff2",
+                "regular": "https://cdn.jsdelivr.net/npm/@fontsource/montserrat@5/files/montserrat-latin-400-normal.woff2",
+                "medium": "https://cdn.jsdelivr.net/npm/@fontsource/montserrat@5/files/montserrat-latin-500-normal.woff2",
+                "semibold": "https://cdn.jsdelivr.net/npm/@fontsource/montserrat@5/files/montserrat-latin-600-normal.woff2",
+                "bold": "https://cdn.jsdelivr.net/npm/@fontsource/montserrat@5/files/montserrat-latin-700-normal.woff2",
+                "extrabold": "https://cdn.jsdelivr.net/npm/@fontsource/montserrat@5/files/montserrat-latin-800-normal.woff2",
+                "black": "https://cdn.jsdelivr.net/npm/@fontsource/montserrat@5/files/montserrat-latin-900-normal.woff2"
+            }
+        },
+        "poppins": {
+            "name": "Poppins",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "thin": "https://cdn.jsdelivr.net/npm/@fontsource/poppins@5/files/poppins-latin-100-normal.woff2",
+                "light": "https://cdn.jsdelivr.net/npm/@fontsource/poppins@5/files/poppins-latin-300-normal.woff2",
+                "regular": "https://cdn.jsdelivr.net/npm/@fontsource/poppins@5/files/poppins-latin-400-normal.woff2",
+                "medium": "https://cdn.jsdelivr.net/npm/@fontsource/poppins@5/files/poppins-latin-500-normal.woff2",
+                "semibold": "https://cdn.jsdelivr.net/npm/@fontsource/poppins@5/files/poppins-latin-600-normal.woff2",
+                "bold": "https://cdn.jsdelivr.net/npm/@fontsource/poppins@5/files/poppins-latin-700-normal.woff2",
+                "extrabold": "https://cdn.jsdelivr.net/npm/@fontsource/poppins@5/files/poppins-latin-800-normal.woff2",
+                "black": "https://cdn.jsdelivr.net/npm/@fontsource/poppins@5/files/poppins-latin-900-normal.woff2"
+            }
+        },
+        "inter": {
+            "name": "Inter",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "thin": "https://cdn.jsdelivr.net/npm/@fontsource/inter@5/files/inter-latin-100-normal.woff2",
+                "light": "https://cdn.jsdelivr.net/npm/@fontsource/inter@5/files/inter-latin-300-normal.woff2",
+                "regular": "https://cdn.jsdelivr.net/npm/@fontsource/inter@5/files/inter-latin-400-normal.woff2",
+                "medium": "https://cdn.jsdelivr.net/npm/@fontsource/inter@5/files/inter-latin-500-normal.woff2",
+                "semibold": "https://cdn.jsdelivr.net/npm/@fontsource/inter@5/files/inter-latin-600-normal.woff2",
+                "bold": "https://cdn.jsdelivr.net/npm/@fontsource/inter@5/files/inter-latin-700-normal.woff2"
+            }
+        },
+        "nunito": {
+            "name": "Nunito",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "light": "https://cdn.jsdelivr.net/npm/@fontsource/nunito@5/files/nunito-latin-300-normal.woff2",
+                "regular": "https://cdn.jsdelivr.net/npm/@fontsource/nunito@5/files/nunito-latin-400-normal.woff2",
+                "semibold": "https://cdn.jsdelivr.net/npm/@fontsource/nunito@5/files/nunito-latin-600-normal.woff2",
+                "bold": "https://cdn.jsdelivr.net/npm/@fontsource/nunito@5/files/nunito-latin-700-normal.woff2",
+                "extrabold": "https://cdn.jsdelivr.net/npm/@fontsource/nunito@5/files/nunito-latin-800-normal.woff2",
+                "black": "https://cdn.jsdelivr.net/npm/@fontsource/nunito@5/files/nunito-latin-900-normal.woff2"
+            }
+        },
+        "raleway": {
+            "name": "Raleway",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "light": "https://cdn.jsdelivr.net/npm/@fontsource/raleway@5/files/raleway-latin-300-normal.woff2",
+                "regular": "https://cdn.jsdelivr.net/npm/@fontsource/raleway@5/files/raleway-latin-400-normal.woff2",
+                "medium": "https://cdn.jsdelivr.net/npm/@fontsource/raleway@5/files/raleway-latin-500-normal.woff2",
+                "semibold": "https://cdn.jsdelivr.net/npm/@fontsource/raleway@5/files/raleway-latin-600-normal.woff2",
+                "bold": "https://cdn.jsdelivr.net/npm/@fontsource/raleway@5/files/raleway-latin-700-normal.woff2",
+                "extrabold": "https://cdn.jsdelivr.net/npm/@fontsource/raleway@5/files/raleway-latin-800-normal.woff2",
+                "black": "https://cdn.jsdelivr.net/npm/@fontsource/raleway@5/files/raleway-latin-900-normal.woff2"
+            }
+        },
+        "lato": {
+            "name": "Lato",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "light": "https://cdn.jsdelivr.net/npm/@fontsource/lato@5/files/lato-latin-300-normal.woff2",
+                "regular": "https://cdn.jsdelivr.net/npm/@fontsource/lato@5/files/lato-latin-400-normal.woff2",
+                "bold": "https://cdn.jsdelivr.net/npm/@fontsource/lato@5/files/lato-latin-700-normal.woff2",
+                "black": "https://cdn.jsdelivr.net/npm/@fontsource/lato@5/files/lato-latin-900-normal.woff2"
+            }
+        },
+        "playfair-display": {
+            "name": "Playfair Display",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/npm/@fontsource/playfair-display@5/files/playfair-display-latin-400-normal.woff2",
+                "medium": "https://cdn.jsdelivr.net/npm/@fontsource/playfair-display@5/files/playfair-display-latin-500-normal.woff2",
+                "semibold": "https://cdn.jsdelivr.net/npm/@fontsource/playfair-display@5/files/playfair-display-latin-600-normal.woff2",
+                "bold": "https://cdn.jsdelivr.net/npm/@fontsource/playfair-display@5/files/playfair-display-latin-700-normal.woff2"
+            }
+        },
+        "source-sans-pro": {
+            "name": "Source Sans Pro",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "light": "https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5/files/source-sans-3-latin-300-normal.woff2",
+                "regular": "https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5/files/source-sans-3-latin-400-normal.woff2",
+                "semibold": "https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5/files/source-sans-3-latin-600-normal.woff2",
+                "bold": "https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5/files/source-sans-3-latin-700-normal.woff2",
+                "black": "https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5/files/source-sans-3-latin-900-normal.woff2"
+            }
+        }
+    }
+}

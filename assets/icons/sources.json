@@ -1,0 +1,108 @@
+{
+    "_comment": "نقشه منابع دانلود مستقیم پک‌های آیکون — با زدن دکمه دانلود، کل پک مستقیم روی سرور سایت‌ساز دانلود، استخراج و نصب می‌شود. include: الگوی مسیر SVG های داخل آرشیو؛ prefix_map: پیشوند نام فایل بر اساس پوشه؛ category_map: دسته‌بندی فارسی.",
+    "lucide-icons": {
+        "name_fa": "لوسید آیکون",
+        "description": "بیش از ۱۵۰۰ آیکون مدرن خطی — منبع رسمی lucide.dev",
+        "archive": "https://codeload.github.com/lucide-icons/lucide/zip/refs/tags/0.460.0",
+        "include": ["*/icons/*.svg"],
+        "import_hint": "lucide.dev",
+        "max_icons": 1600
+    },
+    "feather-icons": {
+        "name_fa": "فدر آیکون",
+        "description": "۲۸۷ آیکون خطی ساده و محبوب — منبع رسمی feathericons.com",
+        "archive": "https://codeload.github.com/feathericons/feather/zip/refs/tags/v4.29.0",
+        "include": ["*/icons/*.svg"],
+        "import_hint": "feathericons.com",
+        "max_icons": 300
+    },
+    "tabler-icons": {
+        "name_fa": "تبلر آیکون",
+        "description": "بیش از ۴۵۰۰ آیکون خطی (نسخه outline) — منبع رسمی tabler.io/icons",
+        "archive": "https://codeload.github.com/tabler/tabler-icons/zip/refs/tags/v3.0.3",
+        "include": ["*/icons/outline/*.svg"],
+        "import_hint": "tabler.io/icons",
+        "max_icons": 4600
+    },
+    "heroicons": {
+        "name_fa": "هیروآیکون",
+        "description": "۳۲۴ آیکون رسمی Tailwind (نسخه ۲۴ پیکسلی خطی) — heroicons.com",
+        "archive": "https://codeload.github.com/tailwindlabs/heroicons/zip/refs/tags/v2.1.5",
+        "include": ["*/optimized/24/outline/*.svg"],
+        "import_hint": "heroicons.com",
+        "max_icons": 400
+    },
+    "remix-icons": {
+        "name_fa": "رمیکس آیکون",
+        "description": "بیش از ۲۸۰۰ آیکون در ۲۷ دسته — منبع رسمی remixicon.com",
+        "archive": "https://codeload.github.com/Remix-Design/RemixIcon/zip/refs/tags/v4.2.0",
+        "include": ["*/icons/*/*.svg"],
+        "category_map": {
+            "System": "system",
+            "Media": "media",
+            "Document": "document",
+            "Design": "design",
+            "Buildings": "building",
+            "Business": "business",
+            "Communication": "communication",
+            "Finance": "finance",
+            "Health": "health",
+            "Logos": "brand",
+            "Map": "map",
+            "Others": "general",
+            "User": "user",
+            "Weather": "weather",
+            "Device": "device",
+            "Editor": "editor"
+        },
+        "import_hint": "remixicon.com",
+        "max_icons": 2900
+    },
+    "boxicons": {
+        "name_fa": "باکس‌آیکون",
+        "description": "بیش از ۱۶۰۰ آیکون در سه سبک (عادی/توپر/لوگو) — boxicons.com",
+        "archive": "https://registry.npmjs.org/boxicons/-/boxicons-2.1.4.tgz",
+        "include": ["package/svg/*/*.svg"],
+        "prefix_map": {
+            "svg/solid/": "solid-",
+            "svg/logos/": "brand-"
+        },
+        "import_hint": "boxicons.com",
+        "max_icons": 1700
+    },
+    "material-icons": {
+        "name_fa": "متریال دیزاین",
+        "description": "۲۱۲۲ آیکون رسمی گوگل (سبک filled) — fonts.google.com/icons",
+        "archive": "https://codeload.github.com/marella/material-design-icons/zip/refs/tags/v0.14.15",
+        "include": ["*/svg/filled/*.svg"],
+        "import_hint": "fonts.google.com/icons",
+        "max_icons": 2200
+    },
+    "font-awesome": {
+        "name_fa": "فونت‌اوسام",
+        "description": "۲۰۴۵ آیکون کلاسیک نسخه ۶ (توپر/خطی/برند) — fontawesome.com",
+        "archive": "https://codeload.github.com/FortAwesome/Font-Awesome/zip/refs/tags/6.5.2",
+        "include": ["*/svgs/regular/*.svg", "*/svgs/solid/*.svg", "*/svgs/brands/*.svg"],
+        "exclude": ["*/js-packages/*", "*/.github/*"],
+        "prefix_map": {
+            "svgs/solid/": "solid-",
+            "svgs/brands/": "brand-"
+        },
+        "import_hint": "fontawesome.com",
+        "max_icons": 2100
+    },
+    "phosphor-icons": {
+        "name_fa": "فسفر آیکون",
+        "description": "۱۵۱۲ آیکون در ۶ وزن (سبک regular) — phosphoricons.com",
+        "archive": "https://registry.npmjs.org/@phosphor-icons/core/-/core-2.1.1.tgz",
+        "include": ["package/assets/regular/*.svg"],
+        "import_hint": "phosphoricons.com",
+        "max_icons": 1600
+    },
+    "home-appliance-icons": {
+        "name_fa": "آیکون‌های لوازم خانگی",
+        "description": "آیکون‌های تخصصی لوازم خانگی — پک اختصاصی سایت‌ساز (بدون منبع خارجی)",
+        "import_hint": "پک داخلی",
+        "_note": "این پک اختصاصی است و منبع دانلود خارجی ندارد."
+    }
+}

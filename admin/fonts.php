@@ -1,8 +1,9 @@
 <?php
 /**
- * 🔤 مدیریت فونت‌ها — ۲۰ فارسی + ۱۰ انگلیسی
- * ==========================================
- * نمایش وضعیت فایل‌ها + آپلود وزن‌های موجود + تنظیمات فونت برند
+ * 🔤 مدیریت فونت‌ها — ۲۰ فارسی + ۱۰ انگلیسی + دانلود مستقیم روی سرور
+ * ================================================================
+ * نمایش وضعیت فایل‌ها + ⬇️ دانلود خودکار از منبع رسمی روی سرور +
+ * آپلود وزن‌های موجود + تنظیمات فونت برند
  *
  * @package SahandBrandMaker
  */
@@ -12,10 +13,20 @@ require_once dirname(__DIR__) . '/config.php';
 
 $db = Database::getInstance();
 $fm = new FileManager();
+$downloader = new AssetDownloader();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Auth::enforceCsrf();
     $action = post('action');
+
+    /* ⬇️ دانلود مستقیم فونت روی سرور — بدون نیاز به دانلود/آپلود دستی */
+    if ($action === 'download_font') {
+        $type = post('font_type') === 'en' ? 'en' : 'fa';
+        $slug = post('font_slug');
+        $result = $downloader->downloadFont($type, $slug, post('force') !== '1');
+        flash($result['success'] ? 'success' : 'danger', $result['message']);
+        redirect('fonts.php');
+    }
 
     /* 📤 آپلود فایل فونت */
     if ($action === 'upload_font') {
@@ -79,6 +90,7 @@ require __DIR__ . '/includes/header.php';
 $manifest = json_decode((string)file_get_contents(ASSETS_PATH . '/fonts/manifest.json'), true) ?: [];
 $fontsList = $manifest['fonts'] ?? [];
 $defaultFont = (array)(Config::get(Config::KEY_DEFAULT_FONT) ?: []);
+$fontSources = AssetDownloader::fontSources();
 
 $fontNames = [];
 foreach ($fontsList as $type => $list) {
@@ -165,19 +177,50 @@ function fontFilesStatus(string $type, string $slug, array $weights): array
     <div class="card-header"><h3><?= $title ?> <span class="badge badge-info"><?= en_to_fa_digits((string)count($fontsList[$type] ?? [])) ?> فونت</span></h3></div>
     <div class="table-wrap">
         <table class="table">
-            <thead><tr><th>فونت</th><th>کاربرد</th><th>وزن‌ها (وضعیت فایل)</th><th>آپلود</th></tr></thead>
+            <thead><tr><th>فونت</th><th>کاربرد</th><th>وزن‌ها (وضعیت فایل)</th><th>دانلود مستقیم روی سرور</th><th>آپلود دستی</th></tr></thead>
             <tbody>
             <?php foreach ($fontsList[$type] ?? [] as $font): ?>
-                <?php $status = fontFilesStatus($type, $font['slug'], $font['weights']); ?>
+                <?php
+                $status = fontFilesStatus($type, $font['slug'], $font['weights']);
+                $hasSource = $downloader->fontHasSource($type, $font['slug']);
+                $installedCount = count(array_filter($status));
+                $totalWeights = count($font['weights']);
+                $allInstalled = $installedCount === $totalWeights && $totalWeights > 0;
+                $sourceInfo = $fontSources[$type][$font['slug']] ?? [];
+                ?>
                 <tr>
                     <td style="font-weight:700"><?= e($font['name']) ?><br><small style="color:var(--text-light);direction:ltr"><?= e($font['slug']) ?></small></td>
                     <td><span class="badge badge-secondary"><?= e($font['category']) ?></span></td>
                     <td>
                         <div style="display:flex;gap:5px;flex-wrap:wrap">
                             <?php foreach ($status as $weight => $ext): ?>
-                                <span class="badge <?= $ext ? 'badge-success' : 'badge-secondary' ?>" title="<?= $ext ? "فایل {$ext} موجود" : 'فایل آپلود نشده' ?>"><?= e($weight) ?> <?= $ext ? '✓' : '' ?></span>
+                                <span class="badge <?= $ext ? 'badge-success' : 'badge-secondary' ?>" title="<?= $ext ? "فایل {$ext} موجود" : 'فایل نصب نشده' ?>"><?= e($weight) ?> <?= $ext ? '✓' : '' ?></span>
                             <?php endforeach; ?>
                         </div>
+                    </td>
+                    <td style="min-width:200px">
+                        <?php if ($hasSource): ?>
+                            <form method="post" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap" <?= $allInstalled ? 'data-confirm="همه وزن‌ها نصب شده‌اند؛ دوباره دانلود و جایگزینی شوند؟"' : '' ?>>
+                                <?= Auth::csrfField() ?>
+                                <input type="hidden" name="action" value="download_font">
+                                <input type="hidden" name="font_slug" value="<?= e($font['slug']) ?>">
+                                <input type="hidden" name="font_type" value="<?= $type ?>">
+                                <?php if ($allInstalled): ?>
+                                    <input type="hidden" name="force" value="1">
+                                <?php endif; ?>
+                                <button type="submit" class="btn <?= $allInstalled ? 'btn-outline' : 'btn-success' ?> btn-sm" style="white-space:nowrap">
+                                    <?= $allInstalled ? '🔄 دانلود مجدد' : '⬇️ دانلود و نصب' ?>
+                                </button>
+                                <?php if ($installedCount > 0): ?>
+                                    <small style="color:var(--text-light)"><?= en_to_fa_digits((string)$installedCount) ?>/<?= en_to_fa_digits((string)$totalWeights) ?> نصب</small>
+                                <?php endif; ?>
+                            </form>
+                            <?php if (!empty($sourceInfo['license'])): ?>
+                                <small style="color:var(--text-light);font-size:10px"><?= e($sourceInfo['license']) ?></small>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <span class="badge badge-secondary" title="این فونت تجاری است و منبع آزاد ندارد">تجاری — آپلود دستی</span>
+                        <?php endif; ?>
                     </td>
                     <td>
                         <form method="post" enctype="multipart/form-data" style="display:flex;gap:6px;align-items:center">
@@ -186,7 +229,7 @@ function fontFilesStatus(string $type, string $slug, array $weights): array
                             <input type="hidden" name="font_slug" value="<?= e($font['slug']) ?>">
                             <input type="hidden" name="font_type" value="<?= $type ?>">
                             <input type="hidden" name="font_name" value="<?= e($font['name']) ?>">
-                            <input type="file" name="font_file" class="form-control" style="font-size:11px;padding:5px 9px;width:200px" accept=".woff2,.ttf,.woff,.otf" required>
+                            <input type="file" name="font_file" class="form-control" style="font-size:11px;padding:5px 9px;width:190px" accept=".woff2,.ttf,.woff,.otf" required>
                             <button type="submit" class="btn btn-outline btn-sm">📤</button>
                         </form>
                     </td>
@@ -198,9 +241,13 @@ function fontFilesStatus(string $type, string $slug, array $weights): array
 </div>
 <?php endforeach; ?>
 
+<div class="alert alert-success">
+    ⬇️ <b>دانلود مستقیم روی سرور:</b> با دکمه «دانلود و نصب»، فایل‌های فونت مستقیماً از منبع رسمی (jsDelivr / Google Fonts) روی «همان سرور سایت‌ساز» دانلود و در پوشه خودشان نصب می‌شوند —
+    دیگر نیازی به دانلود روی کامپیوتر و آپلود مجدد نیست. فونت‌های تجاری (ایران‌سنس، دانا، یکان‌بخ و…) منبع آزاد ندارند و فقط با آپلود دستی نصب می‌شوند.
+</div>
 <div class="alert alert-info">
     💡 تمام فونت‌ها روی <b>سرور سایت ساز</b> ذخیره و از آنجا به سایت‌های برند ارائه می‌شوند (بدون هیچ CDN خارجی).
-    فایل‌های باینری فونت (woff2/ttf) به دلیل حجم، از طریق همین صفحه آپلود می‌شوند.
     تعریف <code>@font-face</code> همه ۳۰ فونت و ۱۳۴ وزن، از قبل در <code>assets/css/fonts.css</code> آماده است.
+    منابع دانلود در فایل <code>assets/fonts/sources.json</code> قابل ویرایش‌اند.
 </div>
 <?php require __DIR__ . '/includes/footer.php'; ?>
