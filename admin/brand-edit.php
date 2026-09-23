@@ -180,7 +180,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$page) {
                 json_response(['success' => false, 'error' => 'صفحه یافت نشد.'], 404);
             }
-            $focus = trim((string)post('focus_keyword')) ?: ('تعمیر ' . $brand['name_fa']);
+            /* 🧭 v2.7: کلیدواژه خالی = استخراج خودکار از نوع و عنوان «همان صفحه»
+               (قبلاً پیش‌فرض «تعمیر + برند» بود و همه صفحات به تبلیغ نمایندگی تبدیل می‌شدند) */
+            $focus = trim((string)post('focus_keyword'));
             $improver = new PageSeoImprover();
             $result = $improver->improve($page, $focus, $brand);
             $p = $result['page'];
@@ -215,8 +217,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $improved = 0;
             foreach ($pages as $page) {
                 try {
-                    $focus = 'تعمیر ' . $brand['name_fa'];
-                    $result = $improver->improve($page, $focus, $brand);
+                    /* 🧭 v2.7: کلیدواژه هر صفحه از نوع و عنوان خودش — نه یکسان برای همه */
+                    $result = $improver->improve($page, '', $brand);
                     $p = $result['page'];
                     $db->update('brand_pages', [
                         'seo_title'       => $p['seo_title'],
