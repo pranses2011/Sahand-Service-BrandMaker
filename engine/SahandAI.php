@@ -25,7 +25,7 @@
 class SahandAI
 {
     /** 🔖 نسخه موتور */
-    public const ENGINE_VERSION = '3.3.0';
+    public const ENGINE_VERSION = '3.4.0';
 
     /** @var Database دیتابیس */
     private $db;

@@ -739,3 +739,55 @@
 
 ### 📦 کامیت
 - `feat-asset-downloader-v1` — ۵ فایل
+
+## ✅ بخش‌های ۲ تا ۵ فاز Q: موتور ۳.۴ — نگارش فارسی + انواع مقاله + سئو-محور
+
+**تاریخ:** ۳ مهر ۱۴۰۴ — **کامیت‌ها:** ۸ کامیت (95f27fb تا docs)
+
+### بخش ۲ — 📝 موتور نگارش فارسی (Q.3)
+- 🆕 `engine/utils/PersianGrammar.php` v1.1 (۵۶۵ خط): fix() اصلاح HTML-امن (نیم‌فاصله ۱۱ قاعده + سجاوندی + املای رایج ۵۰+ واژه + ارقام فارسی + ی/ک عربی) + fixAgreement() هم‌خوانی فعل/فاعل (۶ ضمیر × ۱۰ فعل) + analyze() امتیاز ۰-۱۰۰ + fluency() روان‌نویسی
+- 🐛 رفع ۳ باگ regex کشف‌شده با تست Node: `\b` با حروف فارسی در PCRE کار نمی‌کند → مرز یونیکد-امن `(?<!\p{L})`؛ `\d` رقم فارسی را نمی‌بست → `[^\s\d۰-۹]`؛ `\u{200C}` در PCRE نامعتبر → `\x{200C}`
+- QualityScorer v2.0→v2.1: بُعد هشتم «نگارش فارسی» (وزن ۱۰) + پیشنهاد بهبودی
+- ArticleGenerator v2.1→v2.2: گام ۵.۶ اصلاح نگارشی پیش از سئو + گزارش grammar در خروجی
+- ContentGenerator v1.0→v1.1: اصلاح نگارشی خروجی صفحات برند
+- ContentImprover: استراتژی fixGrammar در چرخه خود-درمانی
+- 🧪 ۲۵ تست منطق پاس + ۵ فایل سینتکس PASS (php-parser)
+
+### بخش ۳ — 📰 ۲۵ نوع مقاله (Q.4)
+- templates.json: article_topics از ۹ → ۲۵ نوع / ۶۳ → ۱۳۶ قالب عنوان
+- ۱۶ نوع جدید: safety_guide, installation_guide, diy_vs_pro, common_mistakes, warranty_guide, tech_explainer, myths_facts, checklist, case_study, glossary, history_evolution, expert_tips, symptom_focus, statistics, environment, service_process
+- buildOutline: ۱۶ case جدید (با بهره‌گیری از diagnosticSection/partsWearSection)
+- categoryForTopic + topicTitle + suggestTopics: پشتیبانی ۲۵ نوع
+- admin/articles.php: سلکت گروه‌بندی‌شده ۵ دسته — brand-build.ajax.php: تولید اولیه ۵→۸ مقاله
+
+### بخش ۴ — 🎯 عنوان دلخواه + سئو + جستجو + تصویر (Q.5-Q.8)
+- TitleGenerator v3.1: suggestForCustom() — تحلیل عنوان کاربر + ۱۲+ واریانت سئو رتبه‌بندی‌شده با gain (تست: عنوان کاربر ۳۰ → بهترین پیشنهاد ۷۸)
+- ArticleGenerator v2.2→v2.3: custom_title (مقاله حول عنوان کاربر + کلیدواژه از عنوان) + research (گام ۱.۵: تحقیق آنلاین → ۳ بخش داده/پرسش/منابع + تگ‌های ترند + fallback امن) + with_images (گام ۳.۷: ۳ تصویر با alt/figcaption)
+- 🆕 SeoImprover v1.0 (۵۶۷ خط): analyze() با ۱۲ سنجه وزنی + improve() با ۸ اصلاح خودکار + گزارش قبل/بعد + ذخیره seo_score/featured_image
+- admin/articles.php: فیلد عنوان دلخواه + دکمه «🎯 پیشنهاد بهترین عنوان سئو» (AJAX) + پنل «📊 آمار کامل سئو» زیر ویرایشگر + دکمه «🎯 بهبود سئو» + چک‌باکس جستجوی آنلاین/تصاویر
+- API: ۳ اندپوینت جدید (۴۴ مجموع): suggest-article-titles + article-seo-stats + improve-article-seo
+- saveArticle: ذخیره featured_image + seo_score (بدون تغییر دیتابیس)
+
+### بخش ۵ — 🤖 ربات + دستیار + مستندات (Q.9-Q.11)
+- ربات تلگرام v2.2: /grammar (گزارش کامل نگارش + متن اصلاح‌شده) + /suggest (تحلیل عنوان + پیشنهادها) + /types (۲۵ نوع) + کیبورد و راهنمای جدید
+- دستیار فارسی: «نگارش:» (ZWNJ-پذیر: غلط‌گیری/غلطگیری/اصلاح‌نگارش) + «پیشنهاد عنوان سئو:» + «انواع مقاله» — رفع تداخل مسیریابی (نگارش ≠ بهبود، عنوان سئو ≠ پکیج سئو) — ۹ تست پاس
+- راهنمای API: ۱۷۹۴ → ۱۹۳۲ خط (جدول ۴۲-۴۴ + بخش‌های ۵.۱۴-۵.۱۷ + تاریخچه ۳.۴.۰)
+- README/CHANGELOG/UPGRADE/CHECKLIST: نسخه ۲.۴.۰ + موتور ۳.۴.۰ (config.php + SahandAI)
+
+### 📦 کامیت‌ها
+- `feat-persian-grammar-v1.1` + `feat-article-types-25` + `feat-custom-title-seo-suggest` + `feat-seo-improver-v1` + `feat-research-and-images` + `feat-telegram-v2.2` + `docs-api-guide-v3.4` + docs
+
+### 🏁 جمع‌بندی فاز Q
+| شاخص | مقدار |
+|------|-------|
+| کلاس جدید | ۲ (PersianGrammar + SeoImprover) |
+| انواع مقاله | ۹ → ۲۵ |
+| قالب عنوان | ۶۳ → ۱۳۶ |
+| ابعاد کیفیت | ۷ → ۸ |
+| اندپوینت API | ۴۱ → ۴۴ |
+| فرمان ربات | ۱۶ → ۱۹ (+ فارسی) |
+| intent دستیار | +۳ |
+| اصلاح خودکار سئو | ۸ مورد |
+| سنجه آمار سئو | ۱۲ مورد |
+| تغییر دیتابیس | هیچ — کاملاً file-level |
+| تست | ۲۵ منطق نگارش + ۹ مسیریابی + ۱۰۸ سینتکس پاس |
