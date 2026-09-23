@@ -130,7 +130,7 @@ class TitleGenerator
         foreach ($fillers as $f) {
             $core = preg_replace('/(?<![\p{L}])' . preg_quote($f, '/') . ' (?=[\p{L}])/u', '', $core) ?? $core;
         }
-        $core = trim(preg_replace('/\s+/u', ' ', $core) ?? $core, ' ؛،.:-');
+        $core = mb_trim(preg_replace('/\s+/u', ' ', $core) ?? $core, ' ؛،.:-'); // mb_trim: trim بایت-محور خرابکار است
         $core = trim($core) !== '' ? trim($core) : $customTitle;
 
         $focus = $this->focusOf($core, $device);

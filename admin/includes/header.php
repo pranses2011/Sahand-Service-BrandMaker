@@ -23,7 +23,7 @@ $activeMenu = $activeMenu ?? '';
 // 🔔 شمارش درخواست‌های جدید برای نشان منو
 try {
     $newRequests = Database::getInstance()->count('service_requests', "status = 'new'");
-} catch (Exception $e) {
+} catch (Throwable $e) {
     $newRequests = 0;
 }
 ?>
@@ -36,6 +36,9 @@ try {
     <title><?= e($pageTitle) ?> | <?= e(Config::get(Config::KEY_AGENCY_NAME_FA) ?: SAHAND_NAME_FA) ?></title>
     <link rel="stylesheet" href="<?= asset_ver('assets/css/admin.css') ?>">
     <link rel="icon" href="<?= asset_url((string)Config::get(Config::KEY_AGENCY_FAVICON)) ?>">
+    <!-- 🧠 اسکریپت پنل در هد بارگذاری می‌شود تا حتی اگر رندر صفحه وسط کار قطع شود،
+         منو و تعاملات پایه (toggleSidebar و ...) همچنان کار کنند -->
+    <script src="<?= asset_ver('assets/js/admin.js') ?>" defer></script>
 </head>
 <body>
 <div class="layout">

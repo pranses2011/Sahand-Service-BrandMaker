@@ -279,7 +279,7 @@ try {
         default:
             json_response(['success' => false, 'error' => 'مرحله نامعتبر'], 400);
     }
-} catch (Exception $e) {
+} catch (Throwable $e) {
     Logger::error('خطای مرحله ' . $step . ' ساخت برند ' . $brandId, ['message' => $e->getMessage()]);
     // بازگشت به وضعیت پیش‌نویس برای امکان تلاش مجدد
     $db->update('brands', ['status' => 'draft'], 'id = ?', [$brandId]);

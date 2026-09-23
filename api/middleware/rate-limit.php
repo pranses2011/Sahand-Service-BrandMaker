@@ -25,7 +25,7 @@ function api_rate_limit(): bool
     if (random_int(1, 50) === 1) {
         try {
             $db->delete('rate_limits', 'expires_at < NOW()');
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             // بی‌صدا
         }
     }
@@ -55,7 +55,7 @@ function api_rate_limit(): bool
                 ]);
             }
         }
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         // خطای دیتابیس نباید مانع سرویس‌دهی شود
     }
     return true;

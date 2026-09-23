@@ -174,7 +174,7 @@ $aiHandler = function (string $method) {
         try {
             $result = $ai->{$method}($input);
             json_response(['success' => true, 'data' => $result]);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             json_response(['success' => false, 'error' => $e->getMessage()], 400);
         }
     };
@@ -205,7 +205,7 @@ $router->add('GET', 'ai/knowledge/stats', function () {
 $router->add('GET', 'ai/knowledge/{brand}', function ($p) {
     try {
         json_response(['success' => true, 'data' => (new SahandAI())->knowledge($p['brand'])]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         json_response(['success' => false, 'error' => $e->getMessage()], 404);
     }
 });
@@ -219,7 +219,7 @@ $router->add('GET', 'ai/diagnostics', function () {
 $router->add('GET', 'ai/diagnostics/{device}', function ($p) {
     try {
         json_response(['success' => true, 'data' => (new SahandAI())->deviceDiagnostics($p['device'])]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         json_response(['success' => false, 'error' => $e->getMessage()], 404);
     }
 });
@@ -230,7 +230,7 @@ $router->add('GET', 'ai/seasonal', function () {
 $router->add('GET', 'ai/seasonal/{month}', function ($p) {
     try {
         json_response(['success' => true, 'data' => (new SahandAI())->seasonal(['month' => $p['month']])]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         json_response(['success' => false, 'error' => $e->getMessage()], 404);
     }
 });
@@ -240,7 +240,7 @@ $router->add('GET', 'ai/parts', function () {
 $router->add('GET', 'ai/parts/{key}', function ($p) {
     try {
         json_response(['success' => true, 'data' => (new SahandAI())->parts(['key' => $p['key']])]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         json_response(['success' => false, 'error' => $e->getMessage()], 404);
     }
 });

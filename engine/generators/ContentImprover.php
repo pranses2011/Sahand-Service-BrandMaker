@@ -288,7 +288,7 @@ class ContentImprover
                 $seed = 'improve_len|' . TextProcessor::contentHash($content) . '|' . $round;
                 $lines = TextProcessor::seededPickMany($pick, min(3, count($pick)), $seed);
                 $extra = 'برای عملکرد بهتر و افزایش عمر دستگاه، رعایت این نکات توصیه می‌شود: '
-                    . implode('؛ ', array_map(fn($t) => rtrim($t, '.،') . ' است', $lines)) . '.';
+                    . implode('؛ ', array_map(fn($t) => mb_rtrim($t, '.،') . ' است', $lines)) . '.';
             }
         }
 

@@ -57,7 +57,8 @@ try {
 
     // 🤖 وضعیت موتور AI
     $aiStats = (new SahandAI())->engineStats();
-} catch (Exception $e) {
+} catch (Throwable $e) {
+    // ⚠️ از ۲.۴.۱: Throwable (شامل Error) گرفته می‌شود تا خطای موتور AI هرگز صفحه را خالی نکند
     echo '<div class="alert alert-danger">⚠️ خطای بارگذاری آمار: ' . e($e->getMessage()) . '</div>';
     $stats = $topBrands = $recentRequests = $activities = $visitsChart = [];
     $aiStats = [];

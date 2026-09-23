@@ -66,8 +66,8 @@ class KeywordAnalyzer
 
         // بی‌گرام‌ها
         for ($i = 0; $i < count($words) - 1; $i++) {
-            $w1 = trim($words[$i], '،.');
-            $w2 = trim($words[$i + 1], '،.');
+            $w1 = mb_trim($words[$i], '،.');
+            $w2 = mb_trim($words[$i + 1], '،.');
             if (mb_strlen($w1) < 3 || mb_strlen($w2) < 3) {
                 continue;
             }
@@ -77,9 +77,9 @@ class KeywordAnalyzer
 
         // سه‌گرام‌ها
         for ($i = 0; $i < count($words) - 2; $i++) {
-            $w1 = trim($words[$i], '،.');
-            $w2 = trim($words[$i + 1], '،.');
-            $w3 = trim($words[$i + 2], '،.');
+            $w1 = mb_trim($words[$i], '،.');
+            $w2 = mb_trim($words[$i + 1], '،.');
+            $w3 = mb_trim($words[$i + 2], '،.');
             if (mb_strlen($w1) < 3 || mb_strlen($w3) < 3 || mb_strlen($w2) < 2) {
                 continue;
             }

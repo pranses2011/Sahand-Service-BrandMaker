@@ -20,12 +20,12 @@
  *   🔌 API داخلی (routes در api/index.php)
  *
  * @package SahandBrandMaker\Engine
- * @version 3.3.0
+ * @version 3.4.1
  */
 class SahandAI
 {
     /** 🔖 نسخه موتور */
-    public const ENGINE_VERSION = '3.4.0';
+    public const ENGINE_VERSION = '3.4.1'; // هات‌فیکس: رفع متد تکراری + نگارش‌گر چندبایتی-امن
 
     /** @var Database دیتابیس */
     private $db;
@@ -449,7 +449,7 @@ class SahandAI
                 'seo_title'       => $article['seo']['title'] ?? '',
                 'seo_description' => $article['seo']['description'] ?? '',
             ])['score'];
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $seoScore = (int)($article['quality']['score'] ?? 0);
         }
 
@@ -941,22 +941,6 @@ class SahandAI
             throw new RuntimeException('پارامتر query الزامی است.');
         }
         return (new WebSearchService())->search($query, (int)($params['limit'] ?? 0));
-    }
-
-    /**
-     * 🧪 تحقیق ساختاریافته آنلاین — POST /api/ai/research
-     * پارامترها: topic (الزامی)، fetch_pages، limit
-     */
-    public function researchTopic(array $params): array
-    {
-        $topic = trim((string)($params['topic'] ?? ''));
-        if ($topic === '') {
-            throw new RuntimeException('پارامتر topic الزامی است.');
-        }
-        return (new WebSearchService())->research($topic, [
-            'fetch_pages' => !empty($params['fetch_pages']),
-            'limit'       => (int)($params['limit'] ?? 8),
-        ]);
     }
 
     /**

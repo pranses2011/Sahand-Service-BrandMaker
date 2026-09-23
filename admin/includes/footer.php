@@ -14,6 +14,6 @@
     </div><!-- /main -->
 </div><!-- /layout -->
 
-<script src="<?= asset_ver('assets/js/admin.js') ?>"></script>
+<!-- admin.js از نسخه ۲.۴.۱ در هدر با defer بارگذاری می‌شود تا منو حتی در صورت خطای رندر کار کند -->
 </body>
 </html>

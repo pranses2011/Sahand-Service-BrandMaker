@@ -89,13 +89,75 @@ function is_valid_email(string $email): bool
 
 /**
  * 📤 پاسخ JSON استاندارد API
+ * ضدخرابی: اگر داده‌های دیتابیس حاوی UTF-8 نامعتبر باشند json_encode
+ * شکست می‌خورد و خروجی خالی می‌شد (خطای «Unexpected end of JSON input»
+ * در مرورگر) — حالا کاراکترهای نامعتبر جایگزین و همیشه JSON معتبر
+ * برمی‌گردد.
  */
 function json_response(array $data, int $status = 200): void
 {
     http_response_code($status);
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
+    // JSON_INVALID_UTF8_SUBSTITUTE از PHP ۷.۲ — جایگزینی نویسه‌های نامعتبر UTF-8
+    if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
+        $flags |= JSON_INVALID_UTF8_SUBSTITUTE;
+    }
+    $json = json_encode($data, $flags);
+    if ($json === false) {
+        // آخرین سد دفاعی — همیشه JSON معتبر برگردان
+        $json = '{"success":false,"error":"خطای ساخت پاسخ JSON از داده‌های سرور"}';
+    }
+    echo $json;
     exit;
+}
+
+/**
+ * ✂️ برش کاراکترها از دو سر رشته — چندبایتی-امن (Unicode-safe)
+ *
+ * ⚠️ تابع trim() استاندارد PHP بایت-محور است: اگر فهرست کاراکترها شامل
+ * علائم فارسی مثل «،» (D8 8C) یا «؛» (D8 9B) باشد، بایت نخستِ حروف
+ * فارسیِ دارای پیشوند D8 (ا، ب، ت، د، ر، س، ش، ...) هم بریده می‌شود و
+ * رشته UTF-8 نامعتبر می‌سازد. این نسخه با کار روی نویسه‌ها (نه بایت‌ها)
+ * این خرابی را ندارد.
+ */
+function mb_trim(string $text, string $chars = " \t\n\r\0\x0B\u{00A0}"): string
+{
+    if ($chars === '' || $text === '') {
+        return $text;
+    }
+    $alt = mb_char_alternation($chars);
+    return preg_replace('/^(?:' . $alt . ')+/u', '', preg_replace('/(?:' . $alt . ')+$/u', '', $text)) ?? $text;
+}
+
+/**
+ * ✂️ برش کاراکترها از انتهای رشته — چندبایتی-امن
+ */
+function mb_rtrim(string $text, string $chars = " \t\n\r\0\x0B\u{00A0}"): string
+{
+    if ($chars === '' || $text === '') {
+        return $text;
+    }
+    return preg_replace('/(?:' . mb_char_alternation($chars) . ')+$/u', '', $text) ?? $text;
+}
+
+/**
+ * 🔧 ساخت الگوی جایگزینی کاراکترها برای mb_trim/mb_rtrim
+ */
+function mb_char_alternation(string $chars): string
+{
+    $parts = [];
+    $len = mb_strlen($chars);
+    for ($i = 0; $i < $len; $i++) {
+        $parts[] = preg_quote(mb_substr($chars, $i, 1), '/');
+    }
+    // طولانی‌ترین اول تا ترکیب‌های چندنویسه‌ای کامل تطبیق شوند
+    usort($parts, function ($a, $b) {
+        return strlen($b) <=> strlen($a);
+    });
+    return implode('|', $parts);
 }
 
 /**

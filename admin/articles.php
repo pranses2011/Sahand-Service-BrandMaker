@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'generate') {
         $id = $ai->saveArticle((int)post('brand_id'), $article, post('topic_type') ?: 'troubleshooting');
         flash('success', '🤖 مقاله تولید شد: «' . $article['title'] . '» (' . $article['word_count'] . ' کلمه)');
         redirect('articles.php?edit=' . $id);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         flash('danger', 'خطای تولید: ' . $e->getMessage());
         redirect('articles.php?generate=1');
     }
@@ -101,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'suggest_titles'
         }
         $titleGen = new TitleGenerator();
         json_response(['success' => true, 'data' => $titleGen->suggestForCustom($customTitle, $context, 8)]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         json_response(['success' => false, 'error' => $e->getMessage()], 400);
     }
 }
@@ -129,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'improve_seo') {
         (new Cache())->delete('brand_articles_all');
         unset($result['content']);
         json_response(['success' => true, 'data' => $result]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         json_response(['success' => false, 'error' => $e->getMessage()], 400);
     }
 }
@@ -468,7 +468,7 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
 
             fetch('articles.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrf ? csrf.value : '' },
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrf ? csrf.value : '', 'X-Requested-With': 'XMLHttpRequest' },
                 body: body.toString(),
                 credentials: 'same-origin'
             }).then(function (r) { return r.json(); }).then(function (res) {
@@ -537,7 +537,7 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
 
         fetch('articles.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrf ? csrf.value : '' },
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrf ? csrf.value : '', 'X-Requested-With': 'XMLHttpRequest' },
             body: body.toString(),
             credentials: 'same-origin'
         }).then(function (r) { return r.json(); }).then(function (res) {

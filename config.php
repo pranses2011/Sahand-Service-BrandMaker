@@ -19,7 +19,7 @@ if (!defined('SAHAND_INIT')) {
 /* --------------------------------------------------
  * 🌍 تنظیمات عمومی
  * -------------------------------------------------- */
-define('SAHAND_VERSION', '2.4.0');              // نسخه سیستم
+define('SAHAND_VERSION', '2.4.1');              // نسخه سیستم (هات‌فیکس ۲.۴.۱ — رفع باگ‌های حیاتی گزارش‌شده)
 define('SAHAND_NAME_FA', 'سایت ساز برند سهند سرویس'); // نام فارسی سیستم
 define('SAHAND_NAME_EN', 'Sahand BrandMaker');   // نام انگلیسی سیستم
 date_default_timezone_set('Asia/Tehran');        // ⏰ منطقه زمانی ایران
@@ -101,6 +101,34 @@ spl_autoload_register(function ($className) {
 });
 
 /* --------------------------------------------------
+ * 🔗 پلی‌فیل توابع PHP ۸ برای سرورهای PHP ۷.۴+
+ * (str_contains و هم‌خانواده‌هایش فقط در PHP ۸+ تعریف شده‌اند)
+ * -------------------------------------------------- */
+if (PHP_VERSION_ID < 80000) {
+    if (!function_exists('str_contains')) {
+        function str_contains(string $haystack, string $needle): bool
+        {
+            return $needle === '' || mb_strpos($haystack, $needle) !== false;
+        }
+    }
+    if (!function_exists('str_starts_with')) {
+        function str_starts_with(string $haystack, string $needle): bool
+        {
+            return $needle === '' || mb_strpos($haystack, $needle) === 0;
+        }
+    }
+    if (!function_exists('str_ends_with')) {
+        function str_ends_with(string $haystack, string $needle): bool
+        {
+            if ($needle === '') {
+                return true;
+            }
+            return mb_substr($haystack, -mb_strlen($needle)) === $needle;
+        }
+    }
+}
+
+/* --------------------------------------------------
  * 🧰 بارگذاری توابع کمکی عمومی (helpers)
  * شامل: تاریخ جلالی، اعداد فارسی، اعتبارسنجی و ...
  * -------------------------------------------------- */
@@ -142,11 +170,20 @@ set_exception_handler(function ($e) {
         http_response_code(500);
         echo '<pre dir="ltr">⚠ ' . htmlspecialchars((string)$e) . '</pre>';
     } else {
-        // پاسخ مناسب برای API یا صفحات
-        if (strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false) {
-            header('Content-Type: application/json; charset=utf-8');
+        // 🎯 تشخیص درخواست AJAX: اندپوینت API یا هدر X-Requested-With
+        $isAjax = strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false
+            || (isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+                && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
+        if ($isAjax) {
+            // پاسخ JSON برای درخواست‌های ای‌جکس (رفع خطای «Unexpected token '<'» در مرورگر)
+            if (!headers_sent()) {
+                header('Content-Type: application/json; charset=utf-8');
+            }
             http_response_code(500);
-            echo json_encode(['success' => false, 'error' => 'خطای داخلی سرور'], JSON_UNESCAPED_UNICODE);
+            echo json_encode([
+                'success' => false,
+                'error'   => 'خطای داخلی سرور: ' . mb_substr($e->getMessage(), 0, 200),
+            ], JSON_UNESCAPED_UNICODE);
         } else {
             http_response_code(500);
             echo '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><body style="font-family:Tahoma;background:#f5f5f5;display:flex;align-items:center;justify-content:center;height:100vh"><div style="text-align:center"><h2>⚠ خطای داخلی سرور</h2><p>لطفاً بعداً تلاش کنید یا با مدیر تماس بگیرید.</p></div></body></html>';

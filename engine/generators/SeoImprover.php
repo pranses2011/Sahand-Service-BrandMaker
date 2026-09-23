@@ -353,10 +353,11 @@ class SeoImprover
         }
         try {
             $analyzer = new KeywordAnalyzer();
-            foreach (array_slice($analyzer->extract($content, 8), 0, 6) as $kw) {
+            // ✂️ حذف تگ‌های HTML قبل از استخراج کلیدواژه (وگرنه «</p>» و «href=» کلیدواژه می‌شوند!)
+            foreach (array_slice($analyzer->extract(strip_tags($content), 8), 0, 6) as $kw) {
                 $seoKeywords[] = $kw['keyword'];
             }
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             // تحلیل کلیدواژه اختیاری است
         }
         $seoKeywords = array_values(array_unique(array_filter($seoKeywords)));
@@ -437,7 +438,7 @@ class SeoImprover
                 $t = $best['title'];
                 return mb_strlen($t) > 65 ? mb_substr($t, 0, 62) . '…' : $t;
             }
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             // fallback
         }
         // ساخت دستی: عنوان + کلیدواژه اگر کم است
@@ -457,7 +458,7 @@ class SeoImprover
         $sentences = TextProcessor::sentenceSplit($text);
         $desc = '';
         foreach ($sentences as $s) {
-            $candidate = trim($s, " \t\n\r،؛.");
+            $candidate = mb_trim($s, " \t\n\r،؛.");
             if (mb_strlen($candidate) < 25) {
                 continue;
             }

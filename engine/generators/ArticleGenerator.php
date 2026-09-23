@@ -155,7 +155,7 @@ class ArticleGenerator
                         $researchTags[] = $kw;
                     }
                 }
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 // شکست تحقیق نباید تولید مقاله را متوقف کند
                 $webResearch = null;
             }
@@ -236,7 +236,7 @@ class ArticleGenerator
                     $device['name_fa'] ?? ''
                 );
                 $content = $imageService->injectIntoContent($content, $images);
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 $images = []; // شکست تصویر نباید مقاله را متوقف کند
             }
         }

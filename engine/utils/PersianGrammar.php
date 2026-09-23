@@ -257,23 +257,22 @@ class PersianGrammar
         $out = [];
         foreach ($sentences as $sentence) {
             $trimmed = trim($sentence);
-            $first = mb_strtok($trimmed, ' ');
-            $firstClean = trim($first ?? '', "،؛.!؟: \n\t");
+            $first = explode(' ', $trimmed, 2)[0] ?? '';
+            $firstClean = mb_trim($first, "،؛.!؟: \n\t");
             if ($firstClean !== '' && isset($map[$firstClean])) {
                 // آخرین واژه‌های جمله — فعل فارسی در انتهاست
                 $words = preg_split('/\s+/u', $trimmed, -1, PREG_SPLIT_NO_EMPTY) ?: [];
                 $n = count($words);
                 if ($n >= 3) {
                     // بررسی دو واژه آخر برای فعل‌های مرکب («شده است»، «خواهد بود»)
-                    $last1 = trim($words[$n - 1], "،؛.!؟:");
-                    $last2 = isset($words[$n - 2]) ? trim($words[$n - 2], "،؛.!؟:") . ' ' . $last1 : '';
-                    $punct = $last1 !== $words[$n - 1] ? mb_substr($words[$n - 1], -1) : '';
+                    $last1 = mb_trim($words[$n - 1], "،؛.!؟:");
+                    $last2 = isset($words[$n - 2]) ? mb_trim($words[$n - 2], "،؛.!؟:") . ' ' . $last1 : '';
                     foreach ([$last2, $last1] as $verbForm) {
                         if ($verbForm !== '' && isset($map[$firstClean][$verbForm])) {
                             $correct = $map[$firstClean][$verbForm];
-                            $replacement = $correct . ($punct !== '' ? $punct : '');
-                            $oldTail = $verbForm . ($punct !== '' ? $punct : '');
-                            $newSentence = preg_replace('/' . preg_quote($verbForm, '/') . '(?=[\p{P}\s]*$)/u', $replacement, $trimmed, 1);
+                            // lookahead علائم انتهای جمله را دست‌نخورده نگه می‌دارد؛
+                            // نقطه/علامت دوباره الحاق نمی‌شود (رفع باگ «می‌دهیم..»)
+                            $newSentence = preg_replace('/' . preg_quote($verbForm, '/') . '(?=[\p{P}\s]*$)/u', $correct, $trimmed, 1);
                             if ($newSentence !== null && $newSentence !== $trimmed) {
                                 $details[] = ['subject' => $firstClean, 'verb' => $verbForm, 'correct' => $correct];
                                 $sentence = $newSentence;
@@ -308,7 +307,7 @@ class PersianGrammar
             $subject = null;
             $subjectIdx = -1;
             foreach (array_slice($words, 0, 4, true) as $idx => $w) {
-                $clean = trim($w, "،؛:!؟.");
+                $clean = mb_trim($w, "،؛:!؟.");
                 if (isset($map[$clean])) {
                     $subject = $clean;
                     $subjectIdx = $idx;
@@ -319,8 +318,8 @@ class PersianGrammar
                 continue;
             }
             // فعل مفرد در پایان؟
-            $last1 = trim($words[$n - 1], "،؛.!؟:");
-            $last2 = isset($words[$n - 2]) ? trim($words[$n - 2], "،؛.!؟:") . ' ' . $last1 : '';
+            $last1 = mb_trim($words[$n - 1], "،؛.!؟:");
+            $last2 = isset($words[$n - 2]) ? mb_trim($words[$n - 2], "،؛.!؟:") . ' ' . $last1 : '';
             foreach ([$last2, $last1] as $verbForm) {
                 if ($verbForm !== '' && isset($map[$subject][$verbForm])) {
                     $found[] = [
@@ -385,9 +384,9 @@ class PersianGrammar
         $maxStreak = 1;
         $streakWord = '';
         for ($i = 1; $i < count($sentences); $i++) {
-            $w1 = mb_strtok(trim($sentences[$i - 1]), ' ');
-            $w2 = mb_strtok(trim($sentences[$i]), ' ');
-            if ($w1 !== false && $w2 !== false && $w1 === $w2 && mb_strlen($w1) > 2) {
+            $w1 = explode(' ', trim($sentences[$i - 1]), 2)[0] ?? '';
+            $w2 = explode(' ', trim($sentences[$i]), 2)[0] ?? '';
+            if ($w1 !== '' && $w1 === $w2 && mb_strlen($w1) > 2) {
                 $streak++;
                 $streakWord = $w1;
                 $maxStreak = max($maxStreak, $streak);
@@ -454,12 +453,13 @@ class PersianGrammar
         $text = preg_replace('/(?<![\p{L}' . $z . '])بی +(?=[\p{L}]{3,})/u', 'بی' . $z, $text) ?? $text;
 
         // ۳) پسوند ها — «کتاب ها» → «کتاب‌ها» (واژه حداقل ۲ حرف؛ «ها» مستقل نامعتبر)
-        $text = preg_replace('/(?<=[\p{L}]{2,}) +ها(?![\p{L}])/u', $z . 'ها', $text) ?? $text;
+        // ⚠️ PCRE از lookbehind با طول متغیر پشتیبانی نمی‌کند؛ به‌جای آن از گروه گیرنده استفاده شد
+        $text = preg_replace('/([\p{L}]{2,}) +ها(?![\p{L}])/u', '$1' . $z . 'ها', $text) ?? $text;
         // «Xهای» غلط تعبیری نیست؛ حفظ
 
         // ۴) پسوند تر/ترین — «بزرگ تر» → «بزرگ‌تر» (با پرهیز از ایست‌واژه‌ها)
-        $text = preg_replace('/(?<=[\p{L}]{3,}) +تر(?![\p{L}])/u', $z . 'تر', $text) ?? $text;
-        $text = preg_replace('/(?<=[\p{L}]{3,}) +ترین(?![\p{L}])/u', $z . 'ترین', $text) ?? $text;
+        $text = preg_replace('/([\p{L}]{3,}) +تر(?![\p{L}])/u', '$1' . $z . 'تر', $text) ?? $text;
+        $text = preg_replace('/([\p{L}]{3,}) +ترین(?![\p{L}])/u', '$1' . $z . 'ترین', $text) ?? $text;
 
         // ۵) پسوند «ای» پس از «ه» — «خانه ای» → «خانه‌ای»
         $text = preg_replace('/(?<=ه) +ای(?![\p{L}])/u', $z . 'ای', $text) ?? $text;
@@ -468,11 +468,11 @@ class PersianGrammar
         $text = preg_replace('/(?<=ه) +ی +(?=[\p{L}])/u', $z . 'ی ', $text) ?? $text;
 
         // ۷) پسوند ساز — «بهینه سازی» → «بهینه‌سازی»
-        $text = preg_replace('/(?<=[\p{L}]{3,}) +سازی(?![\p{L}])/u', $z . 'سازی', $text) ?? $text;
+        $text = preg_replace('/([\p{L}]{3,}) +سازی(?![\p{L}])/u', '$1' . $z . 'سازی', $text) ?? $text;
 
         // ۸) پسوند کننده/شونده — «خنک کننده» → «خنک‌کننده»
-        $text = preg_replace('/(?<=[\p{L}]{3,}) +کننده(?![\p{L}])/u', $z . 'کننده', $text) ?? $text;
-        $text = preg_replace('/(?<=[\p{L}]{3,}) +شونده(?![\p{L}])/u', $z . 'شونده', $text) ?? $text;
+        $text = preg_replace('/([\p{L}]{3,}) +کننده(?![\p{L}])/u', '$1' . $z . 'کننده', $text) ?? $text;
+        $text = preg_replace('/([\p{L}]{3,}) +شونده(?![\p{L}])/u', '$1' . $z . 'شونده', $text) ?? $text;
 
         if ($text !== $before) {
             $stats['zwnj']++;
