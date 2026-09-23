@@ -19,7 +19,7 @@ if (!defined('SAHAND_INIT')) {
 /* --------------------------------------------------
  * 🌍 تنظیمات عمومی
  * -------------------------------------------------- */
-define('SAHAND_VERSION', '2.5.0');              // نسخه سیستم (۲.۵.۰ — کپچای مقاوم + اسکیل UI/UX Pro + بهینه PHP 8.3)
+define('SAHAND_VERSION', '2.6.0');              // نسخه سیستم (۲.۶.۰ — خطایاب AI + یادگیری AI + تصاویر AI + ربات بله + کادرهای تعاملی)
 define('SAHAND_NAME_FA', 'سایت ساز برند سهند سرویس'); // نام فارسی سیستم
 define('SAHAND_NAME_EN', 'Sahand BrandMaker');   // نام انگلیسی سیستم
 date_default_timezone_set('Asia/Tehran');        // ⏰ منطقه زمانی ایران
@@ -221,6 +221,50 @@ set_exception_handler(function ($e) {
     }
     exit;
 });
+
+/* --------------------------------------------------
+ * 🗃️ مهاجرت خودکار سبک دیتابیس (v2.6+)
+ * ستون‌های جدید بدون نیاز به اجرای SQL دستی اضافه می‌شوند؛
+ * فقط یک بار (با نشانگر cache/.schema_v26) اجرا می‌شود.
+ * -------------------------------------------------- */
+if (!defined('SAHAND_NO_DB_MIGRATE')) {
+    try {
+        $migrateMarker = ROOT_PATH . '/cache/.schema_v26';
+        if (!file_exists($migrateMarker)) {
+            $pdo = Database::getInstance()->pdo();
+            // 🆕 v2.6: ستون تصویر OG مقاله
+            $cols = $pdo->query("SHOW COLUMNS FROM `brand_articles` LIKE 'og_image'")->fetchAll();
+            if (empty($cols)) {
+                $pdo->exec("ALTER TABLE `brand_articles` ADD COLUMN `og_image` VARCHAR(500) NULL COMMENT 'تصویر OG تولیدی AI' AFTER `featured_image`");
+            }
+            // 🆕 v2.6: ستون‌های ۱۴ فیلدی کدهای خطا
+            $ecCols = [
+                ['subtype', "VARCHAR(255) NULL COMMENT 'زیرنوع دستگاه'"],
+                ['models', "JSON NULL COMMENT 'مدل‌های دارای این کد'"],
+                ['category', "VARCHAR(100) NULL COMMENT 'نوع خطا (سنسور/موتور/برد/...)'"],
+                ['related_part', "VARCHAR(255) NULL COMMENT 'قطعه مربوطه'"],
+                ['tech_specs', "TEXT NULL COMMENT 'مشخصات فنی قطعه'"],
+                ['part_location', "VARCHAR(500) NULL COMMENT 'محل قرارگیری قطعه'"],
+                ['source', "VARCHAR(50) NULL COMMENT 'منبع: kb|web|manual'"],
+                ['source_urls', "JSON NULL COMMENT 'منابع آنلاین استخراج'"],
+            ];
+            foreach ($ecCols as [$col, $def]) {
+                $exists = $pdo->query("SHOW COLUMNS FROM `error_codes` LIKE '" . $col . "'")->fetchAll();
+                if (empty($exists)) {
+                    $pdo->exec("ALTER TABLE `error_codes` ADD COLUMN `" . $col . "` " . $def);
+                }
+            }
+            // 🆕 v2.6: سطح اهمیت «اطلاعاتی» برای کدهای خطا
+            $sevCol = $pdo->query("SHOW COLUMNS FROM `error_codes` LIKE 'severity'")->fetch();
+            if ($sevCol && stripos((string)($sevCol['Type'] ?? ''), 'informational') === false) {
+                $pdo->exec("ALTER TABLE `error_codes` MODIFY `severity` ENUM('low','medium','high','critical','informational') NOT NULL DEFAULT 'medium'");
+            }
+            @file_put_contents($migrateMarker, date('Y-m-d H:i:s'));
+        }
+    } catch (Throwable $schemaE) {
+        // نصب تازه (install.php) یا دسترسی محدود — بی‌صدا رد می‌شود
+    }
+}
 
 /* --------------------------------------------------
  * 🕐 شروع امن نشست (Session)

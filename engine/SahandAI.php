@@ -472,6 +472,42 @@ class SahandAI
             'seo_score'       => $seoScore,
         ]);
 
+        /* 🎨 v2.6: تصاویر یکتای AI (۲ تصویر درون‌متن) + تصویر OG مرتبط با همین مقاله
+         * پس از ثبت (شناسه نهایی موجود است) تولید و محتوا غنی‌سازی می‌شود */
+        $ogImage = null;
+        if (!empty($article['ai_images_wanted'])) {
+            try {
+                $aiGen = new AiImageGenerator();
+                $aiResult = $aiGen->generateForArticle(
+                    $articleId,
+                    $article['title'],
+                    (string)($article['device_key'] ?? ''),
+                    $topicType,
+                    $this->db->fetch('SELECT * FROM brands WHERE id = ?', [$brandId]) ?: ['name_fa' => '', 'extra_settings' => ''],
+                    $article['focus_keyword'] ?? ''
+                );
+                $ogImage = $aiResult['og']['path'] ?? null;
+                if (!empty($aiResult['images'])) {
+                    $injector = new ArticleImageService();
+                    $richContent = $injector->injectIntoContent($article['content'], array_merge(
+                        array_slice($article['images'] ?? [], 0, 1), // بنر شاخص از بسته واقعی
+                        $aiResult['images']                          // + ۲ تصویر یکتای AI
+                    ), true);
+                    $this->db->update('brand_articles', ['content' => $richContent], 'id = ?', [$articleId]);
+                }
+            } catch (Throwable $e) {
+                // شکست تصویر AI هرگز مقاله را متوقف نمی‌کند
+                @error_log('[AiImageGenerator] article ' . $articleId . ': ' . $e->getMessage());
+            }
+        }
+        if ($ogImage) {
+            try {
+                $this->db->update('brand_articles', ['og_image' => $ogImage], 'id = ?', [$articleId]);
+            } catch (Throwable $e) {
+                @error_log('[AiImageGenerator] og_image save: ' . $e->getMessage());
+            }
+        }
+
         // ثبت در زمان‌بندی در صورت تاریخ انتشار آینده
         if (!empty($article['publish_at'])) {
             $this->db->insert('scheduled_posts', [

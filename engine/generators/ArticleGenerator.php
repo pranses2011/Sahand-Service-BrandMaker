@@ -241,6 +241,12 @@ class ArticleGenerator
             }
         }
 
+        /* ---------- ۳.۸) 🎨 تصاویر یکتای AI + تصویر OG (v2.6) ----------
+         * برای هر مقاله: ۲ تصویر یکتای AI (SVG بذری — هیچ دو مقاله‌ای یکی نیست)
+         * + تصویر OG مرتبط با موضوع همان مقاله. فایل‌ها پس از ثبت مقاله
+         * (با شناسه نهایی) تولید می‌شوند؛ اینجا فقط علامت می‌دهیم. */
+        $aiImagesWanted = !empty($options['with_images']);
+
         /* ---------- ۴️⃣ لینک‌دهی داخلی ---------- */
         $content = $this->addInternalLinks($content, $brand, $device);
 
@@ -325,6 +331,8 @@ class ArticleGenerator
             ],
             'faqs'       => $faqs,
             'images'     => $images, // 🆕 فاز Q.8: ۳ تصویر (featured/inline_mid/inline_end)
+            'ai_images_wanted' => $aiImagesWanted, // 🆕 v2.6: درخواست ۲ تصویر یکتای AI + OG پس از ثبت
+            'device_key' => $device['device_key'] ?? '', // 🆕 v2.6: برای مولد تصویر AI
             'research'   => $webResearch ? [
                 'used'      => true,
                 'provider'  => $webResearch['provider'] ?? '',

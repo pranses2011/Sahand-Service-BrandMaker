@@ -45,12 +45,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save') {
         'excerpt'         => post('excerpt'),
         'seo_title'       => post('seo_title') ?: null,
         'seo_description' => post('seo_description') ?: null,
+        'og_image'        => trim((string)post('og_image')) ?: null, /* 🆕 v2.6: OG قابل ویرایش/تعویض */
         'tags'            => json_encode(array_filter(array_map('trim', explode('،', post('tags')))), JSON_UNESCAPED_UNICODE),
         'updated_at'      => date('Y-m-d H:i:s'),
     ], 'id = ?', [$id]);
     (new Cache())->delete('brand_articles_all');
     flash('success', '✅ مقاله ذخیره شد.');
     redirect('articles.php?edit=' . $id);
+}
+
+/* 🎨 تولید OG با AI (v2.6 — AJAX) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'gen_og') {
+    Auth::enforceCsrf();
+    header('Content-Type: application/json; charset=utf-8');
+    try {
+        $id = (int)post('article_id');
+        $article = $db->fetch('SELECT a.*, b.name_fa AS brand_name, b.extra_settings FROM brand_articles a JOIN brands b ON b.id = a.brand_id WHERE a.id = ?', [$id]);
+        if (!$article) {
+            json_response(['success' => false, 'error' => 'مقاله یافت نشد.'], 404);
+        }
+        $brand = ['name_fa' => $article['brand_name'] ?? '', 'extra_settings' => $article['extra_settings'] ?? ''];
+        $gen = new AiImageGenerator();
+        /* بذر متفاوت با هر بار کلیک → هر تولید یک ترکیب جدید */
+        $og = $gen->generateOgForPage('article', $article['title'], $brand, 'article-' . $id . '-' . substr((string)time(), -5));
+        $db->update('brand_articles', ['og_image' => $og['path']], 'id = ?', [$id]);
+        json_response(['success' => true, 'data' => [
+            'path' => $og['path'],
+            'url'  => asset_url($og['path']) . '?t=' . time(),
+            'format' => $og['format'] ?? 'svg',
+        ]]);
+    } catch (Throwable $e) {
+        json_response(['success' => false, 'error' => $e->getMessage()], 400);
+    }
+}
+
+/* 🖼️ تولید مجدد ۲ تصویر یکتای AI مقاله (v2.6) */
+if (get_param('regen_images') === '1' && ($regenId = (int)get_param('edit')) > 0) {
+    $article = $db->fetch('SELECT a.*, b.name_fa AS brand_name, b.extra_settings FROM brand_articles a JOIN brands b ON b.id = a.brand_id WHERE a.id = ?', [$regenId]);
+    if ($article) {
+        try {
+            $brand = ['name_fa' => $article['brand_name'] ?? '', 'extra_settings' => $article['extra_settings'] ?? ''];
+            $gen = new AiImageGenerator();
+            $aiImages = $gen->generateForArticle(
+                $regenId,
+                $article['title'],
+                '',
+                'troubleshooting',
+                $brand,
+                ''
+            );
+            /* درج ۲ تصویر تازه در انتهای محتوا (تصاویر قبلی حفظ می‌شوند) */
+            $injector = new ArticleImageService();
+            $rich = $injector->injectIntoContent($article['content'], $aiImages['images']);
+            $db->update('brand_articles', ['content' => $rich, 'og_image' => $aiImages['og']['path']], 'id = ?', [$regenId]);
+            (new Cache())->delete('brand_articles_all');
+            flash('success', '🎨 ۲ تصویر یکتای AI + تصویر OG جدید برای این مقاله تولید و درج شد.');
+        } catch (Throwable $e) {
+            flash('danger', 'خطای تولید تصویر AI: ' . $e->getMessage());
+        }
+    }
+    redirect('articles.php?edit=' . $regenId);
 }
 
 /* 🤖 تولید مقاله با AI */
@@ -251,6 +305,22 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
                     <label>متا توضیحات</label>
                     <input type="text" name="seo_description" class="form-control" value="<?= e($editArticle['seo_description'] ?? '') ?>">
                 </div>
+            </div>
+
+            <?php $ogImage = (string)($editArticle['og_image'] ?? ''); ?>
+            <div class="form-group">
+                <label>📌 تصویر OG مقاله (شبکه‌های اجتماعی — ۱۲۰۰×۶۳۰)</label>
+                <?php if ($ogImage !== ''): ?>
+                    <img id="og-preview" src="<?= e(asset_url($ogImage)) ?>" alt="پیش‌نمایش OG" style="max-width:340px;border-radius:11px;border:1px solid var(--border);display:block;margin-bottom:9px">
+                <?php else: ?>
+                    <img id="og-preview" src="" alt="" style="display:none;max-width:340px;border-radius:11px;border:1px solid var(--border);margin-bottom:9px">
+                <?php endif; ?>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                    <input type="text" name="og_image" class="form-control" style="direction:ltr;text-align:left;flex:1;min-width:230px" value="<?= e($ogImage) ?>" placeholder="مسیر یا URL تصویر OG (خالی = بدون OG)">
+                    <button type="button" id="btn-gen-og" class="btn btn-success btn-sm" title="تصویر OG یکتای مرتبط با همین مقاله با AI ساخته می‌شود">🎨 تولید OG با AI</button>
+                    <a href="?edit=<?= (int)$editArticle['id'] ?>&regen_images=1" class="btn btn-outline btn-sm" data-confirm-link="۲ تصویر یکتای AI برای همین مقاله دوباره تولید و در متن درج شوند؟">🖼️ تولید مجدد تصاویر مقاله</a>
+                </div>
+                <div class="hint">🎨 با دکمه «تولید OG با AI» تصویری یکتا و مرتبط با موضوع همین مقاله ساخته می‌شود؛ می‌توانید مسیر را دستی عوض کنید یا فایل خودتان را جایگزین کنید.</div>
             </div>
 
             <?php
@@ -541,6 +611,51 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
             };
             if (window.sahandConfirm) {
                 sahandConfirm({ title: 'بهبود خودکار سئو', message: 'همه اصلاحات سئو به‌صورت خودکار روی این مقاله اعمال و ذخیره شود؟', type: 'question', confirmText: 'بله، بهبود بده', confirmIcon: '🎯' }).then(function (ok) { if (ok) { run(); } });
+            } else { run(); }
+        });
+    }
+
+    /* ---------- 🎨 تولید OG با AI (v2.6) ---------- */
+    var genOgBtn = document.getElementById('btn-gen-og');
+    if (genOgBtn) {
+        genOgBtn.addEventListener('click', function () {
+            var run = function () {
+                var csrf = document.querySelector('input[name="csrf_token"]');
+                var articleId = document.querySelector('input[name="article_id"]');
+                genOgBtn.disabled = true;
+                genOgBtn.textContent = '⏳ در حال ساخت تصویر OG...';
+                var body = new URLSearchParams();
+                body.append('action', 'gen_og');
+                body.append('article_id', articleId ? articleId.value : '0');
+                if (csrf) { body.append('csrf_token', csrf.value); }
+                fetch('articles.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrf ? csrf.value : '', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: body.toString(),
+                    credentials: 'same-origin'
+                }).then(function (r) { return r.json(); }).then(function (res) {
+                    genOgBtn.disabled = false;
+                    genOgBtn.textContent = '🎨 تولید OG با AI';
+                    if (!res.success) {
+                        if (window.sahandToast) { sahandToast({ message: res.error || 'تولید OG ناموفق بود', type: 'danger' }); }
+                        return;
+                    }
+                    var preview = document.getElementById('og-preview');
+                    if (preview) {
+                        preview.src = res.data.url;
+                        preview.style.display = 'block';
+                    }
+                    var input = document.querySelector('input[name="og_image"]');
+                    if (input) { input.value = res.data.path; }
+                    if (window.sahandToast) { sahandToast({ message: 'تصویر OG یکتا ساخته شد — برای ثبت، مقاله را ذخیره کنید', type: 'success', duration: 5000 }); }
+                }).catch(function (err) {
+                    genOgBtn.disabled = false;
+                    genOgBtn.textContent = '🎨 تولید OG با AI';
+                    if (window.sahandToast) { sahandToast({ message: 'خطای ارتباط با سرور: ' + err.message, type: 'danger' }); }
+                });
+            };
+            if (window.sahandConfirm) {
+                sahandConfirm({ title: 'تولید تصویر OG با AI', message: 'تصویر OG یکتای مرتبط با موضوع همین مقاله ساخته و جایگزین فعلی شود؟ (هر بار کلیک = ترکیب بصری جدید)', type: 'question', confirmText: 'بله، بساز', confirmIcon: '🎨' }).then(function (ok) { if (ok) { run(); } });
             } else { run(); }
         });
     }
