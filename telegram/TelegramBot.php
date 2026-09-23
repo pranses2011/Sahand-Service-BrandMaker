@@ -132,7 +132,7 @@ class TelegramBot
      */
     private function apiDirect(string $method, array $params): array
     {
-        $ch = curl_init(TELEGRAM_API_BASE . $this->token . '/' . $method);
+        $ch = curl_init($this->apiBaseUrl() . $this->token . '/' . $method);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST           => true,
@@ -162,6 +162,16 @@ class TelegramBot
     }
 
     /**
+     * 🧭 آدرس پایه API — در subclasses قابل بازنویسی (بله: tapi.bale.ai)
+     * v2.7: قبلاً apiUpload آدرس تلگرام را هاردکد کرده بود و ربات بله موقع
+     * آپلود فایل به api.telegram.org می‌رفت → خطای اتصال. حالا همه مسیرها از همین متد می‌گذرند.
+     */
+    protected function apiBaseUrl(): string
+    {
+        return TELEGRAM_API_BASE;
+    }
+
+    /**
      * 📎 فراخوانی متد Bot API با آپلود فایل (multipart/form-data)
      *
      * @param array $params پارامترهای متد (بدون فایل‌ها)
@@ -172,11 +182,18 @@ class TelegramBot
         if ($this->token === '') {
             throw new RuntimeException('توکن ربات تنظیم نشده است.');
         }
+
+        /* 🌉 v2.7: واسط گوگل فعال است → فایل به‌صورت base64 از سرورهای گوگل عبور می‌کند
+           (قبلاً آپلود مستقیم به تلگرام می‌رفت و در زمان تحریم fail می‌شد) */
+        if (!empty($this->cfg['relay_enabled']) && !empty($this->cfg['relay_url'])) {
+            return $this->apiUploadViaRelay($method, $params, $files);
+        }
+
         $post = $params;
         foreach ($files as $field => $path) {
             $post[$field] = $path instanceof CURLFile ? $path : new CURLFile((string)$path);
         }
-        $ch = curl_init(TELEGRAM_API_BASE . $this->token . '/' . $method);
+        $ch = curl_init($this->apiBaseUrl() . $this->token . '/' . $method);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST           => true,
@@ -196,6 +213,74 @@ class TelegramBot
         $data = json_decode($body, true);
         if (!is_array($data) || empty($data['ok'])) {
             throw new RuntimeException('خطای تلگرام (آپلود): ' . (string)($data['description'] ?? 'نامشخص'));
+        }
+        return $data['result'] ?? [];
+    }
+
+    /**
+     * 🌉 آپلود فایل از طریق واسط گوگل — فایل‌ها base64 می‌شوند و اسکریپت گوگل
+     * آنها را به Blob تبدیل و multipart به تلگرام می‌فرستد (v2.7)
+     */
+    private function apiUploadViaRelay(string $method, array $params, array $files): array
+    {
+        $b64 = [];
+        $names = [];
+        $mimes = [];
+        foreach ($files as $field => $path) {
+            $realPath = $path instanceof CURLFile ? (string)$path->getFilename() : (string)$path;
+            if (!is_file($realPath) || !is_readable($realPath)) {
+                throw new RuntimeException('فایل آپلود یافت نشد: ' . $realPath);
+            }
+            $size = filesize($realPath);
+            if ($size > 8 * 1024 * 1024) {
+                throw new RuntimeException('حجم فایل برای واسط گوگل زیاد است (حداکثر ۸ مگابایت): ' . $realPath);
+            }
+            $b64[$field]    = base64_encode(file_get_contents($realPath));
+            $names[$field]  = basename($realPath);
+            // نام اصلی نمایشی از postname در صورت وجود (CURLFile نام دلخواه می‌پذیرد)
+            if ($path instanceof CURLFile && $path->getPostFilename() !== '') {
+                $names[$field] = (string)$path->getPostFilename();
+            }
+            $mimes[$field]  = $path instanceof CURLFile
+                ? (($path->getMime() ?: 'application/octet-stream'))
+                : (mime_content_type($realPath) ?: 'application/octet-stream');
+        }
+        $payload = [
+            'secret'    => (string)($this->cfg['relay_secret'] ?? ''),
+            'method'    => $method,
+            'token'     => $this->token,
+            'params'    => $params,
+            'files_b64' => $b64,
+            'files_name'=> $names,
+            'files_mime'=> $mimes,
+        ];
+        $ch = curl_init((string)$this->cfg['relay_url']);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode($payload, JSON_UNESCAPED_UNICODE),
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+        $body = curl_exec($ch);
+        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err  = curl_error($ch);
+        curl_close($ch);
+        if (!is_string($body) || $body === '') {
+            throw new RuntimeException('خطای شبکه واسط گوگل (آپلود): ' . ($err ?: "HTTP {$http}"));
+        }
+        $data = json_decode($body, true);
+        if (!is_array($data)) {
+            throw new RuntimeException('پاسخ نامعتبر از واسط گوگل (آپلود).');
+        }
+        if (!empty($data['relay_error'])) {
+            throw new RuntimeException('خطای واسط گوگل → تلگرام (آپلود): ' . $data['relay_error']);
+        }
+        if (empty($data['ok'])) {
+            throw new RuntimeException('خطای تلگرام (آپلود از واسط): ' . (string)($data['description'] ?? 'نامشخص'));
         }
         return $data['result'] ?? [];
     }

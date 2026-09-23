@@ -36,23 +36,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         switch ($action) {
 
-            /* 💾 ذخیره تنظیمات */
+            /* 💾 ذخیره تنظیمات — v2.7: دو فرم مستقل با scope جدا
+               (باگ قبلی: ذخیره فرم ربات، فیلدهای واسط گوگل را خالی می‌کرد و بالعکس) */
             case 'save_settings':
-                $cfg['enabled']           = !empty($_POST['tg_enabled']);
-                $cfg['bot_token']         = trim((string)($_POST['tg_token'] ?? ''));
-                $cfg['allowed_chat_ids']  = trim((string)($_POST['tg_chats'] ?? ''));
-                $cfg['notify_new_request']= !empty($_POST['tg_notify']);
-                $cfg['welcome_text']      = trim((string)($_POST['tg_welcome'] ?? ''));
-                // 🌉 v2.6: تنظیمات واسط Google Apps Script
-                $cfg['relay_enabled']     = !empty($_POST['tg_relay_enabled']);
-                $cfg['relay_url']         = trim((string)($_POST['tg_relay_url'] ?? ''));
-                $cfg['relay_secret']      = trim((string)($_POST['tg_relay_secret'] ?? ''));
+                $scope = (string)($_POST['scope'] ?? 'all');
+                if ($scope === 'bot' || $scope === 'all') {
+                    $cfg['enabled']           = !empty($_POST['tg_enabled']);
+                    $cfg['bot_token']         = trim((string)($_POST['tg_token'] ?? $cfg['bot_token'] ?? ''));
+                    $cfg['allowed_chat_ids']  = trim((string)($_POST['tg_chats'] ?? $cfg['allowed_chat_ids'] ?? ''));
+                    $cfg['notify_new_request']= !empty($_POST['tg_notify']);
+                    $cfg['welcome_text']      = trim((string)($_POST['tg_welcome'] ?? $cfg['welcome_text'] ?? ''));
+                }
+                if ($scope === 'relay' || $scope === 'all') {
+                    // 🌉 تنظیمات واسط Google Apps Script
+                    $cfg['relay_enabled']     = !empty($_POST['tg_relay_enabled']);
+                    $cfg['relay_url']         = trim((string)($_POST['tg_relay_url'] ?? $cfg['relay_url'] ?? ''));
+                    $cfg['relay_secret']      = trim((string)($_POST['tg_relay_secret'] ?? $cfg['relay_secret'] ?? ''));
+                }
                 // اعتبارسنجی ساده توکن
-                if ($cfg['bot_token'] !== '' && !preg_match('#^\d+:[\w-]{30,}$#', $cfg['bot_token'])) {
+                if (($cfg['bot_token'] ?? '') !== '' && !preg_match('#^\d+:[\w-]{30,}$#', $cfg['bot_token'])) {
                     throw new RuntimeException('قالب توکن معتبر نیست — از @BotFather کپی کنید (مثال: 123456789:AAH...)');
                 }
                 // اعتبارسنجی شناسه‌ها (اعداد جدا با کاما یا *)
-                if ($cfg['allowed_chat_ids'] !== '' && $cfg['allowed_chat_ids'] !== '*') {
+                if (($cfg['allowed_chat_ids'] ?? '') !== '' && $cfg['allowed_chat_ids'] !== '*') {
                     $ids = array_filter(array_map('trim', explode(',', $cfg['allowed_chat_ids'])));
                     foreach ($ids as $id) {
                         if (!preg_match('#^-?\d+$#', $id)) {
@@ -61,9 +67,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 Config::set('telegram_bot_settings', $cfg);
-                Logger::activity((int)$_SESSION['user_id'], 'تنظیمات ربات تلگرام', 'ذخیره تنظیمات ربات دستیار تلگرام');
+                Logger::activity((int)$_SESSION['user_id'], 'تنظیمات ربات تلگرام', 'ذخیره تنظیمات ربات دستیار تلگرام (بخش: ' . $scope . ')');
                 $flashType = 'success';
-                $flashMsg = '✅ تنظیمات ربات ذخیره شد.';
+                $flashMsg = $scope === 'relay' ? '✅ تنظیمات واسط گوگل ذخیره شد (تنظیمات ربات دست‌نخورده ماند).' : '✅ تنظیمات ربات ذخیره شد.';
                 break;
 
             /* 🔌 تست اتصال */
@@ -218,6 +224,7 @@ try {
         <div class="card-header"><h3>⚙️ تنظیمات ربات دستیار</h3></div>
         <div class="card-body">
             <input type="hidden" name="action" value="save_settings" id="tg-action">
+            <input type="hidden" name="scope" value="bot">
 
             <div class="form-row">
                 <div class="form-group">
@@ -397,6 +404,22 @@ function doPost(e) {
       if (SECRET !== '' && body.secret !== SECRET) {
         return out({ ok: false, description: 'bad secret' });
       }
+      /* 📎 v2.7: آپلود فایل — فایل‌ها base64 می‌آیند و به Blob تبدیل می‌شوند */
+      if (body.files_b64) {
+        var params = body.params || {};
+        for (var field in body.files_b64) {
+          var bytes = Utilities.base64Decode(body.files_b64[field]);
+          var name = (body.files_name && body.files_name[field]) ? body.files_name[field] : field;
+          var mime = (body.files_mime && body.files_mime[field]) ? body.files_mime[field] : 'application/octet-stream';
+          params[field] = Utilities.newBlob(bytes, mime, name);
+        }
+        var tgU = UrlFetchApp.fetch('https://api.telegram.org/bot' + body.token + '/' + body.method, {
+          method: 'post',
+          payload: params,
+          muteHttpExceptions: true
+        });
+        return out(JSON.parse(tgU.getContentText()));
+      }
       var tg = UrlFetchApp.fetch('https://api.telegram.org/bot' + body.token + '/' + body.method, {
         method: 'post',
         contentType: 'application/json',
@@ -450,6 +473,7 @@ GAS;
         <form method="post">
             <?= Auth::csrfField() ?>
             <input type="hidden" name="action" value="save_settings">
+            <input type="hidden" name="scope" value="relay">
             <label class="form-check" style="margin-bottom:12px">
                 <input type="checkbox" name="tg_relay_enabled" <?= !empty($cfg['relay_enabled']) ? 'checked' : '' ?>>
                 🌉 فعال‌سازی ارسال از طریق واسط گوگل

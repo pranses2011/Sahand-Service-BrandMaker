@@ -42,11 +42,64 @@ class BaleBot extends TelegramBot
      * 🔌 API بله — آدرس متفاوت + پیام‌های خطای بله
      * ================================================== */
 
+    /**
+     * 🧭 v2.7: آدرس پایه بله — همه مسیرها (از جمله apiUpload والد) از همین
+     * می‌گذرند؛ قبلاً آپلود فایل به api.telegram.org هاردکد شده بود و
+     * تحویل مقاله در بله با «Failed to connect to api.telegram.org» شکست می‌خورد.
+     */
+    protected function apiBaseUrl(): string
+    {
+        return BALE_API_BASE;
+    }
+
+    /** ⚠️ بله واسط گوگل ندارد — آپلود همیشه مستقیم به بله (سرور ایرانی در دسترس است) */
+    public function apiUpload(string $method, array $params, array $files): array
+    {
+        // دور زدن مسیر واسط والد (بله به تلگرام ربطی ندارد)
+        $token = (string)($this->baleCfg['bot_token'] ?? '');
+        if ($token === '') {
+            throw new RuntimeException('توکن ربات بله تنظیم نشده است — از پنل مدیریت ← ربات بله وارد کنید.');
+        }
+        $post = $params;
+        foreach ($files as $field => $path) {
+            $post[$field] = $path instanceof CURLFile ? $path : new CURLFile((string)$path);
+        }
+        $ch = curl_init(BALE_API_BASE . $token . '/' . $method);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $post,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+        $body = curl_exec($ch);
+        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err  = curl_error($ch);
+        curl_close($ch);
+        if (!is_string($body) || $body === '') {
+            throw new RuntimeException('خطای شبکه بله (آپلود): ' . ($err ?: "HTTP {$http}"));
+        }
+        $data = json_decode($body, true);
+        if (!is_array($data) || empty($data['ok'])) {
+            throw new RuntimeException('خطای بله (آپلود): ' . (string)($data['description'] ?? $data['message'] ?? 'نامشخص'));
+        }
+        return $data['result'] ?? [];
+    }
+
     public function api(string $method, array $params = []): array
     {
         $token = (string)($this->baleCfg['bot_token'] ?? '');
         if ($token === '') {
             throw new RuntimeException('توکن ربات بله تنظیم نشده است — از پنل مدیریت ← ربات بله وارد کنید.');
+        }
+        /* ⌨️ v2.7: بله دکمه اینلاین ندارد → حذف بی‌خطر reply_markup اینلاین
+           (تحویل مقاله با دکمه‌های اقدام بعدی در بله خطا می‌داد) */
+        if (isset($params['reply_markup']) && is_string($params['reply_markup'])) {
+            $rm = json_decode($params['reply_markup'], true);
+            if (is_array($rm) && isset($rm['inline_keyboard']) && !isset($rm['keyboard'])) {
+                unset($params['reply_markup']);
+            }
         }
         $ch = curl_init(BALE_API_BASE . $token . '/' . $method);
         curl_setopt_array($ch, [
@@ -80,17 +133,20 @@ class BaleBot extends TelegramBot
      * 🎨 سازگارسازی قابلیت‌های پشتیبانی‌نشده بله
      * ================================================== */
 
-    /** 🖼 آلبوم در بله موجود نیست → ارسال تک‌به‌تک */
+    /** 🖼 آلبوم در بله موجود نیست → ارسال تک‌به‌تک از مسیر فایل محلی (v2.7: کلید path — قبلاً photo خوانده می‌شد و خالی بود) */
     public function sendImageAlbum($chatId, array $items): bool
     {
         $sent = 0;
         foreach (array_slice($items, 0, 3) as $item) {
+            $path = (string)($item['path'] ?? $item['photo'] ?? '');
+            if ($path === '' || !is_file($path)) {
+                continue;
+            }
             try {
-                $this->api('sendPhoto', [
+                $this->apiUpload('sendPhoto', [
                     'chat_id' => $chatId,
-                    'photo'   => $item['photo'] ?? '',
                     'caption' => mb_substr((string)($item['caption'] ?? ''), 0, 900),
-                ]);
+                ], ['photo' => new CURLFile($path, 'image/jpeg')]);
                 $sent++;
             } catch (Throwable $e) {
                 // عکس بعدی
