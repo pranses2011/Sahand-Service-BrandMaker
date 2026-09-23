@@ -1,0 +1,3228 @@
+{
+ "_comment": "پایگاه دانش کدهای خطای واقعی برندها — هر کد با ساختار ۱۴ فیلدی موتور خطایاب AI تکمیل می‌شود. منبع: مستندات رسمی برندها؛ کدهای برندهای دیگر از جستجوی آنلاین استخراج می‌شوند.",
+ "brands": {
+  "lg": {
+   "name_fa": "ال‌جی",
+   "name_en": "LG",
+   "devices": {
+    "washing_machine": {
+     "subtypes": [
+      "درب از جلو | Front-Load",
+      "درب از بالا | Top-Load",
+      "همه زیرنوع‌ها"
+     ],
+     "models": [
+      "WM3997HWA",
+      "WM3500CW",
+      "WM3770HWA",
+      "F2J3HYL5W",
+      "WM8100HVA",
+      "WM8500HKA",
+      "F4R5VGYW2"
+     ],
+     "codes": [
+      {
+       "code": "OE",
+       "title": "خطای تخلیه آب",
+       "severity": "high",
+       "part": "پمپ تخلیه Drain Motor",
+       "category": "پمپ",
+       "causes": [
+        "گرفتگی فیلتر پمپ تخلیه",
+        "انسداد یا پیچ‌خوردگی شیلنگ تخلیه",
+        "خرابی پمپ تخلیه",
+        "خرابی رله برد پمپ"
+       ],
+       "fixes_user": [
+        "تمیز کردن فیلتر پمپ در پایین دستگاه",
+        "بررسی مسیر شیلنگ تخلیه",
+        "اجرای سیکل شست‌وشوی خالی"
+       ],
+       "fixes_tech": [
+        "تست امپدانس ولتاژ پمپ و تعویض در صورت خرابی",
+        "بررسی رله و مسیر برد"
+       ],
+       "specs": "مقاومت کویل پمپ: ۱۵-۲۰ اهم · ولتاژ کاری ۲۲۰V AC",
+       "location": "پایین دیگ، پشت درب فیلتر جلویی",
+       "needs_technician": 1
+      },
+      {
+       "code": "UE",
+       "title": "عدم توازن بار",
+       "severity": "medium",
+       "part": "سنسور توازن و سیستم تعلیق",
+       "category": "سایر",
+       "causes": [
+        "بار نامتوازن در دیگ",
+        "تراز نبودن دستگاه",
+        "خرابی فنرهای تعلیق",
+        "خرابی سنسور توازن"
+       ],
+       "fixes_user": [
+        "بازچینش لباس‌ها داخل دیگ",
+        "تنظیم پایه‌های تراز",
+        "اجرا با نیم‌بار"
+       ],
+       "fixes_tech": [
+        "تعویض فنرها یا دمپرهای تعلیق",
+        "کالیبراسیون مجدد سنسور توازن"
+       ],
+       "specs": "",
+       "location": "بالا دیگ و پایه‌ها",
+       "needs_technician": 1
+      },
+      {
+       "code": "LE",
+       "title": "قفل موتور / خطای درایور موتور",
+       "severity": "critical",
+       "part": "موتور و برد اینورتر",
+       "category": "موتور",
+       "causes": [
+        "اضافه‌بار یا گیر کردن دیگ",
+        "خرابی موتور دیگ",
+        "خرابی برد اینورتر",
+        "اتصال کوتاه سیم‌کشی موتور"
+       ],
+       "fixes_user": [
+        "خاموش کردن دستگاه و انتظار ۳۰ دقیقه",
+        "بررسی گیر نکردن دیگ با دست"
+       ],
+       "fixes_tech": [
+        "تست سیم‌پیچ‌های موتور و انکودر",
+        "تعمیر یا تعویض برد اینورتر"
+       ],
+       "specs": "موتور BLDC مستقیم DD — گشتاور ۳۳ کیلوگرم‌متر",
+       "location": "پشت دیگ، مرکز",
+       "needs_technician": 1
+      },
+      {
+       "code": "IE",
+       "title": "خطای ورود آب",
+       "severity": "high",
+       "part": "شیر برقی ورودی",
+       "category": "شیر",
+       "causes": [
+        "بستگی شیر آب ورودی",
+        "کاهش فشار آب شهری",
+        "گرفتگی صافی شیر برقی",
+        "خرابی شیر برقی"
+       ],
+       "fixes_user": [
+        "بررسی باز بودن شیر آب",
+        "بررسی فشار آب (حداقل ۰.۵ بار)",
+        "تمیز کردن صافی ورودی"
+       ],
+       "fixes_tech": [
+        "تست کویل شیر (۳.۵-۴.۵ کیلواهم) و تعویض"
+       ],
+       "specs": "مقاومت کویل: ۳.۵-۴.۵ kΩ · ۲۲۰V AC",
+       "location": "پشت دستگاه، اتصال شیلنگ ورودی",
+       "needs_technician": 1
+      },
+      {
+       "code": "dE",
+       "title": "خطای قفل درب",
+       "severity": "high",
+       "part": "قفل درب Door Lock",
+       "category": "قفل و ایمنی",
+       "causes": [
+        "باز نماندن کامل درب",
+        "خرابی میکروسوئیچ قفل",
+        "خرایی سیم‌کشی قفل"
+       ],
+       "fixes_user": [
+        "بستن مجدد درب با قاطعیت",
+        "بررسی ناخالصی روی لبه درب"
+       ],
+       "fixes_tech": [
+        "تست میکروسوئیچ و تعویض مجموعه قفل"
+       ],
+       "specs": "کلید القایی دو مرحله‌ای",
+       "location": "لبه جلویی درب",
+       "needs_technician": 1
+      },
+      {
+       "code": "FE",
+       "title": "سرریز آب",
+       "severity": "critical",
+       "part": "سنسور فشار آب",
+       "category": "سنسور",
+       "causes": [
+        "چسبیدن شیر برقی در حالت باز",
+        "خرابی سنسور فشار",
+        "کف بیش از حد"
+       ],
+       "fixes_user": [
+        "قطع آب و برق دستگاه فوراً",
+        "اجرای سیکل تخلیه"
+       ],
+       "fixes_tech": [
+        "تعویض شیر برقی یا سنسور فشار هوا"
+       ],
+       "specs": "دیافراگم + سوئیچ دو سطحی",
+       "location": "بالای دیگ، کنار",
+       "needs_technician": 1
+      },
+      {
+       "code": "tE",
+       "title": "خطای سنسور دما",
+       "severity": "high",
+       "part": "سنسور NTC دما",
+       "category": "سنسور",
+       "causes": [
+        "خرابی سنسور NTC هیتر",
+        "قطعی سوکت سنسور",
+        "خرابی هیتر"
+       ],
+       "fixes_user": [
+        "ریست با قطع برق ۱۰ دقیقه‌ای"
+       ],
+       "fixes_tech": [
+        "اندازه‌گیری مقاومت سنسور و تعویض",
+        "تست هیتر و رله"
+       ],
+       "specs": "NTC: ۱۲ kΩ در ۲۵°C",
+       "location": "پایین دیگ، روی هیتر",
+       "needs_technician": 1
+      },
+      {
+       "code": "PE",
+       "title": "خطای سنسور فشار",
+       "severity": "high",
+       "part": "سنسور فشار هوا",
+       "category": "سنسور",
+       "causes": [
+        "خرابی سنسور فشار",
+        "انسداد لوله فشار هوا",
+        "اتصال کوتاه سنسور"
+       ],
+       "fixes_user": [
+        "ریست دستگاه"
+       ],
+       "fixes_tech": [
+        "تست و تعویض سنسور",
+        "پاکسازی لوله هوا"
+       ],
+       "specs": "",
+       "location": "بالای دیگ",
+       "needs_technician": 1
+      },
+      {
+       "code": "CE",
+       "title": "خطای جریان بیش از حد",
+       "severity": "critical",
+       "part": "برد اصلی",
+       "category": "برد الکترونیکی",
+       "causes": [
+        "اتصال کوتاه در موتور یا هیتر",
+        "خرابی برد"
+       ],
+       "fixes_user": [
+        "قطع برق فوراً"
+       ],
+       "fixes_tech": [
+        "عیب‌یابی عایق موتور/هیتر با مگاومتر",
+        "تعمیر یا تعویض برد"
+       ],
+       "specs": "",
+       "location": "پشت پنل کنترل",
+       "needs_technician": 1
+      },
+      {
+       "code": "PF",
+       "title": "قطع و وصل برق",
+       "severity": "low",
+       "part": "منبع تغذیه",
+       "category": "الکتریکی",
+       "causes": [
+        "نوسان برق شهری",
+        "لقی پلاگ",
+        "خرابی فیوز"
+       ],
+       "fixes_user": [
+        "بررسی اتصال برق",
+        "ریست دستگاه"
+       ],
+       "fixes_tech": [
+        "نصب محافظ برق"
+       ],
+       "specs": "",
+       "location": "—",
+       "needs_technician": 0
+      },
+      {
+       "code": "CL",
+       "title": "قفل کودک فعال است",
+       "severity": "informational",
+       "part": "پنل کنترل",
+       "category": "نرم‌افزاری",
+       "causes": [
+        "فعال بودن قفل کودک"
+       ],
+       "fixes_user": [
+        "نگه داشتن همزمان دکمه‌های قفل کودک ۳ ثانیه"
+       ],
+       "fixes_tech": [],
+       "specs": "",
+       "location": "پنل",
+       "needs_technician": 0
+      },
+      {
+       "code": "EE",
+       "title": "خطای حافظه EEPROM",
+       "severity": "high",
+       "part": "حافظه برد",
+       "category": "نرم‌افزاری",
+       "causes": [
+        "خطای داده در EEPROM",
+        "خرابی برد"
+       ],
+       "fixes_user": [
+        "قطع برق ۱۰ دقیقه"
+       ],
+       "fixes_tech": [
+        "ریست EEPROM با دستگاه عیب‌یاب",
+        "تعویض برد"
+       ],
+       "specs": "",
+       "location": "روی برد اصلی",
+       "needs_technician": 1
+      }
+     ]
+    },
+    "refrigerator": {
+     "subtypes": [
+      "ساید بای ساید | Side-by-Side",
+      "فرنچ‌دور | French-Door",
+      "معمولی"
+     ],
+     "models": [
+      "RF28R7351SR",
+      "GF-B590PL",
+      "LFXS26973S",
+      "GN-B562HL",
+      "GR-J267FL"
+     ],
+     "codes": [
+      {
+       "code": "Er FF",
+       "title": "خطای فن فریزر",
+       "severity": "high",
+       "part": "فن اواپراتور فریزر",
+       "category": "فن",
+       "causes": [
+        "یخ‌زدگی روی فن",
+        "خرابی موتور فن",
+        "قطعی سوکت فن"
+       ],
+       "fixes_user": [
+        "قطع برق ۲۴ ساعت برای دیفراست کامل"
+       ],
+       "fixes_tech": [
+        "تست موتور فن و تعویض",
+        "بررسی هیتر دیفراست"
+       ],
+       "specs": "موتور ۱۲V DC بدون جاروبک",
+       "location": "پشت محفظه فریزر، روی اواپراتور",
+       "needs_technician": 1
+      },
+      {
+       "code": "Er rS",
+       "title": "خطای سنسور دمای یخچال",
+       "severity": "high",
+       "part": "سنسور NTC یخچال",
+       "category": "سنسور",
+       "causes": [
+        "خرابی سنسور",
+        "قطعی سوکت"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تست مقاومت و تعویض سنسور"
+       ],
+       "specs": "NTC: ۵ kΩ در ۲۵°C",
+       "location": "دیوار داخلی یخچال",
+       "needs_technician": 1
+      },
+      {
+       "code": "Er dS",
+       "title": "خطای سنسور دیفراست فریزر",
+       "severity": "high",
+       "part": "سنسور دیفراست",
+       "category": "سنسور",
+       "causes": [
+        "خرابی سنسور",
+        "اتصال کوتاه"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض سنسور"
+       ],
+       "specs": "",
+       "location": "روی اواپراتور فریزر",
+       "needs_technician": 1
+      },
+      {
+       "code": "Er dH",
+       "title": "خطای هیتر دیفراست",
+       "severity": "high",
+       "part": "هیتر دیفراست",
+       "category": "المنت / هیتر",
+       "causes": [
+        "سوختن هیتر",
+        "خرابی فیوز حرارتی",
+        "خرابی رله برد"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تست Ohm هیتر و فیوز حرارتی و تعویض"
+       ],
+       "specs": "هیتر شیشه‌ای ۳۵۰W تقریبی",
+       "location": "چسبیده به اواپراتور فریزر",
+       "needs_technician": 1
+      },
+      {
+       "code": "Er IS",
+       "title": "خطای سنسور یخساز",
+       "severity": "medium",
+       "part": "سنسور یخساز",
+       "category": "سنسور",
+       "causes": [
+        "خرابی سنسور یخساز",
+        "انسداد مکش آب"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تست و تعویض سنسور"
+       ],
+       "specs": "",
+       "location": "داخل یخساز",
+       "needs_technician": 1
+      },
+      {
+       "code": "Er IF",
+       "title": "خطای فن یخچال",
+       "severity": "medium",
+       "part": "فن اواپراتور یخچال",
+       "category": "فن",
+       "causes": [
+        "یخ‌زدگی",
+        "خرابی فن"
+       ],
+       "fixes_user": [
+        "قطع برق ۲۴ ساعت"
+       ],
+       "fixes_tech": [
+        "تعویض فن"
+       ],
+       "specs": "",
+       "location": "پشت دیوار یخچال",
+       "needs_technician": 1
+      },
+      {
+       "code": "Er CO",
+       "title": "خطای ارتباط یخچال و فریزر",
+       "severity": "high",
+       "part": "برد اصلی",
+       "category": "ارتباطی",
+       "causes": [
+        "قطعی کابل بین دو برد",
+        "خرابی برد"
+       ],
+       "fixes_user": [
+        "ریست برق"
+       ],
+       "fixes_tech": [
+        "بررسی کابل و تعویض برد"
+       ],
+       "specs": "",
+       "location": "پشت دستگاه",
+       "needs_technician": 1
+      },
+      {
+       "code": "Er F1",
+       "title": "خطای ماژول فن",
+       "severity": "high",
+       "part": "ماژول فن اینورتر",
+       "category": "فن",
+       "causes": [
+        "خرابی ماژول درایو فن"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض ماژول فن"
+       ],
+       "specs": "",
+       "location": "پشت یخچال بالا",
+       "needs_technician": 1
+      }
+     ]
+    },
+    "air_conditioner": {
+     "subtypes": [
+      "اسپلیت | Split",
+      "اینورتر | Inverter"
+     ],
+     "models": [
+      "S4-Q09JA2WA",
+      "S4-W12JA2WA",
+      "S4-Q18JA2WA",
+      "S4-W24JA2WA"
+     ],
+     "codes": [
+      {
+       "code": "CH01",
+       "title": "خطای سنسور دمای اتاق",
+       "severity": "medium",
+       "part": "سنسور NTC دمای اتاق",
+       "category": "سنسور",
+       "causes": [
+        "خرابی سنسور",
+        "قطعی سوکت"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تست و تعویض سنسور"
+       ],
+       "specs": "NTC: ۵ kΩ در ۲۵°C",
+       "location": "پشت فیلتر یونیت داخلی",
+       "needs_technician": 0
+      },
+      {
+       "code": "CH02",
+       "title": "خطای سنسور دمای لوله",
+       "severity": "medium",
+       "part": "سنسور NTC پایپ",
+       "category": "سنسور",
+       "causes": [
+        "خرابی سنسور پایپ",
+        "شل بودن بست سنسور"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تست و تعویض"
+       ],
+       "specs": "",
+       "location": "چسبیده به لوله اواپراتور",
+       "needs_technician": 0
+      },
+      {
+       "code": "CH03",
+       "title": "خطای ارتباط داخلی و خارجی",
+       "severity": "high",
+       "part": "کابل ارتباطی",
+       "category": "ارتباطی",
+       "causes": [
+        "قطع یا اتصال‌ناقص کابل ارتباط",
+        "نویز الکتریکی",
+        "خرابی برد"
+       ],
+       "fixes_user": [
+        "بررسی کابل‌کشی بین دو یونیت"
+       ],
+       "fixes_tech": [
+        "تست پیوستگی کابل",
+        "تعمیر برد ارتباط"
+       ],
+       "specs": "",
+       "location": "",
+       "needs_technician": 1
+      },
+      {
+       "code": "CH04",
+       "title": "خطای فن داخلی",
+       "severity": "high",
+       "part": "موتور فن داخلی",
+       "category": "فن",
+       "causes": [
+        "گیر کردن فن",
+        "خرابی موتور فن",
+        "خرابی دمای موتور"
+       ],
+       "fixes_user": [
+        "قطع برق و چرخاندن دستی فن"
+       ],
+       "fixes_tech": [
+        "تست موتور و تعویض"
+       ],
+       "specs": "موتور BLDC ۳۶V",
+       "location": "داخل یونیت داخلی",
+       "needs_technician": 1
+      },
+      {
+       "code": "CH05",
+       "title": "خطای سنسور تخلیه/شناور",
+       "severity": "medium",
+       "part": "سوئیچ شناور تخلیه",
+       "category": "سایر",
+       "causes": [
+        "انسداد مسیر تخلیه",
+        "خرابی سوئیچ شناور"
+       ],
+       "fixes_user": [
+        "تمیز کردن سینی تخلیه"
+       ],
+       "fixes_tech": [
+        "تعویض سوئیچ"
+       ],
+       "specs": "",
+       "location": "سینی پایین یونیت داخلی",
+       "needs_technician": 0
+      },
+      {
+       "code": "CH06",
+       "title": "خطای ترموستور خارجی",
+       "severity": "medium",
+       "part": "سنسور یونیت خارجی",
+       "category": "سنسور",
+       "causes": [
+        "خرابی سنسور خارجی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض سنسور"
+       ],
+       "specs": "",
+       "location": "یونیت خارجی روی لوله مکش",
+       "needs_technician": 0
+      },
+      {
+       "code": "CH07",
+       "title": "خطای جریان بیش از حد کمپرسور",
+       "severity": "critical",
+       "part": "کمپرسور اینورتر",
+       "category": "کمپرسور",
+       "causes": [
+        "اضافه‌جریان کمپرسور",
+        "خرابی IPM برد خارجی",
+        "نوسان برق"
+       ],
+       "fixes_user": [
+        "قطع برق و تماس با تکنسین"
+       ],
+       "fixes_tech": [
+        "تست IPM و کمپرسور",
+        "تعویض برد یا کمپرسور"
+       ],
+       "specs": "کمپرسور روتاری دو-اسلندر R410A/R32",
+       "location": "یونیت خارجی",
+       "needs_technician": 1
+      },
+      {
+       "code": "CH08",
+       "title": "خطای دمای تخلیه کمپرسور",
+       "severity": "high",
+       "part": "سنسور دمای دوداژ",
+       "category": "سنسور",
+       "causes": [
+        "دیفراست نبودن یونیت خارجی",
+        "گاز کم",
+        "خرابی سنسور"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "شارژ گاز مجدد",
+        "تست سنسور دمای تخلیه"
+       ],
+       "specs": "",
+       "location": "لوله دوداژ کمپرسور",
+       "needs_technician": 1
+      },
+      {
+       "code": "CH10",
+       "title": "خطای موتور فن خارجی",
+       "severity": "high",
+       "part": "موتور فن کندانسور",
+       "category": "فن",
+       "causes": [
+        "گیر کرد فن خارجی",
+        "خرابی موتور"
+       ],
+       "fixes_user": [
+        "بررسی جسم مکانیکی"
+       ],
+       "fixes_tech": [
+        "تعویض موتور فن"
+       ],
+       "specs": "",
+       "location": "یونیت خارجی",
+       "needs_technician": 1
+      },
+      {
+       "code": "CH12",
+       "title": "خطای حافظه EEPROM",
+       "severity": "medium",
+       "part": "حافظه برد",
+       "category": "نرم‌افزاری",
+       "causes": [
+        "خطای داده"
+       ],
+       "fixes_user": [
+        "قطع برق ۱۰ دقیقه"
+       ],
+       "fixes_tech": [
+        "ریست/تعویض برد"
+       ],
+       "specs": "",
+       "location": "برد داخلی",
+       "needs_technician": 0
+      }
+     ]
+    },
+    "dishwasher": {
+     "subtypes": [
+      "کشویی | Drawer",
+      "همه زیرنوع‌ها"
+     ],
+     "models": [
+      "D1454WF",
+      "LDS5040ST",
+      "DFB512FP",
+      "LDF5545ST"
+     ],
+     "codes": [
+      {
+       "code": "OE",
+       "title": "خطای تخلیه",
+       "severity": "high",
+       "part": "پمپ تخلیه",
+       "category": "پمپ",
+       "causes": [
+        "گرفتگی فیلتر و پمپ",
+        "خرابی پمپ"
+       ],
+       "fixes_user": [
+        "تمیز کردن فیلتر"
+       ],
+       "fixes_tech": [
+        "تعویض پمپ"
+       ],
+       "specs": "",
+       "location": "کف دستگاه",
+       "needs_technician": 1
+      },
+      {
+       "code": "E1",
+       "title": "خطای ورود آب",
+       "severity": "high",
+       "part": "شیر برقی ورودی",
+       "category": "شیر",
+       "causes": [
+        "بسته بودن شیر",
+        "گرفتگی ورودی"
+       ],
+       "fixes_user": [
+        "بررسی شیر آب"
+       ],
+       "fixes_tech": [
+        "تعویض شیر"
+       ],
+       "specs": "",
+       "location": "پشت دستگاه کنار",
+       "needs_technician": 1
+      },
+      {
+       "code": "E2",
+       "title": "خطای تخلیه کند",
+       "severity": "medium",
+       "part": "پمپ تخلیه",
+       "category": "پمپ",
+       "causes": [
+        "انسداد جزئی مسیر"
+       ],
+       "fixes_user": [
+        "تمیز کردن فیلترها"
+       ],
+       "fixes_tech": [
+        "تست پمپ"
+       ],
+       "specs": "",
+       "location": "کف دستگاه",
+       "needs_technician": 0
+      },
+      {
+       "code": "E4",
+       "title": "خطای سنسور سطح آب",
+       "severity": "medium",
+       "part": "سنسور فلوتر",
+       "category": "سنسور",
+       "causes": [
+        "گیر کردن فلوتر",
+        "خرابی سنسور"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تست و تعویض فلوتر"
+       ],
+       "specs": "",
+       "location": "کنار سینی",
+       "needs_technician": 1
+      },
+      {
+       "code": "FE",
+       "title": "سرریز آب",
+       "severity": "critical",
+       "part": "سنسور سرریز",
+       "category": "سنسور",
+       "causes": [
+        "نشتی و تجمع آب در سینی"
+       ],
+       "fixes_user": [
+        "قطع برق و آب"
+       ],
+       "fixes_tech": [
+        "بررسی نشتی و تعویض قطعه"
+       ],
+       "specs": "",
+       "location": "کف سینی",
+       "needs_technician": 1
+      },
+      {
+       "code": "tE",
+       "title": "خطای سنسور دما",
+       "severity": "high",
+       "part": "سنسور NTC",
+       "category": "سنسور",
+       "causes": [
+        "خرابی سنسور"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض سنسور"
+       ],
+       "specs": "",
+       "location": "پشت محفظه",
+       "needs_technician": 1
+      },
+      {
+       "code": "HE",
+       "title": "خطای هیتر",
+       "severity": "high",
+       "part": "هیتر آب",
+       "category": "المنت / هیتر",
+       "causes": [
+        "سوختن هیتر",
+        "خرابی رله"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تست و تعویض هیتر"
+       ],
+       "specs": "هیتر ۹۵۰W",
+       "location": "پایین محفظه شست‌وشو",
+       "needs_technician": 1
+      },
+      {
+       "code": "LE",
+       "title": "خطای موتور شست‌وشو",
+       "severity": "critical",
+       "part": "موتور circulation",
+       "category": "موتور",
+       "causes": [
+        "خرابی موتور",
+        "اتصال کوتاه"
+       ],
+       "fixes_user": [
+        "قطع برق"
+       ],
+       "fixes_tech": [
+        "تست و تعویض موتور"
+       ],
+       "specs": "موتور ۲۲۰V با پمپ ترکیبی",
+       "location": "پایین دستگاه",
+       "needs_technician": 1
+      }
+     ]
+    }
+   }
+  },
+  "samsung": {
+   "name_fa": "سامسونگ",
+   "name_en": "Samsung",
+   "devices": {
+    "washing_machine": {
+     "subtypes": [
+      "درب از جلو | Front-Load",
+      "درب از بالا | Top-Load",
+      "AddWash"
+     ],
+     "models": [
+      "WF45T6000AW",
+      "WW90T554DAW",
+      "WF1804WPU",
+      "WW80J5555FW",
+      "WA16T6260BY"
+     ],
+     "codes": [
+      {
+       "code": "4E / 4C",
+       "title": "خطای ورود آب",
+       "severity": "high",
+       "part": "شیر برقی ورودی",
+       "category": "شیر",
+       "causes": [
+        "بسته بودن شیر",
+        "فشار کم آب",
+        "گرفتگی صافی",
+        "خرابی شیر برقی"
+       ],
+       "fixes_user": [
+        "باز کردن شیر",
+        "بررسی فشار",
+        "تمیز کردن مشلقی ورودی"
+       ],
+       "fixes_tech": [
+        "تست کویل شیر و تعویض"
+       ],
+       "specs": "کوایل ۳.۸-۴.۵ kΩ",
+       "location": "پشت دستگاه",
+       "needs_technician": 1
+      },
+      {
+       "code": "5E / SE",
+       "title": "خطای تخلیه",
+       "severity": "high",
+       "part": "پمپ تخلیه",
+       "category": "پمپ",
+       "causes": [
+        "گرفتگی فیلتر",
+        "پیچ شیلنگ تخلیه",
+        "خرابی پمپ"
+       ],
+       "fixes_user": [
+        "تمیز کردن فیلتر پمپ (درب پایین جلو)"
+       ],
+       "fixes_tech": [
+        "تست پمپ و تعویض"
+       ],
+       "specs": "",
+       "location": "پایین جلو دستگاه",
+       "needs_technician": 1
+      },
+      {
+       "code": "UE",
+       "title": "عدم توازن",
+       "severity": "medium",
+       "part": "سیستم تعلیق",
+       "category": "سایر",
+       "causes": [
+        "بار نامتوازن",
+        "عدم تراز"
+       ],
+       "fixes_user": [
+        "بازچینش لباس",
+        "تنظیم پایه‌ها"
+       ],
+       "fixes_tech": [
+        "تعویض دمپرها"
+       ],
+       "specs": "",
+       "location": "پایه‌ها",
+       "needs_technician": 0
+      },
+      {
+       "code": "LE",
+       "title": "نشت آب شناسایی شد",
+       "severity": "high",
+       "part": "سیستم نشت‌یاب",
+       "category": "سایر",
+       "causes": [
+        "نشت از درب یا شیلنگ",
+        "خش شدن لاستیک درب"
+       ],
+       "fixes_user": [
+        "بررسی نشتی زیر دستگاه"
+       ],
+       "fixes_tech": [
+        "تعویض لاستیک درب یا شیلنگ"
+       ],
+       "specs": "",
+       "location": "اطراف دیگ",
+       "needs_technician": 1
+      },
+      {
+       "code": "HE",
+       "title": "خطای هیتر آب",
+       "severity": "high",
+       "part": "هیتر",
+       "category": "المنت / هیتر",
+       "causes": [
+        "سوختن هیتر",
+        "خرابی سنسور حرارتی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تست هیتر و تعویض"
+       ],
+       "specs": "۲۰۰۰W تقریبی",
+       "location": "پایین دیگ",
+       "needs_technician": 1
+      },
+      {
+       "code": "1E",
+       "title": "خطای سنسور سطح آب",
+       "severity": "high",
+       "part": "سنسور فشار",
+       "category": "سنسور",
+       "causes": [
+        "انسداد لوله هوا",
+        "خرابی سنسور"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "پاکسازی لوله و تعویض سنسور"
+       ],
+       "specs": "",
+       "location": "کنار دیگ",
+       "needs_technician": 1
+      },
+      {
+       "code": "tE",
+       "title": "خطای سنسور دما",
+       "severity": "high",
+       "part": "سنسور NTC",
+       "category": "سنسور",
+       "causes": [
+        "خرابی ترمیمستر"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض سنسور"
+       ],
+       "specs": "NTC ۱۲ kΩ",
+       "location": "روی هیتر",
+       "needs_technician": 1
+      },
+      {
+       "code": "3E",
+       "title": "خطای موتور",
+       "severity": "critical",
+       "part": "موتور و درایور",
+       "category": "موتور",
+       "causes": [
+        "خرابی تاکوژنراتور",
+        "خرایی موتور",
+        "برد درایور"
+       ],
+       "fixes_user": [
+        "قطع برق ۳۰ دقیقه"
+       ],
+       "fixes_tech": [
+        "تست موتور و تعویض",
+        "تعمیر برد"
+       ],
+       "specs": "",
+       "location": "پشت دیگ",
+       "needs_technician": 1
+      },
+      {
+       "code": "dE",
+       "title": "خطای درب",
+       "severity": "high",
+       "part": "قفل درب",
+       "category": "قفل و ایمنی",
+       "causes": [
+        "بازماندن درب",
+        "خرابی قفل"
+       ],
+       "fixes_user": [
+        "بستن کامل درب"
+       ],
+       "fixes_tech": [
+        "تعویض قفل درب"
+       ],
+       "specs": "",
+       "location": "لبه درب",
+       "needs_technician": 1
+      },
+      {
+       "code": "dC",
+       "title": "در حین کار باز شده",
+       "severity": "medium",
+       "part": "قفل درب",
+       "category": "قفل و ایمنی",
+       "causes": [
+        "باز شدن درب حین کار"
+       ],
+       "fixes_user": [
+        "بستن و ادامه"
+       ],
+       "fixes_tech": [],
+       "specs": "",
+       "location": "",
+       "needs_technician": 0
+      },
+      {
+       "code": "AE",
+       "title": "خطای ارتباط برد‌ها",
+       "severity": "high",
+       "part": "کابل بین بردها",
+       "category": "ارتباطی",
+       "causes": [
+        "لقی سوکت",
+        "خرابی برد"
+       ],
+       "fixes_user": [
+        "ریست برق"
+       ],
+       "fixes_tech": [
+        "بررسی سوکت‌ها و برد"
+       ],
+       "specs": "",
+       "location": "پشت پنل",
+       "needs_technician": 1
+      },
+      {
+       "code": "CE",
+       "title": "خطای جریان",
+       "severity": "critical",
+       "part": "برد قدرت",
+       "category": "الکتریکی",
+       "causes": [
+        "اتصال کوتاه",
+        "نوسان برق"
+       ],
+       "fixes_user": [
+        "قطع برق"
+       ],
+       "fixes_tech": [
+        "عیب‌یابی و تعمیر برد"
+       ],
+       "specs": "",
+       "location": "پشت پنل",
+       "needs_technician": 1
+      },
+      {
+       "code": "Sud / 5d",
+       "title": "کف بیش از حد",
+       "severity": "low",
+       "part": "سنسور کف",
+       "category": "سایر",
+       "causes": [
+        "مایع ظرفشویی نامناسب",
+        "مقدار زیاد detergent"
+       ],
+       "fixes_user": [
+        "استفاده از مایع مخصوص ماشین لباسشویی"
+       ],
+       "fixes_tech": [],
+       "specs": "",
+       "location": "",
+       "needs_technician": 0
+      },
+      {
+       "code": "HC",
+       "title": "خطای درایور کمپرسور اینورتر",
+       "severity": "critical",
+       "part": "برد اینورتر",
+       "category": "برد الکترونیکی",
+       "causes": [
+        "خرابی ماژول IPM"
+       ],
+       "fixes_user": [
+        "قطع برق"
+       ],
+       "fixes_tech": [
+        "تعویض برد اینورتر"
+       ],
+       "specs": "",
+       "location": "پشت دستگاه",
+       "needs_technician": 1
+      },
+      {
+       "code": "FL",
+       "title": "قفل درب فعال",
+       "severity": "informational",
+       "part": "قفل درب",
+       "category": "قفل و ایمنی",
+       "causes": [
+        "وضعیت عادی قفل"
+       ],
+       "fixes_user": [
+        "صبر تا پایان"
+       ],
+       "fixes_tech": [],
+       "specs": "",
+       "location": "",
+       "needs_technician": 0
+      }
+     ]
+    },
+    "refrigerator": {
+     "subtypes": [
+      "ساید بای ساید | Side-by-Side",
+      "فرنچ‌دور",
+      " Bottom Mount "
+     ],
+     "models": [
+      "RF28R7351SR",
+      "RS68N8321WW",
+      "RB38T676ESA",
+      "RF50A5202WW"
+     ],
+     "codes": [
+      {
+       "code": "21",
+       "title": "خطای فن فریزر",
+       "severity": "high",
+       "part": "فن اواپراتور فریزر",
+       "category": "فن",
+       "causes": [
+        "یخ‌زدگی",
+        "خرابی فن"
+       ],
+       "fixes_user": [
+        "قطع برق ۲۴ ساعت"
+       ],
+       "fixes_tech": [
+        "تعویض فن"
+       ],
+       "specs": "",
+       "location": "پشت فریزر",
+       "needs_technician": 1
+      },
+      {
+       "code": "22",
+       "title": "خطای فن یخچال",
+       "severity": "high",
+       "part": "فن یخچال",
+       "category": "فن",
+       "causes": [
+        "خرابی فن",
+        "یخ‌زدگی"
+       ],
+       "fixes_user": [
+        "قطع برق طولانی"
+       ],
+       "fixes_tech": [
+        "تعویض فن"
+       ],
+       "specs": "",
+       "location": "پشت دیوار یخچال",
+       "needs_technician": 1
+      },
+      {
+       "code": "24",
+       "title": "خطای سنسور دیفراست فریزر",
+       "severity": "medium",
+       "part": "سنسور دیفراست",
+       "category": "سنسور",
+       "causes": [
+        "خرابی سنسور"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "روی اواپراتور",
+       "needs_technician": 1
+      },
+      {
+       "code": "25",
+       "title": "خطای سنسور دیفراست یخچال",
+       "severity": "medium",
+       "part": "سنسور دیفراست یخچال",
+       "category": "سنسور",
+       "causes": [
+        "خرابی سنسور"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "اواپراتور یخچال",
+       "needs_technician": 1
+      },
+      {
+       "code": "26",
+       "title": "خطای هیتر دیفراست",
+       "severity": "high",
+       "part": "هیتر دیفراست",
+       "category": "المنت / هیتر",
+       "causes": [
+        "سوختن هیتر"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تست و تعویض هیتر"
+       ],
+       "specs": "",
+       "location": "روی اواپراتور",
+       "needs_technician": 1
+      },
+      {
+       "code": "28",
+       "title": "خطای سنسور دمای یخچال",
+       "severity": "medium",
+       "part": "سنسور NTC",
+       "category": "سنسور",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "دیوار داخلی",
+       "needs_technician": 1
+      },
+      {
+       "code": "29",
+       "title": "خطای سنسور یخساز",
+       "severity": "medium",
+       "part": "سنسور یخساز",
+       "category": "سنسور",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "یخساز",
+       "needs_technician": 1
+      },
+      {
+       "code": "40",
+       "title": "خطای ارتباط یخچال-فریزر",
+       "severity": "high",
+       "part": "کابل بینبرد",
+       "category": "ارتباطی",
+       "causes": [
+        "لقی سوکت"
+       ],
+       "fixes_user": [
+        "ریست"
+       ],
+       "fixes_tech": [
+        "بررسی کابل"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "41",
+       "title": "خطای ارتباط یونیت خارجی",
+       "severity": "high",
+       "part": "برد",
+       "category": "ارتباطی",
+       "causes": [
+        "خرابی برد"
+       ],
+       "fixes_user": [
+        "ریست"
+       ],
+       "fixes_tech": [
+        "تعمیر/تعویض برد"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "44",
+       "title": "خطای فن یونیت خارجی",
+       "severity": "high",
+       "part": "فن کندانسور",
+       "category": "فن",
+       "causes": [
+        "گیر فن",
+        "خرابی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض فن"
+       ],
+       "specs": "",
+       "location": "کمپرسور محوطه",
+       "needs_technician": 1
+      },
+      {
+       "code": "52",
+       "title": "خطای برق اضطراری",
+       "severity": "medium",
+       "part": "منبع تغذیه",
+       "category": "الکتریکی",
+       "causes": [
+        "قطعی برق"
+       ],
+       "fixes_user": [
+        "بررسی برق"
+       ],
+       "fixes_tech": [],
+       "specs": "",
+       "location": "",
+       "needs_technician": 0
+      },
+      {
+       "code": "81",
+       "title": "خطای کمپرسور اینورتر",
+       "severity": "critical",
+       "part": "کمپرسور اینورتر",
+       "category": "کمپرسور",
+       "causes": [
+        "خرابی کمپرسور",
+        "خرابی برد درایو"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تست و تعویض"
+       ],
+       "specs": "کمپرسور خطی BLDC",
+       "location": "پشت، پایین",
+       "needs_technician": 1
+      }
+     ]
+    },
+    "dishwasher": {
+     "subtypes": [
+      "همه زیرنوع‌ها"
+     ],
+     "models": [
+      "DW60R7040FS",
+      "DW80R9950US",
+      "DMR78AHS"
+     ],
+     "codes": [
+      {
+       "code": "LE",
+       "title": "نشت آب",
+       "severity": "critical",
+       "part": "سنسور نشت",
+       "category": "سایر",
+       "causes": [
+        "تجمع آب در سینی"
+       ],
+       "fixes_user": [
+        "قطع برق"
+       ],
+       "fixes_tech": [
+        "بررسی نشتی"
+       ],
+       "specs": "",
+       "location": "کف سینی",
+       "needs_technician": 1
+      },
+      {
+       "code": "OE",
+       "title": "خطای تخلیه",
+       "severity": "high",
+       "part": "پمپ تخلیه",
+       "category": "پمپ",
+       "causes": [
+        "گرفتگی",
+        "خرابی پمپ"
+       ],
+       "fixes_user": [
+        "تمیز کردن فیلتر"
+       ],
+       "fixes_tech": [
+        "تعویض پمپ"
+       ],
+       "specs": "",
+       "location": "کف",
+       "needs_technician": 1
+      },
+      {
+       "code": "4E",
+       "title": "ورود آب",
+       "severity": "high",
+       "part": "شیر برقی",
+       "category": "شیر",
+       "causes": [
+        "شیر بسته",
+        "خرابی"
+       ],
+       "fixes_user": [
+        "بررسی شیر"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "HE",
+       "title": "هیتر",
+       "severity": "high",
+       "part": "هیتر",
+       "category": "المنت / هیتر",
+       "causes": [
+        "سوختن"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "پایین محفظه",
+       "needs_technician": 1
+      },
+      {
+       "code": "tE",
+       "title": "سنسور دما",
+       "severity": "high",
+       "part": "NTC",
+       "category": "سنسور",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "1E",
+       "title": "سنسور سطح",
+       "severity": "medium",
+       "part": "فلوتر",
+       "category": "سنسور",
+       "causes": [
+        "گیر"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "سینی",
+       "needs_technician": 1
+      },
+      {
+       "code": "bE",
+       "title": "رله برد",
+       "severity": "high",
+       "part": "برد",
+       "category": "برد الکترونیکی",
+       "causes": [
+        "جوش رله"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعمیر برد"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "FE",
+       "title": "سرریز",
+       "severity": "critical",
+       "part": "فلوتر سرریز",
+       "category": "سنسور",
+       "causes": [
+        "نشت"
+       ],
+       "fixes_user": [
+        "قطع"
+       ],
+       "fixes_tech": [
+        "بررسی"
+       ],
+       "specs": "",
+       "location": "کف",
+       "needs_technician": 1
+      }
+     ]
+    }
+   }
+  },
+  "bosch": {
+   "name_fa": "بوش",
+   "name_en": "Bosch",
+   "devices": {
+    "washing_machine": {
+     "subtypes": [
+      "درب از جلو سری ۴/۶/۸ | Serie 4/6/8"
+     ],
+     "models": [
+      "WAJ2416TIR",
+      "WGG244A1IR",
+      "WAU28T940",
+      "WAX32GH1IR"
+     ],
+     "codes": [
+      {
+       "code": "E13",
+       "title": "خطای نشت آب / AquaStop",
+       "severity": "critical",
+       "part": "سیستم AquaStop",
+       "category": "سیستم آبرسانی",
+       "causes": [
+        "فعال شدن سنسور نشت پایه",
+        "پارگی شیلنگ"
+       ],
+       "fixes_user": [
+        "قطع آب و برق"
+       ],
+       "fixes_tech": [
+        "تعویض شیلنگ AquaStop"
+       ],
+       "specs": "",
+       "location": "پایه دستگاه",
+       "needs_technician": 1
+      },
+      {
+       "code": "E16",
+       "title": "خطای درب باز",
+       "severity": "medium",
+       "part": "قفل درب",
+       "category": "قفل و ایمنی",
+       "causes": [
+        "باز بودن درب",
+        "خرابی قفل"
+       ],
+       "fixes_user": [
+        "بستن درب"
+       ],
+       "fixes_tech": [
+        "تعویض قفل"
+       ],
+       "specs": "",
+       "location": "لبه درب",
+       "needs_technician": 0
+      },
+      {
+       "code": "E17",
+       "title": "خطای زمان ورود آب",
+       "severity": "high",
+       "part": "شیر برقی",
+       "category": "شیر",
+       "causes": [
+        "فشار کم",
+        "گرفتگی صافی",
+        "خرابی شیر"
+       ],
+       "fixes_user": [
+        "بررسی شیر و فشار"
+       ],
+       "fixes_tech": [
+        "تعویض شیر"
+       ],
+       "specs": "",
+       "location": "پشت بالا",
+       "needs_technician": 1
+      },
+      {
+       "code": "E18",
+       "title": "خطای زمان تخلیه",
+       "severity": "high",
+       "part": "پمپ تخلیه",
+       "category": "پمپ",
+       "causes": [
+        "گرفتگی پمپ",
+        "خرابی"
+       ],
+       "fixes_user": [
+        "تمیز کردن پمپ از درب جلویی"
+       ],
+       "fixes_tech": [
+        "تعویض پمپ"
+       ],
+       "specs": "",
+       "location": "پایین جلو",
+       "needs_technician": 1
+      },
+      {
+       "code": "E23",
+       "title": "خطای رله پمپ",
+       "severity": "high",
+       "part": "برد پمپ",
+       "category": "برد الکترونیکی",
+       "causes": [
+        "جوش رله"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعمیر برد"
+       ],
+       "specs": "",
+       "location": "پایین",
+       "needs_technician": 1
+      },
+      {
+       "code": "E29",
+       "title": "خطای سطح آب",
+       "severity": "medium",
+       "part": "سنسور فشار",
+       "category": "سنسور",
+       "causes": [
+        "انسداد لوله هوا"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "پاکسازی/تعویض"
+       ],
+       "specs": "",
+       "location": "کنار",
+       "needs_technician": 1
+      },
+      {
+       "code": "E31",
+       "title": "خطای سنسور فشار",
+       "severity": "medium",
+       "part": "سنسور فشار",
+       "category": "سنسور",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "کنار",
+       "needs_technician": 1
+      },
+      {
+       "code": "E36",
+       "title": "خطای سنسور دما",
+       "severity": "high",
+       "part": "NTC",
+       "category": "سنسور",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "هیتر",
+       "needs_technician": 1
+      },
+      {
+       "code": "E43",
+       "title": "خطای موتور (دود آهنربایی)",
+       "severity": "critical",
+       "part": "موتور",
+       "category": "موتور",
+       "causes": [
+        "نیم‌سوزی خازن",
+        "خرابی موتور"
+       ],
+       "fixes_user": [
+        "قطع برق"
+       ],
+       "fixes_tech": [
+        "تست و تعویض موتور"
+       ],
+       "specs": "",
+       "location": "پشت دیگ",
+       "needs_technician": 1
+      },
+      {
+       "code": "E57",
+       "title": "خطای جریان موتور",
+       "severity": "critical",
+       "part": "موتور/درایور",
+       "category": "موتور",
+       "causes": [
+        "جریان بالا"
+       ],
+       "fixes_user": [
+        "قطع برق"
+       ],
+       "fixes_tech": [
+        "تعمیر درایور"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "E59",
+       "title": "خطای سرعت موتور",
+       "severity": "high",
+       "part": "تاکوژنراتور",
+       "category": "موتور",
+       "causes": [
+        "خرابی سنسور سرعت"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض موتور/برد"
+       ],
+       "specs": "",
+       "location": "موتور",
+       "needs_technician": 1
+      },
+      {
+       "code": "E67",
+       "title": "خطای کدگذاری برد",
+       "severity": "high",
+       "part": "EEPROM",
+       "category": "نرم‌افزاری",
+       "causes": [
+        "خطای داده"
+       ],
+       "fixes_user": [
+        "قطع برق طولانی"
+       ],
+       "fixes_tech": [
+        "برنامه‌ریزی مجدد برد"
+       ],
+       "specs": "",
+       "location": "برد",
+       "needs_technician": 1
+      }
+     ]
+    },
+    "dishwasher": {
+     "subtypes": [
+      "سری ۲/۴/۶ | Serie 2/4/6"
+     ],
+     "models": [
+      "SMS46KI03E",
+      "SMV46KX03E",
+      "SBE46MX02E"
+     ],
+     "codes": [
+      {
+       "code": "E15",
+       "title": "سیستم محافظ نشت AquaStop فعال",
+       "severity": "critical",
+       "part": "AquaStop",
+       "category": "سیستم آبرسانی",
+       "causes": [
+        "نشت داخلی"
+       ],
+       "fixes_user": [
+        "قطع آب"
+       ],
+       "fixes_tech": [
+        "بررسی و رفع نشتی"
+       ],
+       "specs": "",
+       "location": "پایه",
+       "needs_technician": 1
+      },
+      {
+       "code": "E16",
+       "title": "خطای شیر ورودی",
+       "severity": "high",
+       "part": "شیر برقی",
+       "category": "شیر",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض شیر"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "E17",
+       "title": "خطای ورود آب",
+       "severity": "high",
+       "part": "توربین ورودی",
+       "category": "سنسور",
+       "causes": [
+        "گرفتگی",
+        "فشار کم"
+       ],
+       "fixes_user": [
+        "بررسی شیر"
+       ],
+       "fixes_tech": [
+        "تعویض توربین"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "E18",
+       "title": "خطای تخلیه",
+       "severity": "high",
+       "part": "پمپ تخلیه",
+       "category": "پمپ",
+       "causes": [
+        "انسداد"
+       ],
+       "fixes_user": [
+        "تمیز کردن فیلتر"
+       ],
+       "fixes_tech": [
+        "تعویض پمپ"
+       ],
+       "specs": "",
+       "location": "کف",
+       "needs_technician": 1
+      },
+      {
+       "code": "E24",
+       "title": "خطای تخلیه ناقص",
+       "severity": "medium",
+       "part": "مسیر تخلیه",
+       "category": "پمپ",
+       "causes": [
+        "چربی و رسوب"
+       ],
+       "fixes_user": [
+        "تمیز کردن کامل مسیر"
+       ],
+       "fixes_tech": [
+        "سرویس کامل"
+       ],
+       "specs": "",
+       "location": "کف",
+       "needs_technician": 0
+      },
+      {
+       "code": "E25",
+       "title": "خطای پمپ تخلیه",
+       "severity": "high",
+       "part": "پمپ",
+       "category": "پمپ",
+       "causes": [
+        "جسم خارجی در پروانه"
+       ],
+       "fixes_user": [
+        "تمیز کردن پروانه"
+       ],
+       "fixes_tech": [
+        "تعویض پمپ"
+       ],
+       "specs": "",
+       "location": "کف",
+       "needs_technician": 1
+      },
+      {
+       "code": "E09",
+       "title": "خطای گرم‌کنش",
+       "severity": "high",
+       "part": "هیتر",
+       "category": "المنت / هیتر",
+       "causes": [
+        "سوختن هیتر مادون‌قرمز"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض هیتر"
+       ],
+       "specs": "",
+       "location": "مسیر گردش",
+       "needs_technician": 1
+      },
+      {
+       "code": "E14",
+       "title": "خطای سنسور جریان",
+       "severity": "medium",
+       "part": "سنسور flow",
+       "category": "سنسور",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "مسیر آب",
+       "needs_technician": 1
+      }
+     ]
+    }
+   }
+  },
+  "electrolux": {
+   "name_fa": "الکترولوکس",
+   "name_en": "Electrolux",
+   "devices": {
+    "washing_machine": {
+     "subtypes": [
+      "درب از جلو",
+      "ایدهال (Intuition)"
+     ],
+     "models": [
+      "EW7W368SP",
+      "EWW1042ADWA",
+      "EW6S406",
+      "EWF1024D5WB"
+     ],
+     "codes": [
+      {
+       "code": "E10",
+       "title": "خطای ورود آب",
+       "severity": "high",
+       "part": "شیر برقی",
+       "category": "شیر",
+       "causes": [
+        "شیر بسته",
+        "فشار کم",
+        "گرفتگی"
+       ],
+       "fixes_user": [
+        "بررسی شیر و صافی"
+       ],
+       "fixes_tech": [
+        "تعویض شیر"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "E11",
+       "title": "زمان ورود آب بیش از حد",
+       "severity": "high",
+       "part": "شیر/سنسور",
+       "category": "شیر",
+       "causes": [
+        "فشار بسیار کم",
+        "خرابی شیر"
+       ],
+       "fixes_user": [
+        "بررسی فشار"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "E20",
+       "title": "خطای تخلیه",
+       "severity": "high",
+       "part": "پمپ تخلیه",
+       "category": "پمپ",
+       "causes": [
+        "انسداد",
+        "خرابی پمپ"
+       ],
+       "fixes_user": [
+        "تمیز کردن فیلتر"
+       ],
+       "fixes_tech": [
+        "تعویض پمپ"
+       ],
+       "specs": "",
+       "location": "پایین جلو",
+       "needs_technician": 1
+      },
+      {
+       "code": "E21",
+       "title": "زمان تخلیه بیش از حد",
+       "severity": "high",
+       "part": "پمپ",
+       "category": "پمپ",
+       "causes": [
+        "انسداد شدید"
+       ],
+       "fixes_user": [
+        "بررسی شیلنگ"
+       ],
+       "fixes_tech": [
+        "تعویض پمپ"
+       ],
+       "specs": "",
+       "location": "پایین",
+       "needs_technician": 1
+      },
+      {
+       "code": "E23",
+       "title": "خطای رله پمپ",
+       "severity": "high",
+       "part": "برد",
+       "category": "برد الکترونیکی",
+       "causes": [
+        "جوش رله"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعمیر برد"
+       ],
+       "specs": "",
+       "location": "پایین",
+       "needs_technician": 1
+      },
+      {
+       "code": "E40",
+       "title": "درب باز",
+       "severity": "medium",
+       "part": "قفل درب",
+       "category": "قفل و ایمنی",
+       "causes": [
+        "درب باز",
+        "قفل خراب"
+       ],
+       "fixes_user": [
+        "بستن درب"
+       ],
+       "fixes_tech": [
+        "تعویض قفل"
+       ],
+       "specs": "",
+       "location": "لبه",
+       "needs_technician": 0
+      },
+      {
+       "code": "E41",
+       "title": "قفل درب کار نمی‌کند",
+       "severity": "high",
+       "part": "قفل درب",
+       "category": "قفل و ایمنی",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض قفل"
+       ],
+       "specs": "",
+       "location": "لبه",
+       "needs_technician": 1
+      },
+      {
+       "code": "E50",
+       "title": "خطای موتور",
+       "severity": "critical",
+       "part": "موتور",
+       "category": "موتور",
+       "causes": [
+        "جریان بالا",
+        "خرابی"
+       ],
+       "fixes_user": [
+        "قطع برق"
+       ],
+       "fixes_tech": [
+        "تست و تعویض"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "E61",
+       "title": "خطای هیتر",
+       "severity": "high",
+       "part": "هیتر",
+       "category": "المنت / هیتر",
+       "causes": [
+        "سوختن"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "پایین دیگ",
+       "needs_technician": 1
+      },
+      {
+       "code": "E62",
+       "title": "خطای گرمای بیش از حد",
+       "severity": "critical",
+       "part": "سنسور دما",
+       "category": "سنسور",
+       "causes": [
+        "خرابی سنسور/هیتر"
+       ],
+       "fixes_user": [
+        "قطع برق فوری"
+       ],
+       "fixes_tech": [
+        "تعویض سنسور"
+       ],
+       "specs": "",
+       "location": "هیتر",
+       "needs_technician": 1
+      },
+      {
+       "code": "E90",
+       "title": "خطای ارتباط بردها",
+       "severity": "high",
+       "part": "کابل بین برد",
+       "category": "ارتباطی",
+       "causes": [
+        "لقی"
+       ],
+       "fixes_user": [
+        "ریست"
+       ],
+       "fixes_tech": [
+        "بررسی سوکت"
+       ],
+       "specs": "",
+       "location": "پشت پنل",
+       "needs_technician": 1
+      },
+      {
+       "code": "E93",
+       "title": "خطای پیکربندی",
+       "severity": "high",
+       "part": "EEPROM",
+       "category": "نرم‌افزاری",
+       "causes": [
+        "خطای داده"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "پیکربندی مجدد"
+       ],
+       "specs": "",
+       "location": "برد",
+       "needs_technician": 1
+      }
+     ]
+    }
+   }
+  },
+  "ariston": {
+   "name_fa": "آریستون / ایندزیت",
+   "name_en": "Ariston / Indesit",
+   "devices": {
+    "washing_machine": {
+     "subtypes": [
+      "درب از جلو",
+      "Aqualtis"
+     ],
+     "models": [
+      "AQUALTIS AQ9D",
+      "WMSF60",
+      "IWSB6105",
+      "FWC61453"
+     ],
+     "codes": [
+      {
+       "code": "F01",
+       "title": "خطای تریاک موتور (اتصال کوتاه)",
+       "severity": "critical",
+       "part": "تریاک موتور روی برد",
+       "category": "برد الکترونیکی",
+       "causes": [
+        "اتصال کوتاه موتور",
+        "جوش تریاک"
+       ],
+       "fixes_user": [
+        "قطع برق"
+       ],
+       "fixes_tech": [
+        "تعمیر/تعویض برد"
+       ],
+       "specs": "",
+       "location": "پشت پنل",
+       "needs_technician": 1
+      },
+      {
+       "code": "F02",
+       "title": "خطای تاکوژنراتور موتور",
+       "severity": "high",
+       "part": "سنسور سرعت موتور",
+       "category": "موتور",
+       "causes": [
+        "قطعی سنسور",
+        "خرابی موتور"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تست و تعویض"
+       ],
+       "specs": "",
+       "location": "پشت دیگ",
+       "needs_technician": 1
+      },
+      {
+       "code": "F03",
+       "title": "خطای سنسور NTC",
+       "severity": "high",
+       "part": "سنسور دما",
+       "category": "سنسور",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "هیتر",
+       "needs_technician": 1
+      },
+      {
+       "code": "F04",
+       "title": "خطای سنسور فشار",
+       "severity": "high",
+       "part": "پرسواستات",
+       "category": "سنسور",
+       "causes": [
+        "گیر کردن"
+       ],
+       "fixes_user": [
+        "ریست"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "کنار دیگ",
+       "needs_technician": 1
+      },
+      {
+       "code": "F05",
+       "title": "خطای تخلیه",
+       "severity": "high",
+       "part": "پمپ تخلیه",
+       "category": "پمپ",
+       "causes": [
+        "انسداد",
+        "خرابی"
+       ],
+       "fixes_user": [
+        "تمیز کردن فیلتر"
+       ],
+       "fixes_tech": [
+        "تعویض پمپ"
+       ],
+       "specs": "",
+       "location": "پایین جلو",
+       "needs_technician": 1
+      },
+      {
+       "code": "F07",
+       "title": "هیتر بدون آب",
+       "severity": "critical",
+       "part": "هیتر/پرسواستات",
+       "category": "المنت / هیتر",
+       "causes": [
+        "هیتر خالی روشن",
+        "خرابی رله"
+       ],
+       "fixes_user": [
+        "قطع برق"
+       ],
+       "fixes_tech": [
+        "تعویض هیتر/برد"
+       ],
+       "specs": "",
+       "location": "پایین دیگ",
+       "needs_technician": 1
+      },
+      {
+       "code": "F08",
+       "title": "خطای رله هیتر",
+       "severity": "high",
+       "part": "رله هیتر",
+       "category": "برد الکترونیکی",
+       "causes": [
+        "جوش رله"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعمیر برد"
+       ],
+       "specs": "",
+       "location": "برد",
+       "needs_technician": 1
+      },
+      {
+       "code": "F09",
+       "title": "خطای حافظه EEPROM",
+       "severity": "high",
+       "part": "EEPROM",
+       "category": "نرم‌افزاری",
+       "causes": [
+        "خطای داده"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض/برنامه‌ریزی برد"
+       ],
+       "specs": "",
+       "location": "برد",
+       "needs_technician": 1
+      },
+      {
+       "code": "F10",
+       "title": "سنسور فشار بی‌پاسخ",
+       "severity": "high",
+       "part": "پرسواستات",
+       "category": "سنسور",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "کنار",
+       "needs_technician": 1
+      },
+      {
+       "code": "F11",
+       "title": "خطای پمپ تخلیه (بی‌پاسخ)",
+       "severity": "high",
+       "part": "پمپ",
+       "category": "پمپ",
+       "causes": [
+        "قطعی پمپ"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض پمپ"
+       ],
+       "specs": "",
+       "location": "پایین",
+       "needs_technician": 1
+      },
+      {
+       "code": "F12",
+       "title": "خطای ارتباط نمایشگر و برد",
+       "severity": "medium",
+       "part": "کابل نمایشگر",
+       "category": "ارتباطی",
+       "causes": [
+        "لقی"
+       ],
+       "fixes_user": [
+        "ریست"
+       ],
+       "fixes_tech": [
+        "بررسی"
+       ],
+       "specs": "",
+       "location": "پنل",
+       "needs_technician": 1
+      },
+      {
+       "code": "F17",
+       "title": "قفل درب",
+       "severity": "high",
+       "part": "قفل درب",
+       "category": "قفل و ایمنی",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "بستن مجدد"
+       ],
+       "fixes_tech": [
+        "تعویض قفل"
+       ],
+       "specs": "",
+       "location": "لبه",
+       "needs_technician": 1
+      },
+      {
+       "code": "F18",
+       "title": "خطای ارتباط سریال",
+       "severity": "medium",
+       "part": "میکروکنترلر",
+       "category": "نرم‌افزاری",
+       "causes": [
+        "نویز"
+       ],
+       "fixes_user": [
+        "ریست"
+       ],
+       "fixes_tech": [
+        "تعویض برد"
+       ],
+       "specs": "",
+       "location": "برد",
+       "needs_technician": 1
+      }
+     ]
+    }
+   }
+  },
+  "beko": {
+   "name_fa": "بکو",
+   "name_en": "Beko",
+   "devices": {
+    "washing_machine": {
+     "subtypes": [
+      "همه زیرنوع‌ها"
+     ],
+     "models": [
+      "WUE7636",
+      "WY7407333",
+      "WM6143W",
+      "HTV8633"
+     ],
+     "codes": [
+      {
+       "code": "H1",
+       "title": "خطای سنسور NTC هیتر",
+       "severity": "high",
+       "part": "سنسور NTC",
+       "category": "سنسور",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض سنسور"
+       ],
+       "specs": "۱۰ kΩ",
+       "location": "روی هیتر",
+       "needs_technician": 1
+      },
+      {
+       "code": "H2",
+       "title": "خطای هیتر",
+       "severity": "high",
+       "part": "هیتر",
+       "category": "المنت / هیتر",
+       "causes": [
+        "سوختن"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تست و تعویض"
+       ],
+       "specs": "۱۹۵۰W",
+       "location": "پایین دیگ",
+       "needs_technician": 1
+      },
+      {
+       "code": "H3",
+       "title": "هیتر همیشه روشن",
+       "severity": "critical",
+       "part": "رله هیتر",
+       "category": "برد الکترونیکی",
+       "causes": [
+        "جوش رله"
+       ],
+       "fixes_user": [
+        "قطع برق"
+       ],
+       "fixes_tech": [
+        "تعمیر برد"
+       ],
+       "specs": "",
+       "location": "برد",
+       "needs_technician": 1
+      },
+      {
+       "code": "H4",
+       "title": "خطای تریاک شورت",
+       "severity": "critical",
+       "part": "برد",
+       "category": "الکتریکی",
+       "causes": [
+        "جوش تریاک"
+       ],
+       "fixes_user": [
+        "قطع برق"
+       ],
+       "fixes_tech": [
+        "تعمیر برد"
+       ],
+       "specs": "",
+       "location": "برد",
+       "needs_technician": 1
+      },
+      {
+       "code": "H5",
+       "title": "خطای پمپ تخلیه",
+       "severity": "high",
+       "part": "پمپ",
+       "category": "پمپ",
+       "causes": [
+        "انسداد/خرابی"
+       ],
+       "fixes_user": [
+        "تمیز کردن فیلتر"
+       ],
+       "fixes_tech": [
+        "تعویض پمپ"
+       ],
+       "specs": "",
+       "location": "پایین",
+       "needs_technician": 1
+      },
+      {
+       "code": "H6",
+       "title": "خطای موتور",
+       "severity": "critical",
+       "part": "موتور",
+       "category": "موتور",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "قطع برق"
+       ],
+       "fixes_tech": [
+        "تست و تعویض"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "H7",
+       "title": "خطای سنسور فشار",
+       "severity": "high",
+       "part": "سنسور فشار",
+       "category": "سنسور",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "کنار",
+       "needs_technician": 1
+      },
+      {
+       "code": "E01",
+       "title": "خطای قفل درب",
+       "severity": "high",
+       "part": "قفل درب",
+       "category": "قفل و ایمنی",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "بستن مجدد"
+       ],
+       "fixes_tech": [
+        "تعویض قفل"
+       ],
+       "specs": "",
+       "location": "لبه",
+       "needs_technician": 1
+      }
+     ]
+    }
+   }
+  },
+  "whirlpool": {
+   "name_fa": "ویرپول",
+   "name_en": "Whirlpool",
+   "devices": {
+    "washing_machine": {
+     "subtypes": [
+      "درب از جلو 6th Sense"
+     ],
+     "models": [
+      "WWDC7210",
+      "FSCR90420",
+      "AWO/C 6100",
+      "W8I94D"
+     ],
+     "codes": [
+      {
+       "code": "F01",
+       "title": "خطای موتور (تریاک)",
+       "severity": "critical",
+       "part": "تریاک موتور",
+       "category": "برد الکترونیکی",
+       "causes": [
+        "جوش تریاک"
+       ],
+       "fixes_user": [
+        "قطع برق"
+       ],
+       "fixes_tech": [
+        "تعمیر برد"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "F02",
+       "title": "خطای تازو (سنسور سرعت)",
+       "severity": "high",
+       "part": "تاکو",
+       "category": "موتور",
+       "causes": [
+        "قطعی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "موتور",
+       "needs_technician": 1
+      },
+      {
+       "code": "F03",
+       "title": "خطای سنسور NTC",
+       "severity": "high",
+       "part": "NTC",
+       "category": "سنسور",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "هیتر",
+       "needs_technician": 1
+      },
+      {
+       "code": "F05",
+       "title": "خطای تخلیه",
+       "severity": "high",
+       "part": "پمپ",
+       "category": "پمپ",
+       "causes": [
+        "انسداد"
+       ],
+       "fixes_user": [
+        "فیلتر"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "پایین",
+       "needs_technician": 1
+      },
+      {
+       "code": "F07",
+       "title": "خطای تریاک هیتر",
+       "severity": "high",
+       "part": "تریاک",
+       "category": "برد الکترونیکی",
+       "causes": [
+        "جوش"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعمیر برد"
+       ],
+       "specs": "",
+       "location": "برد",
+       "needs_technician": 1
+      },
+      {
+       "code": "F08",
+       "title": "خطای رله هیتر",
+       "severity": "high",
+       "part": "رله",
+       "category": "برد الکترونیکی",
+       "causes": [
+        "جوش"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعمیر"
+       ],
+       "specs": "",
+       "location": "برد",
+       "needs_technician": 1
+      },
+      {
+       "code": "F09",
+       "title": "خطای EEPROM",
+       "severity": "high",
+       "part": "حافظه",
+       "category": "نرم‌افزاری",
+       "causes": [
+        "داده"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "برد",
+       "needs_technician": 1
+      },
+      {
+       "code": "F11",
+       "title": "پمپ تخلیه بی‌پاسخ",
+       "severity": "high",
+       "part": "پمپ",
+       "category": "پمپ",
+       "causes": [
+        "قطعی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "پایین",
+       "needs_technician": 1
+      },
+      {
+       "code": "F12",
+       "title": "خطای ارتباط",
+       "severity": "medium",
+       "part": "کابل",
+       "category": "ارتباطی",
+       "causes": [
+        "لقی"
+       ],
+       "fixes_user": [
+        "ریست"
+       ],
+       "fixes_tech": [
+        "بررسی"
+       ],
+       "specs": "",
+       "location": "پنل",
+       "needs_technician": 1
+      },
+      {
+       "code": "F13",
+       "title": "خطای NTC خشک‌کن",
+       "severity": "medium",
+       "part": "NTC خشک‌کن",
+       "category": "سنسور",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "بخش خشک",
+       "needs_technician": 1
+      },
+      {
+       "code": "F21",
+       "title": "خطای موتور اینورتر",
+       "severity": "critical",
+       "part": "درایور",
+       "category": "موتور",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "قطع برق"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "F34",
+       "title": "خطای قفل درب",
+       "severity": "high",
+       "part": "قفل",
+       "category": "قفل و ایمنی",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "بستن"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "لبه",
+       "needs_technician": 1
+      }
+     ]
+    }
+   }
+  },
+  "panasonic": {
+   "name_fa": "پاناسونیک",
+   "name_en": "Panasonic",
+   "devices": {
+    "washing_machine": {
+     "subtypes": [
+      "درب از جلو",
+      "درب از بالا"
+     ],
+     "models": [
+      "NA-140VX1",
+      "NA-V10FR1",
+      "NA-F90X1",
+      "NA-148VB4"
+     ],
+     "codes": [
+      {
+       "code": "U11",
+       "title": "خطای تخلیه",
+       "severity": "high",
+       "part": "پمپ تخلیه",
+       "category": "پمپ",
+       "causes": [
+        "انسداد",
+        "خرابی"
+       ],
+       "fixes_user": [
+        "تمیز کردن فیلتر"
+       ],
+       "fixes_tech": [
+        "تعویض پمپ"
+       ],
+       "specs": "",
+       "location": "پایین",
+       "needs_technician": 1
+      },
+      {
+       "code": "U12",
+       "title": "خطای درب باز",
+       "severity": "medium",
+       "part": "سوئیچ درب",
+       "category": "قفل و ایمنی",
+       "causes": [
+        "باز بودن"
+       ],
+       "fixes_user": [
+        "بستن"
+       ],
+       "fixes_tech": [
+        "تعویض سوئیچ"
+       ],
+       "specs": "",
+       "location": "لبه",
+       "needs_technician": 0
+      },
+      {
+       "code": "U13",
+       "title": "عدم توازن",
+       "severity": "medium",
+       "part": "تعلیق",
+       "category": "سایر",
+       "causes": [
+        "بار"
+       ],
+       "fixes_user": [
+        "بازچینش"
+       ],
+       "fixes_tech": [
+        "دمپر"
+       ],
+       "specs": "",
+       "location": "پایه",
+       "needs_technician": 0
+      },
+      {
+       "code": "U14",
+       "title": "ورود آب",
+       "severity": "high",
+       "part": "شیر",
+       "category": "شیر",
+       "causes": [
+        "فشار",
+        "خرابی"
+       ],
+       "fixes_user": [
+        "بررسی شیر"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "H02",
+       "title": "خطای NTC",
+       "severity": "high",
+       "part": "سنسور",
+       "category": "سنسور",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "هیتر",
+       "needs_technician": 1
+      },
+      {
+       "code": "H04",
+       "title": "خطای هیتر",
+       "severity": "high",
+       "part": "هیتر",
+       "category": "المنت / هیتر",
+       "causes": [
+        "سوختن"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "پایین دیگ",
+       "needs_technician": 1
+      }
+     ]
+    }
+   }
+  },
+  "snowa": {
+   "name_fa": "اسنوا",
+   "name_en": "Snowa",
+   "devices": {
+    "washing_machine": {
+     "subtypes": [
+      "درب از جلو",
+      "درب از بالا"
+     ],
+     "models": [
+      "SWM-84518",
+      "SWM-70518",
+      "SWM-60410"
+     ],
+     "codes": [
+      {
+       "code": "E10",
+       "title": "خطای ورود آب",
+       "severity": "high",
+       "part": "شیر برقی",
+       "category": "شیر",
+       "causes": [
+        "شیر بسته",
+        "فشار کم",
+        "گرفتگی"
+       ],
+       "fixes_user": [
+        "بررسی شیر و صافی"
+       ],
+       "fixes_tech": [
+        "تعویض شیر"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "E20",
+       "title": "خطای تخلیه",
+       "severity": "high",
+       "part": "پمپ",
+       "category": "پمپ",
+       "causes": [
+        "انسداد",
+        "خرابی"
+       ],
+       "fixes_user": [
+        "تمیز کردن فیلتر"
+       ],
+       "fixes_tech": [
+        "تعویض پمپ"
+       ],
+       "specs": "",
+       "location": "پایین جلو",
+       "needs_technician": 1
+      },
+      {
+       "code": "E40",
+       "title": "خطای درب",
+       "severity": "high",
+       "part": "قفل درب",
+       "category": "قفل و ایمنی",
+       "causes": [
+        "خرابی"
+       ],
+       "fixes_user": [
+        "بستن مجدد"
+       ],
+       "fixes_tech": [
+        "تعویض قفل"
+       ],
+       "specs": "",
+       "location": "لبه",
+       "needs_technician": 1
+      },
+      {
+       "code": "E50",
+       "title": "خطای موتور",
+       "severity": "critical",
+       "part": "موتور",
+       "category": "موتور",
+       "causes": [
+        "جریان بالا"
+       ],
+       "fixes_user": [
+        "قطع برق"
+       ],
+       "fixes_tech": [
+        "تست و تعویض"
+       ],
+       "specs": "",
+       "location": "پشت",
+       "needs_technician": 1
+      },
+      {
+       "code": "E61",
+       "title": "خطای هیتر",
+       "severity": "high",
+       "part": "هیتر",
+       "category": "المنت / هیتر",
+       "causes": [
+        "سوختن"
+       ],
+       "fixes_user": [
+        "—"
+       ],
+       "fixes_tech": [
+        "تعویض"
+       ],
+       "specs": "",
+       "location": "پایین دیگ",
+       "needs_technician": 1
+      },
+      {
+       "code": "E90",
+       "title": "خطای ارتباط",
+       "severity": "high",
+       "part": "کابل",
+       "category": "ارتباطی",
+       "causes": [
+        "لقی"
+       ],
+       "fixes_user": [
+        "ریست"
+       ],
+       "fixes_tech": [
+        "بررسی"
+       ],
+       "specs": "",
+       "location": "پنل",
+       "needs_technician": 1
+      }
+     ]
+    }
+   }
+  }
+ }
+}

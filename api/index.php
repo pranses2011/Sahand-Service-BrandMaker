@@ -348,6 +348,73 @@ $router->add('GET', 'ai/uiux-skill-info', function () {
 });
 
 /* ==================================================
+ * 🆕 v2.6 — موتور خطایاب AI + تصاویر AI + یادگیری خودیاب
+ * (احراز هویت با همان میدل‌ور سراسری X-API-Key)
+ * ================================================== */
+
+// 🚨 تولید همه کدهای خطای واقعی یک برند+دستگاه (پایگاه دانش + جستجوی آنلاین)
+$router->add('POST', 'ai/error-codes-generate', function () {
+    $input = Router::jsonInput();
+    try {
+        $engine = new ErrorCodeEngine();
+        $result = $engine->generateForDevice(
+            (int)($input['brand_id'] ?? 0),
+            (string)($input['device_key'] ?? ''),
+            ($input['use_web'] ?? true) !== false,
+            ($input['overwrite'] ?? false) === true
+        );
+        json_response(['success' => true, 'data' => $result]);
+    } catch (Throwable $e) {
+        json_response(['success' => false, 'error' => $e->getMessage()], 400);
+    }
+});
+
+// ✨ بهینه‌سازی و یکتاسازی یک فیلد کد خطا با AI
+$router->add('POST', 'ai/error-code-improve-field', function () {
+    $input = Router::jsonInput();
+    try {
+        $engine = new ErrorCodeEngine();
+        $result = $engine->improveField((int)($input['error_id'] ?? 0), (string)($input['field'] ?? ''));
+        json_response(['success' => true, 'data' => $result]);
+    } catch (Throwable $e) {
+        json_response(['success' => false, 'error' => $e->getMessage()], 400);
+    }
+});
+
+// 🎨 تولید تصویر OG برای صفحه/مقاله (مرتبط با محتوا — یکتا و قابل تعویض)
+$router->add('POST', 'ai/generate-og-image', function () {
+    $input = Router::jsonInput();
+    try {
+        $gen = new AiImageGenerator();
+        $brand = (int)($input['brand_id'] ?? 0) > 0
+            ? Database::getInstance()->fetch('SELECT * FROM brands WHERE id = ?', [(int)$input['brand_id']])
+            : ['name_fa' => (string)($input['brand_fa'] ?? ''), 'extra_settings' => ''];
+        $entityKey = preg_replace('/[^a-z0-9\-]/i', '', (string)($input['entity_key'] ?? '')) ?: ('og-' . time());
+        $og = $gen->generateOgForPage(
+            (string)($input['page_type'] ?? 'home'),
+            (string)($input['title'] ?? ''),
+            $brand ?: ['name_fa' => '', 'extra_settings' => ''],
+            $entityKey
+        );
+        json_response(['success' => true, 'data' => $og]);
+    } catch (Throwable $e) {
+        json_response(['success' => false, 'error' => $e->getMessage()], 400);
+    }
+});
+
+// 🧠 فهرست درس‌های آموخته‌شده موتور خودیادگیر + آمار
+$router->add('GET', 'ai/learning/lessons', function () {
+    json_response(['success' => true, 'data' => ['stats' => SelfLearner::stats(), 'lessons' => SelfLearner::lessons()]]);
+});
+
+// 🔘 فعال/غیرفعال کردن یک درس خودیادگیر
+$router->add('POST', 'ai/learning/toggle', function () {
+    $input = Router::jsonInput();
+    $ok = SelfLearner::toggle((string)($input['lesson_id'] ?? ''), ($input['enabled'] ?? true) !== false);
+    json_response(['success' => $ok], $ok ? 200 : 404);
+});
+
+/* ==================================================
  * 🤖 ربات تلگرام متصل به دستیار فارسی
  * ================================================== */
 
