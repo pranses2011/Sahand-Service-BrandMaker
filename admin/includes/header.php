@@ -121,6 +121,9 @@ try {
                 <a class="nav-link <?= $activeMenu === 'telegram' ? 'active' : '' ?>" href="telegram.php">
                     <span class="icon">🤖</span> ربات تلگرام
                 </a>
+                <a class="nav-link <?= $activeMenu === 'bale' ? 'active' : '' ?>" href="bale.php">
+                    <span class="icon">💬</span> ربات بله
+                </a>
                 <a class="nav-link <?= $activeMenu === 'export' ? 'active' : '' ?>" href="export.php">
                     <span class="icon">📦</span> خروجی و استقرار
                 </a>

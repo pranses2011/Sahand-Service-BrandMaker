@@ -43,6 +43,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $cfg['allowed_chat_ids']  = trim((string)($_POST['tg_chats'] ?? ''));
                 $cfg['notify_new_request']= !empty($_POST['tg_notify']);
                 $cfg['welcome_text']      = trim((string)($_POST['tg_welcome'] ?? ''));
+                // 🌉 v2.6: تنظیمات واسط Google Apps Script
+                $cfg['relay_enabled']     = !empty($_POST['tg_relay_enabled']);
+                $cfg['relay_url']         = trim((string)($_POST['tg_relay_url'] ?? ''));
+                $cfg['relay_secret']      = trim((string)($_POST['tg_relay_secret'] ?? ''));
                 // اعتبارسنجی ساده توکن
                 if ($cfg['bot_token'] !== '' && !preg_match('#^\d+:[\w-]{30,}$#', $cfg['bot_token'])) {
                     throw new RuntimeException('قالب توکن معتبر نیست — از @BotFather کپی کنید (مثال: 123456789:AAH...)');
@@ -90,6 +94,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 Logger::activity((int)$_SESSION['user_id'], 'راه‌اندازی وب‌هوک', 'وب‌هوک ربات تلگرام فعال شد: ' . $publicUrl);
                 $flashType = 'success';
                 $flashMsg = '✅ وب‌هوک فعال شد: ' . $publicUrl;
+                break;
+
+            /* 🌉 تست واسط گوگل (v2.6) */
+            case 'test_relay':
+                $relayUrl = trim((string)($_POST['tg_relay_url'] ?? $cfg['relay_url'] ?? ''));
+                if ($relayUrl === '' || !preg_match('#^https://script\.google\.com/#', $relayUrl)) {
+                    throw new RuntimeException('آدرس Web App واسط گوگل معتبر نیست — باید با https://script.google.com/ شروع شود');
+                }
+                $ch = curl_init($relayUrl);
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_POST => true,
+                    CURLOPT_POSTFIELDS => json_encode([
+                        'secret' => (string)($cfg['relay_secret'] ?? ''),
+                        'method' => 'getMe',
+                        'token'  => (string)($cfg['bot_token'] ?? ''),
+                        'params' => new stdClass(),
+                    ]),
+                    CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_TIMEOUT => 30,
+                ]);
+                $body = curl_exec($ch);
+                $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+                $data = is_string($body) ? json_decode($body, true) : null;
+                if (!is_array($data)) {
+                    throw new RuntimeException('پاسخ نامعتبر از واسط (HTTP ' . $http . ') — اسکریپت را با دسترسی «Anyone» Deploy کرده‌اید؟');
+                }
+                if (!empty($data['relay_error'])) {
+                    throw new RuntimeException('واسط پاسخ داد اما تلگرام خطا داد: ' . $data['relay_error']);
+                }
+                if (empty($data['ok'])) {
+                    throw new RuntimeException('واسط کار می‌کند اما توکن رد شد: ' . ($data['description'] ?? '?'));
+                }
+                $me = $data['result'] ?? [];
+                $flashType = 'success';
+                $flashMsg = '🌉 واسط گوگل سالم است — ربات شناسایی شد: @' . ($me['username'] ?? '?');
                 break;
 
             /* 🧹 حذف وب‌هوک */
@@ -321,5 +363,143 @@ try {
         </table>
     </div>
 </div>
+
+<?php
+/* 🌉 مقادیر خودکار برای اسکریپت گوگل */
+$relaySecret = (string)($cfg['relay_secret'] ?? '');
+$siteWebhook = rtrim(BASE_URL, '/') . '/api/telegram/webhook';
+$siteToken = (string)($cfg['bot_token'] ?? '');
+$gsScript = <<<GAS
+/**
+ * 🌉 واسط تلگرام — Google Apps Script (سایت‌ساز برند سهند سرویس)
+ * ================================================================
+ * کاربرد: عبور از تحریم/فیلترینگ — سرورهای گوگل بدون محدودیت به تلگرام می‌رسند.
+ *
+ * دو حالت هم‌زمان:
+ *   ۱) خروجی: POST از سایت‌ساز → این اسکریپت → api.telegram.org
+ *   ۲) ورودی: وب‌هوک تلگرام → این اسکریپت → وب‌هوک سایت‌ساز
+ *
+ * راه‌اندازی (۳ دقیقه):
+ *   ۱. روی script.google.com یک پروژه جدید بسازید
+ *   ۲. همین کد را در Code.gs بچسبانید
+ *   ۳. Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone
+ *   ۴. آدرس /exec را در پنل سایت‌ساز (کارت «واسط گوگل») وارد کنید
+ */
+var SECRET = '{$relaySecret}';          // 🔐 راز مشترک با سایت‌ساز
+var SITE_WEBHOOK = '{$siteWebhook}';    // 📮 وب‌هوک سایت‌ساز برای آپدیت‌های ورودی
+
+function doPost(e) {
+  try {
+    var body = JSON.parse(e.postData.contents);
+
+    /* --- ۱) مسیر خروجی: سایت‌ساز → تلگرام --- */
+    if (body.method && body.token) {
+      if (SECRET !== '' && body.secret !== SECRET) {
+        return out({ ok: false, description: 'bad secret' });
+      }
+      var tg = UrlFetchApp.fetch('https://api.telegram.org/bot' + body.token + '/' + body.method, {
+        method: 'post',
+        contentType: 'application/json',
+        payload: JSON.stringify(body.params || {}),
+        muteHttpExceptions: true
+      });
+      return out(JSON.parse(tg.getContentText()));
+    }
+
+    /* --- ۲) مسیر ورودی: تلگرام → سایت‌ساز --- */
+    if (body.update_id !== undefined) {
+      if (SITE_WEBHOOK === '') {
+        return out({ ok: true });
+      }
+      var res = UrlFetchApp.fetch(SITE_WEBHOOK, {
+        method: 'post',
+        contentType: 'application/json',
+        headers: { 'X-Telegram-Bot-Api-Secret-Token': SECRET },
+        payload: JSON.stringify(body),
+        muteHttpExceptions: true
+      });
+      return out(JSON.parse(res.getContentText() || '{"ok":true}'));
+    }
+
+    return out({ ok: false, description: 'unknown payload' });
+  } catch (err) {
+    return out({ ok: false, relay_error: String(err) });
+  }
+}
+
+function doGet() {
+  return out({ ok: true, service: 'Sahand Telegram Relay', version: 1 });
+}
+
+function out(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+GAS;
+?>
+<div class="card" style="border-color:#34a853">
+    <div class="card-header">
+        <h3>🌉 واسط Google Apps Script (تلگرام در زمان تحریم)</h3>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-success" style="margin-bottom:14px">
+            🌉 وقتی سرور سایت‌ساز به تلگرام دسترسی ندارد (تحریم/فیلترینگ)، این واسط درخواست‌ها را از <b>سرورهای گوگل</b> به تلگرام می‌رساند.
+            فعال بودن واسط روی «تست اتصال»، «راه‌اندازی وب‌هوک» و پاسخ‌گویی ربات اثر می‌گذارد.
+        </div>
+
+        <form method="post">
+            <?= Auth::csrfField() ?>
+            <input type="hidden" name="action" value="save_settings">
+            <label class="form-check" style="margin-bottom:12px">
+                <input type="checkbox" name="tg_relay_enabled" <?= !empty($cfg['relay_enabled']) ? 'checked' : '' ?>>
+                🌉 فعال‌سازی ارسال از طریق واسط گوگل
+            </label>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>آدرس Web App واسط (…/exec)</label>
+                    <input type="url" name="tg_relay_url" class="form-control" style="direction:ltr;text-align:left" value="<?= e((string)($cfg['relay_url'] ?? '')) ?>" placeholder="https://script.google.com/macros/s/…/exec">
+                </div>
+                <div class="form-group">
+                    <label>🔐 راز مشترک (در اسکریپت زیر همین مقدار قرار گرفته)</label>
+                    <input type="text" name="tg_relay_secret" class="form-control" style="direction:ltr;text-align:left" value="<?= e($relaySecret) ?>">
+                </div>
+            </div>
+            <div style="display:flex;gap:9px;flex-wrap:wrap">
+                <button type="submit" class="btn btn-primary">💾 ذخیره تنظیمات واسط</button>
+            </div>
+        </form>
+
+        <form method="post" style="margin-top:10px">
+            <?= Auth::csrfField() ?>
+            <input type="hidden" name="action" value="test_relay">
+            <button class="btn btn-success">🧪 تست واسط (ارسال getMe از طریق گوگل)</button>
+        </form>
+
+        <details style="margin-top:16px">
+            <summary style="cursor:pointer;font-weight:700;font-size:13.5px">📜 اسکریپت آماده گوگل — کافی است کپی و Deploy کنید (مقادیر شما جای‌گذاری شده)</summary>
+            <div class="hint" style="margin:10px 0">
+                ۱. به <b>script.google.com</b> بروید و پروژه جدید بسازید<br>
+                ۲. کد زیر را در <code>Code.gs</code> بچسبانید (راز مشترک و آدرس وب‌هوک سایت‌ساز از قبل داخلش است)<br>
+                ۳. <b>Deploy → New deployment → Web app</b> → Execute as: <b>Me</b> → Who has access: <b>Anyone</b><br>
+                ۴. آدرس <code>…/exec</code> را کپی و در فیلد بالا وارد کنید + دکمه تست را بزنید
+            </div>
+            <div style="position:relative">
+                <button type="button" class="btn btn-outline btn-sm" onclick="copyGsScript(this)" style="position:absolute;top:8px;left:8px;z-index:2">📋 کپی اسکریپت</button>
+                <textarea id="gs-script" readonly rows="18" class="form-control" style="direction:ltr;text-align:left;font-family:monospace;font-size:11.5px;background:#0f172a;color:#e2e8f0"><?= htmlspecialchars($gsScript, ENT_QUOTES, 'UTF-8') ?></textarea>
+            </div>
+        </details>
+    </div>
+</div>
+
+<script>
+function copyGsScript(btn) {
+    var ta = document.getElementById('gs-script');
+    ta.select();
+    document.execCommand('copy');
+    var old = btn.innerHTML;
+    btn.innerHTML = '✅ کپی شد';
+    setTimeout(function () { btn.innerHTML = old; }, 1800);
+}
+</script>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

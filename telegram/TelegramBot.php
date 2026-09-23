@@ -61,6 +61,8 @@ class TelegramBot
 
     /**
      * 🔗 فراخوانی متد Bot API تلگرام (JSON)
+     * 🌉 v2.6: در صورت فعال بودن «واسط گوگل»، درخواست از طریق Google Apps Script
+     *    (سرورهای گوگل — بدون تحریم) به تلگرام ارسال می‌شود.
      *
      * @return array پاسخ JSON — throw در صورت خطای شبکه/توکن
      */
@@ -69,6 +71,67 @@ class TelegramBot
         if ($this->token === '') {
             throw new RuntimeException('توکن ربات تنظیم نشده است — از پنل مدیریت وارد کنید.');
         }
+
+        /* 🌉 واسط گوگل فعال است → از طریق سرورهای گوگل به تلگرام */
+        if (!empty($this->cfg['relay_enabled']) && !empty($this->cfg['relay_url'])) {
+            return $this->apiViaRelay($method, $params);
+        }
+
+        return $this->apiDirect($method, $params);
+    }
+
+    /**
+     * 🌉 ارسال از طریق واسط Google Apps Script (عبور از تحریم با سرورهای گوگل)
+     */
+    private function apiViaRelay(string $method, array $params): array
+    {
+        $relayUrl = (string)$this->cfg['relay_url'];
+        $secret = (string)($this->cfg['relay_secret'] ?? '');
+        $payload = json_encode([
+            'secret' => $secret,
+            'method' => $method,
+            'token'  => $this->token,
+            'params' => $params,
+        ], JSON_UNESCAPED_UNICODE);
+
+        $ch = curl_init($relayUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT        => 70,
+            CURLOPT_FOLLOWLOCATION => true, // script.google.com ریدایرکت ۳۰۲ می‌دهد
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+        $body = curl_exec($ch);
+        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err = curl_error($ch);
+        curl_close($ch);
+
+        if (!is_string($body) || $body === '') {
+            throw new RuntimeException('خطای واسط گوگل: ' . ($err ?: "HTTP {$http}"));
+        }
+        $data = json_decode($body, true);
+        if (!is_array($data)) {
+            throw new RuntimeException('پاسخ نامعتبر از واسط گوگل (احتمالاً اسکریپت درست Deploy نشده).');
+        }
+        if (!empty($data['relay_error'])) {
+            throw new RuntimeException('خطای واسط گوگل → تلگرام: ' . ($data['relay_error'] ?? ''));
+        }
+        if (empty($data['ok'])) {
+            $this->lastError = (string)($data['description'] ?? 'نامشخص');
+            throw new RuntimeException('خطای تلگرام (از واسط): ' . $this->lastError);
+        }
+        return $data['result'] ?? [];
+    }
+
+    /**
+     * 🔗 ارسال مستقیم به تلگرام (مسیر پیش‌فرض)
+     */
+    private function apiDirect(string $method, array $params): array
+    {
         $ch = curl_init(TELEGRAM_API_BASE . $this->token . '/' . $method);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -1367,7 +1430,7 @@ class TelegramBot
      * ================================================== */
 
     /** ⌨️ کیبورد پیش‌فرض */
-    private function defaultKeyboard(): array
+    protected function defaultKeyboard(): array
     {
         return [
             ['📰 مقاله بنویس', '🔑 کلمات کلیدی یخچال'],
@@ -1378,7 +1441,7 @@ class TelegramBot
     }
 
     /** 📖 متن راهنمای ربات */
-    private function helpText(): string
+    protected function helpText(): string
     {
         return "🤖 <b>دستیار هوشمند سهند سرویس — v2</b>\n" .
             "موتور هوش مصنوعی داخلی نسخه " . SahandAI::ENGINE_VERSION . " — متصل به اینترنت 🌐\n\n" .

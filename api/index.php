@@ -59,7 +59,8 @@ $router->use(function (array $params) {
         || preg_match('#^track$#', $path)
         || preg_match('#^icon/#', $path)
         || preg_match('#^brands$#', $path)
-        || preg_match('#^telegram/webhook$#', $path)) {
+        || preg_match('#^telegram/webhook$#', $path)
+        || preg_match('#^bale/webhook$#', $path)) {
         return true;
     }
     require_once __DIR__ . '/middleware/auth.php';
@@ -345,6 +346,12 @@ $router->add('POST', 'ai/uiux-improve', $aiHandler('uiuxImprove'));
 // 📇 اطلاعات اسکیل (نسخه، قوانین UX، بلوپرینت‌ها)
 $router->add('GET', 'ai/uiux-skill-info', function () {
     json_response(['success' => true, 'data' => (new SahandAI())->uiuxSkillInfo()]);
+});
+
+// 💬 وب‌هوک ربات بله (با راز مشترک پارامتری راستی‌آزمایی می‌شود)
+$router->add('POST', 'bale/webhook', function () {
+    require_once ROOT_PATH . '/bale/BaleBot.php';
+    bale_webhook_handler();
 });
 
 /* ==================================================
