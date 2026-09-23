@@ -19,7 +19,7 @@ if (!defined('SAHAND_INIT')) {
 /* --------------------------------------------------
  * 🌍 تنظیمات عمومی
  * -------------------------------------------------- */
-define('SAHAND_VERSION', '2.4.1');              // نسخه سیستم (هات‌فیکس ۲.۴.۱ — رفع باگ‌های حیاتی گزارش‌شده)
+define('SAHAND_VERSION', '2.5.0');              // نسخه سیستم (۲.۵.۰ — کپچای مقاوم + اسکیل UI/UX Pro + بهینه PHP 8.3)
 define('SAHAND_NAME_FA', 'سایت ساز برند سهند سرویس'); // نام فارسی سیستم
 define('SAHAND_NAME_EN', 'Sahand BrandMaker');   // نام انگلیسی سیستم
 date_default_timezone_set('Asia/Tehran');        // ⏰ منطقه زمانی ایران
@@ -130,6 +130,22 @@ if (PHP_VERSION_ID < 80000) {
 }
 
 /* --------------------------------------------------
+ * ⚡ پلی‌فیل json_validate — بومی PHP ۸.۳
+ * روی PHP ۸.۳ نسخه بومی ( بسیار سریع‌تر از json_decode کامل)
+ * استفاده می‌شود؛ روی نسخه‌های قدیمی‌تر جایگزین معادل فعال است.
+ * -------------------------------------------------- */
+if (!function_exists('json_validate')) {
+    function json_validate(string $json, int $depth = 512): bool
+    {
+        if ($json === '') {
+            return false;
+        }
+        json_decode($json, true, $depth);
+        return json_last_error() === JSON_ERROR_NONE;
+    }
+}
+
+/* --------------------------------------------------
  * 🧰 بارگذاری توابع کمکی عمومی (helpers)
  * شامل: تاریخ جلالی، اعداد فارسی، اعتبارسنجی و ...
  * -------------------------------------------------- */
@@ -158,11 +174,24 @@ if (!defined('BASE_URL')) {
 }
 
 /* --------------------------------------------------
- * ⚠️ مدیریت خطاها و استثناها
+ * ⚠️ مدیریت خطاها و استثناها — بهینه PHP ۸.۳
+ * حالت عملیاتی: هشدارهای منسوخ (E_DEPRECATED) لاگ نمی‌شوند
+ * تا لاگ خطا تمیز بماند؛ در دیباگ همه‌چیز ثبت می‌شود.
  * -------------------------------------------------- */
-error_reporting(E_ALL);
+error_reporting(SAHAND_DEBUG ? E_ALL : (E_ALL & ~E_DEPRECATED & ~E_STRICT));
 ini_set('display_errors', SAHAND_DEBUG ? '1' : '0');
 ini_set('log_errors', '1');
+
+/* ⚡ عملکرد PHP ۸+ / ۸.۳:
+ * - جدید: فقط برای PHP ۸ به بالا (نسخه هاست شما ۸.۳ است)
+ * - zlib خروجی را فشرده می‌کند (اگر هاست اجازه دهد)
+ * - گزارش وضعیت سرور در داشبورد: نسخه، GD، OPcache و ... */
+if (PHP_VERSION_ID >= 80000) {
+    // فشرده‌سازی خروجی HTML/JSON برای سرعت بیشتر (در صورت فعال نبودن در سطح سرور)
+    if (!ini_get('zlib.output_compression') && !in_array(PHP_SAPI, ['cli', 'cli-server'], true)) {
+        @ini_set('zlib.output_compression', '1');
+    }
+}
 
 set_exception_handler(function ($e) {
     // ثبت خطا در لاگ

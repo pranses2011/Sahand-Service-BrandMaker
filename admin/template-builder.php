@@ -21,9 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save_template')
     $name = post('name') ?: 'قالب بدون نام';
     $pageType = post('page_type') ?: 'home';
     $layoutJson = (string)($_POST['layout_json'] ?? '[]');
-    // اعتبارسنجی JSON
-    json_decode($layoutJson);
-    if (json_last_error() !== JSON_ERROR_NONE) {
+    // اعتبارسنجی JSON — روی PHP 8.3 از تابع بومی و سریع json_validate استفاده می‌شود
+    if (!json_validate($layoutJson)) {
         flash('danger', 'چیدمان نامعتبر است.');
         redirect('templates.php');
     }
@@ -58,6 +57,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array(post('action'), ['uiux_des
             json_response(['success' => true, 'data' => $result]);
         }
         $layoutRaw = (string)($_POST['layout_json'] ?? '[]');
+        if (!json_validate($layoutRaw)) {
+            json_response(['success' => false, 'error' => 'چیدمان ارسالی نامعتبر است.'], 400);
+        }
         $layout = json_decode($layoutRaw, true);
         if (!is_array($layout)) {
             json_response(['success' => false, 'error' => 'چیدمان ارسالی نامعتبر است.'], 400);
