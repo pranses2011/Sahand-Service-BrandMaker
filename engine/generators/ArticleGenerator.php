@@ -28,23 +28,24 @@ class ArticleGenerator
     }
 
     /**
-     * 📰 تولید یک مقاله کامل یکتا برای برند — نسخه ۲
+     * 📰 تولید یک مقاله کامل یکتا برای برند — نسخه ۲.۳
      *
      * @param array  $brand اطلاعات برند (id, name_fa, name_en, ...)
      * @param string $topicType نوع مقاله (۲۵ نوع فاز Q.4)
      * @param string|null $deviceKey کلید دستگاه هدف (اختیاری — تصادفی انتخاب می‌شود)
      * @param int   $variants تعداد واریانت تولیدی برای انتخاب بهترین (۱ تا ۴ — نسخه ۲)
      * @param string|null $customTitle عنوان دلخواه کاربر (فاز Q.5 — مقاله حول همین عنوان نوشته می‌شود)
+     * @param array $options فاز Q.7/Q.8: ['research' => bool (جستجوی آنلاین), 'with_images' => bool (تصاویر خودکار)]
      * @return array مقاله کامل ['title','slug','content','excerpt','seo','quality',...]
      */
-    public function generate(array $brand, string $topicType, ?string $deviceKey = null, int $variants = 2, ?string $customTitle = null): array
+    public function generate(array $brand, string $topicType, ?string $deviceKey = null, int $variants = 2, ?string $customTitle = null, array $options = []): array
     {
         $variants = max(1, min(4, $variants));
         $best = null;
 
         // 🎰 تولید N واریانت با seed های متفاوت و انتخاب بهترین امتیاز کیفیت
         for ($v = 0; $v < $variants; $v++) {
-            $candidate = $this->generateSingle($brand, $topicType, $deviceKey, $v, $customTitle);
+            $candidate = $this->generateSingle($brand, $topicType, $deviceKey, $v, $customTitle, $options);
             if ($best === null || $candidate['quality']['score'] > $best['quality']['score']) {
                 $best = $candidate;
             }
@@ -57,7 +58,7 @@ class ArticleGenerator
     /**
      * 🎲 تولید یک واریانت مقاله (هسته تولید نسخه ۱ + قابلیت‌های جدید)
      */
-    private function generateSingle(array $brand, string $topicType, ?string $deviceKey, int $variantIndex, ?string $customTitle = null): array
+    private function generateSingle(array $brand, string $topicType, ?string $deviceKey, int $variantIndex, ?string $customTitle = null, array $options = []): array
     {
         $devices = $this->db->fetchAll(
             'SELECT * FROM brand_devices WHERE brand_id = ? AND is_active = 1',
@@ -115,8 +116,71 @@ class ArticleGenerator
             );
         }
 
-        /* ---------- ۲️⃣ ساخت Outline مقاله ---------- */
+        /* ---------- ۱.۵) 🔎 تحقیق آنلاین وب (فاز Q.7) ----------
+         * جستجوی اینترنت هنگام نوشتن: داده‌های واقعی + منابع معتبر
+         * به مقاله اضافه می‌شود تا محتوا و سئو هر دو کامل باشند */
+        $webResearch = null;
+        $researchSections = [];
+        $researchTags = [];
+        if (!empty($options['research'])) {
+            try {
+                $researchTopic = $title;
+                $researchTopic = preg_replace('/[؟?!.:؛]+/u', ' ', $researchTopic) ?? $researchTopic;
+                $webResearch = (new WebSearchService())->research(trim($researchTopic), [
+                    'limit' => 6,
+                ]);
+                // 📊 بخش داده‌های آنلاین — فکت‌های استخراج‌شده از نتایج واقعی
+                $facts = array_slice($webResearch['facts'] ?? [], 0, 5);
+                if (!empty($facts)) {
+                    $factsHtml = '<p>بر اساس بررسی منابع آنلاین به‌روز، این داده‌ها به تأیید رسیده است:</p>' . "\n" . '<ul>' . "\n";
+                    foreach ($facts as $fact) {
+                        $factsHtml .= '<li>' . e((string)$fact) . '</li>' . "\n";
+                    }
+                    $factsHtml .= '</ul>';
+                    $researchSections[] = $this->section('📊 داده‌های به‌روز از منابع آنلاین', $factsHtml);
+                }
+                // ❓ پرسش‌های واقعی کاربران از نتایج جستجو
+                $rQuestions = array_slice($webResearch['questions'] ?? [], 0, 4);
+                if (!empty($rQuestions)) {
+                    $qHtml = '<p>کاربران واقعی در جستجوهای خود این پرسش‌ها را مطرح کرده‌اند:</p>' . "\n" . '<ul>' . "\n";
+                    foreach ($rQuestions as $q) {
+                        $qHtml .= '<li>' . e((string)$q) . '</li>' . "\n";
+                    }
+                    $qHtml .= '</ul>';
+                    $researchSections[] = $this->section('🤔 پرسش‌های پرتکرار کاربران در وب', $qHtml);
+                }
+                // 🏷️ کلیدواژه‌های ترند → تگ‌های مقاله
+                foreach (array_slice($webResearch['keywords'] ?? [], 0, 3) as $kw) {
+                    if (is_string($kw) && mb_strlen($kw) >= 3) {
+                        $researchTags[] = $kw;
+                    }
+                }
+            } catch (Exception $e) {
+                // شکست تحقیق نباید تولید مقاله را متوقف کند
+                $webResearch = null;
+            }
+        }
+
+        /* ---------- ۲️⃣ ساخت Outline مقاله (+ بخش‌های تحقیق آنلاین) ---------- */
         $sections = $this->buildOutline($topicType, $device, $deviceKnowledge, $vars, $seed);
+        // 🔎 درج بخش‌های تحقیق آنلاین قبل از بخش عمومی پایانی (فاز Q.7)
+        if (!empty($researchSections)) {
+            array_splice($sections, max(0, count($sections) - 1), 0, $researchSections);
+        }
+        // 📚 بخش منابع و مطالعه بیشتر — لینک خروجی معتبر (E-E-A-T)
+        if ($webResearch !== null && !empty($webResearch['sources'])) {
+            $srcHtml = '<p>برای مطالعه بیشتر و راستی‌آزمایی داده‌های این مقاله، این منابع آنلاین را ببینید:</p>' . "\n" . '<ul>' . "\n";
+            foreach (array_slice($webResearch['sources'], 0, 4) as $src) {
+                $srcTitle = (string)($src['title'] ?? '');
+                $srcUrl = (string)($src['url'] ?? '');
+                if ($srcTitle !== '' && $srcUrl !== '' && preg_match('#^https?://#', $srcUrl)) {
+                    $host = parse_url($srcUrl, PHP_URL_HOST) ?: '';
+                    $srcHtml .= '<li><a href="' . e($srcUrl) . '" target="_blank" rel="noopener nofollow">' . e(mb_substr($srcTitle, 0, 90)) . '</a>' . ($host !== '' ? ' <small>(' . e($host) . ')</small>' : '') . '</li>' . "\n";
+                }
+            }
+            $srcHtml .= '</ul>';
+            $sections[] = $this->section('📚 منابع و مطالعه بیشتر', $srcHtml);
+        }
 
         /* ---------- ۳️⃣ نوشتن محتوای هر بخش ---------- */
         $bodyParts = [];
@@ -156,6 +220,25 @@ class ArticleGenerator
                 $faqHtml .= '<h3>' . e($faq['question']) . '</h3>' . "\n" . '<p>' . e($faq['answer']) . '</p>' . "\n";
             }
             $content .= "\n" . $faqHtml;
+        }
+
+        /* ---------- ۳.۷) 🖼️ تصاویر خودکار مقاله (فاز Q.8) ----------
+         * ۳ تصویر مرتبط (شاخص + میان‌متن + پایانی) با alt و figcaption
+         * استاندارد سئو درج می‌شود — ریسک صفر چون از بسته داخلی است */
+        $images = [];
+        if (!empty($options['with_images'])) {
+            try {
+                $imageService = new ArticleImageService();
+                $images = $imageService->pick(
+                    $device['device_key'] ?? null,
+                    $topicType,
+                    $title,
+                    $device['name_fa'] ?? ''
+                );
+                $content = $imageService->injectIntoContent($content, $images);
+            } catch (Exception $e) {
+                $images = []; // شکست تصویر نباید مقاله را متوقف کند
+            }
         }
 
         /* ---------- ۴️⃣ لینک‌دهی داخلی ---------- */
@@ -222,7 +305,11 @@ class ArticleGenerator
             'excerpt'    => excerpt($intro, 200),
             'focus_keyword' => $focusKeyword,
             'category'   => $this->categoryForTopic($topicType),
-            'tags'       => [$device['name_fa'], $brand['name_fa'], $topicType === 'maintenance' ? 'نگهداری' : 'تعمیرات'],
+            'tags'       => array_values(array_unique(array_merge(
+                [$device['name_fa'], $brand['name_fa']],
+                $researchTags, // 🆕 فاز Q.7: کلیدواژه‌های ترند از جستجوی آنلاین
+                [$topicType === 'maintenance' ? 'نگهداری' : 'تعمیرات']
+            ))),
             'seo'        => $seo,
             'uniqueness' => $check,
             'word_count' => TextProcessor::wordCount(strip_tags($content)),
@@ -237,6 +324,15 @@ class ArticleGenerator
                 'metrics'    => $grammarAnalysis['metrics'],
             ],
             'faqs'       => $faqs,
+            'images'     => $images, // 🆕 فاز Q.8: ۳ تصویر (featured/inline_mid/inline_end)
+            'research'   => $webResearch ? [
+                'used'      => true,
+                'provider'  => $webResearch['provider'] ?? '',
+                'facts'     => count($webResearch['facts'] ?? []),
+                'questions' => count($webResearch['questions'] ?? []),
+                'sources'   => count($webResearch['sources'] ?? []),
+                'keywords'  => array_slice($webResearch['keywords'] ?? [], 0, 5),
+            ] : ['used' => false],
             'generated_by_ai' => 1,
             'uniqueness_hash' => $check['hash'] ?? TextProcessor::contentHash($content),
         ];

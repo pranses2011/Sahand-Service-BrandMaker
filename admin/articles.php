@@ -63,6 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'generate') {
             'topic_type'   => post('topic_type') ?: 'troubleshooting',
             'device_key'   => post('device_key') ?: null,
             'custom_title' => trim((string)post('custom_title')) ?: null, // 🆕 فاز Q.5
+            'research'     => post('research') === '1',                  // 🆕 فاز Q.7: جستجوی آنلاین
+            'with_images'  => post('with_images') === '1',               // 🆕 فاز Q.8: تصاویر خودکار
         ]);
         $id = $ai->saveArticle((int)post('brand_id'), $article, post('topic_type') ?: 'troubleshooting');
         flash('success', '🤖 مقاله تولید شد: «' . $article['title'] . '» (' . $article['word_count'] . ' کلمه)');
@@ -342,6 +344,17 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
                 <div class="hint" style="margin-top:6px">اگر خالی بگذارید، عنوان از قالب‌های نوع مقاله انتخاب می‌شود. با وارد کردن عنوان دلخواه، مقاله حول همان عنوان نوشته می‌شود.</div>
                 <div id="title-suggestions" style="display:none;margin-top:12px" class="seo-stats"></div>
             </div>
+            <div class="form-row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">
+                <label style="display:flex;gap:8px;align-items:center;font-weight:600;cursor:pointer;margin:0">
+                    <input type="checkbox" name="research" value="1" style="width:18px;height:18px">
+                    <span>🔎 استفاده از جستجوی اینترنت هنگام نوشتن</span>
+                </label>
+                <label style="display:flex;gap:8px;align-items:center;font-weight:600;cursor:pointer;margin:0">
+                    <input type="checkbox" name="with_images" value="1" checked style="width:18px;height:18px">
+                    <span>🖼️ تصاویر خودکار مقاله (۳ تصویر)</span>
+                </label>
+            </div>
+            <div class="hint" style="margin-top:6px">🔎 جستجوی آنلاین: داده‌های واقعی، پرسش‌های کاربران و بخش «منابع» به مقاله اضافه می‌شود (کمی زمان بیشتر). 🖼️ تصاویر با alt و کپشن استاندارد در متن درج می‌شوند.</div>
             <button type="submit" class="btn btn-success btn-lg">🚀 تولید مقاله یکتا</button>
             <div class="hint" style="margin-top:8px">موتور AI محتوای ۸۰۰-۱۵۰۰ کلمه‌ای یکتا با لینک داخلی، سئو و اصلاح خودکار نگارش فارسی تولید می‌کند.</div>
         </form>

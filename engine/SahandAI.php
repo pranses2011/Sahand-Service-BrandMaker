@@ -155,7 +155,12 @@ class SahandAI
         if ($customTitle === '') {
             $customTitle = null;
         }
-        $article = $this->articleGen->generate($brand, $topicType, $deviceKey, $variants, $customTitle);
+        // 🆕 فاز Q.7/Q.8: جستجوی آنلاین هنگام نوشتن + تصاویر خودکار
+        $options = [
+            'research'    => !empty($params['research']),
+            'with_images' => array_key_exists('with_images', $params) ? !empty($params['with_images']) : true, // پیش‌فرض روشن
+        ];
+        $article = $this->articleGen->generate($brand, $topicType, $deviceKey, $variants, $customTitle, $options);
 
         // 💾 ذخیره خودکار در صورت درخواست
         if (!empty($params['auto_save'])) {
@@ -420,12 +425,41 @@ class SahandAI
     public function saveArticle(int $brandId, array $article, string $topicType): int
     {
         $status = !empty($article['publish']) ? 'published' : 'draft';
+
+        // 🖼️ فاز Q.8: تصویر شاخص از تصاویر خودکار مقاله
+        $featuredImage = null;
+        if (!empty($article['images'])) {
+            foreach ($article['images'] as $img) {
+                if (($img['role'] ?? '') === 'featured') {
+                    $featuredImage = $img['path'] ?? null;
+                    break;
+                }
+            }
+            if ($featuredImage === null) {
+                $featuredImage = $article['images'][0]['path'] ?? null;
+            }
+        }
+
+        // 📊 فاز Q.6: امتیاز سئو از تحلیل SeoImprover (در حافظه — بدون شبکه)
+        $seoScore = 0;
+        try {
+            $seoScore = (new SeoImprover())->analyze([
+                'title'           => $article['title'] ?? '',
+                'content'         => $article['content'] ?? '',
+                'seo_title'       => $article['seo']['title'] ?? '',
+                'seo_description' => $article['seo']['description'] ?? '',
+            ])['score'];
+        } catch (Exception $e) {
+            $seoScore = (int)($article['quality']['score'] ?? 0);
+        }
+
         $articleId = $this->db->insert('brand_articles', [
             'brand_id'        => $brandId,
             'title'           => $article['title'],
             'slug'            => $article['slug'],
             'content'         => $article['content'],
             'excerpt'         => $article['excerpt'],
+            'featured_image'  => $featuredImage,
             'category_ids'    => json_encode([$article['category']]),
             'tags'            => json_encode($article['tags'], JSON_UNESCAPED_UNICODE),
             'status'          => $status,
@@ -435,6 +469,7 @@ class SahandAI
             'seo_title'       => $article['seo']['title'] ?? null,
             'seo_description' => $article['seo']['description'] ?? null,
             'seo_keywords'    => $article['seo']['keywords'] ?? null,
+            'seo_score'       => $seoScore,
         ]);
 
         // ثبت در زمان‌بندی در صورت تاریخ انتشار آینده
