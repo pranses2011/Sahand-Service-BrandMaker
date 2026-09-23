@@ -11,9 +11,12 @@
 class ImageProcessor
 {
     /**
-     * 📥 بارگذاری تصویر از مسیر (پشتیبانی JPG/PNG/WEBP/GIF)
+     * 📥 بارگذاری تصویر از مسیر (پشتیبانی JPG/PNG/WEBP/GIF/SVG)
      *
-     * @return resource|GdImage|null
+     * SVG توسط GD قابل خواندن نیست؛ در عوض رنگ‌های آن به صورت
+     * آرایه رنگ پیکسلی شبیه‌سازی می‌شود (برای تحلیل پالت کافی است).
+     *
+     * @return resource|GdImage|array|null — برای SVG آرایه ['svg' => true, 'colors' => [[r,g,b],...]]
      */
     public function load(string $path)
     {
@@ -22,7 +25,8 @@ class ImageProcessor
         }
         $info = @getimagesize($path);
         if ($info === false) {
-            return null;
+            // 🎨 احتمالاً SVG — getimagesize از SVG پشتیبانی نمی‌کند
+            return $this->loadSvg($path);
         }
         switch ($info[2]) {
             case IMAGETYPE_JPEG:
@@ -33,6 +37,95 @@ class ImageProcessor
                 return @imagecreatefromgif($path);
             case IMAGETYPE_WEBP:
                 return function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : null;
+        }
+        // 🛡️ برخی SVGها mime درست دارند اما getimagesize خروجی نامعتبر می‌دهد
+        $ext = mb_strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        if ($ext === 'svg' || $ext === 'svgz') {
+            return $this->loadSvg($path);
+        }
+        return null;
+    }
+
+    /**
+     * 🎨 بارگذاری SVG — استخراج رنگ‌ها از ویژگی‌های fill/stroke/stop-color
+     *
+     * لوگوهای وکتوری رنگ‌هایشان در fill="#..." ذخیره می‌شود؛ این رنگ‌ها
+     * را به صورت آرایه پیکسل‌های شبیه‌سازی‌شده برمی‌گرداند تا ColorAnalyzer
+     * بتواند بدون Imagick پالت SVG را استخراج کند.
+     *
+     * @return array|null ['svg' => true, 'colors' => [[r,g,b],...], 'weights' => [int...]]
+     */
+    public function loadSvg(string $path): ?array
+    {
+        $content = @file_get_contents($path);
+        if ($content === false || $content === '') {
+            return null;
+        }
+        // svgz = gzip
+        if (substr($content, 0, 2) === "\x1f\x8b" && function_exists('gzdecode')) {
+            $decoded = @gzdecode($content);
+            if ($decoded !== false) {
+                $content = $decoded;
+            }
+        }
+        if (stripos($content, '<svg') === false) {
+            return null;
+        }
+
+        $colors = [];
+        $weights = [];
+        // اولویت رنگ‌ها: fill صریح > stroke > stop-color (گرادیان) > style
+        $patterns = [
+            '/\bfill\s*=\s*"((?:#[0-9a-fA-F]{3,8})|(?:rgb\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)))"/u'  => 3,
+            '/\bstroke\s*=\s*"((?:#[0-9a-fA-F]{3,8})|(?:rgb\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)))"/u' => 2,
+            '/\bstop-color\s*=\s*"(#[0-9a-fA-F]{3,8})"/u' => 1,
+            '/fill:\s*(#[0-9a-fA-F]{3,8})/u' => 2,
+            '/stroke:\s*(#[0-9a-fA-F]{3,8})/u' => 1,
+        ];
+        foreach ($patterns as $pattern => $weight) {
+            if (preg_match_all($pattern, $content, $matches)) {
+                foreach ($matches[1] as $colorStr) {
+                    $rgb = $this->cssColorToRgb($colorStr);
+                    if ($rgb === null) {
+                        continue;
+                    }
+                    $key = implode(',', $rgb);
+                    if (!isset($colors[$key])) {
+                        $colors[$key] = $rgb;
+                        $weights[$key] = 0;
+                    }
+                    $weights[$key] += $weight;
+                }
+            }
+        }
+        if (empty($colors)) {
+            return null;
+        }
+        // تبدیل به آرایه پیکسلی وزن‌دار — رنگ پرتکرار پیکسلهای بیشتری می‌گیرد
+        $pixels = [];
+        foreach ($colors as $key => $rgb) {
+            $repeat = max(4, $weights[$key] * 12);
+            for ($i = 0; $i < $repeat; $i++) {
+                $pixels[] = $rgb;
+            }
+        }
+        return ['svg' => true, 'colors' => array_values($colors), 'pixels' => $pixels];
+    }
+
+    /**
+     * 🔤 تبدیل رنگ CSS (hex یا rgb()) به [r,g,b]
+     */
+    private function cssColorToRgb(string $color): ?array
+    {
+        $color = trim($color);
+        if (preg_match('/^#([0-9a-fA-F]{3})$/', $color, $m)) {
+            return [hexdec($m[1][0] . $m[1][0]), hexdec($m[1][1] . $m[1][1]), hexdec($m[1][2] . $m[1][2])];
+        }
+        if (preg_match('/^#([0-9a-fA-F]{6})/', $color, $m)) {
+            return [hexdec(substr($m[1], 0, 2)), hexdec(substr($m[1], 2, 2)), hexdec(substr($m[1], 4, 2))];
+        }
+        if (preg_match('/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/', $color, $m)) {
+            return [(int)$m[1], (int)$m[2], (int)$m[3]];
         }
         return null;
     }

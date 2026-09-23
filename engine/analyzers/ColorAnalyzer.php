@@ -30,6 +30,11 @@ class ColorAnalyzer
             return null;
         }
 
+        // 🎨 مسیر SVG — رنگ‌ها از fill/stroke استخراج شده‌اند (بدون نیاز به GD)
+        if (is_array($img) && !empty($img['svg'])) {
+            return $this->analyzeFromPixels($img['pixels'], true);
+        }
+
         // 📏 کوچک‌سازی برای سرعت پردازش
         $w = imagesx($img);
         $h = imagesy($img);
@@ -78,19 +83,40 @@ class ColorAnalyzer
                 $pixels[] = [$r, $g, $b];
             }
         }
-        imagedestroy($img);
 
         // 🧯 اگر پیکسل رنگی کافی نبود، کل پیکسل‌ها را استفاده کن
+        // ⚠️ باید قبل از imagedestroy انجام شود — قبلاً بعد از آن بود و
+        // برای لوگوهای تک‌رنگ/سیاه‌وسفید خطای Fatal می‌داد (باگ مرحله ۱)
         if (count($pixels) < 30) {
             for ($x = 0; $x < $w; $x += 2) {
                 for ($y = 0; $y < $h; $y += 2) {
                     $rgba = imagecolorat($img, $x, $y);
-                    $pixels[] = [($rgba >> 16) & 0xFF, ($rgba >> 8) & 0xFF, $rgba & 0xFF];
+                    $r = ($rgba >> 16) & 0xFF;
+                    $g = ($rgba >> 8) & 0xFF;
+                    $b = $rgba & 0xFF;
+                    $max = max($r, $g, $b);
+                    if ($max > 248) {
+                        continue; // سفید کامل پس‌زمینه
+                    }
+                    $pixels[] = [$r, $g, $b];
                 }
             }
-            if (empty($pixels)) {
-                return null;
-            }
+        }
+        imagedestroy($img);
+
+        return $this->analyzeFromPixels($pixels, false);
+    }
+
+    /**
+     * 🧮 تحلیل مشترک از آرایه پیکسل‌ها (PNG/WEBP و SVG هر دو از این مسیر)
+     *
+     * @param array $pixels آرایه [r,g,b]
+     * @param bool  $isSvg  آیا پیکسل‌ها از SVG آمده‌اند؟
+     */
+    private function analyzeFromPixels(array $pixels, bool $isSvg = false): ?array
+    {
+        if (empty($pixels)) {
+            return null;
         }
 
         // 🔵 اجرای K-Means

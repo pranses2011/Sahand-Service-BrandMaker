@@ -46,27 +46,63 @@ try {
     switch ($step) {
         /* ---------- ۱️⃣ تحلیل لوگو و پالت رنگ ---------- */
         case 1:
+            $swatches = null;
+            $analysisDetails = ['رنگ اصلی' => '#1e40af'];
             if (empty($brand['logo'])) {
-                json_response(['success' => true, 'message' => 'لوگویی برای تحلیل وجود ندارد — پالت پیش‌فرض اعمال شد', 'details' => ['رنگ اصلی' => '#1e40af']]);
+                $message = 'لوگویی برای تحلیل وجود ندارد — پالت پیش‌فرض اعمال شد';
+            } else {
+                try {
+                    $analyzer = new ColorAnalyzer();
+                    $analysis = $analyzer->analyze(ROOT_PATH . '/' . $brand['logo']);
+                } catch (Throwable $logoErr) {
+                    Logger::error('خطای تحلیل لوگو برند ' . $brandId, ['message' => $logoErr->getMessage()]);
+                    $analysis = null;
+                }
+                if ($analysis) {
+                    // 💾 ذخیره پالت
+                    $db->delete('color_palettes', 'brand_id = ?', [$brandId]);
+                    $db->insert('color_palettes', [
+                        'brand_id'        => $brandId,
+                        'light_palette'   => json_encode($analysis['light'], JSON_UNESCAPED_UNICODE),
+                        'dark_palette'    => json_encode($analysis['dark'], JSON_UNESCAPED_UNICODE),
+                        'dominant_colors' => json_encode($analysis['dominant'], JSON_UNESCAPED_UNICODE),
+                    ]);
+                    $message = 'پالت رنگ استخراج شد';
+                    $analysisDetails = [
+                        'رنگ اصلی' => $analysis['classified']['primary'],
+                        'ثانویه'   => $analysis['classified']['secondary'],
+                        'تأکیدی'   => $analysis['classified']['accent'],
+                    ];
+                    $swatches = $analysis['dominant'];
+                } else {
+                    // 🧯 fallback نرم: تحلیل ناموفق نباید فرآیند ساخت را متوقف کند —
+                    // پالت پیش‌فرض آبی ذخیره می‌شود تا مراحل بعدی ادامه یابد
+                    // (کاربر بعداً می‌تواند از ویرایش برند → پالت رنگ را دستی تنظیم کند)
+                    $defaultLight = [
+                        '--color-primary' => '#1e40af', '--color-secondary' => '#0ea5e9',
+                        '--color-accent' => '#f59e0b', '--on-primary' => '#ffffff',
+                    ];
+                    $defaultDark = [
+                        '--color-primary' => '#1a3aa0', '--color-secondary' => '#0284c7',
+                        '--color-accent' => '#f59e0b', '--on-primary' => '#ffffff',
+                    ];
+                    $db->delete('color_palettes', 'brand_id = ?', [$brandId]);
+                    $db->insert('color_palettes', [
+                        'brand_id'        => $brandId,
+                        'light_palette'   => json_encode($defaultLight, JSON_UNESCAPED_UNICODE),
+                        'dark_palette'    => json_encode($defaultDark, JSON_UNESCAPED_UNICODE),
+                        'dominant_colors' => json_encode(['#1e40af', '#0ea5e9', '#f59e0b'], JSON_UNESCAPED_UNICODE),
+                    ]);
+                    $message = '⚠️ تحلیل این فایل لوگو ممکن نبود (فرمت پشتیبانی نمی‌شود یا فایل خراب است) — پالت پیش‌فرض اعمال شد؛ از «ویرایش برند ← پالت رنگ» قابل تغییر است';
+                    $analysisDetails = ['حالت' => 'پالت پیش‌فرض', 'رنگ اصلی' => '#1e40af'];
+                    $swatches = ['#1e40af', '#0ea5e9', '#f59e0b'];
+                }
             }
-            $analyzer = new ColorAnalyzer();
-            $analysis = $analyzer->analyze(ROOT_PATH . '/' . $brand['logo']);
-            if (!$analysis) {
-                json_response(['success' => false, 'error' => 'تحلیل لوگو ناموفق بود — فرمت فایل را بررسی کنید']);
-            }
-            // 💾 ذخیره پالت
-            $db->delete('color_palettes', 'brand_id = ?', [$brandId]);
-            $db->insert('color_palettes', [
-                'brand_id'        => $brandId,
-                'light_palette'   => json_encode($analysis['light'], JSON_UNESCAPED_UNICODE),
-                'dark_palette'    => json_encode($analysis['dark'], JSON_UNESCAPED_UNICODE),
-                'dominant_colors' => json_encode($analysis['dominant'], JSON_UNESCAPED_UNICODE),
-            ]);
             json_response([
-                'success' => true,
-                'message' => 'پالت رنگ استخراج شد',
-                'details' => ['رنگ اصلی' => $analysis['classified']['primary'], 'ثانویه' => $analysis['classified']['secondary'], 'تأکیدی' => $analysis['classified']['accent']],
-                'swatches' => $analysis['dominant'],
+                'success'  => true,
+                'message'  => $message,
+                'details'  => $analysisDetails,
+                'swatches' => $swatches,
             ]);
 
         /* ---------- ۲️⃣ تطبیق برند + ثبت دستگاه‌ها ---------- */
