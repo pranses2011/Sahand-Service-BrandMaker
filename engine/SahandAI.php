@@ -20,12 +20,12 @@
  *   🔌 API داخلی (routes در api/index.php)
  *
  * @package SahandBrandMaker\Engine
- * @version 3.4.1
+ * @version 3.5.0
  */
 class SahandAI
 {
     /** 🔖 نسخه موتور */
-    public const ENGINE_VERSION = '3.4.1'; // هات‌فیکس: رفع متد تکراری + نگارش‌گر چندبایتی-امن
+    public const ENGINE_VERSION = '3.5.0'; // ۳.۵: اسکیل UI/UX Pro + PHP 8.3
 
     /** @var Database دیتابیس */
     private $db;
@@ -712,6 +712,7 @@ class SahandAI
                 'analyzers'     => ['ColorAnalyzer', 'KeywordAnalyzer', 'SeoAnalyzer', 'UniquenessChecker', 'QualityScorer', 'IntentClassifier', 'BrandVoiceAnalyzer'],
                 'assistants'    => ['CommandAssistant'],
                 'services'      => ['WebSearchService'],
+                'skills'        => ['UIUXPro'],   // 🎨 اسکیل‌های تخصصی طراحی
                 'article_types' => 9,
                 'best_of_n'     => true,
                 'quality_score' => true,
@@ -735,6 +736,7 @@ class SahandAI
                 'eeat_seo'         => true,   // 🏅 چک‌لیست E-E-A-T + موجودیت‌ها
                 'content_gap'      => true,   // 📊 تحلیل شکاف محتوایی رقبا
                 'telegram_bot'     => true,   // 🤖 ربات تلگرام متصل به دستیار
+                'uiux_pro'         => true,   // 🎨 اسکیل طراحی UI/UX Pro (بلوپرینت ۱۷ صفحه + ممیزی UX + اصلاح خودکار)
             ],
             'knowledge_size'    => $kb,
         ];
@@ -970,5 +972,70 @@ class SahandAI
     public function articleImages(): array
     {
         return ArticleImageService::catalog();
+    }
+
+    /* ==================================================
+     * 🎨 اسکیل UI/UX Pro — طراحی حرفه‌ای صفحات (v3.5)
+     * ================================================== */
+
+    /**
+     * 🪄 طراحی چیدمان حرفه‌ای صفحه — POST /api/ai/uiux-design
+     * پارامترها: page_type (الزامی)، context (اختیاری:
+     *            brand_fa, devices_count, articles_count, has_testimonials)
+     * خروجی: layout کامل + امتیاز UX + دلیل طراحی هر بخش
+     */
+    public function uiuxDesign(array $params): array
+    {
+        return EngineCache::remember('uiux-design', $params, 1800, function () use ($params) {
+            $pageType = (string)($params['page_type'] ?? ($params['pageType'] ?? 'home'));
+            $context = is_array($params['context'] ?? null) ? $params['context'] : [];
+            return (new UIUXPro())->designPage($pageType, $context);
+        });
+    }
+
+    /**
+     * 🔍 ممیزی UX چیدمان موجود — POST /api/ai/uiux-review
+     * پارامترها: layout (الزامی — آرایه بلوک‌ها)، page_type (اختیاری)
+     * خروجی: امتیاز ۰-۱۰۰ + مشکلات اولویت‌بندی‌شده + نقاط قوت
+     */
+    public function uiuxReview(array $params): array
+    {
+        $layout = $params['layout'] ?? [];
+        if (!is_array($layout)) {
+            throw new RuntimeException('پارامتر layout باید آرایه بلوک‌ها باشد.');
+        }
+        if (count($layout) > 60) {
+            throw new RuntimeException('چیدمان بیش از حد بزرگ است (حداکثر ۶۰ بلوک).');
+        }
+        $pageType = isset($params['page_type']) && is_string($params['page_type'])
+            ? $params['page_type']
+            : null;
+        return (new UIUXPro())->reviewLayout($layout, $pageType);
+    }
+
+    /**
+     * 🛠️ اصلاح خودکار چیدمان — POST /api/ai/uiux-improve
+     * پارامترها: layout (الزامی)، page_type (الزامی)
+     * خروجی: چیدمان اصلاح‌شده + فهرست تغییرات + امتیاز قبل/بعد
+     */
+    public function uiuxImprove(array $params): array
+    {
+        $layout = $params['layout'] ?? [];
+        if (!is_array($layout)) {
+            throw new RuntimeException('پارامتر layout باید آرایه بلوک‌ها باشد.');
+        }
+        if (count($layout) > 60) {
+            throw new RuntimeException('چیدمان بیش از حد بزرگ است (حداکثر ۶۰ بلوک).');
+        }
+        $pageType = (string)($params['page_type'] ?? ($params['pageType'] ?? 'home'));
+        return (new UIUXPro())->improveLayout($layout, $pageType);
+    }
+
+    /**
+     * 📇 اطلاعات اسکیل UI/UX Pro — GET /api/ai/uiux-skill-info
+     */
+    public function uiuxSkillInfo(): array
+    {
+        return (new UIUXPro())->info();
     }
 }

@@ -15,6 +15,7 @@ $db = Database::getInstance();
 
 /* 💾 ذخیره قالب */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save_template') {
+    (new Auth())->requireLogin(); // 🛡️ احراز هویت پیش از هدر
     Auth::enforceCsrf();
     $id = (int)post('template_id');
     $name = post('name') ?: 'قالب بدون نام';
@@ -37,6 +38,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save_template')
     Logger::activity((int)$_SESSION['user_id'], 'ذخیره قالب', $name);
     flash('success', '✅ قالب «' . $name . '» ذخیره شد.');
     redirect('template-builder.php?id=' . $id);
+}
+
+/* 🎨 اسکیل UI/UX Pro — طراحی/ممیزی/اصلاح چیدمان (AJAX) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array(post('action'), ['uiux_design', 'uiux_review', 'uiux_improve'], true)) {
+    (new Auth())->requireLogin(); // 🛡️ احراز هویت پیش از هدر
+    Auth::enforceCsrf();
+    $action = post('action');
+    $pageType = post('page_type') ?: 'home';
+    $skill = new UIUXPro();
+    try {
+        if ($action === 'uiux_design') {
+            $result = $skill->designPage($pageType, [
+                'brand_fa' => post('brand_fa'),
+                'devices_count' => (int)post('devices_count', '1'),
+                'articles_count' => (int)post('articles_count', '1'),
+                'has_testimonials' => post('has_testimonials', '1') === '1',
+            ]);
+            json_response(['success' => true, 'data' => $result]);
+        }
+        $layoutRaw = (string)($_POST['layout_json'] ?? '[]');
+        $layout = json_decode($layoutRaw, true);
+        if (!is_array($layout)) {
+            json_response(['success' => false, 'error' => 'چیدمان ارسالی نامعتبر است.'], 400);
+        }
+        if ($action === 'uiux_review') {
+            json_response(['success' => true, 'data' => $skill->reviewLayout($layout, $pageType)]);
+        }
+        json_response(['success' => true, 'data' => $skill->improveLayout($layout, $pageType)]);
+    } catch (Throwable $e) {
+        json_response(['success' => false, 'error' => 'خطای اسکیل UI/UX Pro: ' . $e->getMessage()], 500);
+    }
 }
 
 /* 📥 بارگذاری قالب (موجود یا جدید) */
@@ -132,12 +164,23 @@ $blockLibrary = [
                 <button type="button" class="device-tab" onclick="setDevice(this,'tablet')" title="تبلت">📱</button>
                 <button type="button" class="device-tab" onclick="setDevice(this,'mobile')" title="موبایل">📲</button>
             </div>
-            <div style="margin-inline-start:auto;display:flex;gap:8px">
+            <div style="margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap">
+                <button type="button" class="btn btn-info" onclick="uiuxDesign()" id="btn-uiux-design" title="طراحی چیدمان حرفه‌ای با اسکیل UI/UX Pro">✨ طراحی با UI/UX Pro</button>
+                <button type="button" class="btn btn-outline" onclick="uiuxReview()" id="btn-uiux-review" title="ممیزی UX چیدمان فعلی">🔍 بررسی UX</button>
                 <button type="button" class="btn btn-info" onclick="openLivePreview()">👁️ پیش‌نمایش زنده</button>
                 <a href="templates.php" class="btn btn-outline">بازگشت</a>
                 <button type="submit" class="btn btn-primary">💾 ذخیره قالب</button>
             </div>
         </div>
+    </div>
+
+    <!-- 🎨 پنل نتایج اسکیل UI/UX Pro -->
+    <div class="card" id="uiux-panel" style="display:none;margin-bottom:16px">
+        <div class="card-header">
+            <h3 id="uiux-panel-title">🎨 اسکیل UI/UX Pro</h3>
+            <div class="tools"><button type="button" class="btn btn-outline btn-sm" onclick="closeUiuxPanel()">✕ بستن</button></div>
+        </div>
+        <div class="card-body" id="uiux-panel-body"></div>
     </div>
 
     <div class="builder">
@@ -430,6 +473,134 @@ function setPreviewDevice(btn, width) {
 document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') { closeLivePreview(); }
 });
+
+/* ==================================================
+ * 🎨 اسکیل UI/UX Pro — طراحی خودکار + ممیزی UX
+ * ================================================== */
+const UIUX_CSRF = (document.querySelector('input[name="csrf_token"]') || {}).value || '';
+const UIUX_SEVERITY_FA = { critical: '🔴 بحرانی', high: '🟠 مهم', medium: '🟡 متوسط', low: '🔵 جزئی' };
+
+/* ارسال درخواست به اسکیل */
+async function uiuxRequest(action, extra) {
+    const fd = new FormData();
+    fd.append('action', action);
+    fd.append('page_type', (document.querySelector('select[name="page_type"]') || {}).value || 'home');
+    fd.append('csrf_token', UIUX_CSRF);
+    fd.append('layout_json', JSON.stringify(layout));
+    if (extra) { Object.keys(extra).forEach(k => fd.append(k, extra[k])); }
+    const res = await fetch('template-builder.php', {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    });
+    return res.json();
+}
+
+/* نشان امتیاز رنگی */
+function uiuxScoreBadge(score) {
+    const color = score >= 85 ? '#16a34a' : score >= 70 ? '#2563eb' : score >= 50 ? '#d97706' : '#dc2626';
+    return '<span style="display:inline-block;min-width:92px;text-align:center;background:' + color + ';color:#fff;border-radius:10px;padding:5px 12px;font-weight:800;font-size:16px">' + score + '/۱۰۰</span>';
+}
+
+/* نمایش پنل نتایج */
+function showUiuxPanel(title, html) {
+    document.getElementById('uiux-panel-title').textContent = title;
+    document.getElementById('uiux-panel-body').innerHTML = html;
+    document.getElementById('uiux-panel').style.display = 'block';
+    document.getElementById('uiux-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function closeUiuxPanel() {
+    document.getElementById('uiux-panel').style.display = 'none';
+}
+
+/* 🪄 طراحی خودکار صفحه با اسکیل */
+async function uiuxDesign() {
+    const btn = document.getElementById('btn-uiux-design');
+    const old = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> در حال طراحی...';
+    try {
+        const json = await uiuxRequest('uiux_design');
+        if (!json.success) { alert('خطا: ' + (json.error || 'نامشخص')); return; }
+        const d = json.data;
+        if (!layout.length || confirm('چیدمان حرفه‌ای «' + (d.page_name_fa || '') + '» جایگزین چیدمان فعلی شود؟')) {
+            layout = d.layout;
+            selectedIdx = -1;
+            syncAndRender();
+            renderProps();
+        }
+        let html = '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px">' +
+            uiuxScoreBadge(d.ux_score) +
+            '<b>' + (d.grade_fa || '') + '</b>' +
+            '<span style="color:var(--text-light);font-size:12px">هدف صفحه: ' + (d.goal_fa || '') + '</span></div>' +
+            '<div style="font-size:12.5px;margin-bottom:6px"><b>💡 منطق طراحی (قوانین UX اعمال‌شده):</b></div><ul style="font-size:12.5px;margin:0 18px 8px 0;padding:0">';
+        (d.rationale || []).forEach(r => { html += '<li style="margin-bottom:4px">' + r + '</li>'; });
+        html += '</ul><div class="alert alert-info" style="margin:10px 0 0">💾 برای ذخیره، دکمه «ذخیره قالب» را بزنید. با «🔍 بررسی UX» می‌توانید چیدمان را ممیزی کنید.</div>';
+        showUiuxPanel('✨ طراحی UI/UX Pro — ' + (d.page_name_fa || ''), html);
+    } catch (err) {
+        alert('خطای ارتباط با سرور');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = old;
+    }
+}
+
+/* 🔍 ممیزی UX چیدمان فعلی */
+async function uiuxReview() {
+    if (!layout.length) { alert('اول حداقل یک بلوک به صفحه اضافه کنید یا از «✨ طراحی با UI/UX Pro» استفاده کنید.'); return; }
+    const btn = document.getElementById('btn-uiux-review');
+    const old = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> در حال بررسی...';
+    try {
+        const json = await uiuxRequest('uiux_review');
+        if (!json.success) { alert('خطا: ' + (json.error || 'نامشخص')); return; }
+        const d = json.data;
+        let html = '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px">' +
+            uiuxScoreBadge(d.score) + '<b>' + (d.grade_fa || '') + '</b>' +
+            '<span style="color:var(--text-light);font-size:12px">' + (d.stats ? d.stats.blocks : 0) + ' بخش • ' + (d.stats ? d.stats.cta_count : 0) + ' دکمه اقدام • ' + (d.stats ? d.stats.trust_count : 0) + ' سیگنال اعتماد</span></div>';
+        if (d.wins && d.wins.length) {
+            html += '<div style="font-size:12.5px;margin-bottom:4px"><b>✅ نقاط قوت:</b></div><ul style="font-size:12.5px;color:var(--success);margin:0 18px 10px 0;padding:0">';
+            d.wins.forEach(w => { html += '<li style="margin-bottom:3px">' + w + '</li>'; });
+            html += '</ul>';
+        }
+        if (d.issues && d.issues.length) {
+            html += '<div style="font-size:12.5px;margin-bottom:4px"><b>⚠️ موارد قابل بهبود (به اولویت):</b></div><ul style="font-size:12.5px;margin:0 18px 10px 0;padding:0">';
+            d.issues.forEach(i => { html += '<li style="margin-bottom:5px"><span class="badge badge-secondary" style="font-size:10.5px">' + (UIUX_SEVERITY_FA[i.severity] || i.severity) + '</span> ' + i.fa + '</li>'; });
+            html += '</ul>';
+        } else {
+            html += '<div class="alert alert-success">🎉 مشکلی یافت نشد — چیدمان استانداردهای UX را رعایت می‌کند.</div>';
+        }
+        html += '<div style="text-align:center;margin-top:10px"><button type="button" class="btn btn-primary" onclick="uiuxImprove()">🛠️ اصلاح خودکار مشکلات</button></div>';
+        showUiuxPanel('🔍 ممیزی UX — ' + (d.skill || ''), html);
+    } catch (err) {
+        alert('خطای ارتباط با سرور');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = old;
+    }
+}
+
+/* 🛠️ اصلاح خودکار چیدمان */
+async function uiuxImprove() {
+    try {
+        const json = await uiuxRequest('uiux_improve');
+        if (!json.success) { alert('خطا: ' + (json.error || 'نامشخص')); return; }
+        const d = json.data;
+        layout = d.layout;
+        selectedIdx = -1;
+        syncAndRender();
+        renderProps();
+        let html = '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">' +
+            '<span style="font-weight:800;font-size:13px">' + d.score_before + '</span><span>→</span>' + uiuxScoreBadge(d.score_after) +
+            '<b>' + (d.grade_fa || '') + '</b></div><div style="font-size:12.5px;margin-bottom:4px"><b>🔧 تغییرات اعمال‌شده:</b></div><ul style="font-size:12.5px;margin:0 18px 8px 0;padding:0">';
+        (d.changes || []).forEach(c => { html += '<li style="margin-bottom:4px">' + c + '</li>'; });
+        html += '</ul><div class="alert alert-info" style="margin:8px 0 0">💾 برای ذخیره، دکمه «ذخیره قالب» را بزنید.</div>';
+        showUiuxPanel('🛠️ اصلاح خودکار UI/UX Pro', html);
+    } catch (err) {
+        alert('خطای ارتباط با سرور');
+    }
+}
 
 /* شروع */
 render();

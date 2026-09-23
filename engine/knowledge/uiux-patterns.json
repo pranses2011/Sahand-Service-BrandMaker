@@ -1,0 +1,339 @@
+{
+    "_comment": "🧠 پایگاه دانش اسکیل UI/UX Pro — قواعد طراحی حرفه‌ای رابط و تجربه کاربر برای سایت‌های برند (RTL فارسی). نسخه ۱.۰ — الگوی بلوک‌ها با قالب‌ساز درگ‌اند‌دراپ سازگار است.",
+
+    "design_tokens": {
+        "spacing_scale": [4, 8, 12, 16, 24, 32, 48, 64, 96],
+        "spacing_note_fa": "فاصله‌ها فقط از این ۹ مقدار انتخاب شوند (نظام ۴/۸ پیکسل) — هیچ فاصله دلخواهی مثل ۱۳ یا ۲۷ پیکسل استفاده نشود.",
+        "type_scale": {
+            "body_fa": "15-17px با line-height برابر ۱.۸ تا ۱.۹ (فارسی به فضای عمودی بیش از لاتین نیاز دارد)",
+            "h1": "28-38px — فقط یک H1 در هر صفحه",
+            "h2": "22-26px",
+            "h3": "18-20px",
+            "small": "13-14px — کوچک‌ترین متن قابل‌خواندن؛ از ۱۲px کمتر ممنوع",
+            "font_stack_fa": "Vazirmatn, Vazir, IRANSans, Tahoma, sans-serif",
+            "line_height_headings": "1.4-1.5"
+        },
+        "color_ratio": "60-30-10: ۶۰٪ خنثی (پس‌زمینه) + ۳۰٪ رنگ اصلی برند + ۱۰٪ رنگ تأکیدی فقط برای CTA و موارد حیاتی",
+        "radius": { "cards": "12-16px", "buttons": "8-12px", "images": "10-14px", "note_fa": "گردی یکنواخت در کل سایت — آمیختن ۳ سبک گردی نشانه طراحی غیرحرفه‌ای است" },
+        "shadows": { "subtle": "0 1px 3px rgba(0,0,0,.08)", "card": "0 4px 16px rgba(0,0,0,.10)", "note_fa": "سایه فقط برای نشان‌دادن ارتفاع واقعی (کارت شناور، مودال) — نه دکوری" },
+        "breakpoints": { "mobile": "≤ 640px", "tablet": "641-1024px", "desktop": "≥ 1025px", "note_fa": "طراحی Mobile-First: اول موبایل (۷۰٪ کاربران خدمات تعمیر از موبایل می‌آیند) بعد دسکتاپ" },
+        "content_width": { "optimal": "1100-1280px", "text_column": "600-720px برای متن بلند (مقاله)", "note_fa": "خط متن بلندتر از ۷۵ کاراکتر خوانایی فارسی را نابود می‌کند" }
+    },
+
+    "ux_laws": [
+        { "key": "hicks_law", "name_fa": "قانون هیک", "rule_fa": "هر گزینه اضافه در منو یا صفحه، زمان تصمیم‌گیری کاربر را افزایش می‌دهد.", "apply_fa": "منوی اصلی حداکثر ۷ آیتم؛ هر صفحه فقط یک اقدام اصلی (Primary Action) داشته باشد." },
+        { "key": "fitts_law", "name_fa": "قانون فیتس", "rule_fa": "سرعت رسیدن به هدف تابعی از اندازه و فاصله آن است.", "apply_fa": "دکمه CTA بزرگ (حداقل ۴۸px ارتفاع)، در ناحیه شست موبایل و نزدیک محتوای متقاعدکننده." },
+        { "key": "jakobs_law", "name_fa": "قانون یاکوب", "rule_fa": "کاربران انتظار دارند سایت شما مثل بقیه سایت‌ها کار کند.", "apply_fa": "لوگو بالا-راست (RTL)، سبد خرید/تماس در هدر، آیکون‌های آشنا؛ خلاقیت در ظرافت نه در ساختار." },
+        { "key": "von_restorff", "name_fa": "اثر فون رستورف", "rule_fa": "آنچه متفاوت است در خاطر می‌ماند.", "apply_fa": "فقط دکمه CTA اصلی رنگ تأکیدی متمایز بگیرد — وقتی همه‌چیز برجسته باشد هیچ‌چیز برجسته نیست." },
+        { "key": "serial_position", "name_fa": "اثر موقعیت ترتیبی", "rule_fa": "کاربران ابتدا و انتهای لیست را به‌خاطر می‌سپارند.", "apply_fa": "مهم‌ترین خدمات اول و CTA پایانی لیست قرار بگیرد." },
+        { "key": "millers_law", "name_fa": "قانون میلر", "rule_fa": "حافظه فعال انسان حدود ۷±۲ آیتم را نگه می‌دارد.", "apply_fa": "کارت‌های خدمات در ردیف‌های ۳تایی (دسکتاپ) و ۱تایی (موبایل)؛ لیست‌های بلند گروه‌بندی شوند." },
+        { "key": "goal_gradient", "name_fa": "اثر شیب هدف", "rule_fa": "انگیزه با نزدیک‌شدن به هدف افزایش می‌یابد.", "apply_fa": "فرم‌های چندمرحله‌ای با نشانگر پیشرفت؛ فرم درخواست حداکثر ۲ مرحله." },
+        { "key": "peak_end_rule", "name_fa": "قانون اوج و پایان", "rule_fa": "تجربه از میانگین قله‌ها و لحظه پایانی قضاوت می‌شود.", "apply_fa": "پایان هر صفحه با CTA قوی یا آبراه اعتماد (نظرات/ضمانت) بسته شود — هرگز با متن خشک تمام نشود." },
+        { "key": "aesthetic_usability", "name_fa": "اثر زیبایی‌شناسی-قابلیت استفاده", "rule_fa": "طراحی زیبا تحمل خطا را بالا می‌برد و اعتماد می‌سازد.", "apply_fa": "هم‌ترازی، فاصله‌گذاری یکنواخت و تصاویر باکیفیت مستقیماً نرخ تبدیل خدمات را بالا می‌برد." }
+    ],
+
+    "rtl_rules": [
+        { "rule_fa": "جهت صفحه RTL و زبان fa با فونت فارسی استاندارد؛ ارقام فارسی برای متن‌های فارسی.", "key": "dir" },
+        { "rule_fa": "فلش‌های جهت‌دار آینه شوند: «بعدی →» در RTL یعنی فلش به چپ؛ آیکون‌های پخش/بازگشت برعکس LTR.", "key": "mirror" },
+        { "rule_fa": "نیم‌فاصله (ZWNJ) در واژه‌ها رعایت شود: «می‌شود» نه «می شود».", "key": "zwnj" },
+        { "rule_fa": "شماره تلفن، کد خطا و اعداد فنی داخل span با direction:ltr قرار بگیرند تا ترتیب ارقام برعکس نشود.", "key": "ltr_islands" },
+        { "rule_fa": "آیکون‌های عملیاتی (تلفن، چک‌لیست) سمت راست متن و منو از راست باز شود.", "key": "icon_position" },
+        { "rule_fa": "جستجو در منوی موبایل بالای لیست و دسترس‌پذیر با یک ضربه باشد.", "key": "mobile_search" }
+    ],
+
+    "accessibility": {
+        "contrast": { "normal_text": "حداقل 4.5:1", "large_text": "حداقل 3:1", "note_fa": "متن روی رنگ اصلی برند فقط اگر کنتراست کافی داشته باشد؛ در غیر این صورت متن تیره/روشن مکمل." },
+        "tap_targets": "همه عناصر لمسی حداقل 44×44px با فاصله ۸px از هم",
+        "focus_visible": "حلقه فوکس واضح برای کیبورد (outline: 2px solid) — هرگز حذف نشود",
+        "alt_text": "همه تصاویر alt فارسی توصیفی داشته باشند (هم دسترسی هم سئو)",
+        "form_labels": "هر فیلد label مرتبط (for/id) + پیام خطای متن (نه فقط رنگ قرمز)",
+        "motion": "انیمیشن‌ها respect prefers-reduced-motion — حداکثر ۲۰۰-۳۰۰ms",
+        "semantic": "ساختار معنایی: header/nav/main/section/footer + یک h1 سر صفحه"
+    },
+
+    "conversion_rules": [
+        { "key": "cta_above_fold", "rule_fa": "CTA اصلی (تماس یا ثبت درخواست) بالای تاشدگی صفحه — کاربر بدون اسکرول آن را ببیند." },
+        { "key": "phone_prominent", "rule_fa": "شماره تماس در هدر و CTA تماس در پایان صفحه؛ در سایت خدمات، تلفن قوی‌ترین CTA است." },
+        { "key": "trust_before_cta", "rule_fa": "قبل از CTA پایانی، سیگنال اعتماد بیاورید: نظرات مشتریان، آمار سال تجربه، ضمانت کتبی." },
+        { "key": "microcopy", "rule_fa": "متن دکمه نتیجه را بگوید نه عمل را: «دریافت مشاوره رایگان» بهتر از «ارسال»." },
+        { "key": "form_bare_minimum", "rule_fa": "فرم درخواست فقط ضروری‌ها: نام، تلفن، دستگاه — هر فیلد اضافه ۷٪ نرخ تبدیل را می‌کشد." },
+        { "key": "response_promise", "rule_fa": "زمان پاسخ را اعلام کنید: «کمتر از ۳۰ دقیقه با شما تماس می‌گیریم»." },
+        { "key": "sticky_mobile_cta", "rule_fa": "در موبایل نوار CTA چسبان پایین صفحه (تماس + درخواست) نرخ تبدیل را ۲ تا ۳ برابر می‌کند." }
+    ],
+
+    "block_rules": {
+        "top-bar": { "max_per_page": 1, "position": "very_top", "why_fa": "تلفن و ساعات کاری در بالاترین نقطه — سیگنال در دسترس‌بودن" },
+        "header-v1": { "max_per_page": 1, "position": "top", "why_fa": "هدر ساده برای سایت‌های کم‌محتوا" },
+        "header-v2": { "max_per_page": 1, "position": "top", "why_fa": "نوار تماس + منو — پیش‌فرض سایت‌های خدمات" },
+        "header-v3": { "max_per_page": 1, "position": "top", "why_fa": "هدر چسبان شیشه‌ای برای صفحات بلند" },
+        "hero": { "max_per_page": 1, "position": "first_content_block", "why_fa": "اولین برخورد کاربر: وعده ارزش + CTA بالای تاشدگی" },
+        "hero-slider": { "max_per_page": 1, "position": "first_content_block", "why_fa": "فقط وقتی ۳ پیام هم‌ارزش واقعی وجود دارد؛ اسلایدر کند ماندگاری را می‌کشد" },
+        "hero-split": { "max_per_page": 1, "position": "first_content_block", "why_fa": "متن + تصویر تکنسین — برای صفحات اصلی تبدیل‌محور" },
+        "hero-video": { "max_per_page": 1, "position": "first_content_block", "why_fa": "پس‌زمینه متحرک فقط با نمایش تضمینی عملکرد؛ در ۳G ایران محتاطانه" },
+        "intro": { "max_per_page": 1, "why_fa": "معرفی کوتاه برند با تصویر — زمینه‌سازی اعتماد" },
+        "text": { "max_per_page": 4, "why_fa": "متن آزاد؛ بدون تیتر و تصویر خسته‌کننده می‌شود" },
+        "text-image": { "max_per_page": 3, "why_fa": "ریتم متن-تصویر؛ جهت تصویر در RTL چپ متن است" },
+        "two-col": { "max_per_page": 3, "why_fa": "مقایسه یا توضیح دوگانه" },
+        "three-col": { "max_per_page": 3, "why_fa": "سه ویژگی/دوره/مقایسه" },
+        "services-grid": { "max_per_page": 2, "why_fa": "کارت خدمات با آیکون — اسکن‌پذیری سریع" },
+        "features": { "max_per_page": 1, "why_fa": "«چرا ما» — تفاوت‌ساز رقابتی" },
+        "articles-recent": { "max_per_page": 1, "why_fa": "مقالات اخیر — اعتماد + سئو" },
+        "team": { "max_per_page": 1, "why_fa": "صورت‌های واقعی اعتماد می‌سازد" },
+        "counter-stats": { "max_per_page": 1, "position": "after_trust_story", "why_fa": "آمار («۱۵ سال تجربه») به‌صورت شمارنده متحرک" },
+        "progress-bars": { "max_per_page": 1, "why_fa": "نمایش تخصص/پوشش خدمات — استفاده محتاطانه" },
+        "testimonials": { "max_per_page": 1, "position": "before_final_cta", "why_fa": "نظرات مشتریان — قوی‌ترین سیگنال اعتماد قبل از CTA" },
+        "faq-accordion": { "max_per_page": 1, "position": "late", "why_fa": "رفع تردید نهایی + اسکیمای FAQ گوگل" },
+        "gallery": { "max_per_page": 1, "why_fa": "نمونه‌کار واقعی تعمیرها" },
+        "map": { "max_per_page": 1, "position": "near_contact", "why_fa": "محدوده خدمات — کاهش ابهام جغرافیایی" },
+        "brands-links": { "max_per_page": 1, "why_fa": "شبکه برندها — سئوی داخلی + اعتبار" },
+        "contact-form": { "max_per_page": 1, "why_fa": "فرم تماس کوتاه" },
+        "request-form": { "max_per_page": 1, "why_fa": "فرم درخواست خدمات — هدف نهایی تبدیل" },
+        "cta-phone": { "max_per_page": 2, "why_fa": "تماس فوری — روی موبایل tap-to-call" },
+        "cta-request": { "max_per_page": 2, "why_fa": "هدایت به فرم درخواست" },
+        "cta-banner": { "max_per_page": 2, "position": "end_of_page", "why_fa": "بستن صفحه با فراخوان قوی" },
+        "breadcrumb": { "max_per_page": 1, "position": "after_header", "why_fa": "در صفحات داخلی — جهت‌یابی + سئو" },
+        "spacer": { "max_per_page": 3, "why_fa": "تنفس بصری بین بخش‌های متراکم" },
+        "separator": { "max_per_page": 2, "why_fa": "جداسازی موضوعی" },
+        "pagination": { "max_per_page": 1, "position": "end_of_list", "why_fa": "لیست‌های بلند مقالات/کدهای خطا" }
+    },
+
+    "page_blueprints": {
+        "home": {
+            "name_fa": "صفحه اصلی",
+            "goal_fa": "در ۵ ثانیه بفهمان چه کاری انجام می‌دهید + اعتماد بسازید + به تماس/درخواست برسانید",
+            "sections": [
+                { "block": "top-bar", "props": { "padding": "compact", "background": "dark" }, "why_fa": "تلفن + ساعات کاری بالاتر از همه" },
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "لوگو + منوی اصلی با حداکثر ۷ آیتم" },
+                { "block": "hero-split", "props": { "padding": "roomy", "background": "gradient", "title": "تعمیرات تخصصی با ضمانت کتبی" }, "why_fa": "وعده ارزش + CTA بالای تاشدگی + تصویر تکنسین" },
+                { "block": "services-grid", "props": { "padding": "roomy", "background": "default", "title": "خدمات ما" }, "why_fa": "اسکن سریع خدمات با آیکون" },
+                { "block": "counter-stats", "props": { "padding": "compact", "background": "surface" }, "why_fa": "سال تجربه / تعداد تعمیر / رضایت — اعداد اعتماد می‌سازند" },
+                { "block": "features", "props": { "padding": "roomy", "background": "default", "title": "چرا ما؟" }, "why_fa": "تفاوت رقابتی در ۳-۶ کارت" },
+                { "block": "intro", "props": { "padding": "roomy", "background": "surface" }, "why_fa": "داستان کوتاه برند با تصویر" },
+                { "block": "articles-recent", "props": { "padding": "roomy", "background": "default", "title": "از وبلاگ" }, "why_fa": "تازگی محتوا + سئو + تخصص" },
+                { "block": "testimonials", "props": { "padding": "roomy", "background": "surface", "title": "نظر مشتریان" }, "why_fa": "اثبات اجتماعی قبل از CTA" },
+                { "block": "brands-links", "props": { "padding": "compact", "background": "default" }, "why_fa": "شبکه برندها و اعتبار" },
+                { "block": "faq-accordion", "props": { "padding": "roomy", "background": "default", "title": "سوالات متداول" }, "why_fa": "رفع تردید + اسکیمای FAQ" },
+                { "block": "cta-phone", "props": { "padding": "roomy", "background": "primary" }, "why_fa": "بستن صفحه با تماس فوری" }
+            ]
+        },
+        "services": {
+            "name_fa": "خدمات",
+            "goal_fa": "کاربر خدمات را مقایسه کند و اقدام کند",
+            "sections": [
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری پایدار" },
+                { "block": "breadcrumb", "props": { "padding": "compact", "background": "default" }, "why_fa": "جهت‌یابی صفحه داخلی" },
+                { "block": "hero", "props": { "padding": "roomy", "background": "gradient", "title": "خدمات تخصصی ما" }, "why_fa": "معرفی کوتاه + CTA" },
+                { "block": "services-grid", "props": { "padding": "roomy", "background": "default", "title": "همه خدمات" }, "why_fa": "فهرست کامل با آیکون" },
+                { "block": "three-col", "props": { "padding": "roomy", "background": "surface", "title": "مراحل انجام کار" }, "why_fa": "شفاف‌سازی فرآیند ۳ مرحله‌ای" },
+                { "block": "progress-bars", "props": { "padding": "roomy", "background": "default", "title": "تخصص ما در یک نگاه" }, "why_fa": "نمایش عمق تخصص" },
+                { "block": "faq-accordion", "props": { "padding": "roomy", "background": "surface", "title": "سوالات رایج خدمات" }, "why_fa": "رفع تردید هزینه و زمان" },
+                { "block": "cta-request", "props": { "padding": "roomy", "background": "primary" }, "why_fa": "هدایت به فرم درخواست" }
+            ]
+        },
+        "service-area": {
+            "name_fa": "محدوده خدمات",
+            "goal_fa": "کاربر مطمئن شود منطقه او پوشش داده می‌شود",
+            "sections": [
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری پایدار" },
+                { "block": "breadcrumb", "props": { "padding": "compact", "background": "default" }, "why_fa": "جهت‌یابی" },
+                { "block": "hero", "props": { "padding": "roomy", "background": "gradient", "title": "مناطق تحت پوشش" }, "why_fa": "وعده پوشش + CTA" },
+                { "block": "map", "props": { "padding": "roomy", "background": "default" }, "why_fa": "نقشه محدوده — حذف ابهام جغرافیایی" },
+                { "block": "two-col", "props": { "padding": "roomy", "background": "surface", "title": "نقاط پوشش‌داده‌شده" }, "why_fa": "فهرست محله‌ها/شهرها" },
+                { "block": "counter-stats", "props": { "padding": "compact", "background": "default" }, "why_fa": "تعداد تعمیر در منطقه" },
+                { "block": "cta-phone", "props": { "padding": "roomy", "background": "primary" }, "why_fa": "تماس برای اطمینان از پوشش" }
+            ]
+        },
+        "warranty": {
+            "name_fa": "ضمانت",
+            "goal_fa": "اعتمادسازی رسمی با سند ضمانت",
+            "sections": [
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری پایدار" },
+                { "block": "breadcrumb", "props": { "padding": "compact", "background": "default" }, "why_fa": "جهت‌یابی" },
+                { "block": "hero", "props": { "padding": "roomy", "background": "gradient", "title": "ضمانت کتبی تعمیرات" }, "why_fa": "وعده رسمی" },
+                { "block": "features", "props": { "padding": "roomy", "background": "default", "title": "شرایط ضمانت" }, "why_fa": "شروط شفاف در کارت" },
+                { "block": "text-image", "props": { "padding": "roomy", "background": "surface" }, "why_fa": "نمونه فرم ضمانت‌نامه + توضیح" },
+                { "block": "faq-accordion", "props": { "padding": "roomy", "background": "default", "title": "سوالات ضمانت" }, "why_fa": "رفع تردید اعتبار ضمانت" },
+                { "block": "cta-request", "props": { "padding": "roomy", "background": "primary" }, "why_fa": "استفاده از اعتماد ساخته‌شده" }
+            ]
+        },
+        "blog": {
+            "name_fa": "وبلاگ",
+            "goal_fa": "مقالات تخصصی + مسیر به خدمات",
+            "sections": [
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری پایدار" },
+                { "block": "breadcrumb", "props": { "padding": "compact", "background": "default" }, "why_fa": "جهت‌یابی" },
+                { "block": "hero", "props": { "padding": "compact", "background": "gradient", "title": "مقالات آموزشی و تخصصی" }, "why_fa": "معرفی کوتاه" },
+                { "block": "articles-recent", "props": { "padding": "roomy", "background": "default", "title": "آخرین مقالات" }, "why_fa": "کارت مقالات با تصویر شاخص" },
+                { "block": "pagination", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری لیست بلند" },
+                { "block": "cta-banner", "props": { "padding": "roomy", "background": "primary" }, "why_fa": "تبدیل خواننده به مشتری" }
+            ]
+        },
+        "about-agency": {
+            "name_fa": "درباره نمایندگی",
+            "goal_fa": "معرفی نمایندگی و اعتمادسازی نهادی",
+            "sections": [
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری پایدار" },
+                { "block": "breadcrumb", "props": { "padding": "compact", "background": "default" }, "why_fa": "جهت‌یابی" },
+                { "block": "hero", "props": { "padding": "roomy", "background": "gradient", "title": "درباره ما" }, "why_fa": "پیام کلیدی" },
+                { "block": "intro", "props": { "padding": "roomy", "background": "default" }, "why_fa": "داستان نمایندگی" },
+                { "block": "counter-stats", "props": { "padding": "compact", "background": "surface" }, "why_fa": "سال تجربه / تیم / مشتری" },
+                { "block": "team", "props": { "padding": "roomy", "background": "default", "title": "تیم ما" }, "why_fa": "چهره‌های واقعی" },
+                { "block": "testimonials", "props": { "padding": "roomy", "background": "surface" }, "why_fa": "اثبات اجتماعی" },
+                { "block": "cta-phone", "props": { "padding": "roomy", "background": "primary" }, "why_fa": "گام بعدی" }
+            ]
+        },
+        "about-brand": {
+            "name_fa": "درباره برند",
+            "goal_fa": "معرفی برند دستگاه و تخصص ما روی آن",
+            "sections": [
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری پایدار" },
+                { "block": "breadcrumb", "props": { "padding": "compact", "background": "default" }, "why_fa": "جهت‌یابی" },
+                { "block": "hero", "props": { "padding": "roomy", "background": "gradient" }, "why_fa": "معرفی برند" },
+                { "block": "intro", "props": { "padding": "roomy", "background": "default" }, "why_fa": "تاریخچه و جایگاه برند" },
+                { "block": "text", "props": { "padding": "roomy", "background": "surface" }, "why_fa": "عمق تخصص روی این برند" },
+                { "block": "services-grid", "props": { "padding": "roomy", "background": "default", "title": "خدمات این برند" }, "why_fa": "خدمات مخصوص برند" },
+                { "block": "cta-request", "props": { "padding": "roomy", "background": "primary" }, "why_fa": "ثبت درخواست" }
+            ]
+        },
+        "contact": {
+            "name_fa": "تماس",
+            "goal_fa": "کمترین اصطکاک برای شروع گفتگو",
+            "sections": [
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری پایدار" },
+                { "block": "breadcrumb", "props": { "padding": "compact", "background": "default" }, "why_fa": "جهت‌یابی" },
+                { "block": "hero", "props": { "padding": "compact", "background": "gradient", "title": "با ما در تماس باشید" }, "why_fa": "پیام دسترس‌پذیری" },
+                { "block": "contact-form", "props": { "padding": "roomy", "background": "default" }, "why_fa": "فرم کوتاه: نام + تلفن + پیام" },
+                { "block": "map", "props": { "padding": "roomy", "background": "surface" }, "why_fa": "آدرس و محدوده" },
+                { "block": "faq-accordion", "props": { "padding": "roomy", "background": "default" }, "why_fa": "پاسخ سریع قبل از تماس" },
+                { "block": "cta-phone", "props": { "padding": "roomy", "background": "primary" }, "why_fa": "تماس فوری" }
+            ]
+        },
+        "request": {
+            "name_fa": "ثبت درخواست",
+            "goal_fa": "فرم درخواست با کمترین اصطکاک — صفحه تبدیل",
+            "sections": [
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری پایدار" },
+                { "block": "hero", "props": { "padding": "compact", "background": "gradient", "title": "ثبت درخواست تعمیر" }, "why_fa": "وعده زمان پاسخ" },
+                { "block": "request-form", "props": { "padding": "roomy", "background": "default" }, "why_fa": "فرم اصلی — فقط فیلدهای ضروری" },
+                { "block": "features", "props": { "padding": "roomy", "background": "surface", "title": "پس از ثبت چه می‌شود؟" }, "why_fa": "کاهش اضطراب با شفافیت مراحل" },
+                { "block": "faq-accordion", "props": { "padding": "roomy", "background": "default", "title": "سوالات پیش از ثبت" }, "why_fa": "رفع آخرین تردیدها کنار فرم" },
+                { "block": "testimonials", "props": { "padding": "roomy", "background": "surface" }, "why_fa": "تأیید اجتماعی کنار فرم" }
+            ]
+        },
+        "other-brands": {
+            "name_fa": "سایر برندها",
+            "goal_fa": "شبکه‌سازی داخلی برندها",
+            "sections": [
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری پایدار" },
+                { "block": "breadcrumb", "props": { "padding": "compact", "background": "default" }, "why_fa": "جهت‌یابی" },
+                { "block": "hero", "props": { "padding": "compact", "background": "gradient", "title": "برندهای تحت پوشش" }, "why_fa": "معرفی شبکه" },
+                { "block": "brands-links", "props": { "padding": "roomy", "background": "default" }, "why_fa": "لوگوی همه برندها" },
+                { "block": "cta-phone", "props": { "padding": "roomy", "background": "primary" }, "why_fa": "برندتای پیدا نشد؟ تماس بگیرید" }
+            ]
+        },
+        "error-codes": {
+            "name_fa": "کدهای خطا",
+            "goal_fa": "یافتن سریع کد خطا و اقدام به تعمیر",
+            "sections": [
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری پایدار" },
+                { "block": "breadcrumb", "props": { "padding": "compact", "background": "default" }, "why_fa": "جهت‌یابی" },
+                { "block": "hero", "props": { "padding": "compact", "background": "gradient", "title": "راهنمای کدهای خطا" }, "why_fa": "جستجوی سریع کد" },
+                { "block": "two-col", "props": { "padding": "roomy", "background": "default", "title": "کدهای پرتکرار" }, "why_fa": "پرتکرارترین خطاها اول" },
+                { "block": "faq-accordion", "props": { "padding": "roomy", "background": "surface" }, "why_fa": "خطاهای مبهم" },
+                { "block": "cta-phone", "props": { "padding": "roomy", "background": "primary" }, "why_fa": "خطای پیچیده؟ متخصص پاسخگوست" }
+            ]
+        },
+        "faq": {
+            "name_fa": "سوالات متداول",
+            "goal_fa": "پاسخ شفاف به تردیدهای رایج + اسکیمای FAQ",
+            "sections": [
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری پایدار" },
+                { "block": "breadcrumb", "props": { "padding": "compact", "background": "default" }, "why_fa": "جهت‌یابی" },
+                { "block": "hero", "props": { "padding": "compact", "background": "gradient", "title": "سوالات متداول" }, "why_fa": "معرفی" },
+                { "block": "faq-accordion", "props": { "padding": "roomy", "background": "default" }, "why_fa": "قلب صفحه — گروه‌بندی موضوعی" },
+                { "block": "cta-phone", "props": { "padding": "roomy", "background": "primary" }, "why_fa": "پاسخ پیدا نشد؟" }
+            ]
+        },
+        "sitemap-page": {
+            "name_fa": "نقشه سایت",
+            "goal_fa": "دسترسی سریع به همه صفحات",
+            "sections": [
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری پایدار" },
+                { "block": "breadcrumb", "props": { "padding": "compact", "background": "default" }, "why_fa": "جهت‌یابی" },
+                { "block": "hero", "props": { "padding": "compact", "background": "gradient", "title": "نقشه سایت" }, "why_fa": "عنوان و زمینه صفحه" },
+                { "block": "two-col", "props": { "padding": "roomy", "background": "default", "title": "همه صفحات" }, "why_fa": "فهرست دوبخشی تمام صفحات" },
+                { "block": "cta-phone", "props": { "padding": "roomy", "background": "primary" }, "why_fa": "راهنمایی در یافتن صفحه" }
+            ]
+        },
+        "terms": {
+            "name_fa": "شرایط استفاده",
+            "goal_fa": "سند حقوقی خوانا",
+            "sections": [
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری پایدار" },
+                { "block": "breadcrumb", "props": { "padding": "compact", "background": "default" }, "why_fa": "جهت‌یابی" },
+                { "block": "hero", "props": { "padding": "compact", "background": "gradient", "title": "شرایط استفاده از خدمات" }, "why_fa": "عنوان رسمی سند" },
+                { "block": "text", "props": { "padding": "roomy", "background": "default" }, "why_fa": "متن حقوقی ساختاریافته با تیتر" },
+                { "block": "cta-banner", "props": { "padding": "roomy", "background": "surface" }, "why_fa": "پرسش درباره شرایط؟ تماس" }
+            ]
+        },
+        "privacy": {
+            "name_fa": "حریم خصوصی",
+            "goal_fa": "سند سیاست حفاظت داده",
+            "sections": [
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری پایدار" },
+                { "block": "breadcrumb", "props": { "padding": "compact", "background": "default" }, "why_fa": "جهت‌یابی" },
+                { "block": "hero", "props": { "padding": "compact", "background": "gradient", "title": "سیاست حفظ حریم خصوصی" }, "why_fa": "عنوان رسمی سند" },
+                { "block": "text", "props": { "padding": "roomy", "background": "default" }, "why_fa": "متن سیاست حفظ حریم خصوصی" },
+                { "block": "cta-banner", "props": { "padding": "roomy", "background": "surface" }, "why_fa": "پرسش درباره سیاست‌ها؟ تماس" }
+            ]
+        },
+        "about": {
+            "name_fa": "درباره (عمومی قالب‌ساز)",
+            "goal_fa": "معرفی و اعتماد",
+            "sections": [
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری پایدار" },
+                { "block": "hero", "props": { "padding": "roomy", "background": "gradient", "title": "درباره ما" }, "why_fa": "پیام کلیدی" },
+                { "block": "intro", "props": { "padding": "roomy", "background": "default" }, "why_fa": "داستان" },
+                { "block": "counter-stats", "props": { "padding": "compact", "background": "surface" }, "why_fa": "اعداد اعتماد" },
+                { "block": "cta-phone", "props": { "padding": "roomy", "background": "primary" }, "why_fa": "گام بعدی" }
+            ]
+        },
+        "custom": {
+            "name_fa": "صفحه سفارشی",
+            "goal_fa": "ساختار متعادل عمومی",
+            "sections": [
+                { "block": "header-v2", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری پایدار" },
+                { "block": "hero", "props": { "padding": "roomy", "background": "gradient" }, "why_fa": "پیام اصلی" },
+                { "block": "text", "props": { "padding": "roomy", "background": "default" }, "why_fa": "محتوای اصلی" },
+                { "block": "cta-banner", "props": { "padding": "roomy", "background": "primary" }, "why_fa": "بستن صفحه" }
+            ]
+        }
+    },
+
+    "scoring": {
+        "weights": {
+            "hero_first": 15,
+            "hero_single": 5,
+            "cta_present": 18,
+            "cta_ending": 7,
+            "block_count_range": 10,
+            "no_consecutive_duplicate": 5,
+            "breadcrumb_inner_page": 5,
+            "trust_signals": 10,
+            "background_rhythm": 8,
+            "padding_variety": 4,
+            "faq_presence": 5,
+            "no_hidden_blocks": 3,
+            "no_clutter": 5
+        },
+        "block_count_ideal": [6, 13],
+        "block_count_ideal_thin": [2, 8],
+        "thin_pages": ["terms", "privacy", "sitemap-page", "other-brands", "faq"],
+        "block_count_max": 16,
+        "trust_blocks": ["counter-stats", "testimonials", "features", "team", "progress-bars", "brands-links"],
+        "cta_blocks": ["cta-phone", "cta-request", "cta-banner", "contact-form", "request-form"],
+        "hero_blocks": ["hero", "hero-slider", "hero-split", "hero-video"],
+        "inner_pages_need_breadcrumb": ["services", "service-area", "warranty", "blog", "about-agency", "about-brand", "contact", "request", "other-brands", "error-codes", "faq", "sitemap-page", "terms", "privacy", "about"],
+        "grade_fa": { "a": "عالی — طراحی حرفه‌ای", "b": "خوب — قابل انتشار با بهبودهای جزئی", "c": "متوسط — بهبودهای مهم لازم دارد", "d": "ضعیف — بازطراحی پیشنهاد می‌شود" }
+    }
+}

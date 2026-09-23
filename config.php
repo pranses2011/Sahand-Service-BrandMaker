@@ -90,6 +90,7 @@ spl_autoload_register(function ($className) {
         ENGINE_PATH . '/analyzers/',
         ENGINE_PATH . '/utils/',
         ENGINE_PATH . '/services/',
+        ENGINE_PATH . '/skills/',   // 🎨 اسکیل‌های تخصصی (UI/UX Pro و ...)
     ];
     foreach ($dirs as $dir) {
         $file = $dir . $className . '.php';

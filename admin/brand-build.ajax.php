@@ -135,7 +135,7 @@ try {
                 'details' => ['کشور' => $knowledge['country_fa'] ?? '—', 'دستگاه‌های ثبت‌شده' => (string)$devicesCount],
             ]);
 
-        /* ---------- ۳️⃣ تولید محتوای صفحات ---------- */
+        /* ---------- ۳️⃣ تولید محتوای صفحات + طراحی UI/UX Pro ---------- */
         case 3:
             $ai = new SahandAI();
             $report = $ai->generateBrandInfo(['brand_id' => $brandId]);
@@ -146,25 +146,45 @@ try {
                 'about-brand', 'contact', 'request', 'other-brands', 'error-codes',
                 'faq', 'sitemap-page', 'terms', 'privacy',
             ];
+
+            // 🎨 زمینه واقعی برند برای اسکیل UI/UX Pro
+            $devicesCount = (int)$db->fetchValue('SELECT COUNT(*) FROM brand_devices WHERE brand_id = ?', [$brandId]);
+            $articlesCount = (int)$db->fetchValue('SELECT COUNT(*) FROM brand_articles WHERE brand_id = ?', [$brandId]);
+            $uiuxContext = [
+                'brand_fa'        => $brand['name_fa'],
+                'devices_count'   => $devicesCount,
+                'articles_count'  => max(1, $articlesCount),
+                'has_testimonials' => true,
+            ];
+
+            // 🪄 طراحی چیدمان حرفه‌ای هر صفحه با اسکیل UI/UX Pro
+            $uiux = new UIUXPro();
+            $uxScores = [];
             foreach ($standardPages as $pageType) {
                 $exists = $db->fetchValue('SELECT COUNT(*) FROM brand_pages WHERE brand_id = ? AND page_type = ?', [$brandId, $pageType]);
                 if (!$exists) {
+                    $design = $uiux->designPage($pageType, $uiuxContext);
+                    $uxScores[] = $design['ux_score'];
                     $db->insert('brand_pages', [
                         'brand_id'  => $brandId,
                         'page_type' => $pageType,
                         'content'   => json_encode([], JSON_UNESCAPED_UNICODE),
+                        'layout_json' => json_encode($design['layout'], JSON_UNESCAPED_UNICODE),
                         'is_active' => 1,
                     ]);
                 }
             }
+            $avgUx = $uxScores ? round(array_sum($uxScores) / count($uxScores)) : null;
+
             json_response([
                 'success' => true,
-                'message' => 'محتوای تمام صفحات تولید شد',
+                'message' => 'محتوای تمام صفحات تولید و با اسکیل UI/UX Pro طراحی شد',
                 'details' => [
                     'معرفی برند' => ($report['intro']['word_count'] ?? 0) . ' کلمه',
                     'تاریخچه' => ($report['history']['word_count'] ?? 0) . ' کلمه',
                     'توضیح دستگاه‌ها' => count($report['devices']) . ' دستگاه',
                     'صفحات فعال' => count($standardPages) . ' صفحه',
+                    'چیدمان UI/UX Pro' => $avgUx !== null ? ('میانگین امتیاز UX: ' . $avgUx . '/۱۰۰') : 'چیدمان‌های موجود حفظ شد',
                 ],
             ]);
 

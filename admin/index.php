@@ -57,11 +57,31 @@ try {
 
     // 🤖 وضعیت موتور AI
     $aiStats = (new SahandAI())->engineStats();
+
+    // 🎨 اطلاعات اسکیل UI/UX Pro + 🖥️ وضعیت سیستم (PHP)
+    $uiuxInfo = (new UIUXPro())->info();
+    $sysInfo = [
+        'php'        => PHP_VERSION,
+        'sapi'       => PHP_SAPI,
+        'gd'         => extension_loaded('gd') && function_exists('imagecreatetruecolor'),
+        'freetype'   => function_exists('imagettftext'),
+        'opcache'    => extension_loaded('Zend OPcache') && (ini_get('opcache.enable') === '1'),
+        'memory'     => ini_get('memory_limit') ?: '—',
+        'exec_time'  => ini_get('max_execution_time') ?: '—',
+        'upload'     => ini_get('upload_max_filesize') ?: '—',
+        'mbstring'   => extension_loaded('mbstring'),
+        'curl'       => extension_loaded('curl'),
+    ];
 } catch (Throwable $e) {
     // ⚠️ از ۲.۴.۱: Throwable (شامل Error) گرفته می‌شود تا خطای موتور AI هرگز صفحه را خالی نکند
     echo '<div class="alert alert-danger">⚠️ خطای بارگذاری آمار: ' . e($e->getMessage()) . '</div>';
     $stats = $topBrands = $recentRequests = $activities = $visitsChart = [];
     $aiStats = [];
+    $uiuxInfo = [];
+    $sysInfo = [
+        'php' => PHP_VERSION, 'gd' => false, 'freetype' => false, 'opcache' => false,
+        'memory' => '—', 'exec_time' => '—', 'upload' => '—', 'mbstring' => false, 'curl' => false,
+    ];
 }
 
 // 🏷️ نقشه وضعیت درخواست
@@ -163,6 +183,7 @@ $statusMap = [
                 <tr><td>📰 مقالات تولیدشده</td><td style="text-align:left;font-weight:700"><?= en_to_fa_digits((string)($aiStats['articles_generated'] ?? 0)) ?></td></tr>
                 <tr><td>❓ سوالات متداول تولیدشده</td><td style="text-align:left;font-weight:700"><?= en_to_fa_digits((string)($aiStats['faqs_generated'] ?? 0)) ?></td></tr>
                 <tr><td>✅ سلامت یکتایی محتوا</td><td style="text-align:left;font-weight:700"><?= $aiStats['uniqueness_health'] ?? '—' ?></td></tr>
+                <tr><td>🎨 اسکیل UI/UX Pro</td><td style="text-align:left;font-weight:700"><?= en_to_fa_digits((string)($uiuxInfo['page_blueprints'] ?? 0)) ?> بلوپرینت • <?= en_to_fa_digits((string)($uiuxInfo['ux_laws'] ?? 0)) ?> قانون UX</td></tr>
             </table>
         </div>
     </div>
@@ -219,6 +240,39 @@ $statusMap = [
                 </div>
             <?php endif; ?>
         </div>
+    </div>
+</div>
+
+<!-- 🖥️ وضعیت سیستم و عملکرد (PHP 8.3) -->
+<div class="card">
+    <div class="card-header">
+        <h3>🖥️ وضعیت سیستم و عملکرد</h3>
+        <div class="tools"><span class="badge <?= version_compare(PHP_VERSION, '8.0.0', '>=') ? 'badge-success' : 'badge-danger' ?>" style="direction:ltr">PHP <?= PHP_VERSION ?></span></div>
+    </div>
+    <div class="card-body">
+        <?php
+        $sysItems = [
+            ['🖥️ نسخه PHP', PHP_VERSION, version_compare(PHP_VERSION, '8.0.0', '>='), 'نسخه ۸ به بالای PHP'],
+            ['🖼️ کتابخانه GD', $sysInfo['gd'] ? ('فعال' . ($sysInfo['freetype'] ? ' + FreeType' : '')) : 'غیرفعال', $sysInfo['gd'], 'برای کپچا و تحلیل لوگو (در صورت غیرفعال بودن، کپچای SVG جایگزین می‌شود)'],
+            ['⚡ OPcache', $sysInfo['opcache'] ? 'فعال' : 'غیرفعال', $sysInfo['opcache'], 'شتاب‌دهنده PHP — از ۲ تا ۵ برابر سرعت'],
+            ['🔤 mbstring', $sysInfo['mbstring'] ? 'فعال' : 'غیرفعال', $sysInfo['mbstring'], 'پردازش متن فارسی چندبایتی'],
+            ['🌐 cURL', $sysInfo['curl'] ? 'فعال' : 'غیرفعال', $sysInfo['curl'], 'جستجوی وب و تلگرام'],
+            ['🧠 حافظه مجاز', $sysInfo['memory'], true, 'memory_limit'],
+            ['⏱️ زمان اجرا', $sysInfo['exec_time'] . 's', true, 'max_execution_time'],
+            ['📤 سقف آپلود', $sysInfo['upload'], true, 'upload_max_filesize'],
+        ];
+        ?>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px">
+            <?php foreach ($sysItems as [$label, $value, $ok, $hint]): ?>
+                <div title="<?= e($hint) ?>" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:12.5px">
+                    <span><?= e($label) ?></span>
+                    <span class="badge <?= $ok ? 'badge-success' : 'badge-danger' ?>" style="direction:ltr"><?= e((string)$value) ?></span>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <?php if (!$sysInfo['opcache']): ?>
+            <div class="alert alert-warning" style="margin-top:10px">⚠️ OPcache غیرفعال است — فعال‌کردن آن در تنظیمات PHP هاست، سرعت سایت‌ساز را ۲ تا ۵ برابر افزایش می‌دهد (در cPanel: Select PHP Version → Options → opcache).</div>
+        <?php endif; ?>
     </div>
 </div>
 

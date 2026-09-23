@@ -11,6 +11,7 @@
  *   🧠 موتور AI v2: score-content, classify-intent, content-plan, suggest-longtail, cluster-keywords, tfidf, engine-info
  *   🚀 موتور AI v3: smart-generate, improve-content, brand-voice, generate-titles, assistant, cache-stats, cache-clear
  *   🌐 موتور AI v3.1: web-search, research, websearch-status + 🤖 ربات تلگرام (telegram/webhook)
+ *   🎨 موتور AI v3.5: uiux-design, uiux-review, uiux-improve, uiux-skill-info (اسکیل UI/UX Pro)
  *
  * @package SahandBrandMaker
  */
@@ -326,6 +327,24 @@ $router->add('POST', 'ai/news', $aiHandler('webNews'));
 // 🖼️ فهرست تصاویر مقاله (۹ تصویر تخصصی بسته‌بندی‌شده) — v3.2
 $router->add('GET', 'ai/article-images', function () {
     json_response(['success' => true, 'data' => (new SahandAI())->articleImages()]);
+});
+
+/* ==================================================
+ * 🎨 اسکیل UI/UX Pro — طراحی حرفه‌ای صفحات (v3.5)
+ * ================================================== */
+
+// 🪄 طراحی چیدمان بهینه صفحه (بلوپرینت + زمینه برند)
+$router->add('POST', 'ai/uiux-design', $aiHandler('uiuxDesign'));
+
+// 🔍 ممیزی UX چیدمان موجود (امتیاز ۰-۱۰۰ + مشکلات + نقاط قوت)
+$router->add('POST', 'ai/uiux-review', $aiHandler('uiuxReview'));
+
+// 🛠️ اصلاح خودکار چیدمان (هیرو، CTA، ریتم بصری، حذف شلوغی)
+$router->add('POST', 'ai/uiux-improve', $aiHandler('uiuxImprove'));
+
+// 📇 اطلاعات اسکیل (نسخه، قوانین UX، بلوپرینت‌ها)
+$router->add('GET', 'ai/uiux-skill-info', function () {
+    json_response(['success' => true, 'data' => (new SahandAI())->uiuxSkillInfo()]);
 });
 
 /* ==================================================
