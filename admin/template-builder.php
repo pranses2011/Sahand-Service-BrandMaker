@@ -133,6 +133,7 @@ $blockLibrary = [
                 <button type="button" class="device-tab" onclick="setDevice(this,'mobile')" title="موبایل">📲</button>
             </div>
             <div style="margin-inline-start:auto;display:flex;gap:8px">
+                <button type="button" class="btn btn-info" onclick="openLivePreview()">👁️ پیش‌نمایش زنده</button>
                 <a href="templates.php" class="btn btn-outline">بازگشت</a>
                 <button type="submit" class="btn btn-primary">💾 ذخیره قالب</button>
             </div>
@@ -146,9 +147,10 @@ $blockLibrary = [
             <?php foreach ($blockLibrary as $category => $blocks): ?>
                 <div class="block-cat"><?= e($category) ?></div>
                 <?php foreach ($blocks as $key => [$icon, $label]): ?>
-                    <div class="block-item" draggable="true" data-block="<?= e($key) ?>">
+                    <div class="block-item" draggable="true" data-block="<?= e($key) ?>" title="دابل‌کلیک = افزودن سریع | دکمه 👁 = پیش‌نمایش تک‌بلوک">
                         <span class="icon"><?= $icon ?></span>
                         <span><?= e($label) ?></span>
+                        <button type="button" class="block-eye" title="پیش‌نمایش این بلوک" onclick="event.stopPropagation();previewSingleBlock('<?= e($key) ?>')">👁</button>
                     </div>
                 <?php endforeach; ?>
             <?php endforeach; ?>
@@ -174,6 +176,24 @@ $blockLibrary = [
     </div>
 </form>
 
+<!-- 👁️ مودال پیش‌نمایش زنده -->
+<div class="modal-backdrop" id="preview-backdrop">
+    <div class="modal preview-modal">
+        <div class="modal-header" style="justify-content:space-between;gap:10px">
+            <span>👁️ پیش‌نمایش زنده قالب</span>
+            <div class="device-tabs" style="margin:0">
+                <button type="button" class="device-tab active" onclick="setPreviewDevice(this,375,'موبایل')" title="موبایل">📲</button>
+                <button type="button" class="device-tab" onclick="setPreviewDevice(this,768,'تبلت')" title="تبلت">📱</button>
+                <button type="button" class="device-tab" onclick="setPreviewDevice(this,0,'دسکتاپ')" title="دسکتاپ">🖥️</button>
+            </div>
+            <button type="button" class="btn btn-outline btn-sm" onclick="closeLivePreview()">✕ بستن</button>
+        </div>
+        <div class="modal-body preview-body">
+            <iframe id="preview-frame" class="preview-frame" src="about:blank" title="پیش‌نمایش"></iframe>
+        </div>
+    </div>
+</div>
+
 <script>
 /* 🎭 موتور قالب‌ساز — درگ‌اند‌دراپ بومی + مدیریت چیدمان */
 const BLOCK_LIBRARY = <?= json_encode(array_map(function ($cats) {
@@ -185,6 +205,44 @@ const BLOCK_LIBRARY = <?= json_encode(array_map(function ($cats) {
 let layout = JSON.parse(document.getElementById('layout-json').value || '[]');
 let selectedIdx = -1;
 
+/* 🖼️ وایرفریم مینی هر بلوک — پیش‌نمایش بصری داخل بوم */
+const WIREFRAMES = {
+    'header-v1': '<div class="wf-row"><span class="wf-logo">LOGO</span><span class="wf-line w40"></span><span class="wf-btn"></span></div>',
+    'header-v2': '<div class="wf-col"><div class="wf-line w60"></div><div class="wf-row"><span class="wf-logo">LOGO</span><span class="wf-line w40"></span><span class="wf-btn"></span></div></div>',
+    'header-v3': '<div class="wf-row glassy"><span class="wf-logo">LOGO</span><span class="wf-line w40"></span><span class="wf-btn"></span></div>',
+    'top-bar': '<div class="wf-row tiny"><span class="wf-line w25"></span><span class="wf-line w25"></span></div>',
+    'hero': '<div class="wf-hero"><div class="wf-line w50 center"></div><div class="wf-line w35 center"></div><div class="wf-btn"></div></div>',
+    'hero-slider': '<div class="wf-hero"><div class="wf-line w50 center"></div><div class="wf-dots">● ○ ○</div></div>',
+    'hero-split': '<div class="wf-row"><div class="wf-col"><div class="wf-line w80"></div><div class="wf-line w60"></div><div class="wf-btn"></div></div><div class="wf-img"></div></div>',
+    'hero-video': '<div class="wf-hero"><div class="wf-play">▶</div></div>',
+    'text': '<div class="wf-line w90"></div><div class="wf-line w100"></div><div class="wf-line w70"></div>',
+    'text-image': '<div class="wf-row"><div class="wf-col"><div class="wf-line w100"></div><div class="wf-line w80"></div></div><div class="wf-img"></div></div>',
+    'intro': '<div class="wf-row"><div class="wf-col"><div class="wf-line w90"></div><div class="wf-line w70"></div></div><div class="wf-img"></div></div>',
+    'two-col': '<div class="wf-row"><div class="wf-box"></div><div class="wf-box"></div></div>',
+    'three-col': '<div class="wf-row"><div class="wf-box"></div><div class="wf-box"></div><div class="wf-box"></div></div>',
+    'services-grid': '<div class="wf-row"><div class="wf-box ico">🔧</div><div class="wf-box ico">🛠️</div><div class="wf-box ico">⚡</div></div>',
+    'features': '<div class="wf-row"><div class="wf-box ico">✅</div><div class="wf-box ico">🏆</div><div class="wf-box ico">🛡️</div></div>',
+    'articles-recent': '<div class="wf-row"><div class="wf-box img">📰</div><div class="wf-box img">📰</div><div class="wf-box img">📰</div></div>',
+    'articles-grid': '<div class="wf-row"><div class="wf-box img">📰</div><div class="wf-box img">📰</div><div class="wf-box img">📰</div></div>',
+    'team': '<div class="wf-row"><div class="wf-box ava">👤</div><div class="wf-box ava">👤</div><div class="wf-box ava">👤</div><div class="wf-box ava">👤</div></div>',
+    'contact-form': '<div class="wf-row"><div class="wf-input"></div><div class="wf-input"></div></div><div class="wf-btn full"></div>',
+    'request-form': '<div class="wf-row"><div class="wf-input"></div><div class="wf-input"></div></div><div class="wf-btn full"></div>',
+    'counter-stats': '<div class="wf-row"><div class="wf-stat"></div><div class="wf-stat"></div><div class="wf-stat"></div></div>',
+    'progress-bars': '<div class="wf-line w30"></div><div class="wf-track"><div class="wf-fill" style="width:85%"></div></div><div class="wf-line w30"></div><div class="wf-track"><div class="wf-fill" style="width:70%"></div></div>',
+    'testimonials': '<div class="wf-quote"></div><div class="wf-dots">● ○ ○</div>',
+    'faq-accordion': '<div class="wf-acc"></div><div class="wf-acc"></div>',
+    'gallery': '<div class="wf-row"><div class="wf-img small">🖼️</div><div class="wf-img small">🖼️</div><div class="wf-img small">🖼️</div><div class="wf-img small">🖼️</div></div>',
+    'map': '<div class="wf-map">📍</div>',
+    'brands-links': '<div class="wf-row"><div class="wf-box">🏷️</div><div class="wf-box">🏷️</div><div class="wf-box">🏷️</div><div class="wf-box">🏷️</div></div>',
+    'cta-phone': '<div class="wf-hero"><div class="wf-btn big"></div></div>',
+    'cta-request': '<div class="wf-hero"><div class="wf-btn"></div></div>',
+    'cta-banner': '<div class="wf-hero"><div class="wf-line w60 center"></div><div class="wf-btn"></div></div>',
+    'breadcrumb': '<div class="wf-row tiny"><span class="wf-line w15"></span>/<span class="wf-line w15"></span>/<span class="wf-line w20 strong"></span></div>',
+    'separator': '<div class="wf-sep"></div>',
+    'spacer': '<div class="wf-spacer"></div>',
+    'pagination': '<div class="wf-row center"><span class="wf-pg cur"></span><span class="wf-pg"></span><span class="wf-pg"></span></div>',
+};
+
 /* رندر بوم */
 function render() {
     const container = document.getElementById('canvas-blocks');
@@ -195,15 +253,17 @@ function render() {
         el.className = 'canvas-block' + (i === selectedIdx ? ' selected' : '');
         el.draggable = true;
         el.dataset.idx = i;
+        const wf = WIREFRAMES[item.block] || '<div class="wf-line w80"></div><div class="wf-line w60"></div>';
         el.innerHTML = `
             <div class="block-tools">
                 <button type="button" onclick="moveBlock(${i},-1)" title="بالا">↑</button>
                 <button type="button" onclick="moveBlock(${i},1)" title="پایین">↓</button>
                 <button type="button" onclick="duplicateBlock(${i})" title="کپی">⧉</button>
+                <button type="button" onclick="previewBlockAt(${i})" title="پیش‌نمایش">👁</button>
                 <button type="button" onclick="removeBlock(${i})" title="حذف">✕</button>
             </div>
-            <div class="block-label">📦 ${BLOCK_LIBRARY[item.block] || item.block}</div>
-            <div class="block-preview">بلوک: <code>${item.block}</code> — ترتیب: ${i + 1}</div>`;
+            <div class="block-label">📦 ${BLOCK_LIBRARY[item.block] || item.block}${item.props && item.props.title ? ' — ' + item.props.title : ''}</div>
+            <div class="block-preview">${wf}</div>`;
         // رویدادها
         el.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', 'move:' + i); el.classList.add('dragging'); });
         el.addEventListener('dragend', () => el.classList.remove('dragging'));
@@ -332,6 +392,44 @@ function setDevice(btn, device) {
     canvasEl.style.maxWidth = device === 'desktop' ? '100%' : device === 'tablet' ? '768px' : '400px';
     canvasEl.style.margin = device === 'desktop' ? '0' : '0 auto';
 }
+
+/* 👁️ پیش‌نمایش زنده — رندر چیدمان فعلی در iframe با template-preview.php */
+function openLivePreview() {
+    const backdrop = document.getElementById('preview-backdrop');
+    const frame = document.getElementById('preview-frame');
+    frame.src = 'template-preview.php?json=' + encodeURIComponent(JSON.stringify(layout));
+    backdrop.classList.add('show');
+}
+function closeLivePreview() {
+    document.getElementById('preview-backdrop').classList.remove('show');
+    document.getElementById('preview-frame').src = 'about:blank';
+}
+/* پیش‌نمایش تک بلوک از کتابخانه */
+function previewSingleBlock(key) {
+    const backdrop = document.getElementById('preview-backdrop');
+    const frame = document.getElementById('preview-frame');
+    frame.src = 'template-preview.php?block=' + encodeURIComponent(key);
+    backdrop.classList.add('show');
+}
+/* پیش‌نمایش از روی بوم */
+function previewBlockAt(i) {
+    if (!layout[i]) { return; }
+    const backdrop = document.getElementById('preview-backdrop');
+    const frame = document.getElementById('preview-frame');
+    frame.src = 'template-preview.php?json=' + encodeURIComponent(JSON.stringify([layout[i]]));
+    backdrop.classList.add('show');
+}
+/* تغییر دستگاه پیش‌نمایش (عرض iframe) */
+function setPreviewDevice(btn, width) {
+    document.querySelectorAll('.preview-modal .device-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const frame = document.getElementById('preview-frame');
+    frame.style.maxWidth = width > 0 ? width + 'px' : '100%';
+}
+/* بستن با Escape */
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { closeLivePreview(); }
+});
 
 /* شروع */
 render();
