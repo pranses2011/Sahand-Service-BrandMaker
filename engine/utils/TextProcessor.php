@@ -358,6 +358,162 @@ class TextProcessor
         $normalized = preg_replace('/\s+/u', ' ', mb_strtolower(self::normalize($text)));
         return hash('sha256', $normalized);
     }
+
+    /* ==================================================
+     * 🆕 قابلیت‌های نسخه ۲ موتور (v2.0)
+     * ================================================== */
+
+    /**
+     * ✂️ توکنایزر عمومی کلمات فارسی
+     * متن را به آرایه کلمات (بدون علائم و ایست‌واژه) تبدیل می‌کند.
+     *
+     * @param bool $removeStopwords حذف ایست‌واژه‌ها
+     */
+    public static function tokenize(string $text, bool $removeStopwords = false): array
+    {
+        $normalized = self::normalize(mb_strtolower($text));
+        $words = preg_split('/[\s\x{200c}\.,،؛:!؟()\[\]«»"\'\/\-]+/u', $normalized, -1, PREG_SPLIT_NO_EMPTY);
+        if (!is_array($words)) {
+            return [];
+        }
+        if (!$removeStopwords) {
+            return $words;
+        }
+        $stopwords = [
+            'و','در','به','از','که','این','آن','را','با','برای','است','می','شد','شده','های','تر','ترین',
+            'هم','نیز','اگر','تا','هر','یک','دو','سه','خود','او','ما','شما','آنها','اینها','بر',
+            'اما','یا','وقتی','زیرا','چون','بنابراین','پس','دیگر','بسیار','خب','البته','یعنی','مثلا','شود','بود',
+            'the','and','for','with','that','this','from','are','was','were','have','has','will','can',
+        ];
+        return array_values(array_filter($words, fn($w) => !in_array($w, $stopwords, true)));
+    }
+
+    /**
+     * 🌱 ریشه‌یاب سبک فارسی (Light Stemmer)
+     * پسوندهای رایج را جدا می‌کند تا شکل‌های مختلف یک کلمه
+     * (مثل «تعمیر»، «تعمیرات»، «تعمیرها») یکسان دیده شوند.
+     * برای خوشه‌بندی کلیدواژه و TF-IDF.
+     */
+    public static function stem(string $word): string
+    {
+        $word = self::normalize(mb_strtolower(trim($word)));
+        if (mb_strlen($word) <= 3) {
+            return $word;
+        }
+        // پسوندهای فارسی — از بلندترین به کوتاه‌ترین (ترتیب مهم است)
+        $suffixes = [
+            'هایشان', 'هایتان', 'هایمان', 'هایی', 'ترین‌ها', 'هایم', 'هایت', 'هایش',
+            'ترین', 'های', 'ات', 'هایی', 'شان', 'تان', 'مان', 'ها', 'تر',
+        ];
+        foreach ($suffixes as $suffix) {
+            if (mb_strlen($word) > mb_strlen($suffix) + 2 && mb_substr($word, -mb_strlen($suffix)) === $suffix) {
+                $word = mb_substr($word, 0, mb_strlen($word) - mb_strlen($suffix));
+                // حذف نیم‌فاصله/فاصله باقی‌مانده انتهای کلمه (مثل «گران‌ترین» → «گران»)
+                $word = rtrim($word, "\u{200C} ");
+                break; // فقط یک پسوند حذف شود (سبک)
+            }
+        }
+        // حذف «می‌» ابتدای فعل (نیم‌فاصله یا فاصله)
+        if (mb_substr($word, 0, 3) === 'می‌') {
+            $word = mb_substr($word, 3);
+        }
+        return $word;
+    }
+
+    /**
+     * 📖 تقسیم متن به جمله‌ها (عمومی — برای همه ماژول‌ها)
+     */
+    public static function sentenceSplit(string $text): array
+    {
+        $parts = preg_split('/(?<=[.！!؟?؛])\s+/u', trim(strip_tags($text)), -1, PREG_SPLIT_NO_EMPTY);
+        if (!is_array($parts)) {
+            return trim($text) === '' ? [] : [trim($text)];
+        }
+        return array_values(array_filter(array_map('trim', $parts), fn($s) => $s !== ''));
+    }
+
+    /**
+     * 📊 سنجش خوانایی متن فارسی — مجموعه متریک‌های نسخه ۲
+     * میانگین طول جمله، نسبت جمله‌های بلند، تنوع واژگان (TTR)،
+     * میانگین طول کلمه و نسبت کلمات پیچیده (≥۷ حرف).
+     */
+    public static function readability(string $text): array
+    {
+        $plain = trim(strip_tags($text));
+        $sentences = self::sentenceSplit($plain);
+        $words = self::tokenize($plain);
+        $wordCount = count($words);
+        $sentenceCount = count($sentences);
+
+        if ($wordCount === 0 || $sentenceCount === 0) {
+            return [
+                'word_count' => 0, 'sentence_count' => 0, 'avg_sentence_length' => 0.0,
+                'long_sentence_ratio' => 0.0, 'avg_word_length' => 0.0,
+                'lexical_diversity' => 0.0, 'complex_word_ratio' => 0.0, 'score' => 0,
+            ];
+        }
+
+        // میانگین طول جمله (کلمه)
+        $sentenceLengths = array_map(fn($s) => self::wordCount($s), $sentences);
+        $avgSentenceLength = array_sum($sentenceLengths) / $sentenceCount;
+
+        // نسبت جمله‌های بلند (>۲۵ کلمه)
+        $longSentences = count(array_filter($sentenceLengths, fn($l) => $l > 25));
+        $longRatio = $longSentences / $sentenceCount;
+
+        // میانگین طول کلمه
+        $totalChars = array_sum(array_map('mb_strlen', $words));
+        $avgWordLength = $totalChars / $wordCount;
+
+        // تنوع واژگان — Type-Token Ratio روی ریشه کلمات
+        $stems = array_map([self::class, 'stem'], $words);
+        $lexicalDiversity = count(array_unique($stems)) / $wordCount;
+
+        // نسبت کلمات پیچیده (≥۷ حرف)
+        $complexWords = count(array_filter($words, fn($w) => mb_strlen($w) >= 7));
+        $complexRatio = $complexWords / $wordCount;
+
+        // امتیاز خوانایی ۰-۱۰۰ (هرچه بالاتر، خواناتر)
+        // جمله کوتاه‌تر + واژگان متنوع‌تر اما نه پیچیده = خواناتر
+        $lengthScore = max(0, 100 - ($avgSentenceLength - 8) * 5);        // بهینه: ۸-۲۰ کلمه
+        $varietyScore = min(100, $lexicalDiversity * 160);                // بهینه: ۰.۵۵-۰.۶۵
+        $simplicityScore = max(0, 100 - $complexRatio * 350);             // زیر ۲۰٪ کلمه پیچیده
+        $longPenalty = $longRatio * 60;
+        $score = (int)round(max(0, min(100, ($lengthScore * 0.4 + $varietyScore * 0.25 + $simplicityScore * 0.35) - $longPenalty)));
+
+        return [
+            'word_count'          => $wordCount,
+            'sentence_count'      => $sentenceCount,
+            'avg_sentence_length' => round($avgSentenceLength, 1),
+            'long_sentence_ratio' => round($longRatio, 3),
+            'avg_word_length'     => round($avgWordLength, 1),
+            'lexical_diversity'   => round($lexicalDiversity, 3),
+            'complex_word_ratio'  => round($complexRatio, 3),
+            'score'               => $score,
+        ];
+    }
+
+    /**
+     * 🔗 شمارش واژه‌های رابط (Transition Words)
+     * نشانه انسجام متن — برای QualityScorer و SeoAnalyzer v2
+     */
+    public static function transitionWordCount(string $text): int
+    {
+        $transitions = [
+            'بنابراین','در نتیجه','به همین دلیل','از این رو','در واقع','در حقیقت','به عبارت دیگر',
+            'علاوه بر این','همچنین','در کنار آن','از سوی دیگر','برعکس','در مقابل','در مقابل آن',
+            'ابتدا','سپس','در ادامه','در پایان','در نهایت','سرانجام','اول','دوم','سوم',
+            'برای مثال','مثلا','به عنوان مثال','به طور مثال','یعنی','به بیان دیگر',
+            'به طور کلی','کلاً','معمولا','اغلب','بیشتر وقت‌ها','در اکثر موارد',
+            'نکته مهم','نکته کلیدی','خلاصه اینکه','جمع‌بندی','در مجموع','در کل',
+            'توجه کنید','توجه داشته باشید','لازم به ذکر است','گفتنی است','شایان ذکر است',
+        ];
+        $count = 0;
+        foreach ($transitions as $tr) {
+            $count += mb_substr_count($text, $tr);
+        }
+        return $count;
+    }
 }
 
 /**

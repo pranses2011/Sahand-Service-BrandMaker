@@ -129,6 +129,75 @@ class SeoAnalyzer
         $addCheck('readability', 'جمله‌های کوتاه (میانگین <۲۵ کلمه)', $avgSentenceLen > 0 && $avgSentenceLen < 25, 4,
             'میانگین طول جمله: ' . round($avgSentenceLen, 1) . ' کلمه');
 
+        /* ==================================================
+         * 🆕 بررسی‌های نسخه ۲ (v2.0)
+         * ================================================== */
+
+        /* ---------- 🏷️ کلیدواژه در سرفصل‌ها (H2/H3) ---------- */
+        if ($focusKeyword !== '' && !empty($headings)) {
+            $kwInHeadings = 0;
+            foreach ($headings as $h) {
+                if ($h['level'] >= 2 && mb_stripos($h['text'], $focusKeyword) !== false) {
+                    $kwInHeadings++;
+                }
+            }
+            $addCheck('kw_in_subheadings', 'کلیدواژه در حداقل یک سرفصل H2/H3', $kwInHeadings >= 1, 5,
+                $kwInHeadings === 0 ? 'کلیدواژه کانونی در هیچ سرفصلی نیامده است.' : "در {$kwInHeadings} سرفصل حضور دارد.");
+        }
+
+        /* ---------- 🔗 انسجام متن (واژه‌های رابط) ---------- */
+        $transitionCount = TextProcessor::transitionWordCount($textOnly);
+        $transitionRatio = count($sentences) > 0 ? $transitionCount / count($sentences) : 0;
+        $addCheck('transition_words', 'انسجام متن (واژه‌های رابط ≥۱ به ازای هر ۵ جمله)', $transitionRatio >= 0.2, 4,
+            "نسبت واژه‌های رابط: " . round($transitionRatio, 2) . ' به ازای هر جمله');
+
+        /* ---------- ❓ حضور سؤال و پاسخ (پشتیبان FAQ Schema) ---------- */
+        $questionCount = preg_match_all('/[؟?]/u', $textOnly) ?: 0;
+        $addCheck('question_presence', 'حضور پرسش در محتوا (پشتیبان Featured Snippet)', $questionCount >= 2, 3,
+            "تعداد پرسش‌ها: {$questionCount}");
+
+        /* ---------- 🧩 اسکیمای سازگار (JSON-LD) ---------- */
+        $hasSchema = !empty($page['schema']) || !empty($page['has_schema']);
+        $addCheck('schema_markup', 'داده ساختاریافته (Schema.org)', $hasSchema, 5,
+            'برای صفحه Article یا FAQPage اسکیما اضافه کنید.');
+
+        /* ---------- 🖼️ کفایت تصویر (۱ تصویر در هر ~۴۰۰ کلمه) ---------- */
+        $idealImgs = max(1, (int)ceil($wordCount / 400));
+        $addCheck('img_adequacy', 'کفایت تصاویر متناسب با حجم', $imgsTotal >= min($idealImgs, 3), 3,
+            "برای {$wordCount} کلمه حدود {$idealImgs} تصویر مناسب است؛ فعلاً {$imgsTotal} تصویر دارد.");
+
+        /* ---------- 🔗 تنوع متن انکر لینک‌ها ---------- */
+        if ($linksCount >= 2) {
+            preg_match_all('/<a[^>]*>(.*?)<\/a>/is', $content, $anchorMatches);
+            $anchors = array_map(fn($a) => trim(strip_tags($a)), $anchorMatches[1] ?? []);
+            $anchors = array_filter($anchors, fn($a) => $a !== '');
+            $uniqueAnchors = count(array_unique($anchors));
+            $addCheck('anchor_variety', 'تنوع متن انکر لینک‌ها', $uniqueAnchors === count($anchors), 3,
+                'متن‌های انکر تکراری را متنوع کنید (همه لینک‌ها نباید یک متن داشته باشند).');
+        }
+
+        /* ---------- 🏅 سیگنال‌های E-E-A-T ---------- */
+        $eeatSignals = 0;
+        if (!empty($page['author'])) {
+            $eeatSignals++;
+        }
+        if (!empty($page['date_published']) || !empty($page['datePublished'])) {
+            $eeatSignals++;
+        }
+        if ($wordCount >= 600) {
+            $eeatSignals++; // عمق محتوا خودش سیگنال تجربه است
+        }
+        if (preg_match_all('/[۰-۹0-9]+/u', $textOnly) >= 3) {
+            $eeatSignals++; // داده عددی و مشخص
+        }
+        $addCheck('eeat_signals', 'سیگنال‌های E-E-A-T (نویسنده/تاریخ/داده)', $eeatSignals >= 3, 4,
+            " {$eeatSignals} از ۴ سیگنال موجود است — نویسنده، تاریخ انتشار و آمار عددی اضافه کنید.");
+
+        /* ---------- 🎯 تراکم بهینه واژه‌های ستونی (خوانایی کلیدی) ---------- */
+        $readability = TextProcessor::readability($textOnly);
+        $addCheck('readability_score', 'امتیاز خوانایی ≥۵۵ (متریک داخلی)', $readability['score'] >= 55, 3,
+            'امتیاز خوانایی فعلی: ' . $readability['score']);
+
         // 🎯 امتیاز نهایی نرمال‌شده به ۱۰۰
         $finalScore = $totalWeight > 0 ? (int)round($score / $totalWeight * 100) : 0;
         $suggestions = $this->buildSuggestions($checks);
@@ -139,6 +208,10 @@ class SeoAnalyzer
             'word_count'  => $wordCount,
             'checks'      => $checks,
             'suggestions' => $suggestions,
+            // 🆕 متریک‌های نسخه ۲
+            'readability' => $readability,
+            'check_count' => count($checks),
+            'passed_count'=> count(array_filter($checks, fn($c) => $c['passed'])),
         ];
     }
 

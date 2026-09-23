@@ -215,4 +215,323 @@ class KeywordAnalyzer
         ];
         return array_flip($list);
     }
+
+    /* ==================================================
+     * 🆕 قابلیت‌های نسخه ۲ (v2.0)
+     * ================================================== */
+
+    /**
+     * 🌱 استخراج کلیدواژه با ریشه‌یابی — شکل‌های مختلف یک کلمه
+     * (تعمیر / تعمیرات / تعمیرها) در یک خوشه شمرده می‌شوند.
+     *
+     * @param string $text متن تحلیل‌شونده
+     * @param int    $topN تعداد خوشه‌های برتر
+     */
+    public function extractWithStemming(string $text, int $topN = 15): array
+    {
+        $words = TextProcessor::tokenize($text, true);
+        if (empty($words)) {
+            return [];
+        }
+        $stopwords = $this->stopwords();
+
+        // شمارش بر اساس ریشه + نگهداری شکل پرتکرار برای نمایش
+        $stemCounts = [];
+        $formCounts = [];
+        foreach ($words as $word) {
+            if (mb_strlen($word) < 3 || isset($stopwords[$word])) {
+                continue;
+            }
+            $stem = TextProcessor::stem($word);
+            $stemCounts[$stem] = ($stemCounts[$stem] ?? 0) + 1;
+            $formCounts[$stem][$word] = ($formCounts[$stem][$word] ?? 0) + 1;
+        }
+        arsort($stemCounts);
+
+        $total = array_sum($stemCounts) ?: 1;
+        $result = [];
+        $i = 0;
+        foreach ($stemCounts as $stem => $count) {
+            if ($i++ >= $topN) {
+                break;
+            }
+            // شکل نمایشی: پرتکرارترین شکل واقعی
+            $forms = $formCounts[$stem];
+            arsort($forms);
+            $display = array_key_first($forms);
+            $result[] = [
+                'keyword'   => $display,
+                'stem'      => $stem,
+                'count'     => $count,
+                'density'   => round($count / $total * 100, 2),
+                'variants'  => array_slice(array_keys($forms), 0, 4),
+            ];
+        }
+        return $result;
+    }
+
+    /**
+     * 🧮 امتیازدهی TF-IDF کلیدواژه‌ها نسبت به مجموعه اسناد مرجع
+     * پایگاه دانش برندها/دستگاه‌ها به عنوان «corpus» استفاده می‌شود.
+     *
+     * @param string $text متن هدف
+     * @param array  $corpusDocs آرایه اسناد مرجع (هر عنصر یک متن)
+     * @param int    $topN تعداد نتایج
+     */
+    public function tfIdf(string $text, array $corpusDocs, int $topN = 15): array
+    {
+        $words = array_unique(TextProcessor::tokenize($text, true));
+        if (empty($words) || empty($corpusDocs)) {
+            return [];
+        }
+        // شمارش اسناد حاوی هر ریشه (IDF)
+        $docFreq = [];
+        foreach ($corpusDocs as $doc) {
+            $docStems = [];
+            foreach (TextProcessor::tokenize((string)$doc, true) as $w) {
+                $docStems[TextProcessor::stem($w)] = true;
+            }
+            foreach ($docStems as $stem => $_) {
+                $docFreq[$stem] = ($docFreq[$stem] ?? 0) + 1;
+            }
+        }
+        $totalDocs = count($corpusDocs);
+
+        // TF در متن هدف (بر اساس ریشه)
+        $tf = [];
+        $targetStems = [];
+        foreach (TextProcessor::tokenize($text, true) as $w) {
+            $stem = TextProcessor::stem($w);
+            $tf[$stem] = ($tf[$stem] ?? 0) + 1;
+            $targetStems[$stem][] = $w;
+        }
+        $totalWords = array_sum($tf) ?: 1;
+
+        $scores = [];
+        foreach ($tf as $stem => $count) {
+            if (mb_strlen($stem) < 3) {
+                continue;
+            }
+            $df = $docFreq[$stem] ?? 0;
+            // IDF هموار (smooth) — اگر همه‌جا بود، امتیاز نزدیک صفر
+            $idf = log((1 + $totalDocs) / (1 + $df)) + 1;
+            $scores[$stem] = ($count / $totalWords) * $idf;
+        }
+        arsort($scores);
+
+        $result = [];
+        $i = 0;
+        foreach ($scores as $stem => $score) {
+            if ($i++ >= $topN) {
+                break;
+            }
+            $display = $targetStems[$stem][0] ?? $stem;
+            $result[] = [
+                'keyword' => $display,
+                'stem'    => $stem,
+                'tf_idf'  => round($score, 4),
+                'count'   => $tf[$stem],
+                'doc_freq'=> $docFreq[$stem] ?? 0,
+            ];
+        }
+        return $result;
+    }
+
+    /**
+     * 🗂️ خوشه‌بندی کلیدواژه‌ها — گروه‌بندی بر اساس واژه مشترک
+     * برای ساخت صفحات موضوعی (Topic Clusters) و سیلو لینک‌دهی.
+     *
+     * @param array $keywords لیست کلیدواژه‌ها (رشته یا آرایه با کلید keyword)
+     */
+    public function cluster(array $keywords): array
+    {
+        // نرمال‌سازی ورودی
+        $clean = [];
+        foreach ($keywords as $k) {
+            $kw = is_array($k) ? (string)($k['keyword'] ?? '') : (string)$k;
+            $kw = trim(mb_strtolower($kw));
+            if ($kw !== '') {
+                $clean[] = $kw;
+            }
+        }
+        if (empty($clean)) {
+            return [];
+        }
+
+        // استخراج «واژه‌های ستون» — واژه‌های پرتکرار میان کلیدواژه‌ها
+        $wordFreq = [];
+        foreach ($clean as $kw) {
+            foreach (array_unique(TextProcessor::tokenize($kw, true)) as $w) {
+                if (mb_strlen($w) >= 3) {
+                    $wordFreq[TextProcessor::stem($w)] = ($wordFreq[TextProcessor::stem($w)] ?? 0) + 1;
+                }
+            }
+        }
+        arsort($wordFreq);
+        $pillarCandidates = array_slice(array_keys($wordFreq), 0, 8);
+
+        // تخصیص هر کلیدواژه به واژه ستونِ برترِ خود
+        $clusters = [];
+        $assigned = [];
+        foreach ($clean as $kw) {
+            $bestPillar = null;
+            foreach ($pillarCandidates as $pillar) {
+                foreach (TextProcessor::tokenize($kw, true) as $w) {
+                    if (TextProcessor::stem($w) === $pillar) {
+                        $bestPillar = $bestPillar ?: $pillar;
+                        // واژه ستونی که در کلیدواژه هست و بالاترین فراوانی را دارد انتخاب شود
+                        break 2;
+                    }
+                }
+            }
+            if ($bestPillar !== null) {
+                $clusters[$bestPillar][] = $kw;
+                $assigned[$kw] = true;
+            }
+        }
+        // کلیدواژه‌های بدون ستون → «متفرقه»
+        $rest = array_values(array_diff($clean, array_keys($assigned)));
+        if (!empty($rest)) {
+            $clusters['متفرقه'] = $rest;
+        }
+
+        // خروجی غنی‌شده
+        $result = [];
+        foreach ($clusters as $pillar => $members) {
+            $result[] = [
+                'pillar'    => $pillar,
+                'size'      => count($members),
+                'keywords'  => array_slice($members, 0, 30),
+            ];
+        }
+        usort($result, fn($a, $b) => $b['size'] <=> $a['size']);
+        return $result;
+    }
+
+    /**
+     * ⚔️ برآورد رقابت‌پذیری کلیدواژه (بدون داده خارجی)
+     * هیوریستیک: کلیدواژه کوتاه/عمومی = رقابتی، بلند/خاص = در دسترس
+     *
+     * @return array ['competition' => 'کم|متوسط|زیاد', 'score' => 0-100, 'reasons' => [...]]
+     */
+    public function estimateCompetition(string $keyword): array
+    {
+        $keyword = TextProcessor::normalize(mb_strtolower(trim($keyword)));
+        $wordCount = TextProcessor::wordCount($keyword);
+        $reasons = [];
+        $score = 50.0; // پایه
+
+        // ۱) طول کلیدواژه — هر کلمه اضافه، رقابت را کم می‌کند
+        if ($wordCount <= 1) {
+            $score += 30;
+            $reasons[] = 'کلیدواژه تک‌کلمه‌ای و بسیار عمومی است';
+        } elseif ($wordCount === 2) {
+            $score += 12;
+            $reasons[] = 'کلیدواژه دوکلمه‌ای — رقابت متوسط به بالا';
+        } elseif ($wordCount >= 4) {
+            $score -= 22;
+            $reasons[] = 'کلیدواژه طولانی (long-tail) — رقابت پایین‌تر';
+        } else {
+            $score -= 5;
+        }
+
+        // ۲) واژه‌های عمومی پررقابت
+        $genericWords = ['لوازم خانگی', 'تعمیرات', 'قیمت', 'خرید', 'بهترین', 'نمایندگی'];
+        foreach ($genericWords as $g) {
+            if (mb_strpos($keyword, $g) !== false) {
+                $score += 8;
+                $reasons[] = "شامل واژه پررقابت «{$g}»";
+            }
+        }
+
+        // ۳) تخصصی‌بودن — نام دستگاه یا برند + مشکل، رقابت را متمرکز و در دسترس می‌کند
+        $devices = TextProcessor::loadKnowledge('devices');
+        foreach ($devices as $d) {
+            if (!empty($d['name_fa']) && mb_strpos($keyword, mb_strtolower($d['name_fa'])) !== false) {
+                $score -= 10;
+                $reasons[] = 'مشخص‌کننده دستگاه است (جستجوی هدفمند)';
+                break;
+            }
+        }
+
+        // ۴) نیت اطلاعاتی (سؤال) معمولاً رقابت محتوایی آسان‌تری دارد
+        if (preg_match('/^(آیا|چرا|چطور|چگونه)/u', $keyword) || mb_strpos($keyword, '؟') !== false) {
+            $score -= 12;
+            $reasons[] = 'نیت اطلاعاتی — رقابت محتوایی آسان‌تر';
+        }
+
+        $score = (int)max(5, min(100, round($score)));
+        $level = $score >= 65 ? 'زیاد 🔴' : ($score >= 40 ? 'متوسط 🟡' : 'کم 🟢');
+
+        return [
+            'keyword'     => $keyword,
+            'competition' => $level,
+            'score'       => $score,
+            'reasons'     => $reasons ?: ['کلیدواژه با رقابت متعادل'],
+        ];
+    }
+
+    /**
+     * 🐎 پیشنهاد کلیدواژه‌های long-tail بر پایه دانش
+     * ترکیب: دستگاه + علامت/خدمت + شهر + اصلاح‌گر
+     *
+     * @param string $seedKeyword کلیدواژه پایه (مثلاً «تعمیر یخچال»)
+     * @param int    $count تعداد پیشنهادها
+     */
+    public function suggestLongTail(string $seedKeyword, int $count = 12): array
+    {
+        $knowledge = TextProcessor::loadKnowledge('keywords');
+        $devices = TextProcessor::loadKnowledge('devices');
+        $cities = $knowledge['cities'] ?? [];
+        $services = $knowledge['services'] ?? [];
+        $modifiers = $knowledge['modifiers'] ?? [];
+
+        // دستگاه مرتبط با کلیدواژه پایه را پیدا کن
+        $relatedDevice = null;
+        foreach ($devices as $d) {
+            if (!empty($d['name_fa']) && mb_strpos(mb_strtolower($seedKeyword), mb_strtolower($d['name_fa'])) !== false) {
+                $relatedDevice = $d['name_fa'];
+                break;
+            }
+        }
+
+        $candidates = [];
+        // الگو ۱: پایه + اصلاح‌گر
+        foreach (array_slice($modifiers, 0, 6) as $m) {
+            $candidates[] = "{$seedKeyword} {$m}";
+        }
+        // الگو ۲: پایه + شهر
+        foreach (array_slice($cities, 0, 4) as $city) {
+            $candidates[] = "{$seedKeyword} در {$city}";
+        }
+        // الگو ۳: سؤال‌محور
+        $questionTemplates = [
+            "چرا {$seedKeyword} نیاز دارم؟",
+            "چه زمانی {$seedKeyword} ضروری است؟",
+            "هزینه {$seedKeyword} چقدر است؟",
+        ];
+        foreach ($questionTemplates as $qt) {
+            $candidates[] = $qt;
+        }
+        // الگو ۴: دستگاه خاص + خدمت
+        if ($relatedDevice !== null) {
+            foreach (array_slice($services, 0, 4) as $s) {
+                $candidates[] = "{$s} {$relatedDevice}";
+            }
+        }
+
+        // امتیازدهی و انتخاب بهترین‌ها (رقابت کمتر = بهتر)
+        $scored = [];
+        foreach ($candidates as $cand) {
+            $comp = $this->estimateCompetition($cand);
+            $scored[] = [
+                'keyword'     => $cand,
+                'competition' => $comp['competition'],
+                'competition_score' => $comp['score'],
+            ];
+        }
+        usort($scored, fn($a, $b) => $a['competition_score'] <=> $b['competition_score']);
+
+        return array_slice($scored, 0, $count);
+    }
 }
