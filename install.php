@@ -9,12 +9,86 @@
  *   ۴) تکمیل نصب و قفل امنیتی
  *
  * @package SahandBrandMaker
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 define('SAHAND_INIT', true);
 define('SAHAND_NO_SESSION', true);
 require_once __DIR__ . '/config.php';
+
+/* ==================================================
+ * 🧩 تجزیه‌گر امن SQL — v1.1 (رفع باگ نصب)
+ * ===================================================
+ * ⚠️ باگ نسخه قبل: تقسیم ساده با regex باعث می‌شد هر تکه‌ای که
+ * با خط کامنت (-- ...) شروع می‌شد «کامل» نادیده گرفته شود و
+ * ۳۱ جدول از ۳۳ جدول هرگز ساخته نشود → خطای
+ * «Table ... users doesn't exist» هنگام ساخت کاربر مدیر.
+ *
+ * این تجزیزگر یک ماشین حالت است که:
+ *   • کامنت‌های خطی (-- و #) و بلوکی (/* *‌/) را فقط «بیرون» از رشته‌ها حذف می‌کند
+ *   • رشته‌های '...' و "..." با ESCAPE (\\ و '' و "") را دست‌نخورده نگه می‌دارد
+ *   • هر دستور را تا سمی‌کالونِ واقعی (بیرون از رشته) تفکیک می‌کند
+ * ============================================ */
+if (!function_exists('splitSqlStatements')) {
+    function splitSqlStatements(string $sql): array
+    {
+        $statements = [];
+        $current = '';
+        $len = strlen($sql);
+        $inSingle = false;  // داخل رشته '...'
+        $inDouble = false;  // داخل رشته "..."
+        $inLine   = false;  // داخل کامنت خطی تا انتهای خط
+        $inBlock  = false;  // داخل کامنت بلوکی /* ... */
+
+        for ($i = 0; $i < $len; $i++) {
+            $ch   = $sql[$i];
+            $next = ($i + 1 < $len) ? $sql[$i + 1] : '';
+
+            // ── حالت کامنت خطی: تا انتهای خط رد شود ──
+            if ($inLine) {
+                if ($ch === "\n") { $inLine = false; $current .= $ch; }
+                continue;
+            }
+            // ── حالت کامنت بلوکی: تا */ رد شود ──
+            if ($inBlock) {
+                if ($ch === '*' && $next === '/') { $inBlock = false; $i++; }
+                continue;
+            }
+            // ── داخل رشته: فقط پایان رشته/کاراکتر فرار مهم است ──
+            if ($inSingle || $inDouble) {
+                $current .= $ch;
+                if ($ch === '\\' && $next !== '') {
+                    // کاراکتر فرار مثل \' یا \\ — هر دو کاراکتر حفظ شود
+                    $current .= $next;
+                    $i++;
+                } elseif ($inSingle && $ch === "'") {
+                    if ($next === "'") { $current .= $next; $i++; } // فرار ''
+                    else { $inSingle = false; }
+                } elseif ($inDouble && $ch === '"') {
+                    if ($next === '"') { $current .= $next; $i++; } // فرار ""
+                    else { $inDouble = false; }
+                }
+                continue;
+            }
+            // ── بیرون رشته: آغازگرهای کامنت ──
+            if ($ch === '-' && $next === '-') { $inLine = true; $i++; continue; }
+            if ($ch === '#')               { $inLine = true;       continue; }
+            if ($ch === '/' && $next === '*') { $inBlock = true; $i++; continue; }
+            // ── آغازگر رشته ──
+            if ($ch === "'") { $inSingle = true; $current .= $ch; continue; }
+            if ($ch === '"') { $inDouble = true; $current .= $ch; continue; }
+            // ── پایان دستور ──
+            if ($ch === ';') {
+                if (trim($current) !== '') { $statements[] = trim($current); }
+                $current = '';
+                continue;
+            }
+            $current .= $ch;
+        }
+        if (trim($current) !== '') { $statements[] = trim($current); }
+        return $statements;
+    }
+}
 
 // ⛔ جلوگیری از اجرای مجدد نصب در صورت وجود قفل
 $lockFile = __DIR__ . '/install.lock';
@@ -51,24 +125,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$lockExists) {
                     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
                 );
 
-                // 📄 اجرای اسکیمای دیتابیس
+                // 📄 اجرای اسکیمای دیتابیس — با تجزیزگر امن (کامنت‌ها حذف، رشته‌ها محفوظ)
                 $sql = (string)file_get_contents(__DIR__ . '/database.sql');
-                // حذف کامنت‌ها برای اجرای امن با exec
-                $statements = array_filter(array_map('trim', preg_split('/;\s*[\r\n]+/', $sql)));
+                $statements = splitSqlStatements($sql);
+                if (count($statements) < 20) {
+                    throw new RuntimeException('فایل database.sql خوانده نشد یا محتوای کافی ندارد (' . count($statements) . ' دستور).');
+                }
                 $executed = 0;
                 foreach ($statements as $statement) {
-                    if ($statement === '' || strpos($statement, '--') === 0) {
-                        continue;
-                    }
-                    $clean = preg_replace('/^\s*--[^\r\n]*/m', '', $statement);
-                    if (trim($clean) === '') {
-                        continue;
-                    }
-                    $pdo->exec($clean);
+                    $pdo->exec($statement);
                     $executed++;
                 }
 
-                // 👤 ایجاد کاربر مدیر
+                // ✅ راستی‌آزمایی حیاتی: جداول اصلی باید واقعاً ساخته شده باشند
+                $criticalTables = ['users', 'brands', 'settings', 'api_keys', 'brand_pages', 'brand_articles'];
+                $missing = [];
+                foreach ($criticalTables as $table) {
+                    $found = $pdo->query('SHOW TABLES LIKE ' . $pdo->quote($table))->fetchColumn();
+                    if ($found === false) {
+                        $missing[] = $table;
+                    }
+                }
+                if ($missing) {
+                    throw new RuntimeException('ایجاد جداول ناموفق بود — جداول مفقود: ' . implode('، ', $missing));
+                }
+
+                // 👤 ایجاد/به‌روزرسانی کاربر مدیر (نصب مجدد → کاربر تکراری نساز)
                 $adminUser = trim($_POST['admin_user'] ?? 'admin');
                 $adminPass = (string)($_POST['admin_pass'] ?? '');
                 $adminName = trim($_POST['admin_name'] ?? 'مدیر سیستم');
@@ -76,13 +158,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$lockExists) {
                     throw new RuntimeException('رمز عبور مدیر باید حداقل ۸ کاراکتر باشد.');
                 }
                 $hash = password_hash($adminPass, PASSWORD_BCRYPT);
-                $stmt = $pdo->prepare('INSERT INTO users (username, password_hash, full_name, role, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())');
-                $stmt->execute([$adminUser, $hash, $adminName, 'admin']);
+                $check = $pdo->prepare('SELECT id FROM users WHERE username = ?');
+                $check->execute([$adminUser]);
+                if ($check->fetchColumn() !== false) {
+                    $pdo->prepare('UPDATE users SET password_hash = ?, full_name = ?, role = ?, is_active = 1 WHERE username = ?')
+                        ->execute([$hash, $adminName, 'admin', $adminUser]);
+                } else {
+                    $pdo->prepare('INSERT INTO users (username, password_hash, full_name, role, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())')
+                        ->execute([$adminUser, $hash, $adminName, 'admin']);
+                }
 
-                // 🔑 ایجاد کلید API سیستمی
-                $sysKey = 'smk_' . bin2hex(random_bytes(24));
-                $pdo->prepare('INSERT INTO api_keys (brand_id, api_key, label, is_active, created_at) VALUES (NULL, ?, ?, 1, NOW())')
-                    ->execute([$sysKey, 'کلید سیستمی سایت ساز']);
+                // 🔑 ایجاد کلید API سیستمی (فقط اگر قبلاً نساخته شده باشد)
+                $hasSysKey = $pdo->query("SELECT COUNT(*) FROM api_keys WHERE label = 'کلید سیستمی سایت ساز'")->fetchColumn();
+                if (!$hasSysKey) {
+                    $sysKey = 'smk_' . bin2hex(random_bytes(24));
+                    $pdo->prepare('INSERT INTO api_keys (brand_id, api_key, label, is_active, created_at) VALUES (NULL, ?, ?, 1, NOW())')
+                        ->execute([$sysKey, 'کلید سیستمی سایت ساز']);
+                }
 
                 // 💾 نوشتن فایل تنظیمات محلی
                 $localConfig = "<?php\n"
