@@ -258,7 +258,7 @@ $statusMap = [
             ['🔤 mbstring', $sysInfo['mbstring'] ? 'فعال' : 'غیرفعال', $sysInfo['mbstring'], 'پردازش متن فارسی چندبایتی'],
             ['🌐 cURL', $sysInfo['curl'] ? 'فعال' : 'غیرفعال', $sysInfo['curl'], 'جستجوی وب و تلگرام'],
             ['🧠 حافظه مجاز', $sysInfo['memory'], true, 'memory_limit'],
-            ['⏱️ زمان اجرا', $sysInfo['exec_time'] . 's', true, 'max_execution_time'],
+            ['⏱️ زمان اجرا', $sysInfo['exec_time'] === '—' ? '—' : ($sysInfo['exec_time'] . ' ثانیه'), true, 'max_execution_time'],
             ['📤 سقف آپلود', $sysInfo['upload'], true, 'upload_max_filesize'],
         ];
         ?>
