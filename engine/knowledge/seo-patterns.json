@@ -4,53 +4,218 @@
     "{{page}} {{brand_fa}} ({{brand_en}}) | {{agency}}",
     "{{brand_fa}} — {{page}} | {{agency}}",
     "{{page}} {{brand_fa}} با ضمانت | {{agency}}",
-    "{{agency}} | {{page}} {{brand_fa}}"
+    "{{agency}} | {{page}} {{brand_fa}}",
+    "{{page}} {{brand_fa}} {{city}} | {{agency}}",
+    "تعرفه {{page}} {{brand_fa}} | {{agency}}",
+    "{{page}} فوری {{brand_fa}} ۲۴ ساعته | {{agency}}",
+    "هزینه {{page}} {{brand_fa}} | {{agency}}",
+    "{{page}} {{brand_fa}} با قطعات اصلی | {{agency}}",
+    "نمایندگی {{page}} {{brand_fa}} | {{agency}}",
+    "{{page}} {{brand_fa}} در محل | {{agency}}",
+    "راهنمای {{page}} {{brand_fa}} | {{agency}}",
+    "بررسی و {{page}} {{brand_fa}} | {{agency}}",
+    "{{page}} {{brand_fa}} {{year}} | {{agency}}"
   ],
   "meta_patterns": [
     "{{excerpt}}",
     "{{excerpt}} برای دریافت خدمات {{brand_fa}} با {{agency}} تماس بگیرید.",
     "{{excerpt}} خدمات تخصصی با ضمانت کتبی.",
-    "{{excerpt}} — {{agency}}"
+    "{{excerpt}} — {{agency}}",
+    "{{excerpt}} ایرادیابی رایگان + اعزام همان روز.",
+    "{{excerpt}} تعمیر {{brand_fa}} با قطعات اورجینال.",
+    "{{excerpt}} پاسخگویی ۲۴ ساعته در {{city}}.",
+    "✅ {{excerpt}} مشاوره رایگان: {{agency}}.",
+    "{{excerpt}} | ضمانت {{brand_fa}} | {{agency}}",
+    "{{excerpt}} هزینه منصفانه، تعمیر تخصصی.",
+    "{{excerpt}} نمایندگی مجاز {{brand_fa}} در {{city}}."
   ],
   "heading_rules": {
     "h1_max_per_page": 1,
     "h2_min_per_page": 2,
     "h3_use_for_subsections": true,
-    "heading_word_limit": 12
+    "heading_word_limit": 12,
+    "h2_with_keyword_ratio": 0.4,
+    "faq_heading_format": "سوالات متداول درباره {{topic}}",
+    "conclusion_heading": "جمع‌بندی"
   },
   "density_targets": {
     "focus_keyword_min": 0.8,
     "focus_keyword_max": 3.0,
     "brand_name_in_first_paragraph": true,
-    "synonyms_usage": true
+    "synonyms_usage": true,
+    "min_word_count_page": 300,
+    "min_word_count_article": 800,
+    "max_word_count_article": 1800,
+    "paragraph_max_words": 120
   },
+  "slug_rules": {
+    "max_words": 6,
+    "separators": "-",
+    "keep_brand_english": true,
+    "transliterate_farsi": false,
+    "lowercase": true,
+    "stopwords_in_slug": [
+      "در",
+      "با",
+      "و",
+      "به",
+      "از",
+      "را"
+    ]
+  },
+  "internal_linking": {
+    "min_internal_links_per_article": 3,
+    "max_internal_links_per_article": 8,
+    "anchor_text_variety": [
+      "exact_match",
+      "partial_match",
+      "generic"
+    ],
+    "link_to_services_page": true,
+    "link_to_related_articles": true,
+    "breadcrumb_on_all_pages": true
+  },
+  "content_structure": {
+    "intro_paragraphs": 1,
+    "intro_max_words": 120,
+    "lists_per_article_min": 1,
+    "table_for_error_codes": true,
+    "faq_min_count": 5,
+    "cta_positions": [
+      "after_intro",
+      "middle",
+      "conclusion"
+    ],
+    "image_with_alt_every": 400,
+    "update_date_visible": true
+  },
+  "readability_targets": {
+    "avg_sentence_words_max": 20,
+    "paragraph_sentence_range": [
+      2,
+      5
+    ],
+    "active_voice_ratio_min": 0.7,
+    "technical_terms_explained": true
+  },
+  "featured_snippet_patterns": [
+    {
+      "type": "definition",
+      "format": "پاراگراف ۴۰-۶۰ کلمه‌ای بلافاصله زیر H2 سؤالی"
+    },
+    {
+      "type": "list",
+      "format": "لیست شماره‌دار مراحل (۵-۸ گام) زیر سؤال «چگونه»"
+    },
+    {
+      "type": "table",
+      "format": "جدول کد خطا/علت/راه‌حل برای کوئری‌های «کد خطا»"
+    },
+    {
+      "type": "steps",
+      "format": "مراحل ویدئویی تصویری برای آموزش‌ها"
+    }
+  ],
+  "local_seo": {
+    "nap_consistency": "نام، آدرس و تلفن یکسان در همه صفحات",
+    "geo_pages_for_cities": true,
+    "local_keywords_in_h2": true,
+    "maps_embed": true,
+    "local_business_schema": true,
+    "review_schema": true,
+    "service_area_schema": true
+  },
+  "image_seo": {
+    "alt_text_pattern": "{{device}} {{brand_fa}} — {{action}}",
+    "file_name_pattern": "{{device_key}}-{{brand_key}}-{{type}}.jpg",
+    "lazy_loading": true,
+    "webp_format_preferred": true,
+    "max_image_kb": 150
+  },
+  "voice_search_patterns": [
+    "چرا {device} {brand} روشن نمی‌شود",
+    "چطور {device} را ریست کنم",
+    "نزدیک‌ترین تعمیرگاه {brand} کجاست",
+    "هزینه تعمیر {device} چقدر است",
+    "بهترین تعمیرکار {device} در {city} کیست"
+  ],
   "schema_types": {
     "LocalBusiness": {
-      "required": ["name", "url", "telephone"],
-      "optional": ["geo", "openingHours", "address", "priceRange"]
+      "required": [
+        "name",
+        "url",
+        "telephone"
+      ],
+      "optional": [
+        "geo",
+        "openingHours",
+        "address",
+        "priceRange",
+        "aggregateRating"
+      ]
     },
     "Service": {
-      "required": ["name", "provider"],
-      "optional": ["areaServed", "serviceType"]
+      "required": [
+        "name",
+        "provider"
+      ],
+      "optional": [
+        "areaServed",
+        "serviceType",
+        "offers"
+      ]
     },
     "Article": {
-      "required": ["headline", "author", "datePublished"],
-      "optional": ["image", "publisher"]
+      "required": [
+        "headline",
+        "author",
+        "datePublished"
+      ],
+      "optional": [
+        "image",
+        "publisher",
+        "wordCount"
+      ]
     },
     "FAQPage": {
-      "required": ["mainEntity"],
+      "required": [
+        "mainEntity"
+      ],
       "optional": []
     },
     "BreadcrumbList": {
-      "required": ["itemListElement"],
+      "required": [
+        "itemListElement"
+      ],
       "optional": []
+    },
+    "HowTo": {
+      "required": [
+        "name",
+        "step"
+      ],
+      "optional": [
+        "totalTime",
+        "supply"
+      ]
+    },
+    "Product": {
+      "required": [
+        "name"
+      ],
+      "optional": [
+        "brand",
+        "offers",
+        "aggregateRating"
+      ]
     }
   },
   "og_requirements": {
     "image_size": "1200x630",
     "title_max": 60,
     "description_max": 110,
-    "locale": "fa_IR"
+    "locale": "fa_IR",
+    "site_name_required": true
   },
   "robots_defaults": {
     "home": "index,follow",

@@ -329,7 +329,7 @@
 | ۸ | 📊 آمار و درخواست | 17 | 17 | `██████████ 100%` |
 | ۹ | 🔌 API و خروجی | 16 | 16 | `██████████ 100%` |
 | ۱۰ | 🛡️ امنیت و مستندات | 19 | 19 | `██████████ 100%` |
-| K | 🧠 تقویت پایگاه دانش AI | 13 | 16 | `████░░░░░░ 22%` |
+| K | 🧠 تقویت پایگاه دانش AI | 11 | 16 | `██████░░░░ 69%` |
 
 ---
 
@@ -341,15 +341,15 @@
 |:-:|------|-------|:-----:|
 | K.1 | ☑️ `brands.json` — رفع باگ + غنی‌سازی + ۲۰ برند جدید | باگ history_facts (رشته→آرایه) رفع شد؛ فیلدهای slogan/positioning/price_range/parts_availability/aliases/service_note/popular_models/tech_facts؛ ۵۷→۷۷ برند، ۳۱۶ فکت | ✅ |
 | K.2 | ☑️ `devices.json` — غنی‌سازی + ۱۰ دستگاه جدید | فیلدهای avg_lifespan/service_interval/energy_note/safety_warnings/diy_checks/parts_wear؛ ۳۲→۴۲ دستگاه، ۴۸۳ ایراد، ۱۳۶ قطعه مصرفی | ✅ |
-| K.3 | ⬜ `error-codes.json` — گسترش جامع | ۸→۱۲ دسته، ۳۸→۱۴۰+ کد، فیلدهای brand_examples و reset_tip | ⬜ |
-| K.4 | ⬜ `synonyms.json` — گسترش دیکشنری | ۲۳۴→۵۰۰+ واژه با میانگین ۳+ مترادف + واژگان قطعات و خدمات | ⬜ |
-| K.5 | ⬜ `keywords.json` + `sentences.json` + `seo-patterns.json` | کلیدهای جدید: question_patterns، commercial، negative، transitions، cta، slug_rules، local_seo و… | ⬜ |
-| K.6 | ⬜ `templates.json` — گسترش همه بخش‌ها | بخش‌های ۲-۳ قالبی به ۶+؛ FAQ ۱۶→۳۰؛ نوع مقاله buying_guide و energy_saving | ⬜ |
-| K.7 | ⬜ 🆕 `phrases.json` | بازنویسی عبارت‌های چندکلمه‌ای برای تنوع قوی‌تر محتوا | ⬜ |
-| K.8 | ⬜ 🆕 `diagnostics.json` | پایگاه دانش عیب‌یابی علامت‌محور (علامت → علت‌ها → اقدام‌ها) | ⬜ |
-| K.9 | ⬜ 🆕 `parts.json` | دانش قطعات یدکی (نقش، علائم خرابی، عمر مفید، سطح تعمیر) | ⬜ |
-| K.10 | ⬜ 🆕 `seasonal-calendar.json` | تقویم فصلی خدمات (ماه جلالی → دستگاه → پیام) | ⬜ |
-| K.11 | ⬜ 🆕 `city-areas.json` | مناطق و محله‌های شهرهای بزرگ برای سئوی محلی | ⬜ |
+| K.3 | ☑️ `error-codes.json` — گسترش جامع | ۸→۱۲ دسته، ۳۸→۱۲۵ کد + brand_examples و reset_tip برای همه | ✅ |
+| K.4 | ☑️ `synonyms.json` — گسترش دیکشنری | ۲۳۴→۴۷۵ واژه، ۱۱۸۴ مترادف + واژگان قطعات/خدمات/فنی | ✅ |
+| K.5 | ☑️ `keywords` + `sentences` + `seo-patterns` | کلیدهای جدید: question/commercial/negative، transitions/cta/warnings، slug/local/snippet/voice + ۳۰ شهر | ✅ |
+| K.6 | ☑️ `templates.json` — گسترش همه بخش‌ها | همه بخش‌ها ۲-۳ برابر؛ FAQ ۳۰؛ نوع مقاله buying_guide و energy_saving | ✅ |
+| K.7 | ☑️ 🆕 `phrases.json` | ۶۰ عبارت × ۳ جایگزین برای بازنویسی عبارات چندکلمه‌ای | ✅ |
+| K.8 | ☑️ 🆕 `diagnostics.json` | ۲۰ سناریوی عیب‌یابی علامت‌محور با علت‌های وزن‌دار + اقدام فوری | ✅ |
+| K.9 | ☑️ 🆕 `parts.json` | ۲۰ قطعه یدکی با علائم خرابی، عمر، سختی تعویض و ترفندها | ✅ |
+| K.10 | ☑️ 🆕 `seasonal-calendar.json` | ۱۲ ماه جلالی × دستگاه × خدمت × پیام × ایده محتوا | ✅ |
+| K.11 | ☑️ 🆕 `city-areas.json` | ۱۰ شهر بزرگ با محله‌های واقعی برای سئوی محلی | ✅ |
 | K.12 | ⬜ یکپارچه‌سازی موتور — `KnowledgeBase.php` + ارتقای مصرف‌کنندگان | applyPhrases در TextProcessor، aliases در matchBrand، diagnostics/parts در ArticleGenerator، topicهای جدید، شمارش‌های جدید | ⬜ |
 | K.13 | ⬜ API جدید موتور + آمار پایگاه دانش | اندپوینت‌های stats/diagnostics/seasonal + engineStats غنی‌شده | ⬜ |
 | K.14 | ⬜ تست‌های جامع پایگاه دانش | تست اعتبارسنجی ساختاری + اجرای مجدد تست موتور + مقایسه قبل/بعد | ⬜ |
