@@ -1,13 +1,13 @@
 <?php
 /**
- * 📰 ژنراتور مقالات — نسخه ۲ (تولید چندواریانته + انتخاب بهترین)
+ * 📰 ژنراتور مقالات — نسخه ۲.۲ (چندواریانته + نگارش‌گر فارسی)
  * =========================================================
  * ساختار: انتخاب موضوع ← ساخت Outline ← نوشتن بخش‌ها ←
- * TL;DR ← لینک‌دهی داخلی ← بررسی یکتایی ← سئو + FAQ Schema ←
- * تولید N واریانت و انتخاب بهترین با QualityScorer
+ * TL;DR ← لینک‌دهی داخلی ← بررسی یکتایی ← اصلاح نگارشی ←
+ * سئو + FAQ Schema ← تولید N واریانت و انتخاب بهترین
  *
  * @package SahandBrandMaker\Engine
- * @version 2.1.0
+ * @version 2.2.0
  */
 class ArticleGenerator
 {
@@ -184,6 +184,13 @@ class ArticleGenerator
             $expandTries++;
         }
 
+        /* ---------- ۵.۶) 🆕 v2.2: اصلاح نگارشی فارسی (PersianGrammar) ----------
+         * نیم‌فاصله، علائم سجاوندی، املای رایج، ارقام فارسی و
+         * هم‌خوانی فعل و فاعل — پیش از سئو، روی متن نهایی اعمال می‌شود */
+        $grammarFix = PersianGrammar::fix($content);
+        $content = $grammarFix['content'];
+        $grammarAnalysis = PersianGrammar::analyze($content);
+
         /* ---------- ۶️⃣ سئو ---------- */
         $seoGenerator = new SeoGenerator();
         $focusKeyword = 'تعمیر ' . $device['name_fa'] . ' ' . $brand['name_fa'];
@@ -212,6 +219,13 @@ class ArticleGenerator
             'reading_time' => $readingTime,
             'toc'        => $toc,
             'quality'    => $quality,
+            'grammar'    => [
+                'score'      => $grammarAnalysis['score'],
+                'grade'      => $grammarAnalysis['grade'],
+                'fixes'      => $grammarFix['stats'],
+                'issues'     => array_slice($grammarAnalysis['issues'], 0, 10),
+                'metrics'    => $grammarAnalysis['metrics'],
+            ],
             'faqs'       => $faqs,
             'generated_by_ai' => 1,
             'uniqueness_hash' => $check['hash'] ?? TextProcessor::contentHash($content),

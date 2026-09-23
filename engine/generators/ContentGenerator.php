@@ -2,16 +2,17 @@
 /**
  * ✍️ ژنراتور محتوای یکتا — هسته موتور AI
  * ========================================
- * الگوریتم ۶ مرحله‌ای:
+ * الگوریتم ۷ مرحله‌ای:
  *   ۱) انتخاب قالب پایه (از ۱۰+ قالب هر نوع)
  *   ۲) جایگذاری داده‌های برند
  *   ۳) تنوع‌سازی جملات (مترادف + بازنویسی)
  *   ۴) بررسی یکتایی (Anti-Duplicate)
- *   ۵) بهینه‌سازی سئو
- *   ۶) خروجی نهایی HTML + متادیتا
+ *   ۵) اصلاح نگارشی فارسی (PersianGrammar — v1.1)
+ *   ۶) بهینه‌سازی سئو
+ *   ۷) خروجی نهایی HTML + متادیتا
  *
  * @package SahandBrandMaker\Engine
- * @version 1.0.0
+ * @version 1.1.0
  */
 class ContentGenerator
 {
@@ -58,6 +59,12 @@ class ContentGenerator
         }, max(3, 4), $brandId);
 
         $content = $result['content'] ?? '';
+
+        // 📝 v1.1: اصلاح نگارشی فارسی — نیم‌فاصله/سجاوندی/املای رایج/هم‌خوانی فعل و فاعل
+        if ($content !== '') {
+            $content = PersianGrammar::fixText($content);
+        }
+
         return [
             'content'    => $content,
             'uniqueness' => $result['result'] ?? null,

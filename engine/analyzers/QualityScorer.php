@@ -1,8 +1,8 @@
 <?php
 /**
- * 🏆 کلاس امتیازدهی کیفیت محتوا — QualityScorer v2.0
+ * 🏆 کلاس امتیازدهی کیفیت محتوا — QualityScorer v2.1
  * ================================================
- * محتوای تولیدشده را در ۷ بُعد کیفیت سنجیده و امتیاز
+ * محتوای تولیدشده را در ۸ بُعد کیفیت سنجیده و امتیاز
  * ۰ تا ۱۰۰ به همراه نقشه نقاط قوت/ضعف برمی‌گرداند.
  *
  * ابعاد سنجش:
@@ -13,21 +13,23 @@
  *   💡 جذابیت (پرسش، خطاب مستقیم، CTA)
  *   📏 کفایت حجم (متناسب با نوع محتوا)
  *   ✨ تنوع جملات (انحراف معیار طول جمله)
+ *   📝 نگارش فارسی (نیم‌فاصله/سجاوندی/هم‌خوانی فعل و فاعل — v2.1)
  *
  * @package SahandBrandMaker\Engine
- * @version 2.0.0
+ * @version 2.1.0
  */
 class QualityScorer
 {
     /** @var array وزن ابعاد — مجموع ۱۰۰ */
     private const WEIGHTS = [
-        'readability'   => 22,
-        'structure'     => 20,
-        'coherence'     => 14,
-        'focus'         => 14,
-        'engagement'    => 12,
-        'length'        => 10,
-        'variety'       => 8,
+        'readability'   => 20,
+        'structure'     => 18,
+        'coherence'     => 12,
+        'focus'         => 13,
+        'engagement'    => 11,
+        'length'        => 9,
+        'variety'       => 7,
+        'grammar'       => 10,
     ];
 
     /**
@@ -84,6 +86,10 @@ class QualityScorer
         /* ---------- ۷) ✨ تنوع جملات ---------- */
         $dimensions['variety'] = $this->varietyScore($content);
 
+        /* ---------- ۸) 📝 نگارش فارسی (PersianGrammar — v2.1) ---------- */
+        $grammar = PersianGrammar::analyze($content);
+        $dimensions['grammar'] = $grammar['score'];
+
         /* ---------- 🧮 امتیاز نهایی وزنی ---------- */
         $total = 0;
         foreach (self::WEIGHTS as $dim => $weight) {
@@ -109,6 +115,7 @@ class QualityScorer
             'grade'       => $this->grade($finalScore),
             'dimensions'  => array_map('intval', $dimensions),
             'readability' => $readability,
+            'grammar'     => $grammar,
             'strengths'   => array_slice($strengths, 0, 4),
             'weaknesses'  => array_slice($weaknesses, 0, 4),
             'suggestions' => $this->buildSuggestions($dimensions, $readability),
@@ -259,6 +266,7 @@ class QualityScorer
             'engagement'  => '💡 جذابیت',
             'length'      => '📏 کفایت حجم',
             'variety'     => '✨ تنوع جملات',
+            'grammar'     => '📝 نگارش فارسی',
         ];
     }
 
@@ -312,6 +320,9 @@ class QualityScorer
                     break;
                 case 'variety':
                     $suggestions[] = 'طول جمله‌ها را متنوع کنید؛ ترکیب جمله‌های کوتاه و بلند ریتم بهتری می‌سازد.';
+                    break;
+                case 'grammar':
+                    $suggestions[] = 'ایرادهای نگارشی (نیم‌فاصله، علائم سجاوندی، هم‌خوانی فعل و فاعل) را با ابزار «اصلاح نگارش» برطرف کنید.';
                     break;
             }
         }
