@@ -28,8 +28,8 @@ $docsList = [
 // 🌐 مستندات خارجی (لینک مستقیم — فایل‌های Markdown در ریپو)
 $externalDocs = [
     'ai-api' => [
-        '🤖 راهنمای کامل API هوش مصنوعی (نسخه ۳)',
-        'استفاده از ۳۴ اندپوینت موتور AI از بیرون سایت ساز — با مثال PHP/Python/JS و دستیار فارسی',
+        '🤖 راهنمای کامل API هوش مصنوعی (نسخه ۳.۱)',
+        'استفاده از ۳۷ اندپوینت موتور AI از بیرون سایت ساز + 🌐 جستجوی آنلاین وب + راهنمای ربات تلگرام — با مثال PHP/Python/JS',
         'https://github.com/pranses2011/Sahand-Service-BrandMaker/blob/main/docs/AI-API-GUIDE.md',
     ],
 ];
