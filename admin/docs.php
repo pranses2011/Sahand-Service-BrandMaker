@@ -24,7 +24,22 @@ $docsList = [
     'error-codes'     => ['🚨 راهنمای ورود کدهای خطا', 'فرمت فایل‌های Excel و JSON'],
     'icons-guide'     => ['🖼️ راهنمای سیستم آیکون', 'ساخت و مدیریت پک‌های آیکون'],
 ];
+
+// 🌐 مستندات خارجی (لینک مستقیم — فایل‌های Markdown در ریپو)
+$externalDocs = [
+    'ai-api' => [
+        '🤖 راهنمای کامل API هوش مصنوعی (نسخه ۳)',
+        'استفاده از ۳۴ اندپوینت موتور AI از بیرون سایت ساز — با مثال PHP/Python/JS و دستیار فارسی',
+        'https://github.com/pranses2011/Sahand-Service-BrandMaker/blob/main/docs/AI-API-GUIDE.md',
+    ],
+];
 $requested = get_param('doc', '');
+
+// 🌐 هدایت مستندات خارجی (Markdown در ریپو)
+if ($requested !== '' && isset($externalDocs[$requested])) {
+    header('Location: ' . $externalDocs[$requested][2]);
+    exit;
+}
 
 /* 📄 نمایش یک مستند */
 if ($requested !== '' && isset($docsList[$requested])) {
@@ -54,6 +69,16 @@ if ($requested !== '' && isset($docsList[$requested])) {
                         <div style="font-weight:700;font-size:14px;margin-bottom:3px"><?= e($title) ?></div>
                         <div style="font-size:12px;color:var(--text-light);line-height:1.9"><?= e($desc) ?></div>
                         <span class="badge <?= $exists ? 'badge-success' : 'badge-secondary' ?>" style="margin-top:8px"><?= $exists ? '✅ آماده' : '⏳ در دست تولید' ?></span>
+                    </div>
+                </a>
+            <?php endforeach; ?>
+            <?php foreach ($externalDocs as $key => [$title, $desc, $url]): ?>
+                <a class="stat-card" style="align-items:flex-start" href="<?= e($url) ?>" target="_blank" rel="noopener">
+                    <div class="icon bg-blue"><?= mb_substr($title, 0, 2) ?></div>
+                    <div>
+                        <div style="font-weight:700;font-size:14px;margin-bottom:3px"><?= e($title) ?> ↗</div>
+                        <div style="font-size:12px;color:var(--text-light);line-height:1.9"><?= e($desc) ?></div>
+                        <span class="badge badge-success" style="margin-top:8px">🌐 نسخه ۳ — ۳۴ اندپوینت</span>
                     </div>
                 </a>
             <?php endforeach; ?>

@@ -1,0 +1,1327 @@
+# 🤖 راهنمای کامل و مفصل API هوش مصنوعی سهند — نسخه ۳.۰.۰ «بی‌رقیب»
+
+> 📖 **این سند، مرجع کامل استفاده از API موتور هوش مصنوعی سایت ساز برند سهند سرویس است — برای استفاده از بیرون از خود سایت ساز (رابط کاربری).**
+> هر آنچه برای اتصال هر برنامه خارجی (PHP، پایتون، جاوااسکریپت، اپ موبایل، ربات تلگرام، n8n، Postman و...) به موتور AI نیاز دارید، در همین فایل است.
+
+| 📌 مشخصات | مقدار |
+|-----------|-------|
+| 🏷️ نسخه موتور | **3.0.0** (خط تولید هوشمند + بهبود خودکار + دستیار فارسی) |
+| 🏷️ نسخه سیستم | 2.0.0 |
+| 🔢 تعداد اندپوینت‌های AI | **۳۴ اندپوینت** |
+| 🔐 احراز هویت | هدر `X-API-Key` |
+| 📦 قالب داده | JSON (UTF-8) |
+| 🌐 CORS | باز (`*`) — قابل فراخوانی از مرورگر |
+| 🚦 محدودیت نرخ | ۱۲۰ درخواست در دقیقه برای هر IP |
+
+---
+
+## 📑 فهرست مطالب
+
+1. [شروع سریع — ۳۰ ثانیه‌ای](#۱-شروع-سریع--۳۰-ثانیهای)
+2. [احراز هویت و دریافت کلید API](#۲-احراز-هویت-و-دریافت-کلید-api)
+3. [قالب درخواست و پاسخ، خطاها و محدودیت‌ها](#۳-قالب-درخواست-و-پاسخ-خطاها-و-محدودیتها)
+4. [نقشه کامل اندپوینت‌ها (جدول مرجع)](#۴-نقشه-کامل-اندپوینتها-جدول-مرجع)
+5. [مستندات تفصیلی — موتور نسخه ۳ «بی‌رقیب»](#۵-مستندات-تفصیلی--موتور-نسخه-۳-بی̆رقیب)
+6. [مستندات تفصیلی — تحلیلگرهای نسخه ۲](#۶-مستندات-تفصیلی--تحلیلگرهای-نسخه-۲)
+7. [مستندات تفصیلی — تولیدکننده‌های پایه (نسخه ۱)](#۷-مستندات-تفصیلی--تولیدکنندههای-پایه-نسخه-۱)
+8. [مستندات تفصیلی — پایگاه دانش و عیب‌یابی](#۸-مستندات-تفصیلی--پایگاه-دانش-و-عیبیابی)
+9. [دستیار فرمان فارسی — راهنمای کامل](#۹-دستیار-فرمان-فارسی--راهنمای-کامل)
+10. [نمونه کد کامل به زبان‌های مختلف](#۱۰-نمونه-کد-کامل-به-زبانهای-مختلف)
+11. [سناریوهای واقعی استفاده](#۱۱-سناریوهای-واقعی-استفاده)
+12. [کدهای خطا و رفع اشکال](#۱۲-کدهای-خطا-و-رفع-اشکال)
+13. [بهترین شیوه‌ها و نکات امنیتی](#۱۳-بهترین-شیوهها-و-نکات-امنیتی)
+14. [تاریخچه تغییرات API](#۱۴-تاریخچه-تغییرات-api)
+
+---
+
+## ۱) شروع سریع — ۳۰ ثانیه‌ای
+
+موتور AI سهند یک سرویس **کاملاً مستقل از رابط کاربری** است. کافی است آدرس سایت ساز شما نصب شده باشد و یک کلید API داشته باشید:
+
+```bash
+# 🧪 تست سلامت موتور — بدون نیاز به کلید!
+curl "https://YOUR-DOMAIN.com/api/ai/engine-info"
+```
+
+پاسخ:
+
+```json
+{
+  "success": true,
+  "data": {
+    "engine_version": "3.0.0",
+    "system_version": "2.0.0",
+    "capabilities": {
+      "smart_pipeline": true,
+      "auto_improve": true,
+      "brand_voice": true,
+      "ctr_titles": true,
+      "nl_assistant": true,
+      "response_cache": true
+    }
+  }
+}
+```
+
+✅ اگر این پاسخ را دیدید، موتور آماده است. حالا اولین فراخوانی **هوشمند** با کلید:
+
+```bash
+# 🚀 خط تولید هوشمند: یک فراخوانی = مقاله کامل + سئو + FAQ + تضمین کیفیت
+curl -X POST "https://YOUR-DOMAIN.com/api/ai/smart-generate" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{"brand_id": 1, "device_key": "washing_machine", "variants": 3, "target_score": 85}'
+```
+
+> ⚠️ در همه مثال‌های این سند، `https://YOUR-DOMAIN.com` را با دامنه واقعی نصب سایت ساز و `YOUR_API_KEY` را با کلید واقعی خود جایگزین کنید.
+
+---
+
+## ۲) احراز هویت و دریافت کلید API
+
+### 🗝️ کلید API چیست و از کجا می‌آید؟
+
+موتور AI با **کلید API** احراز هویت می‌شود. کلیدها در جدول `api_keys` دیتابیس ذخیره می‌شوند و سه راه برای دریافت آن وجود دارد:
+
+| روش | توضیح |
+|------|-------|
+| ۱️⃣ نصب خودکار | هنگام نصب سیستم از طریق `install.php`، یک کلید اصلی به‌صورت خودکار ساخته و نمایش داده می‌شود |
+| ۲️⃣ پنل مدیریت | مسیر: **پنل مدیریت → تنظیمات → بخش API** — ساخت/ابطال کلید |
+| ۳️⃣ مستقیم دیتابیس | درج رکورد در جدول `api_keys` (فقط برای مدیر فنی) |
+
+### 📤 نحوه ارسال کلید (دو روش)
+
+**روش ۱ — هدر (توصیه‌شده):**
+
+```http
+POST /api/ai/score-content HTTP/1.1
+Host: YOUR-DOMAIN.com
+Content-Type: application/json
+X-API-Key: sk_sahand_xxxxxxxxxxxx
+```
+
+**روش ۲ — پارامتر کوئری (برای GET ساده):**
+
+```
+GET /api/ai/knowledge/stats?api_key=sk_sahand_xxxxxxxxxxxx
+```
+
+### 📋 قواعد کلید
+
+- قالب: حروف/اعداد انگلیسی، خط تیره و آندرلاین — بین ۱۰ تا ۷۰ کاراکتر (`^[a-zA-Z0-9_\-]{10,70}$`)
+- کلید می‌تواند به یک برند خاص محدود باشد (`brand_id`) یا عمومی باشد
+- کلیدهای نامعتبر با تأخیر امنیتی ۰.۵ ثانیه‌ای رد می‌شوند (ضد حمله کشف کلید)
+- آمار استفاده هر کلید (تعداد درخواست، آخرین استفاده) به‌صورت خودکار ثبت می‌شود
+
+> 🔒 **هرگز کلید API را در کد فرانت‌اند (جاواسکریپت مرورگر) قرار ندهید** — کلید همیشه باید در سرور شما بماند (بخش ۱۳ را ببینید).
+
+---
+
+## ۳) قالب درخواست و پاسخ، خطاها و محدودیت‌ها
+
+### 📥 قالب درخواست
+
+- همه اندپوینت‌های POST بدنه **JSON** می‌پذیرند: `Content-Type: application/json`
+- اندپوینت‌های GET پارامتر خود را از **مسیر یا کوئری‌استرینگ** می‌گیرند
+- انکودینگ اجباری: **UTF-8** (متن فارسی باید به‌درستی انکود شود)
+
+### 📤 قالب پاسخ موفق
+
+```json
+{
+  "success": true,
+  "data": { ... }   // خروجی اصلی هر اندپوینت
+}
+```
+
+### ❌ قالب پاسخ ناموفق
+
+```json
+{
+  "success": false,
+  "error": "پیام خطا به زبان فارسی"
+}
+```
+
+کد HTTP هم‌زمان با خطا تغییر می‌کند (۴۰۰، ۴۰۱، ۴۰۴، ۴۲۹، ۵۰۰).
+
+### 🚦 محدودیت نرخ (Rate Limit)
+
+| مورد | مقدار |
+|------|-------|
+| سقف | **۱۲۰ درخواست در دقیقه** برای هر IP |
+| پاسخ پس از عبور از سقف | HTTP `429` + هدر `Retry-After: 60` |
+| بازنشانی شمارنده | هر ۶۰ ثانیه به‌صورت خودکار |
+
+```json
+{ "success": false, "error": "محدودیت نرخ درخواست — لطفاً یک دقیقه دیگر تلاش کنید" }
+```
+
+> 💡 نکته: اندپوینت‌های پرتکرار مثل `ai/smart-generate` به‌صورت داخلی **کش ۳۰ دقیقه‌ای** دارند؛ فراخوانی تکراری با پارامتر یکسان، عملاً رایگان و آنی است.
+
+### 🌐 CORS (فراخوانی از مرورگر)
+
+سرور این هدرها را برای همه پاسخ‌ها می‌فرستد:
+
+```http
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type, X-API-Key
+```
+
+پس درخواست‌های AJAX از هر دامنه‌ای **از نظر فنی** ممکن است — اما به دلیل افشای کلید، توصیه نمی‌شود (بخش ۱۳).
+
+---
+
+## ۴) نقشه کامل اندپوینت‌ها (جدول مرجع)
+
+### 🚀 موتور نسخه ۳ «بی‌رقیب»
+
+| # | متد | مسیر | کار | کلید API |
+|:-:|:---:|------|-----|:--------:|
+| ۱ | POST | `/api/ai/smart-generate` | 🧠 خط تولید هوشمند: یک فراخوانی = مقاله + سئو + FAQ + تضمین کیفیت | ✅ |
+| ۲ | POST | `/api/ai/improve-content` | 🔧 بهبود خودکار متن تا امتیاز هدف | ✅ |
+| ۳ | POST | `/api/ai/brand-voice` | 🎙️ پروفایل صدای برند + انطباق متن | ✅ |
+| ۴ | POST | `/api/ai/generate-titles` | 🏷️ عنوان‌سازی CTR-محور با ۸ الگو | ✅ |
+| ۵ | POST | `/api/ai/assistant` | 💬 دستیار فرمان زبان طبیعی فارسی | ✅ |
+| ۶ | GET | `/api/ai/cache-stats` | ⚡ آمار کش موتور | ✅ |
+| ۷ | POST | `/api/ai/cache-clear` | 🧹 پاکسازی کش موتور | ✅ |
+
+### 🧠 تحلیلگرهای نسخه ۲
+
+| # | متد | مسیر | کار | کلید API |
+|:-:|:---:|------|-----|:--------:|
+| ۸ | GET | `/api/ai/engine-info` | ℹ️ نسخه و قابلیت‌های موتور | ❌ (عمومی) |
+| ۹ | POST | `/api/ai/score-content` | 🏆 امتیاز کیفیت ۷ بُعدی | ✅ |
+| ۱۰ | POST | `/api/ai/classify-intent` | 🧭 تشخیص نیت جستجو (۴ نیت) | ✅ |
+| ۱۱ | POST | `/api/ai/content-plan` | 🗓️ تقویم هوشمند انتشار محتوا | ✅ |
+| ۱۲ | POST | `/api/ai/suggest-longtail` | 🐎 کلیدواژه‌های long-tail + رقابت‌پذیری | ✅ |
+| ۱۳ | POST | `/api/ai/cluster-keywords` | 🗂️ خوشه‌بندی کلیدواژه (Topic Cluster) | ✅ |
+| ۱۴ | POST | `/api/ai/tfidf` | 🧮 وزن‌دهی TF-IDF نسبت به پایگاه دانش | ✅ |
+
+### 📚 پایگاه دانش و عیب‌یابی (فاز K)
+
+| # | متد | مسیر | کار | کلید API |
+|:-:|:---:|------|-----|:--------:|
+| ۱۵ | GET | `/api/ai/templates` | 📄 قالب‌های محتوای موجود | ✅ |
+| ۱۶ | GET | `/api/ai/knowledge` | 🏷️ فهرست برندهای پایگاه دانش (۷۷ برند) | ✅ |
+| ۱۷ | GET | `/api/ai/knowledge/stats` | 📊 آمار پایگاه دانش | ✅ |
+| ۱۸ | GET | `/api/ai/knowledge/{brand}` | 🔎 اطلاعات دانشی یک برند | ✅ |
+| ۱۹ | GET | `/api/ai/diagnostics` | 🩺 فهرست دستگاه‌های عیب‌یابی | ✅ |
+| ۲۰ | GET | `/api/ai/diagnostics/{device}` | 🩺 سناریوهای عیب‌یابی یک دستگاه | ✅ |
+| ۲۱ | POST | `/api/ai/diagnose` | 🎯 تشخیص سه‌سطحی علامت → علت → قطعه | ✅ |
+| ۲۲ | GET | `/api/ai/seasonal` | 📅 تقویم فصلی ماه جاری | ✅ |
+| ۲۳ | GET | `/api/ai/seasonal/{month}` | 📅 تقویم فصلی یک ماه مشخص | ✅ |
+| ۲۴ | GET | `/api/ai/parts` | 🔩 فهرست قطعات پایگاه دانش | ✅ |
+| ۲۵ | GET | `/api/ai/parts/{key}` | 🔩 مشخصات یک قطعه | ✅ |
+
+### ⚙️ تولیدکننده‌های پایه (نسخه ۱)
+
+| # | متد | مسیر | کار | کلید API |
+|:-:|:---:|------|-----|:--------:|
+| ۲۶ | POST | `/api/ai/generate-content` | ✍️ تولید محتوای صفحه (۷ نوع) | ✅ |
+| ۲۷ | POST | `/api/ai/generate-article` | 📰 تولید مقاله (۹ نوع، بهترین-از-N) | ✅ |
+| ۲۸ | POST | `/api/ai/generate-seo` | 🔍 تولید پکیج سئو صفحه | ✅ |
+| ۲۹ | POST | `/api/ai/generate-brand-info` | 🏭 پکیج کامل برند (صفحات+FAQ+کد خطا) | ✅ |
+| ۳۰ | POST | `/api/ai/generate-faq` | ❓ تولید سوالات متداول | ✅ |
+| ۳۱ | POST | `/api/ai/analyze-keywords` | 🔑 استخراج کلیدواژه + چگالی | ✅ |
+| ۳۲ | POST | `/api/ai/check-uniqueness` | ✅ بررسی یکتایی متن | ✅ |
+| ۳۳ | POST | `/api/ai/suggest-improvements` | 💡 تحلیل جامع سئو + یکتایی | ✅ |
+| ۳۴ | POST | `/api/ai/suggest-topics` | 💡 پیشنهاد موضوع مقاله | ✅ |
+
+> 🌐 علاوه بر این‌ها، APIهای سایت برند (خارج از هوش مصنوعی) نیز موجودند: `brand/{id}`، `brand/{id}/articles`، `brand/{id}/faqs` و... — این سند فقط APIهای موتور AI را پوشش می‌دهد.
+
+---
+
+## ۵) مستندات تفصیلی — موتور نسخه ۳ «بی‌رقیب»
+
+### ۵.۱ 🧠 خط تولید هوشمند — `POST /api/ai/smart-generate`
+
+**مهم‌ترین اندپوینت سیستم.** با یک فراخوانی، ۸ مرحله به‌صورت خودکار اجرا می‌شود:
+
+```
+۱️⃣ تشخیص نیت جستجو  →  ۲️⃣ انتخاب کلیدواژه کانونی  →  ۳️⃣ تولید مقاله (بهترین-از-N)
+→  ۴️⃣ بهبود خودکار تا امتیاز هدف  →  ۵️⃣ انتخاب عنوان بهینه CTR  →  ۶️⃣ پکیج سئو کامل
+→  ۷️⃣ سوالات متداول + FAQ Schema  →  ۸️⃣ راستی‌آزمایی یکتایی
+```
+
+#### پارامترها
+
+| پارامتر | نوع | الزامی | پیش‌فرض | توضیح |
+|---------|:---:|:------:|:-------:|-------|
+| `brand_id` | int | ✅ | — | شناسه برند (از پنل مدیریت یا `GET /api/brands`) |
+| `topic_type` | string | ❌ | هوشمند | نوع مقاله: اگر خالی باشد بر اساس نیت جستجو انتخاب می‌شود |
+| `device_key` | string | ❌ | خودکار | کلید دستگاه: `washing_machine`، `refrigerator`، `dishwasher`، `air_conditioner` و... (لیست کامل: بخش ۸) |
+| `topic` | string | ❌ | — | موضوع دلخواه (به‌جای قالب آماده)؛ برای تشخیص نیت دقیق‌تر |
+| `variants` | int | ❌ | `3` | تعداد واریانت تولید و انتخاب بهترین (۱ تا ۴) |
+| `target_score` | int | ❌ | `85` | امتیاز کیفیت هدف (۰-۱۰۰) — موتور تا رسیدن به آن بهبود می‌دهد |
+| `max_rounds` | int | ❌ | `3` | حداکثر دورهای بهبود (۱ تا ۵) |
+| `auto_save` | bool | ❌ | `false` | ذخیره خودکار مقاله در دیتابیس برند |
+| `no_cache` | bool | ❌ | `false` | `true` = دور زدن کش و تولید تازه |
+
+#### مقدارهای معتبر `topic_type`
+
+| مقدار | نوع مقاله |
+|-------|-----------|
+| `troubleshooting` | عیب‌یابی و رفع خرابی |
+| `user_guide` | راهنمای استفاده |
+| `maintenance` | تعمیر و نگهداری |
+| `error_codes` | کدهای خطا |
+| `comparison` | مقایسه و انتخاب |
+| `buying_guide` | راهنمای خرید |
+| `energy_saving` | صرفه‌جویی انرژی |
+| `seasonal_care` | مراقبت فصلی |
+| `cost_guide` | راهنمای هزینه |
+
+#### مثال درخواست
+
+```bash
+curl -X POST "https://YOUR-DOMAIN.com/api/ai/smart-generate" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{
+    "brand_id": 1,
+    "device_key": "washing_machine",
+    "topic": "تعمیر ماشین لباسشویی که آب تخلیه نمی‌کند",
+    "variants": 3,
+    "target_score": 85,
+    "max_rounds": 3
+  }'
+```
+
+#### ساختار پاسخ (خلاصه‌شده)
+
+```json
+{
+  "success": true,
+  "data": {
+    "article": {
+      "id": null,
+      "title": "آیا تعمیر ماشین لباسشویی خودتان قابل انجام است؟",
+      "content": "<h2>...</h2><p>... (HTML کامل مقاله)</p>",
+      "word_count": 847,
+      "topic_type": "troubleshooting",
+      "device_key": "washing_machine",
+      "tldr": "خلاصه یک‌خطی مقاله برای جعبه TL;DR"
+    },
+    "seo": {
+      "title": "عنوان سئو (حداکثر ۶۰ کاراکتر)",
+      "meta_description": "توضیحات متا (حداکثر ۱۶۰ کاراکتر)",
+      "focus_keyword": "تعمیر ماشین لباسشویی",
+      "slug": "washing-machine-repair"
+    },
+    "faq": {
+      "items": [
+        { "question": "هزینه تعمیر ماشین لباسشویی چقدر است؟", "answer": "..." },
+        { "question": "چطور بفهمم مشکل جدی است؟", "answer": "..." },
+        { "question": "آیا تعمیر در محل انجام می‌شود؟", "answer": "..." }
+      ],
+      "schema": { "@type": "FAQPage", "mainEntity": [ "..." ] }
+    },
+    "quality": {
+      "initial_score": 71,
+      "final_score": 86,
+      "target_score": 85,
+      "target_reached": true,
+      "grade": "عالی 🏆",
+      "dimensions": { "readability": 82, "structure": 90, "coherence": 78, "focus": 95, "engagement": 80, "length": 88, "variety": 76 },
+      "gain": 15
+    },
+    "intent": { "intent": "informational", "confidence": 1, "..." : "..." },
+    "keyword": {
+      "focus": "تعمیر ماشین لباسشویی",
+      "alternatives": ["عنوان جایگزین ۱", "عنوان جایگزین ۲", "عنوان جایگزین ۳"]
+    },
+    "uniqueness": { "uniqueness": 94, "..." : "..." },
+    "pipeline": {
+      "steps": [
+        { "step": "intent",   "label": "تشخیص نیت جستجو",       "ms": 3,  "intent": "informational", "confidence": 1 },
+        { "step": "keywords", "label": "انتخاب کلیدواژه کانونی", "ms": 1,  "focus_keyword": "تعمیر ماشین لباسشویی" },
+        { "step": "article",  "label": "تولید مقاله (بهترین-از-۳)", "ms": 184, "score": 71, "words": 812 },
+        { "step": "improve",  "label": "بهبود خودکار کیفیت",      "ms": 96, "score_before": 71, "score_after": 86, "rounds": 2 },
+        { "step": "title",    "label": "انتخاب عنوان بهینه",      "ms": 5,  "best": "...", "score": 94 },
+        { "step": "seo",      "label": "تولید پکیج سئو",          "ms": 4,  "title_len": 58 },
+        { "step": "faq",      "label": "تولید سوالات متداول",     "ms": 7,  "count": 4 },
+        { "step": "uniqueness","label": "راستی‌آزمایی یکتایی",    "ms": 12, "uniqueness": 94 }
+      ],
+      "elapsed_ms": 312,
+      "variants": 3,
+      "auto_saved": false
+    },
+    "_cached": false
+  }
+}
+```
+
+#### نکات مهم
+
+- 💰 **کش**: پاسخ یکسان برای ۳۰ دقیقه کش می‌شود؛ در پاسخ کش‌شده `"_cached": true` می‌بینید. با `"no_cache": true` تولید تازه بگیرید.
+- 📊 کلید کیفیت: `data.quality.final_score` — اگر `target_reached` مقدار `false` داشت، متن را با `improve-content` (۵.۲) دوباره بهبود دهید یا `target_score` را واقع‌بینانه‌تر (۸۰) بگذارید.
+- 📝 `content` HTML است (هدینگ h2/h3 + پاراگراف + لیست) و مستقیماً در CMS/سایت قابل درج است.
+
+---
+
+### ۵.۲ 🔧 بهبود خودکار محتوا — `POST /api/ai/improve-content`
+
+متنی که خودتان نوشته‌اید را تحلیل می‌کند، **ابعاد ضعیف** را پیدا می‌کند و استراتژی‌های هدفمند اصلاح را اعمال می‌کند — تا وقتی امتیاز به هدف برسد (چرخه خود-درمانی).
+
+#### پارامترها
+
+| پارامتر | نوع | الزامی | پیش‌فرض | توضیح |
+|---------|:---:|:------:|:-------:|-------|
+| `content` | string | ✅ | — | متن مورد بهبود (متن ساده یا HTML) |
+| `focus_keyword` | string | ❌ | — | کلیدواژه کانونی (برای بُعد «تمرکز») |
+| `target_score` | int | ❌ | `85` | امتیاز هدف |
+| `max_rounds` | int | ❌ | `3` | حداکثر دور بهبود (۱-۵) |
+| `content_type` | string | ❌ | `null` | `article` یا `page` (برای سنجش حجم مناسب) |
+| `device_key` | string | ❌ | — | اگر مرتبط با دستگاهی است، دانش آن دستگاه در بهبود حجم استفاده می‌شود |
+
+#### مثال
+
+```bash
+curl -X POST "https://YOUR-DOMAIN.com/api/ai/improve-content" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{
+    "content": "ماشین لباسشویی دستگاه مهمی است. این دستگاه لباس را می‌شوید...",
+    "focus_keyword": "تعمیر ماشین لباسشویی",
+    "target_score": 85
+  }'
+```
+
+#### پاسخ (خلاصه‌شده)
+
+```json
+{
+  "success": true,
+  "data": {
+    "content": "متن بهبودیافته (جمله‌های بلند شکسته، مترادف جایگزین، واژه‌های رابط اضافه...)",
+    "improved": true,
+    "gain": 14,
+    "score_before": 58,
+    "score_after": 72,
+    "grade_before": "قابل قبول 🤔",
+    "grade_after": "خوب 🙂",
+    "target_reached": false,
+    "rounds": [
+      { "round": 1, "weak_dimensions": ["variety", "coherence", "engagement"], "strategies": ["variety", "coherence", "engagement"], "score_before": 58, "score_after": 66 },
+      { "round": 2, "weak_dimensions": ["structure", "length"], "strategies": ["structure", "length"], "score_before": 66, "score_after": 72 }
+    ],
+    "remaining_weaknesses": ["انسجام"],
+    "final_suggestions": ["یک واژه رابط به هر ۳ جمله اضافه کنید"]
+  }
+}
+```
+
+#### استراتژی‌های بهبود (۷ مورد)
+
+| بُعد ضعیف | استراتژی اعمالی |
+|-----------|------------------|
+| 📖 خوانایی | شکستن جمله‌های بلند‌تر از ۲۲ کلمه در بهترین نقطه دستوری |
+| ✨ تنوع | جایگزینی مترادف seed-دار از دیکشنری ۴۷۵ واژه‌ای (تکرارپذیر) |
+| 🔗 انسجام | تزریق واژه‌های رابط («در نتیجه»، «علاوه بر این»...) هر ۳ جمله |
+| 💡 جذابیت | افزودن جمله تعاملی/آماری در پاراگراف پایانی |
+| 🏗️ ساختار | افزودن هدینگ h2 و تقسیم پاراگراف‌های یکنواخت |
+| 📏 حجم | افزودن پاراگراف دانش‌محور از پایگاه دانش دستگاه |
+| 🎯 تمرکز | تزریق طبیعی کلیدواژه کانونی در پاراگراف دوم |
+
+> 🛡️ **ضمانت عدم تخریب**: اگر در یک دور امتیاز بهبود نیابد، چرخه متوقف و آخرین نسخه خوب برگردانده می‌شود — متن شما هرگز بدتر نمی‌شود.
+
+---
+
+### ۵.۳ 🎙️ تحلیل صدای برند — `POST /api/ai/brand-voice`
+
+پروفایل لحن و سبک نگارش برند را از متن‌های موجود استخراج می‌کند و می‌تواند انطباق یک متن جدید را با آن صدا بسنجد.
+
+#### پارامترها
+
+| پارامتر | نوع | الزامی | توضیح |
+|---------|:---:|:------:|-------|
+| `texts` | string \| array | ✅ (یا `content`) | متن یا آرایه‌ای از متن‌های برند (حداقل ۲۰ کلمه) |
+| `content` | string | ❌ | اگر ارسال شود، علاوه بر پروفایل، **انطباق این متن** با صدای برند هم سنجیده می‌شود |
+
+#### مثال — حالت ۱: استخراج پروفایل
+
+```bash
+curl -X POST "https://YOUR-DOMAIN.com/api/ai/brand-voice" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{ "texts": ["متن معرفی برند شما...", "متن درباره ما..."] }'
+```
+
+#### مثال — حالت ۲: پروفایل + سنجش انطباق
+
+```json
+{
+  "texts": ["متن‌های موجود برند..."],
+  "content": "متن جدید که می‌خواهید انطباقش بسنجید"
+}
+```
+
+#### پاسخ (خلاصه‌شده)
+
+```json
+{
+  "success": true,
+  "data": {
+    "profile": {
+      "avg_sentence_length": 14.2,
+      "readability_score": 68,
+      "lexical_diversity": 0.61,
+      "formality": 72,
+      "technical": 35,
+      "conversational": 18,
+      "persona": "مشاور قابل‌اعتماد 🤝",
+      "persona_traits": ["رسمی و محترم", "خدمات‌محور", "خیاط‌شده برای مشتری"],
+      "audience_level": "عمومی",
+      "recommendations": ["جمله‌ها را با «شما» بنویسید", "..."]
+    },
+    "comparison": {
+      "consistency": 83,
+      "verdict": "کاملاً هم‌صدا ✅",
+      "advice": [],
+      "differences": { "formality": 6, "technical": 11 }
+    }
+  }
+}
+```
+
+#### ۴ تیپ صدای قابل تشخیص
+
+| تیپ | ویژگی |
+|------|-------|
+| 🎓 متخصص راهنما | فنی و دقیق اما آموزشی |
+| 🤝 مشاور قابل‌اعتماد | رسمی، خدمات‌محور، مشتری‌محور |
+| 💬 دوست صمیمی | خودمانی، ساده، روان |
+| 📡 مرجع تخصصی | بسیار فنی، برای مخاطب متخصص |
+
+---
+
+### ۵.۴ 🏷️ عنوان‌سازی CTR-محور — `POST /api/ai/generate-titles`
+
+برای یک موضوع، ده‌ها عنوان با ۸ الگوی اثبات‌شده تولید و بر اساس عوامل مؤثر بر نرخ کلیک رتبه‌بندی می‌کند.
+
+#### پارامترها
+
+| پارامتر | نوع | الزامی | پیش‌فرض | توضیح |
+|---------|:---:|:------:|:-------:|-------|
+| `topic` | string | ✅ | — | موضوع/کلیدواژه کانونی |
+| `brand_fa` | string | ❌ | — | نام فارسی برند (برای الگوی مقایسه‌ای) |
+| `device_fa` | string | ❌ | — | نام دستگاه (ترکیب هوشمند با موضوع) |
+| `city` | string | ❌ | — | شهر (برای الگوی سئوی محلی) |
+| `season` | string | ❌ | — | فصل (برای الگوی فصلی) |
+| `count` | int | ❌ | `10` | تعداد عنوان خروجی (۱-۲۵) |
+
+#### مثال و پاسخ واقعی
+
+```bash
+curl -X POST "https://YOUR-DOMAIN.com/api/ai/generate-titles" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{ "topic": "تعمیر ماشین لباسشویی", "city": "تهران", "count": 3 }'
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "topic": "تعمیر ماشین لباسشویی",
+    "focus": "تعمیر ماشین لباسشویی",
+    "generated": 17,
+    "returned": 3,
+    "best": "آیا تعمیر ماشین لباسشویی خودتان قابل انجام است؟",
+    "best_score": 94,
+    "titles": [
+      {
+        "title": "آیا تعمیر ماشین لباسشویی خودتان قابل انجام است؟",
+        "pattern": "question",
+        "pattern_fa": "پرسشی",
+        "char_count": 47,
+        "score": 94,
+        "has_number": true,
+        "is_question": true,
+        "power_words": [],
+        "keyword_position": 4
+      }
+    ],
+    "tips": [
+      "عنوان ۴۵ تا ۶۰ کاراکتری در نتایج گوگل کامل نمایش داده می‌شود.",
+      "وجود عدد در عنوان نرخ کلیک را تا ۱۵٪ افزایش می‌دهد.",
+      "کلیدواژه کانونی را در ۳ کلمه اول عنوان بیاورید."
+    ]
+  }
+}
+```
+
+#### ۸ الگوی عنوان
+
+`how_to` آموزشی | `question` پرسشی | `numbered` عددی | `seasonal` فصلی | `local` محلی | `comparison` مقایسه‌ای | `solution` راه‌حلی | `checklist` چک‌لیستی
+
+---
+
+### ۵.۵ 💬 دستیار فرمان فارسی — `POST /api/ai/assistant`
+
+**رابط زبان طبیعی موتور.** فرمان فارسی می‌نویسید، خودش عملیات مناسب را تشخیص می‌دهد و اجرا می‌کند. برای اپ‌ها و ربات‌ها (مثل تلگرام) بهترین نقطه شروع است.
+
+#### پارامترها
+
+| پارامتر | نوع | الزامی | توضیح |
+|---------|:---:|:------:|-------|
+| `command` | string | ✅ | فرمان زبان طبیعی فارسی |
+
+#### مثال
+
+```bash
+curl -X POST "https://YOUR-DOMAIN.com/api/ai/assistant" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{ "command": "عنوان برای تعمیر ماشین ظرفشویی بده" }'
+```
+
+#### پاسخ (خلاصه‌شده)
+
+```json
+{
+  "success": true,
+  "data": {
+    "action": "titles",
+    "success": true,
+    "message": "۸ عنوان پیشنهادی برای «تعمیر ماشین ظرفشویی».",
+    "result": { "best": "...", "titles": ["..."] },
+    "suggestions": ["مقاله بنویس درباره تعمیر ماشین ظرفشویی"]
+  }
+}
+```
+
+> 📖 فهرست کامل فرمان‌ها و مثال‌های بیشتر: **بخش ۹**
+
+---
+
+### ۵.۶ ⚡ آمار کش — `GET /api/ai/cache-stats`
+
+```bash
+curl "https://YOUR-DOMAIN.com/api/ai/cache-stats" -H "X-API-Key: YOUR_API_KEY"
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "entries": 12,
+    "size_bytes": 262144,
+    "size_human": "256 KB",
+    "hits": 45,
+    "misses": 12,
+    "writes": 12,
+    "hit_rate": 0.789
+  }
+}
+```
+
+### ۵.۷ 🧹 پاکسازی کش — `POST /api/ai/cache-clear`
+
+```bash
+curl -X POST "https://YOUR-DOMAIN.com/api/ai/cache-clear" -H "X-API-Key: YOUR_API_KEY"
+```
+
+```json
+{ "success": true, "data": { "cleared": 12, "message": "۱۲ ورودی کش پاک شد." } }
+```
+
+---
+
+## ۶) مستندات تفصیلی — تحلیلگرهای نسخه ۲
+
+### ۶.۱ 🏆 امتیاز کیفیت محتوا — `POST /api/ai/score-content`
+
+متن را در **۷ بُعد وزنی** می‌سنجد و امتیاز ۰-۱۰۰ + نقاط قوت/ضعف + پیشنهاد می‌دهد.
+
+| پارامتر | نوع | الزامی | پیش‌فرض | توضیح |
+|---------|:---:|:------:|:-------:|-------|
+| `content` | string | ✅ | — | متن (ساده یا HTML) |
+| `focus_keyword` | string | ❌ | — | کلیدواژه کانونی |
+| `content_type` | string | ❌ | — | `article` یا `page` |
+
+```bash
+curl -X POST "https://YOUR-DOMAIN.com/api/ai/score-content" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{ "content": "متن شما...", "focus_keyword": "تعمیر ماشین لباسشویی" }'
+```
+
+#### پاسخ واقعی (نمونه)
+
+```json
+{
+  "success": true,
+  "data": {
+    "score": 62,
+    "grade": "قابل قبول 🤔",
+    "dimensions": {
+      "readability": 71,
+      "structure": 40,
+      "coherence": 66,
+      "focus": 100,
+      "engagement": 40,
+      "length": 92,
+      "variety": 76
+    },
+    "readability": {
+      "word_count": 96,
+      "sentence_count": 7,
+      "avg_sentence_length": 13.7,
+      "long_sentence_ratio": 0,
+      "lexical_diversity": 0.635,
+      "complex_word_ratio": 0.208,
+      "score": 71
+    },
+    "strengths": ["تمرکز بر کلیدواژه", "کفایت حجم"],
+    "weaknesses": ["ساختار", "جذابیت"],
+    "suggestions": ["یک زیرعنوان h2 یا h3 اضافه کنید"]
+  }
+}
+```
+
+#### مقیاس نمرات
+
+| بازه | grade | وضعیت |
+|:----:|-------|-------|
+| ۹۰-۱۰۰ | عالی 🏆 | انتشار بدون تغییر |
+| ۷۵-۸۹ | خوب 🙂 | قابل انتشار |
+| ۵۰-۷۴ | قابل قبول 🤔 | بهبود توصیه می‌شود |
+| زیر ۵۰ | ضعیف ⚠️ | بازنویسی لازم است |
+
+### ۶.۲ 🧭 تشخیص نیت جستجو — `POST /api/ai/classify-intent`
+
+| پارامتر | نوع | الزامی | توضیح |
+|---------|:---:|:------:|-------|
+| `query` | string | ✅ (یا queries) | عبارت جستجوی تکی |
+| `queries` | array | ✅ (یا query) | آرایه عبارات (حالت گروهی) |
+
+```bash
+curl -X POST "https://YOUR-DOMAIN.com/api/ai/classify-intent" \
+  -H "Content-Type: application/json" -H "X-API-Key: YOUR_API_KEY" \
+  -d '{ "query": "بهترین ماشین لباسشویی ایرانی کدام است" }'
+```
+
+#### پاسخ واقعی (نمونه)
+
+```json
+{
+  "success": true,
+  "data": {
+    "intent": "commercial",
+    "intent_label": "🛒 تجاری/مقایسه‌ای",
+    "confidence": 1,
+    "scores": { "commercial": 4, "informational": 0, "transactional": 0, "navigational": 0 },
+    "recommended_content": "comparison|buying_guide",
+    "signals": [
+      { "intent": "commercial", "match": "/بهترین/u" },
+      { "intent": "commercial", "match": "/کدام/u" }
+    ]
+  }
+}
+```
+
+| نیت | معنا | محتوای پیشنهادی |
+|-----|------|------------------|
+| `informational` | 📚 دنبال یادگیری | user_guide |
+| `commercial` | 🛒 مقایسه/ارزیابی | comparison / buying_guide |
+| `transactional` | 💳 آماده اقدام | صفحه خدمات/فرود |
+| `navigational` | 🧭 دنبال برند/سایت | صفحه برند |
+
+### ۶.۳ 🗓️ برنامه انتشار محتوا — `POST /api/ai/content-plan`
+
+| پارامتر | نوع | الزامی | پیش‌فرض | توضیح |
+|---------|:---:|:------:|:-------:|-------|
+| `brand_id` | int | ✅ | — | شناسه برند |
+| `weeks` | int | ❌ | `4` | افق برنامه‌ریزی (هفته) |
+| `per_week` | int | ❌ | `2` | محتوا در هفته |
+
+```bash
+curl -X POST "https://YOUR-DOMAIN.com/api/ai/content-plan" \
+  -H "Content-Type: application/json" -H "X-API-Key: YOUR_API_KEY" \
+  -d '{ "brand_id": 1, "weeks": 6, "per_week": 2 }'
+```
+
+خروجی: تقویم هفتگی با موضوع هر روز، اولویت فصلی (تقویم جلالی)، شکاف پوشش، رقابت‌پذیری و **ساعت انتشار بهینه**.
+
+### ۶.۴ 🐎 کلیدواژه long-tail — `POST /api/ai/suggest-longtail`
+
+| پارامتر | نوع | الزامی | پیش‌فرض |
+|---------|:---:|:------:|:-------:|
+| `keyword` | string | ✅ | — |
+| `count` | int | ❌ | `12` |
+
+```bash
+curl -X POST "https://YOUR-DOMAIN.com/api/ai/suggest-longtail" \
+  -H "Content-Type: application/json" -H "X-API-Key: YOUR_API_KEY" \
+  -d '{ "keyword": "تعمیر یخچال", "count": 5 }'
+```
+
+#### پاسخ واقعی (نمونه)
+
+```json
+{
+  "success": true,
+  "data": {
+    "seed_keyword": "تعمیر یخچال",
+    "suggestions": [
+      { "keyword": "چرا تعمیر یخچال نیاز دارم؟", "competition": "کم 🟢", "competition_score": 16 },
+      { "keyword": "چه زمانی تعمیر یخچال ضروری است؟", "competition": "کم 🟢", "competition_score": 16 },
+      { "keyword": "هزینه تعمیر یخچال چقدر است؟", "competition": "کم 🟢", "competition_score": 16 }
+    ]
+  }
+}
+```
+
+### ۶.۵ 🗂️ خوشه‌بندی کلیدواژه — `POST /api/ai/cluster-keywords`
+
+| پارامتر | نوع | الزامی | توضیح |
+|---------|:---:|:------:|-------|
+| `keywords` | array | ✅ | آرایه‌ای از کلیدواژه‌ها |
+
+```bash
+curl -X POST "https://YOUR-DOMAIN.com/api/ai/cluster-keywords" \
+  -H "Content-Type: application/json" -H "X-API-Key: YOUR_API_KEY" \
+  -d '{ "keywords": ["تعمیر یخچال", "یخچال سرد نمی کند", "نشت گاز یخچال", "تعمیر لباسشویی", "لباسشویی لرزش دارد"] }'
+```
+
+خروجی: خوشه‌های موضوعی (Topic Clusters) با ریشه‌های مشترک — برای معماری سیلو محتوایی.
+
+### ۶.۶ 🧮 TF-IDF — `POST /api/ai/tfidf`
+
+| پارامتر | نوع | الزامی | پیش‌فرض |
+|---------|:---:|:------:|:-------:|
+| `text` | string | ✅ | — |
+| `top` | int | ❌ | `15` |
+
+وزن‌دهی آماری واژه‌های متن نسبت به **پایگاه دانش ۷۷ برند** — پیدا کردن واژه‌های متمایزکننده.
+
+---
+
+## ۷) مستندات تفصیلی — تولیدکننده‌های پایه (نسخه ۱)
+
+### ۷.۱ ✍️ تولید محتوای صفحه — `POST /api/ai/generate-content`
+
+| پارامتر | نوع | الزامی | توضیح |
+|---------|:---:|:------:|-------|
+| `type` | string | ✅ | نوع محتوا (جدول زیر) |
+| `brand_id` | int | ✅ | شناسه برند |
+| `device_key` | string | ❌ | برای نوع `device_desc` الزامی است |
+
+| مقدار `type` | خروجی |
+|--------------|-------|
+| `brand_intro` | معرفی برند |
+| `brand_history` | تاریخچه برند |
+| `agency_about` | درباره نمایندگی |
+| `warranty` | شرایط گارانتی |
+| `service_area` | محدوده خدمات |
+| `services_intro` | معرفی خدمات |
+| `device_desc` | توضیح یک دستگاه (نیازمند `device_key`) |
+
+> ⚠️ در نسخه ۲.۰.۰ سیستم، این اندپوینت اصلاح شد: پارامتر `type` داخل بدنه JSON ارسال می‌شود (قبلاً باگ ناسازگاری امضا وجود داشت).
+
+### ۷.۲ 📰 تولید مقاله — `POST /api/ai/generate-article`
+
+| پارامتر | نوع | الزامی | پیش‌فرض | توضیح |
+|---------|:---:|:------:|:-------:|-------|
+| `brand_id` | int | ✅ | — | شناسه برند |
+| `topic_type` | string | ❌ | `troubleshooting` | یکی از ۹ نوع (جدول بخش ۵.۱) |
+| `device_key` | string | ❌ | تصادفی | دستگاه هدف |
+| `variants` | int | ❌ | `2` | بهترین-از-N (۱-۴) |
+| `auto_save` | bool | ❌ | `false` | ذخیره در دیتابیس |
+
+خروجی شامل: `title`، `content` (HTML)، `word_count` (تضمین حداقل ۸۰۰ کلمه)، `tldr`، `faq`، `quality` و `related_articles`.
+
+### ۷.۳ 🔍 پکیج سئو — `POST /api/ai/generate-seo`
+
+| پارامتر | نوع | الزامی | پیش‌فرض |
+|---------|:---:|:------:|:-------:|
+| `content` | string | ✅ | — |
+| `page_type` | string | ❌ | `home` |
+| `brand_id` | int | ❌ | — |
+
+خروجی: `title`، `meta_description`، `slug`، `schemas` (LocalBusiness / Article / Breadcrumb) و `head` آماده درج.
+
+### ۷.۴ 🏭 پکیج کامل برند — `POST /api/ai/generate-brand-info`
+
+| پارامتر | نوع | الزامی |
+|---------|:---:|:------:|
+| `brand_id` | int | ✅ |
+
+تولید یکجای: معرفی + تاریخچه + توضیح همه دستگاه‌ها + FAQ + کدهای خطای رایج. **پرسبک‌ترین عملیات** — برای برند تازه ثبت‌شده.
+
+### ۷.۵ ❓ تولید FAQ — `POST /api/ai/generate-faq`
+
+| پارامتر | نوع | الزامی | پیش‌فرض |
+|---------|:---:|:------:|:-------:|
+| `brand_id` | int | ✅ | — |
+| `count` | int | ❌ | `10` |
+
+### ۷.۶ 🔑 تحلیل کلیدواژه — `POST /api/ai/analyze-keywords`
+
+| پارامتر | نوع | الزامی | توضیح |
+|---------|:---:|:------:|-------|
+| `text` | string | ✅ | متن تحلیل‌شونده |
+| `top` | int | ❌ | تعداد کلیدواژه برتر (۲۰) |
+| `focus_keyword` | string | ❌ | فعال‌سازی تحلیل چگالی |
+| `brand_id` | int | ❌ | فعال‌سازی پیشنهاد برند-محور |
+
+### ۷.۷ ✅ یکتایی — `POST /api/ai/check-uniqueness`
+
+| پارامتر | نوع | الزامی |
+|---------|:---:|:------:|
+| `content` | string | ✅ |
+| `brand_id` | int | ❌ |
+
+### ۷.۸ 💡 تحلیل جامع بهبود — `POST /api/ai/suggest-improvements`
+
+| پارامتر | نوع | الزامی |
+|---------|:---:|:------:|
+| `content` | string | ✅ |
+| `focus_keyword` | string | ❌ |
+| `brand_id` | int | ❌ |
+
+ترکیب ۲۶ بررسی سئو + یکتایی + کلیدواژه در یک فراخوانی.
+
+### ۷.۹ 💡 پیشنهاد موضوع — `POST /api/ai/suggest-topics`
+
+| پارامتر | نوع | الزامی | پیش‌فرض |
+|---------|:---:|:------:|:-------:|
+| `brand_id` | int | ✅ | — |
+| `count` | int | ❌ | `5` |
+
+---
+
+## ۸) مستندات تفصیلی — پایگاه دانش و عیب‌یابی
+
+### ۸.۱ کلیدهای دستگاه معتبر (`device_key`)
+
+`refrigerator` یخچال | `washing_machine` ماشین لباسشویی | `dishwasher` ماشین ظرفشویی | `air_conditioner` کولر گازی | `package` پکیج | `microwave` مایکروویو | `tv` تلویزیون | `water_heater` آبگرمکن | `stove` اجاق گاز | `dryer` خشک‌کن | `oven` فر | `cooktop` هاب | `range_hood` هود | `vacuum` جاروبرقی | `freezer` فریزر | `air_fryer` سرخ‌کن بدون روغن | `cooler` کولر آبی | `heater` بخاری | `fan_coil` فن‌کویل | `steam_cleaner` بخارشوی | `coffee_maker` قهوه‌ساز | `kettle` کتری برقی | `blender` مخلوط‌کن | `juicer` آبمیوه‌گیری | `mixer` غذاکوب | `rice_cooker` آب‌پز | `toaster` توستر | `iron` اتو | `hair_dryer` سشوار | و ۱۲ دستگاه دیگر (مجموع ۴۲)
+
+### ۸.۲ 🎯 تشخیص سه‌سطحی — `POST /api/ai/diagnose`
+
+| پارامتر | نوع | الزامی | توضیح |
+|---------|:---:|:------:|-------|
+| `device` | string | ✅ | کلید دستگاه (بخش ۸.۱) |
+| `symptom` | string | ✅ | علامت به زبان طبیعی |
+
+```bash
+curl -X POST "https://YOUR-DOMAIN.com/api/ai/diagnose" \
+  -H "Content-Type: application/json" -H "X-API-Key: YOUR_API_KEY" \
+  -d '{ "device": "refrigerator", "symptom": "یخچال خنک نمی‌کند اما روشن است" }'
+```
+
+خروجی: سناریوی منطبق + **علت‌های وزن‌دار با احتمال** + بررسی خانگی هر علت + اقدام فوری + قطعات مرتبط.
+
+تطبیق سه‌سطحی: (۱) علامت کامل ← (۲) شامل بودن ← (۳) شباهت هم‌پوشانی واژه‌ها (فازی).
+
+### ۸.۳ سایر اندپوینت‌های دانش
+
+```
+GET /api/ai/templates                     → همه قالب‌های محتوایی
+GET /api/ai/knowledge                     → فهرست ۷۷ برند دانشی
+GET /api/ai/knowledge/stats               → آمار پایگاه دانش
+GET /api/ai/knowledge/{brand}             → دانش یک برند (مثال: /ai/knowledge/snowa)
+GET /api/ai/diagnostics                   → دستگاه‌های دارای سناریو
+GET /api/ai/diagnostics/{device}          → سناریوهای یک دستگاه
+GET /api/ai/seasonal                      → تقویم فصلی ماه جاری
+GET /api/ai/seasonal/{month}              → تقویم ماه خاص (مثال: /ai/seasonal/7 = مهر)
+GET /api/ai/parts                         → فهرست قطعات
+GET /api/ai/parts/{key}                   → قطعه خاص (مثال: /ai/parts/compressor)
+```
+
+---
+
+## ۹) دستیار فرمان فارسی — راهنمای کامل
+
+دستیار (`POST /api/ai/assistant`) فرمان طبیعی فارسی می‌فهمد و خودش اندپوینت مناسب را اجرا می‌کند. **برای ساخت ربات/اتوماسیون، فقط همین یک اندپوینت کافی است.**
+
+### 📋 جدول کامل فرمان‌ها
+
+| فرمان نمونه | عمل (`action`) | توضیح |
+|-------------|----------------|-------|
+| `راهنما` | `help` | فهرست قابلیت‌ها |
+| `مقاله بنویس برای اسنوا درباره ماشین لباسشویی` | `article` | خط تولید هوشمند کامل |
+| `مقاله آموزشی درباره یخچال بنویس` | `article` | نوع مقاله از فرمان استخراج می‌شود |
+| `مقاله مقایسه‌ای درباره جاروبرقی بساز` | `article` | → topic_type=comparison |
+| `مقاله درباره هزینه تعمیر پکیج بنویس` | `article` | → topic_type=cost_guide |
+| `کلمات کلیدی ماشین لباسشویی` | `keywords` | تحلیل + رقابت‌پذیری + long-tail |
+| `امتیاز این متن: <متن>` | `score` | امتیاز ۷ بُعدی (متن بعد از دونقطه) |
+| `این متن را بهبود بده: <متن>` | `improve` | بهبود خودکار |
+| `عنوان برای تعمیر ماشین ظرفشویی بده` | `titles` | ۸ عنوان رتبه‌بندی‌شده |
+| `نیت جستجوی خرید یخچال ساید بای ساید چیست؟` | `intent` | تشخیص نیت |
+| `تشخیص عیب: یخچال سرد نمی‌کند` | `diagnose` | تشخیص سه‌سطحی |
+| `کد خطا E24 ماشین ظرفشویی` | `error-codes` | جستجوی پایگاه ۱۲۵ کدی |
+| `برندهای پایگاه دانش` | `brands` | فهرست ۷۷ برند |
+
+### 🧠 هوشمندی‌های استخراج
+
+- **برند**: نام برند (فارسی/انگلیسی/مستعار) از متن فرمان پیدا و به برند ثبت‌شده دیتابیس نگاشت می‌شود
+- **دستگاه**: از ۴۲ دستگاه دانشی تشخیص داده می‌شود
+- **نوع مقاله**: از کلیدواژه‌های فرمان (آموزشی/نگهداری/مقایسه/هزینه/فصلی) استنتاج می‌شود
+
+### 🔁 جریان مکالمه‌ای (suggestions)
+
+هر پاسخ کلید `suggestions` دارد — فرمان‌های پیشنهادی منطقی بعدی. برای ربات چت: این موارد را به‌صورت دکمه نمایش دهید.
+
+---
+
+## ۱۰) نمونه کد کامل به زبان‌های مختلف
+
+### 🟦 PHP (cURL)
+
+```php
+<?php
+/**
+ * 🤖 کلاینت API موتور هوش مصنوعی سهند — PHP
+ */
+class SahandAIClient
+{
+    private string $baseUrl;
+    private string $apiKey;
+
+    public function __construct(string $baseUrl, string $apiKey)
+    {
+        $this->baseUrl = rtrim($baseUrl, '/');   // مثال: https://sahand.example.com
+        $this->apiKey = $apiKey;
+    }
+
+    /** 🚀 فراخوانی عمومی */
+    public function post(string $endpoint, array $data): array
+    {
+        $ch = curl_init($this->baseUrl . '/api/' . $endpoint);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'X-API-Key: ' . $this->apiKey,
+            ],
+            CURLOPT_POSTFIELDS     => json_encode($data, JSON_UNESCAPED_UNICODE),
+        ]);
+        $body   = curl_exec($ch);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $json = json_decode((string)$body, true) ?: [];
+        if ($status >= 400 || empty($json['success'])) {
+            throw new RuntimeException('خطای API (' . $status . '): ' . ($json['error'] ?? $body));
+        }
+        return $json['data'];
+    }
+
+    /** 📖 فراخوانی GET */
+    public function get(string $endpoint): array
+    {
+        $ch = curl_init($this->baseUrl . '/api/' . $endpoint);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_HTTPHEADER     => ['X-API-Key: ' . $this->apiKey],
+        ]);
+        $body   = curl_exec($ch);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $json = json_decode((string)$body, true) ?: [];
+        if ($status >= 400 || empty($json['success'])) {
+            throw new RuntimeException('خطای API (' . $status . '): ' . ($json['error'] ?? $body));
+        }
+        return $json['data'];
+    }
+}
+
+/* ---------- استفاده ---------- */
+$ai = new SahandAIClient('https://YOUR-DOMAIN.com', 'YOUR_API_KEY');
+
+// ۱) خط تولید هوشمند
+$package = $ai->post('ai/smart-generate', [
+    'brand_id'     => 1,
+    'device_key'   => 'washing_machine',
+    'variants'     => 3,
+    'target_score' => 85,
+]);
+echo "عنوان: {$package['article']['title']}\n";
+echo "امتیاز نهایی: {$package['quality']['final_score']}\n";
+echo "کلمات: {$package['article']['word_count']}\n";
+
+// ۲) بهبود متن خودتان
+$improved = $ai->post('ai/improve-content', [
+    'content'       => 'متن شما اینجا...',
+    'focus_keyword' => 'تعمیر یخچال',
+]);
+echo "امتیاز: {$improved['score_before']} ← {$improved['score_after']}\n";
+
+// ۳) دستیار فارسی
+$reply = $ai->post('ai/assistant', ['command' => 'کلمات کلیدی ماشین ظرفشویی']);
+echo $reply['message'] . "\n";
+```
+
+### 🟩 Python (requests)
+
+```python
+"""
+🤖 کلاینت API موتور هوش مصنوعی سهند — Python
+نیازمند: pip install requests
+"""
+import requests
+
+
+class SahandAI:
+    def __init__(self, base_url: str, api_key: str):
+        self.base = base_url.rstrip('/')          # مثال: https://sahand.example.com
+        self.headers = {
+            'Content-Type': 'application/json',
+            'X-API-Key': api_key,
+        }
+
+    def post(self, endpoint: str, data: dict) -> dict:
+        r = requests.post(f'{self.base}/api/{endpoint}',
+                          json=data, headers=self.headers, timeout=120)
+        payload = r.json()
+        if r.status_code >= 400 or not payload.get('success'):
+            raise RuntimeError(f"خطای API ({r.status_code}): {payload.get('error')}")
+        return payload['data']
+
+    def get(self, endpoint: str) -> dict:
+        r = requests.get(f'{self.base}/api/{endpoint}',
+                         headers=self.headers, timeout=30)
+        payload = r.json()
+        if r.status_code >= 400 or not payload.get('success'):
+            raise RuntimeError(f"خطای API ({r.status_code}): {payload.get('error')}")
+        return payload['data']
+
+
+# ---------- استفاده ----------
+ai = SahandAI('https://YOUR-DOMAIN.com', 'YOUR_API_KEY')
+
+# ۱) خط تولید هوشمند — یک فراخوانی، پکیج کامل
+pkg = ai.post('ai/smart-generate', {
+    'brand_id': 1,
+    'device_key': 'refrigerator',
+    'variants': 3,
+    'target_score': 85,
+})
+print('عنوان:', pkg['article']['title'])
+print('امتیاز:', pkg['quality']['final_score'])
+print('سئو:', pkg['seo']['title'])
+
+# ۲) امتیازدهی متن
+score = ai.post('ai/score-content', {'content': 'متن شما...', 'focus_keyword': 'تعمیر یخچال'})
+print(f"امتیاز: {score['score']}/100 ({score['grade']})")
+print('نقاط ضعف:', score['weaknesses'])
+
+# ۳) دستیار فارسی
+reply = ai.post('ai/assistant', {'command': 'تشخیص عیب: یخچال خنک نمی‌کند'})
+print(reply['message'])
+for cause in reply['result'].get('causes', []):
+    print(f"  • {cause['cause']} ({cause['probability']*100:.0f}%)")
+
+# ۴) عنوان‌سازی
+titles = ai.post('ai/generate-titles', {'topic': 'سرویس کولر گازی', 'city': 'تهران', 'count': 5})
+print('بهترین عنوان:', titles['best'], f"({titles['best_score']} امتیاز)")
+```
+
+### 🟨 JavaScript / Node.js (fetch)
+
+```javascript
+/**
+ * 🤖 کلاینت API موتور هوش مصنوعی سهند — Node.js 18+
+ */
+class SahandAIClient {
+  constructor(baseUrl, apiKey) {
+    this.base = baseUrl.replace(/\/+$/, '');   // مثال: https://sahand.example.com
+    this.apiKey = apiKey;
+  }
+
+  async post(endpoint, data) {
+    const res = await fetch(`${this.base}/api/${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': this.apiKey,
+      },
+      body: JSON.stringify(data),
+    });
+    const payload = await res.json();
+    if (!res.ok || !payload.success) {
+      throw new Error(`خطای API (${res.status}): ${payload.error}`);
+    }
+    return payload.data;
+  }
+
+  async get(endpoint) {
+    const res = await fetch(`${this.base}/api/${endpoint}`, {
+      headers: { 'X-API-Key': this.apiKey },
+    });
+    const payload = await res.json();
+    if (!res.ok || !payload.success) {
+      throw new Error(`خطای API (${res.status}): ${payload.error}`);
+    }
+    return payload.data;
+  }
+}
+
+/* ---------- استفاده ---------- */
+const ai = new SahandAIClient('https://YOUR-DOMAIN.com', 'YOUR_API_KEY');
+
+// ۱) خط تولید هوشمند
+const pkg = await ai.post('ai/smart-generate', {
+  brand_id: 1,
+  device_key: 'dishwasher',
+  variants: 3,
+  target_score: 85,
+});
+console.log('عنوان:', pkg.article.title);
+console.log('امتیاز:', pkg.quality.final_score);
+console.log('FAQ:', pkg.faq.items.length, 'سوال');
+
+// ۲) برنامه محتوایی
+const plan = await ai.post('ai/content-plan', { brand_id: 1, weeks: 4, per_week: 2 });
+console.log('تعداد گام‌های برنامه:', plan.schedule?.length ?? plan.plan?.length ?? 0);
+
+// ۳) دستیار
+const reply = await ai.post('ai/assistant', { command: 'مقاله بنویس برای پاکشما درباره یخچال' });
+console.log(reply.message);
+```
+
+### 🐧 Windows PowerShell
+
+```powershell
+# 🚀 خط تولید هوشمند در پاورشل
+$body = @{
+    brand_id     = 1
+    device_key   = "washing_machine"
+    variants     = 3
+    target_score = 85
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "https://YOUR-DOMAIN.com/api/ai/smart-generate" `
+    -Method Post -ContentType "application/json; charset=utf-8" `
+    -Headers @{ "X-API-Key" = "YOUR_API_KEY" } -Body $body
+```
+
+---
+
+## ۱۱) سناریوهای واقعی استفاده
+
+### سناریو ۱ — سایت/اپ خارجی که مقاله سفارشی می‌سازد
+
+```
+کاربر موضوع می‌دهد
+   ↓
+POST /api/ai/classify-intent        ← نیت جستجو
+   ↓
+POST /api/ai/smart-generate         ← پکیج کامل (مقاله+سئو+FAQ)
+   ↓
+quality.target_reached == false ?
+   ├─ بله → POST /api/ai/improve-content (دور دیگر)
+   └─ خیر ✓
+   ↓
+نمایش مقاله + ذخیره در سیستم خودتان
+```
+
+### سناریو ۲ — ربات تلگرام فارسی (فقط با ۱ اندپوینت)
+
+```python
+# هر پیام کاربر → دستیار
+reply = ai.post('ai/assistant', {'command': user_text})
+bot.reply(reply['message'])              # پیام اصلی
+bot.show_buttons(reply['suggestions'])   # دکمه‌های فرمان بعدی
+```
+
+### سناریو ۳ — پایش کیفیت محتوای سایت موجود
+
+```
+برای هر صفحه سایت شما:
+   ↓
+POST /api/ai/score-content  ← امتیاز ۷ بُعدی
+   ↓
+score < 70 ?
+   ├─ بله → POST /api/ai/improve-content ← بهبود خودکار
+   └─ خیر ✓
+```
+
+### سناریو ۴ — تقویم محتوایی فصلی
+
+```
+GET  /api/ai/seasonal/7               ← مهر: آماده‌سازی وسط پاییز
+   ↓
+POST /api/ai/content-plan             ← برنامه ۴ هفته‌ای
+   ↓
+هر هفته: POST /api/ai/smart-generate با موضوع برنامه
+```
+
+### سناریو ۵ — پشتیبانی فنی هوشمند
+
+```
+کاربر: «یخچالم صدای عجیب می‌دهد و سرد نمی‌کند»
+   ↓
+POST /api/ai/diagnose {device: "refrigerator", symptom: "..."}
+   ↓
+علت‌های وزن‌دار + بررسی خانگی + قطعات مرتبط
+   ↓
+در صورت نیاز: POST /api/ai/assistant {command: "مقاله درباره همین مشکل بنویس"}
+```
+
+---
+
+## ۱۲) کدهای خطا و رفع اشکال
+
+| کد HTTP | معنا | راه حل |
+|:-------:|------|--------|
+| `200` | ✅ موفق | — |
+| `400` | ❌ پارامتر نامعتبر/ناکافی | پیام `error` فارسی را بخوانید؛ پارامترهای الزامی را چک کنید |
+| `401` | 🔑 کلید API نامعتبر/ارسال‌نشده | هدر `X-API-Key` را با کلید معتبر ارسال کنید |
+| `404` | 🔍 منبع یافت نشد | مسیر/کلید (برند، دستگاه، قطعه، ماه) را بررسی کنید |
+| `429` | 🚦 عبور از محدودیت نرخ | ۶۰ ثانیه صبر کنید (هدر `Retry-After`) یا درخواست‌ها را صف کنید |
+| `500` | 💥 خطای داخلی سرور | لاگ سرور را بررسی کنید؛ اگر متن خیلی کوتاه است حداقل ۳۰ کلمه بفرستید |
+
+### ❓ رفع اشکال‌های رایج
+
+| مشکل | علت | راه حل |
+|------|-----|--------|
+| «برند یافت نشد» | `brand_id` اشتباه یا برند غیرفعال | با `GET /api/brands` لیست معتبر را بگیرید |
+| «متن کافی برای تحلیل نیست» | متن زیر حداقل | حداقل ۲۰-۳۰ کلمه ارسال کنید |
+| «علامت در پایگاه دانش یافت نشد» | علامت خیلی خاص | علامت را با کلمات کلیدی‌تر بنویسید («خنک نمی‌کند» به‌جای «مشکل دارد») |
+| پاسخ‌های تکراری | کش فعال است | `"no_cache": true` بفرستید |
+| متن فارسی به‌هم‌ریخته | انکودینگ | حتماً `Content-Type: application/json; charset=utf-8` |
+
+---
+
+## ۱۳) بهترین شیوه‌ها و نکات امنیتی
+
+### 🔐 امنیت
+
+1. **کلید فقط در سرور** — هرگز در جاوااسکریپت مرورگر/اپ موبایل کامپایل‌نشده قرار نگیرد؛ یک لایه پروکسی سرور بسازید
+2. **کلید جدا برای هر اپ** — برای هر سرویس مصرف‌کننده، کلید مستقل بسازید تا بتوانید هر یک را مستقل ابطال کنید
+3. **HTTPS اجباری** — کلید در هدر به‌صورت متن ساده حرکت می‌کند؛ فقط روی TLS
+4. **محدودسازی برند** — اگر اپ شما فقط برای یک برند است، کلید brand-محور بسازید
+
+### ⚡ کارایی
+
+1. از **کش داخلی** بهره ببرید — فراخوانی تکراری `smart-generate` با پارامتر یکسان رایگان است
+2. `variants: 2` برای پیش‌نمایش سریع و `variants: 3-4` برای انتشار نهایی
+3. برای متن‌های بلند (بالای ۵۰۰۰ کلمه) `timeout` کلاینت را حداقل ۱۲۰ ثانیه بگذارید
+4. در صورت خطای `429`، retry با backoff نمایی (۵s → ۱۰s → ۲۰s) پیاده کنید
+
+### 📊 کیفیت خروجی
+
+1. `target_score: 85` نقطه شیرین کیفیت/زمان است؛ `90+` زمان تولید را چند برابر می‌کند
+2. `focus_keyword` را همیشه ارسال کنید — بُعد «تمرکز» بدون آن خنثی می‌شود
+3. برای مقالات سایت عمومی، `content_type: "article"` را در `improve-content` ارسال کنید
+
+---
+
+## ۱۴) تاریخچه تغییرات API
+
+| نسخه سیستم | نسخه موتور | تغییرات اندپوینت |
+|:----------:|:----------:|------------------|
+| 1.0.0 | 1.0.0 | ۱۳ اندپوینت پایه (تولیدکننده‌ها + دانش) |
+| 1.1.0 | 2.0.0 | +۷ اندپوینت تحلیلی (score، intent، plan، longtail، cluster، tfidf، engine-info) |
+| 2.0.0 | 3.0.0 | +۷ اندپوینت بی‌رقیب (smart-generate، improve-content، brand-voice، generate-titles، assistant، cache-stats، cache-clear)؛ 🐛 اصلاح امضای `generate-content` برای فراخوانی خارجی صحیح |
+
+> 📚 مستندات تکمیلی: [README اصلی ریپو](../README.md) | [راهنمای نصب](installation.html) | [راهنمای کاربری پنل](user-guide.html)
