@@ -478,3 +478,25 @@
 - `README.md` اصلی ریپو — بازنویسی کامل: نشان نسخه 2.0.0 + موتور v3.0 بی‌رقیب + نشان ۲۷۳ تست، جدول قابلیت‌های v3، بخش جدید «API موتور AI از بیرون» با دو نمونه curl، جدول مستندات (راهنمای API + فونت + آیکون)، لینک صفحه Releases در نصب سریع
 - `CHANGELOG.md` — ثبت کامل نسخه 2.0.0 (افزودنی‌ها/رفع اشکال/تغییرات/تست/انتشار)
 - 📦 کامیت: `docs-v2-main-readme-changelog`
+
+### ✅ بخش ۵ فاز M (نهایی): رلیز v2.0.0
+- `UPGRADE.md` — راهنمای فارسی بروزرسانی از 1.x: بکاپ اجباری، دو روش (بسته بروزرسانی ۲۷ فایله / بسته کامل)، جدول راستی‌آزمایی پس از ارتقا (۴ بررسی)، رفع اشکال ۴ مشکل رایج، تست‌های curl
+- تگ `v2.0.0` ساخته و پوش شد
+- ساخت ۴ بسته + چک‌سام SHA256:
+  - `Sahand-Service-BrandMaker-v2.0.0-install.zip` (۶۴۷KB) — git archive تمیز از تگ، ۳۹۶ فایل
+  - `Sahand-Service-BrandMaker-v2.0.0-update.zip` (۸۶KB) — فقط ۲۷ فایل تغییرکرده از v1.1.0 + UPGRADE.md
+  - `AI-API-GUIDE-v2.0.0-fa.md` — راهنمای API مستقل برای دانلود
+  - `UPGRADE-v2.0.0-fa.md` — راهنمای بروزرسانی مستقل
+- رلیز گیت‌هاب v2.0.0 ساخته شد + هر ۵ پیوست با HTTP 201 آپلود شدند (به uploads.github.com — با درس آموخته از خطای ۴۰۴ رلیز v1.1.0)
+- 🔗 https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/tag/v2.0.0
+
+### 🏁 جمع‌بندی فاز M
+| شاخص | مقدار |
+|------|-------|
+| فایل‌های جدید موتور | ۶ کلاس (SmartPipeline، ContentImprover، BrandVoiceAnalyzer، TitleGenerator، CommandAssistant، EngineCache) |
+| اندپوینت API جدید | ۷ (مجموع ۳۴) |
+| تست موفق | ۲۷۳ (۶۲ جدید + رگرسیون کامل) |
+| باگ رفع‌شده | ۱ بحرانی (generateContent خارجی) |
+| مستندات جدید | AI-API-GUIDE.md (۱۳۲۷ خط) + UPGRADE.md + ۱۱ README فونت/آیکون با لینک دانلود |
+| کامیت‌های فاز | engine-v3-unrivaled، docs-ai-api-guide، download-links-fonts-icons، docs-v2-main-readme-changelog، release-v2.0.0 |
+| رلیز | v2.0.0 با ۵ پیوست — نصب کامل + بروزرسانی + راهنماها + چک‌سام |
