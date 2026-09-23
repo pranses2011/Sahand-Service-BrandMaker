@@ -520,8 +520,29 @@ td, .card-body, .alert, .card-header h3, .topbar-titles { overflow-wrap: anywher
 }
 .login-box h1 { text-align: center; font-size: 17.5px; margin-bottom: 4px; }
 .login-box .sub { text-align: center; color: var(--text-light); font-size: 12.5px; margin-bottom: 26px; }
-.captcha-row { display: flex; gap: 10px; align-items: center; }
-.captcha-row img { border-radius: 9px; border: 1.5px solid var(--border); height: 46px; cursor: pointer; }
+.captcha-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.captcha-row img {
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    height: 72px;
+    width: auto;
+    max-width: 100%;
+    cursor: pointer;
+    flex-shrink: 0;
+    background: #f3f4f6;
+}
+.captcha-refresh {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+    font-size: 17px;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .3s, background .3s;
+    flex-shrink: 0;
+}
+.captcha-refresh:hover { transform: rotate(180deg); background: var(--primary-light); }
 
 /* ---------- 📱 ریسپانسیو ---------- */
 .menu-toggle { display: none; }

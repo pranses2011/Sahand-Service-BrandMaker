@@ -65,8 +65,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="form-group">
                 <label>🔒 کد امنیتی</label>
                 <div class="captcha-row">
-                    <input type="text" name="captcha" class="form-control" required maxlength="5" placeholder="کد را وارد کنید" style="direction:ltr;text-align:center;letter-spacing:3px">
-                    <img src="captcha.php" alt="کد امنیتی" onclick="refreshCaptcha(this)" title="برای تغییر کلیک کنید">
+                    <input type="text" name="captcha" class="form-control" required maxlength="5" placeholder="کد را وارد کنید" style="direction:ltr;text-align:center;letter-spacing:4px;font-size:17px;font-weight:700;min-width:120px" inputmode="latin" autocomplete="off">
+                    <img src="captcha.php" alt="کد امنیتی" id="captcha-img" width="220" height="72" onclick="refreshCaptcha(this)" title="برای تغییر کلیک کنید">
+                    <button type="button" class="captcha-refresh" onclick="refreshCaptcha(document.getElementById('captcha-img'))" title="تولید کد جدید" aria-label="تولید کد جدید">🔄</button>
                 </div>
             </div>
             <button type="submit" class="btn btn-primary btn-lg btn-block">🚀 ورود به پنل</button>
