@@ -88,6 +88,8 @@ https://brandmaker.your-domain.ir/install.php
 
 📥 **[صفحه دانلود نسخه‌ها (Releases)](https://github.com/pranses2011/Sahand-Service-BrandMaker/releases)** — شامل بسته نصب کامل + بسته بروزرسانی + فایل‌های راهنما + چک‌سام SHA256
 
+> 🆕 **آخرین نسخه: [v2.5.0](https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/tag/v2.5.0)** — 🎨 اسکیل UI/UX Pro + کپچای تضمینی + بهینه PHP 8.3 | [بسته بروزرسانی](https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/download/v2.5.0/Sahand-Service-BrandMaker-v2.5.0-update.zip) (کاربران ۲.۴.۱ — ۱۹ فایل) | [بسته نصب کامل](https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/download/v2.5.0/Sahand-Service-BrandMaker-v2.5.0-install.zip)
+
 ## 📁 ساختار پروژه
 
 ```
