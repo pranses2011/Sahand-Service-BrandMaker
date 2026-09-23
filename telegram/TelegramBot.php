@@ -571,6 +571,69 @@ class TelegramBot
                 $this->sendMessage($chatId, $this->formatAssistantReply($result));
                 return true;
 
+            /* ---------- 🆕 v2.1 ---------- */
+
+            case '/seo':
+            case '/سئو':
+                if ($args === '') {
+                    $this->sendMessage($chatId,
+                        "🏅 <b>پکیج سئوی پیشرفته</b> (موتور v3.3)\n\n" .
+                        "موضوع یا متن را بفرستید تا تحلیل کامل بگیرید:\n" .
+                        "<code>/seo تعمیر یخچال اسنوا</code>\n\n" .
+                        "تحویل: عنوان و متا + کلیدواژه‌ها + خوشه معنایی +\n" .
+                        "چک‌لیست E-E-A-T + موجودیت‌ها + پرس‌وجوهای رایج");
+                    return true;
+                }
+                $this->sendChatAction($chatId, 'typing');
+                try {
+                    $result = (new SahandAI())->seoPackage([
+                        'title'   => mb_substr($args, 0, 120),
+                        'content' => $args,
+                        'focus_keyword' => $args,
+                    ]);
+                    $this->sendMessage($chatId, $this->formatSeoReply($result), ['disable_preview' => true]);
+                } catch (Throwable $e) {
+                    $this->sendMessage($chatId, '❌ خطا در تولید پکیج سئو: ' . htmlspecialchars($e->getMessage()));
+                }
+                return true;
+
+            case '/eeat':
+            case '/اعتماد':
+                if ($args === '') {
+                    $this->sendMessage($chatId, "✅ متن را بفرستید تا چک‌لیست E-E-A-T بگیرید:\n<code>/eeat متن مقاله شما...</code>");
+                    return true;
+                }
+                $this->sendChatAction($chatId, 'typing');
+                try {
+                    $result = (new SahandAI())->eeatCheck(['content' => $args]);
+                    $this->sendMessage($chatId, $this->formatEeatReply($result));
+                } catch (Throwable $e) {
+                    $this->sendMessage($chatId, '❌ خطا: ' . htmlspecialchars($e->getMessage()));
+                }
+                return true;
+
+            case '/plan':
+            case '/برنامه':
+                if ($args === '') {
+                    $this->sendMessage($chatId, "🗓️ موضوع را بنویسید: <code>/plan یخچال پاکشما</code>\nبرنامه انتشار ۸ هفته‌ای مقالات + موضوعات پیشنهادی داده می‌شود.");
+                    return true;
+                }
+                $this->sendChatAction($chatId, 'typing');
+                $result = (new CommandAssistant())->handle('برنامه محتوا برای ' . $args);
+                $this->sendMessage($chatId, $this->formatAssistantReply($result), ['disable_preview' => true]);
+                return true;
+
+            case '/faq':
+            case '/سوال':
+                if ($args === '') {
+                    $this->sendMessage($chatId, "❓ موضوع را بنویسید: <code>/faq ماشین لباسشویی دوو</code>");
+                    return true;
+                }
+                $this->sendChatAction($chatId, 'typing');
+                $result = (new CommandAssistant())->handle('سوالات متداول درباره ' . $args);
+                $this->sendMessage($chatId, $this->formatAssistantReply($result), ['disable_preview' => true]);
+                return true;
+
             default:
                 $this->sendMessage($chatId, "🤔 فرمان ناشناخته: <code>" . htmlspecialchars($cmd) . "</code>\n\n📖 /help را ببینید.");
                 return true;
@@ -904,6 +967,50 @@ class TelegramBot
                 }
                 break;
 
+            /* ---------- 🆕 v2.1: اکشن‌های موتور ۳.۳ ---------- */
+
+            case 'seo':
+                if (!empty($result['result'])) {
+                    $lines[] = "\n" . $this->formatSeoReply($result['result']);
+                }
+                break;
+
+            case 'eeat':
+                if (!empty($result['result'])) {
+                    $lines[] = "\n" . $this->formatEeatReply($result['result']);
+                }
+                break;
+
+            case 'content_plan':
+                $r = $result['result'] ?? [];
+                if (!empty($r['weeks']) && is_array($r['weeks'])) {
+                    foreach (array_slice($r['weeks'], 0, 8) as $i => $week) {
+                        $lines[] = '🗓️ هفته ' . en_to_fa_digits((string)($i + 1)) . ': ' .
+                            htmlspecialchars(mb_substr((string)($week['theme'] ?? $week['focus'] ?? ''), 0, 80));
+                    }
+                } elseif (!empty($r['topics'])) {
+                    foreach (array_slice((array)$r['topics'], 0, 8) as $i => $topic) {
+                        $t = is_array($topic) ? ($topic['title'] ?? '') : (string)$topic;
+                        if ($t !== '') { $lines[] = ($i + 1) . '. ' . htmlspecialchars($t); }
+                    }
+                }
+                break;
+
+            case 'faq':
+                $r = $result['result'] ?? [];
+                foreach ((array)($r['faqs'] ?? []) as $i => $faq) {
+                    if ($i >= 8) { break; }
+                    $q = is_array($faq) ? ($faq['question'] ?? '') : (string)$faq;
+                    if ($q !== '') {
+                        $lines[] = '❓ ' . htmlspecialchars($q);
+                        if (is_array($faq) && !empty($faq['answer'])) {
+                            $lines[] = '   ' . htmlspecialchars(mb_substr((string)$faq['answer'], 0, 140)) . '…';
+                        }
+                    }
+                }
+                $lines[] = "\n💡 تولید کامل: از پنل مدیریت → برند → سوالات متداول";
+                break;
+
             case 'intent':
                 $r = $result['result'] ?? [];
                 $lines[] = "\n🧭 نیت: <b>" . htmlspecialchars((string)($r['intent'] ?? '؟')) . '</b>' .
@@ -1043,6 +1150,80 @@ class TelegramBot
         return implode("\n", $lines);
     }
 
+    /** 🏅 قالب‌بندی پکیج سئوی پیشرفته — v2.1 */
+    private function formatSeoReply(array $seo): string
+    {
+        $lines = ['🏅 <b>پکیج سئوی پیشرفته</b> — موتور v' . SahandAI::ENGINE_VERSION, ''];
+
+        $lines[] = '🏷️ <b>عنوان پیشنهادی:</b> ' . htmlspecialchars((string)($seo['title'] ?? ''));
+        $lines[] = '📝 <b>متا دیسکریپشن:</b> ' . htmlspecialchars(mb_substr((string)($seo['description'] ?? ''), 0, 175));
+        if (!empty($seo['keywords'])) {
+            $lines[] = '🔑 <b>کلیدواژه‌ها:</b> ' . htmlspecialchars(mb_substr((string)$seo['keywords'], 0, 220));
+        }
+
+        // 🏅 E-E-A-T
+        if (!empty($seo['eeat'])) {
+            $lines[] = '';
+            $lines[] = '✅ <b>E-E-A-T:</b> ' . (int)$seo['eeat']['passed'] . '/' . (int)$seo['eeat']['total'] .
+                ' (' . (int)$seo['eeat']['score'] . '٪)';
+        }
+
+        // 🧠 موجودیت‌ها
+        if (!empty($seo['entities'])) {
+            $names = [];
+            foreach ((array)$seo['entities'] as $ent) {
+                $names[] = (string)($ent['name'] ?? '');
+            }
+            $names = array_filter($names);
+            if ($names) {
+                $lines[] = '🧠 <b>موجودیت‌ها:</b> ' . htmlspecialchars(implode('، ', array_slice($names, 0, 10)));
+            }
+        }
+
+        // 🔗 خوشه کلیدواژه
+        if (!empty($seo['secondary_keywords']['clusters'])) {
+            $lines[] = '';
+            $lines[] = '🔗 <b>خوشه‌های معنایی:</b>';
+            $labels = ['informational' => 'اطلاعاتی', 'commercial' => 'تجاری', 'howto' => 'آموزشی'];
+            foreach ($seo['secondary_keywords']['clusters'] as $type => $keywords) {
+                $kw = array_slice((array)$keywords, 0, 2);
+                $lines[] = '• ' . ($labels[$type] ?? $type) . ': ' . htmlspecialchars(implode(' | ', $kw));
+            }
+        }
+
+        // ❓ People Also Ask
+        if (!empty($seo['secondary_keywords']['people_also_ask'])) {
+            $lines[] = '';
+            $lines[] = '❓ <b>سوالات پرتکرار:</b>';
+            foreach (array_slice((array)$seo['secondary_keywords']['people_also_ask'], 0, 3) as $q) {
+                $lines[] = '• ' . htmlspecialchars((string)$q);
+            }
+        }
+
+        $lines[] = '';
+        $lines[] = '🤖 برای مقاله کامل با عکس: /article [موضوع]';
+        return implode("\n", $lines);
+    }
+
+    /** ✅ قالب‌بندی چک‌لیست E-E-A-T — v2.1 */
+    private function formatEeatReply(array $eeat): string
+    {
+        $lines = [
+            '✅ <b>چک‌لیست E-E-A-T</b>',
+            'امتیاز کلی: <b>' . (int)($eeat['score'] ?? 0) . '٪</b> (' .
+            (int)($eeat['passed'] ?? 0) . ' از ' . (int)($eeat['total'] ?? 0) . ' معیار)',
+            '',
+        ];
+        foreach ((array)($eeat['checks'] ?? []) as $check) {
+            $icon = !empty($check['pass']) ? '✅' : '❌';
+            $lines[] = $icon . ' ' . (string)($check['label'] ?? '');
+            if (empty($check['pass']) && !empty($check['hint'])) {
+                $lines[] = '   💡 ' . htmlspecialchars((string)$check['hint']);
+            }
+        }
+        return implode("\n", $lines);
+    }
+
     /** 📰 قالب‌بندی خروجی مقاله (خلاصه + آمار) */
     private function formatArticle(array $r): string
     {
@@ -1110,6 +1291,10 @@ class TelegramBot
             "📰 «اخبار: لوازم خانگی» (جدید)\n\n" .
             "⚙️ <b>فرمان‌ها:</b>\n" .
             "/article [موضوع] — مقاله کامل با فایل و عکس\n" .
+            "/seo [موضوع/متن] — پکیج سئوی پیشرفته (جدید)\n" .
+            "/eeat [متن] — چک‌لیست اعتماد E-E-A-T (جدید)\n" .
+            "/plan [موضوع] — برنامه انتشار محتوا (جدید)\n" .
+            "/faq [موضوع] — سوالات متداول پیشنهادی (جدید)\n" .
             "/keywords [موضوع] — کلیدواژه و long-tail\n" .
             "/search [عبارت] — جستجوی آنلاین وب\n" .
             "/research [موضوع] — تحقیق ساختاریافته\n" .

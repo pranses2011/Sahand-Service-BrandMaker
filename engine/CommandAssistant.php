@@ -85,6 +85,33 @@ class CommandAssistant
             return $this->score($text, $command);
         }
 
+        // 1.8️⃣ 🏅 پکیج سئو — «سئو: ...» / «سئو بررسی کن ...» / «تحلیل سئو ...» (v3.3)
+        if (preg_match('/(سئو|seo)/u', $norm)
+            && preg_match('/(بررسی|تحلیل|پکیج|چک|کن|بده|:)/u', $norm)) {
+            $topic = trim((string)(preg_split('/[:：]/u', $command, 2)[1] ?? ''));
+            if ($topic === '') {
+                $topic = preg_replace('/(سئو|تحلیل|بررسی|چک|کن|بده|را|برای|از|seo)/iu', ' ', $command);
+                $topic = trim(preg_replace('/\s+/u', ' ', $topic));
+            }
+            return $this->seoPackage($topic, $command);
+        }
+
+        // 1.9️⃣ ✅ چک‌لیست E-E-A-T — «اعتمادسنجی: ...» / «eeat ...» (v3.3)
+        if (preg_match('/(اعتمادسنجی|ای ای تی|eeat)/u', $norm) && preg_match('/[:：]/u', $command)) {
+            $text = trim(preg_split('/[:：]/u', $command, 2)[1] ?? '');
+            return $this->eeat($text, $command);
+        }
+
+        // 1.95️⃣ 🗓️ برنامه محتوا — «برنامه محتوا برای ...» (v3.3)
+        if (preg_match('/(برنامه محتوا|تقویم محتوا|برنامه انتشار)/u', $norm)) {
+            return $this->contentPlan($command);
+        }
+
+        // 1.97️⃣ ❓ سوالات متداول — «سوالات متداول درباره ...» (v3.3)
+        if (preg_match('/(سوالات متداول|سوال رایج|سوالات رایج)/u', $norm)) {
+            return $this->faq($command);
+        }
+
         // 3️⃣ بهبود متن — «این متن را بهبود بده: ...»
         if (preg_match('/(بهبود|اصلاح|تقویت)/u', $norm) && preg_match('/[:：]/u', $command)) {
             $text = trim(preg_split('/[:：]/u', $command, 2)[1] ?? '');
@@ -514,9 +541,91 @@ class CommandAssistant
                 'web_search'  => 'جستجوی آنلاین اینترنت — «جستجوی وب: ...»',
                 'web_research'=> 'تحقیق ساختاریافته آنلاین — «تحقیق درباره: ...»',
                 'web_news'    => 'اخبار زنده — «اخبار: ...» (v3.2)',
+                'seo_package' => 'پکیج سئوی پیشرفته — «سئو بررسی کن: ...» (v3.3)',
+                'eeat'        => 'اعتمادسنجی E-E-A-T — «اعتمادسنجی: <متن>» (v3.3)',
+                'content_plan'=> 'برنامه محتوا — «برنامه محتوا برای ...» (v3.3)',
+                'faq'         => 'سوالات متداول — «سوالات متداول درباره ...» (v3.3)',
             ],
             'suggestions' => $this->suggestions(),
         ];
+    }
+
+    /* ==================================================
+     * 🆕 قابلیت‌های v3.3
+     * ================================================== */
+
+    /**
+     * 🏅 پکیج سئوی پیشرفته — v3.3
+     */
+    private function seoPackage(string $topic, string $command): array
+    {
+        if ($topic === '' || mb_strlen($topic) < 3) {
+            return ['action' => 'seo', 'success' => false,
+                'message' => 'موضوع را مشخص کنید؛ مثال: «سئو بررسی کن: تعمیر یخچال اسنوا» یا «تحلیل سئو ماشین لباسشویی»'];
+        }
+        try {
+            $ai = new SahandAI();
+            $seo = $ai->seoPackage([
+                'title'         => mb_substr($topic, 0, 120),
+                'content'       => $topic,
+                'focus_keyword' => $topic,
+            ]);
+            return ['action' => 'seo', 'success' => true, 'message' => 'پکیج سئو تولید شد', 'result' => $seo];
+        } catch (Throwable $e) {
+            return ['action' => 'seo', 'success' => false, 'message' => 'خطا در تولید پکیج سئو: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * ✅ اعتمادسنجی E-E-A-T — v3.3
+     */
+    private function eeat(string $text, string $command): array
+    {
+        if ($text === '' || mb_strlen($text) < 20) {
+            return ['action' => 'eeat', 'success' => false,
+                'message' => 'متن کافی نیست؛ مثال: «اعتمادسنجی: <متن مقاله شما>»'];
+        }
+        try {
+            $result = (new SahandAI())->eeatCheck(['content' => $text]);
+            return ['action' => 'eeat', 'success' => true, 'message' => 'چک‌لیست E-E-A-T اجرا شد', 'result' => $result];
+        } catch (Throwable $e) {
+            return ['action' => 'eeat', 'success' => false, 'message' => 'خطا: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * 🗓️ برنامه محتوا — v3.3
+     */
+    private function contentPlan(string $command): array
+    {
+        try {
+            $ai = new SahandAI();
+            $result = $ai->contentPlan(['weeks' => 8]);
+            return ['action' => 'content_plan', 'success' => true, 'message' => 'برنامه محتوای ۸ هفته‌ای', 'result' => $result];
+        } catch (Throwable $e) {
+            return ['action' => 'content_plan', 'success' => false, 'message' => 'خطا: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * ❓ سوالات متداول — v3.3
+     */
+    private function faq(string $command): array
+    {
+        try {
+            // اولین برند فعال به عنوان پیش‌فرض (اگر کاربر برندی مشخص نکرده)
+            $db = Database::getInstance();
+            $brandId = (int)$db->fetchValue('SELECT id FROM brands WHERE is_active = 1 ORDER BY id LIMIT 1');
+            if ($brandId < 1) {
+                return ['action' => 'faq', 'success' => false,
+                    'message' => 'هنوز برندی ثبت نشده است؛ ابتدا از پنل مدیریت برند بسازید.'];
+            }
+            $ai = new SahandAI();
+            $result = $ai->generateFaq(['brand_id' => $brandId, 'count' => 10]);
+            return ['action' => 'faq', 'success' => true, 'message' => 'سوالات متداول تولید شد', 'result' => $result];
+        } catch (Throwable $e) {
+            return ['action' => 'faq', 'success' => false, 'message' => 'خطا: ' . $e->getMessage()];
+        }
     }
 
     /**
@@ -531,6 +640,8 @@ class CommandAssistant
             'عنوان برای تعمیر کولر گازی بده',
             'جستجوی وب: قیمت موتور ماشین لباسشویی',
             'تحقیق درباره: یخچال ساید بای ساید اسنوا',
+            'سئو بررسی کن: تعمیر یخچال اسنوا',
+            'برنامه محتوا برای یخچال',
         ];
     }
 
