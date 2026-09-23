@@ -170,6 +170,86 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash('success', '✅ سئوی صفحه ذخیره شد — امتیاز جدید: ' . $analysis['score'] . '/100');
         redirect('brand-edit.php?id=' . $brandId . '&tab=seo&page=' . $pageId);
     }
+
+    /* 🚀 بهبود خودکار سئوی یک صفحه تا ۱۰۰ (v2.6 — AJAX) */
+    if ($action === 'improve_page_seo') {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $pageId = (int)post('page_id');
+            $page = $db->fetch('SELECT * FROM brand_pages WHERE id = ? AND brand_id = ?', [$pageId, $brandId]);
+            if (!$page) {
+                json_response(['success' => false, 'error' => 'صفحه یافت نشد.'], 404);
+            }
+            $focus = trim((string)post('focus_keyword')) ?: ('تعمیر ' . $brand['name_fa']);
+            $improver = new PageSeoImprover();
+            $result = $improver->improve($page, $focus, $brand);
+            $p = $result['page'];
+            $db->update('brand_pages', [
+                'seo_title'       => $p['seo_title'],
+                'seo_description' => $p['seo_description'],
+                'seo_keywords'    => $p['seo_keywords'],
+                'seo_robots'      => $p['robots'],
+                'slug'            => $p['slug'],
+                'og_title'        => $p['og_title'],
+                'og_description'  => $p['og_description'],
+                'content'         => $p['content_json'],
+                'seo_score'       => $p['seo_score'],
+                'updated_at'      => date('Y-m-d H:i:s'),
+            ], 'id = ?', [$pageId]);
+            (new Cache())->delete('brand_pages_' . $brandId);
+            unset($result['page']);
+            json_response(['success' => true, 'data' => $result]);
+        } catch (Throwable $e) {
+            json_response(['success' => false, 'error' => $e->getMessage()], 400);
+        }
+    }
+
+    /* 🚀🚀 بهبود خودکار همه صفحات برند تا ۱۰۰ (v2.6 — AJAX) */
+    if ($action === 'improve_all_pages') {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            @set_time_limit(300);
+            $pages = $db->fetchAll('SELECT * FROM brand_pages WHERE brand_id = ? AND is_active = 1', [$brandId]);
+            $improver = new PageSeoImprover();
+            $report = [];
+            $improved = 0;
+            foreach ($pages as $page) {
+                try {
+                    $focus = 'تعمیر ' . $brand['name_fa'];
+                    $result = $improver->improve($page, $focus, $brand);
+                    $p = $result['page'];
+                    $db->update('brand_pages', [
+                        'seo_title'       => $p['seo_title'],
+                        'seo_description' => $p['seo_description'],
+                        'seo_keywords'    => $p['seo_keywords'],
+                        'seo_robots'      => $p['robots'],
+                        'slug'            => $p['slug'],
+                        'og_title'        => $p['og_title'],
+                        'og_description'  => $p['og_description'],
+                        'content'         => $p['content_json'],
+                        'seo_score'       => $p['seo_score'],
+                        'updated_at'      => date('Y-m-d H:i:s'),
+                    ], 'id = ?', [$page['id']]);
+                    if ($result['score_after'] > $result['score_before']) { $improved++; }
+                    $report[] = [
+                        'page_type' => $page['page_type'],
+                        'before'    => $result['score_before'],
+                        'after'     => $result['score_after'],
+                    ];
+                } catch (Throwable $pe) {
+                    $report[] = ['page_type' => $page['page_type'], 'error' => $pe->getMessage()];
+                }
+            }
+            (new Cache())->delete('brand_pages_' . $brandId);
+            json_response(['success' => true, 'data' => [
+                'pages'    => count($pages),
+                'improved' => $improved,
+                'report'   => $report,
+            ]]);
+        } catch (Throwable $e) {
+            json_response(['success' => false, 'error' => $e->getMessage()], 400);
+        }
+    }
 }
 
 $pageTitle = 'ویرایش برند';
@@ -437,6 +517,15 @@ foreach ($pages as $p) {
                             <div style="font-size:12px;color:var(--text-light)"><?= e($lastAnalysis['grade']) ?> — <?= en_to_fa_digits((string)$lastAnalysis['word_count']) ?> کلمه محتوا</div>
                         </div>
                     </div>
+                    <div style="display:flex;flex-direction:column;gap:9px;margin:14px 0">
+                        <button type="button" id="btn-improve-page-seo" class="btn btn-success" data-page="<?= (int)$seoPage['id'] ?>">
+                            🚀 بهبود خودکار این صفحه تا امتیاز ۱۰۰
+                        </button>
+                        <button type="button" id="btn-improve-all-pages" class="btn btn-primary">
+                            🚀🚀 بهبود همه بخش‌ها و صفحات برند با AI
+                        </button>
+                        <div id="page-seo-report" style="display:none"></div>
+                    </div>
 
                     <form method="post">
                         <?= Auth::csrfField() ?>
@@ -514,4 +603,72 @@ foreach ($pages as $p) {
     </div>
 </form>
 
+<script>
+/* 🚀 بهبود خودکار سئو تا ۱۰۰ (v2.6) */
+(function () {
+    'use strict';
+    var fa = function (n) { return String(n).replace(/[0-9]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[+d]; }); };
+
+    function post(url, body) {
+        var csrf = document.querySelector('input[name="csrf_token"]');
+        var data = new URLSearchParams();
+        Object.keys(body).forEach(function (k) { data.append(k, body[k]); });
+        if (csrf) { data.append('csrf_token', csrf.value); }
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrf ? csrf.value : '', 'X-Requested-With': 'XMLHttpRequest' },
+            body: data.toString(),
+            credentials: 'same-origin'
+        }).then(function (r) { return r.json(); });
+    }
+
+    var single = document.getElementById('btn-improve-page-seo');
+    var report = document.getElementById('page-seo-report');
+    if (single && report) {
+        single.addEventListener('click', function () {
+            post('brand-edit.php?id=<?= (int)$brandId ?>', { action: 'improve_page_seo', page_id: single.getAttribute('data-page') })
+                .then(function (res) {
+                    if (!res.success) { sahandToast({ message: res.error || 'بهبود ناموفق بود', type: 'danger' }); return; }
+                    var d = res.data;
+                    report.style.display = 'block';
+                    report.innerHTML = '<div class="alert alert-' + (d.score_after >= 85 ? 'success' : 'warning') + '">' +
+                        '🚀 امتیاز: ' + fa(d.score_before) + ' ← <b>' + fa(d.score_after) + '</b> (' + (d.score_after - d.score_before > 0 ? '+' + fa(d.score_after - d.score_before) : 'بدون تغییر') + ') در ' + fa(d.rounds) + ' دور' +
+                        (d.applied.length ? '<br>✅ ' + d.applied.join('؛ ') : '') + '<br>🔄 برای دیدن نتیجه، صفحه را رفرش کنید.</div>';
+                    sahandToast({ message: 'سئوی صفحه به ' + fa(d.score_after) + '/۱۰۰ رسید', type: d.score_after >= 85 ? 'success' : 'info' });
+                })
+                .catch(function (err) { sahandToast({ message: 'خطای ارتباط: ' + err.message, type: 'danger' }); });
+        });
+    }
+
+    var all = document.getElementById('btn-improve-all-pages');
+    if (all) {
+        all.addEventListener('click', function () {
+            all.disabled = true;
+            all.innerHTML = '⏳ در حال بهبود همه صفحات... (چند لحظه)';
+            post('brand-edit.php?id=<?= (int)$brandId ?>', { action: 'improve_all_pages' })
+                .then(function (res) {
+                    all.disabled = false;
+                    all.innerHTML = '🚀🚀 بهبود همه بخش‌ها و صفحات برند با AI';
+                    if (!res.success) { sahandToast({ message: res.error || 'بهبود ناموفق بود', type: 'danger' }); return; }
+                    var d = res.data;
+                    var rows = (d.report || []).map(function (r) {
+                        return r.error
+                            ? '❌ ' + r.page_type + ': ' + r.error
+                            : '📄 ' + r.page_type + ': ' + fa(r.before) + ' → <b>' + fa(r.after) + '</b>';
+                    }).join('<br>');
+                    if (report) {
+                        report.style.display = 'block';
+                        report.innerHTML = '<div class="alert alert-success">🚀🚀 ' + fa(d.improved) + ' صفحه از ' + fa(d.pages) + ' صفحه بهبود یافت:<br>' + rows + '<br>🔄 برای دیدن نتیجه، صفحه را رفرش کنید.</div>';
+                    }
+                    sahandToast({ message: fa(d.improved) + ' از ' + fa(d.pages) + ' صفحه بهبود یافت', type: 'success' });
+                })
+                .catch(function (err) {
+                    all.disabled = false;
+                    all.innerHTML = '🚀🚀 بهبود همه بخش‌ها و صفحات برند با AI';
+                    sahandToast({ message: 'خطای ارتباط: ' + err.message, type: 'danger' });
+                });
+        });
+    }
+})();
+</script>
 <?php require __DIR__ . '/includes/footer.php'; ?>
