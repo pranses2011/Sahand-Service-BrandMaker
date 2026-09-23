@@ -10,3 +10,4 @@ uploads/temp/*
 !uploads/articles/.gitkeep
 !uploads/temp/.gitkeep
 *.zip
+cache/engine/*.json

@@ -19,7 +19,7 @@ if (!defined('SAHAND_INIT')) {
 /* --------------------------------------------------
  * 🌍 تنظیمات عمومی
  * -------------------------------------------------- */
-define('SAHAND_VERSION', '1.1.0');              // نسخه سیستم
+define('SAHAND_VERSION', '2.0.0');              // نسخه سیستم
 define('SAHAND_NAME_FA', 'سایت ساز برند سهند سرویس'); // نام فارسی سیستم
 define('SAHAND_NAME_EN', 'Sahand BrandMaker');   // نام انگلیسی سیستم
 date_default_timezone_set('Asia/Tehran');        // ⏰ منطقه زمانی ایران

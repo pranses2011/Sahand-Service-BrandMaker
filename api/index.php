@@ -7,7 +7,9 @@
  *
  * اندپوینت‌ها:
  *   🌐 سایت برند: brand, page, article, request, analytics, seo, error-code, settings, icon, font, template
- *   🤖 موتور AI: ai/* (مطابق بخش ۶ سند)
+ *   🤖 موتور AI v1: generate-content, generate-article, generate-seo, generate-brand-info, generate-faq, analyze-keywords, check-uniqueness, suggest-improvements, suggest-topics
+ *   🧠 موتور AI v2: score-content, classify-intent, content-plan, suggest-longtail, cluster-keywords, tfidf, engine-info
+ *   🚀 موتور AI v3: smart-generate, improve-content, brand-voice, generate-titles, assistant, cache-stats, cache-clear
  *
  * @package SahandBrandMaker
  */
@@ -263,6 +265,33 @@ $router->add('POST', 'ai/cluster-keywords', $aiHandler('clusterKeywords'));
 
 // 🧮 تحلیل TF-IDF نسبت به پایگاه دانش
 $router->add('POST', 'ai/tfidf', $aiHandler('tfidf'));
+
+/* ==================================================
+ * 🧠 اندپوینت‌های موتور نسخه ۳ (v3.0 «بی‌رقیب»)
+ * ================================================== */
+
+// 🚀 خط تولید هوشمند — یک فراخوانی = پکیج کامل محتوا
+$router->add('POST', 'ai/smart-generate', $aiHandler('smartGenerate'));
+
+// 🔧 بهبود خودکار محتوا (چرخه خود-درمانی کیفیت)
+$router->add('POST', 'ai/improve-content', $aiHandler('improveContent'));
+
+// 🎙️ تحلیل صدای برند (پروفایل لحن + انطباق متن)
+$router->add('POST', 'ai/brand-voice', $aiHandler('brandVoice'));
+
+// 🏷️ تولید عنوان بهینه CTR-محور
+$router->add('POST', 'ai/generate-titles', $aiHandler('generateTitles'));
+
+// 💬 دستیار فرمان فارسی (زبان طبیعی)
+$router->add('POST', 'ai/assistant', $aiHandler('assistant'));
+
+// ⚡ آمار کش موتور
+$router->add('GET', 'ai/cache-stats', function () {
+    json_response(['success' => true, 'data' => (new SahandAI())->cacheStats()]);
+});
+
+// 🧹 پاکسازی کش موتور
+$router->add('POST', 'ai/cache-clear', $aiHandler('cacheClear'));
 
 /* ==================================================
  * 🔍 سئو (تولید برای صفحه)

@@ -1,0 +1,487 @@
+<?php
+/**
+ * 💬 دستیار فرمان فارسی — CommandAssistant v3.0
+ * ===============================================
+ * رابط زبان طبیعی برای موتور AI: کاربر فارسی‌زبان دستور
+ * می‌نویسد، دستیار عملیات مناسب را تشخیص داده و اجرا می‌کند.
+ *
+ * نمونه فرمان‌ها:
+ *   «مقاله بنویس برای پاکشما درباره ماشین لباسشویی»
+ *   «کلمات کلیدی یخچال»
+ *   «امتیاز این متن: ...»
+ *   «عنوان برای تعمیر ماشین ظرفشویی بده»
+ *   «این متن را بهبود بده: ...»
+ *   «نیت جستجوی خرید یخچال ساید بای ساید چیست؟»
+ *   «تشخیص عیب: یخچال سرد نمی‌کند و صدای داد می‌زند»
+ *   «برندهای پایگاه دانش»
+ *   «راهنما»
+ *
+ * @package SahandBrandMaker\Engine
+ * @version 3.0.0
+ */
+class CommandAssistant
+{
+    /** @var SahandAI موتور */
+    private $ai;
+
+    /** @var Database دیتابیس */
+    private $db;
+
+    /** @var array نگاشت برند فارسی → کلید دانش */
+    private $brandMap = null;
+
+    public function __construct()
+    {
+        $this->ai = new SahandAI();
+        $this->db = Database::getInstance();
+    }
+
+    /**
+     * 💬 اجرای فرمان زبان طبیعی
+     *
+     * @param string $command فرمان فارسی کاربر
+     * @return array نتیجه + فرمان‌های پیشنهادی بعدی
+     */
+    public function handle(string $command): array
+    {
+        $command = trim($command);
+        if ($command === '') {
+            return $this->help('فرمان خالی است.');
+        }
+        $norm = TextProcessor::normalize(mb_strtolower($command));
+
+        // 1️⃣ راهنما
+        if (preg_match('/^(راهنما|کمک|هدایت|چه کارهایی)/u', $norm)) {
+            return $this->help();
+        }
+
+        // 2️⃣ امتیاز متن — «امتیاز این متن: ...» (دارای دونقطه — قبل از تشخیص عیب تا تداخل نشود)
+        if (preg_match('/(امتیاز|نمره)/u', $norm) && preg_match('/[:：]/u', $command)) {
+            $text = trim(preg_split('/[:：]/u', $command, 2)[1] ?? '');
+            return $this->score($text, $command);
+        }
+
+        // 3️⃣ بهبود متن — «این متن را بهبود بده: ...»
+        if (preg_match('/(بهبود|اصلاح|تقویت)/u', $norm) && preg_match('/[:：]/u', $command)) {
+            $text = trim(preg_split('/[:：]/u', $command, 2)[1] ?? '');
+            return $this->improve($text, $command);
+        }
+
+        // 4️⃣ تشخیص عیب — «تشخیص عیب: ...» یا شروع با کلیدواژه
+        if (preg_match('/(تشخیص عیب|عیب یابی)/u', $norm)
+            && (preg_match('/[:：]/u', $command) || preg_match('/^(تشخیص|عیب)/u', $norm))) {
+            return $this->diagnose($command);
+        }
+
+        // 5️⃣ برندها
+        if (preg_match('/(برندهای|لیست برند|برند ها)/u', $norm) && preg_match('/(پایگاه|دانش|لیست)/u', $norm)) {
+            return $this->brands();
+        }
+
+        // 6️⃣ عنوان
+        if (preg_match('/(عنوان|تیتر)/u', $norm)) {
+            return $this->titles($command);
+        }
+
+        // 7️⃣ نیت جستجو
+        if (preg_match('/(نیت|قصد).*(جستجو|کاربر)?/u', $norm) && !preg_match('/[:：]/u', $command)) {
+            return $this->intent($command);
+        }
+
+        // 8️⃣ کلمات کلیدی
+        if (preg_match('/(کلمات کلیدی|کلیدواژه)/u', $norm)) {
+            return $this->keywords($command);
+        }
+
+        // 9️⃣ مقاله
+        if (preg_match('/(مقاله|مطلب).*(بنویس|بنویسید|بساز|تولید)|بنویس.*مقاله|مقاله جدید/u', $norm)) {
+            return $this->article($command);
+        }
+
+        // 🔟 تشخیص هوشمند (بدون کلیدواژه مشخص) — جملات خبره
+        if (preg_match('/(کد خطا|ارور)/u', $norm)) {
+            return $this->errorCodes($command);
+        }
+
+        // 🤷 نامفهوم
+        return [
+            'action'   => 'unknown',
+            'message'  => 'فرمان شناخته نشد. دستیار این کارها را می‌فهمد: تولید مقاله، کلمات کلیدی، امتیاز متن، بهبود متن، عنوان، نیت جستجو، تشخیص عیب، کد خطا و لیست برندها.',
+            'command'  => $command,
+            'suggestions' => $this->suggestions(),
+        ];
+    }
+
+    /* ==================================================
+     * 🎬 عملیات‌ها
+     * ================================================== */
+
+    /**
+     * 📰 تولید مقاله از فرمان طبیعی
+     */
+    private function article(string $command): array
+    {
+        $norm = TextProcessor::normalize(mb_strtolower($command));
+        $brandKey = $this->findBrand($norm);
+        $deviceKey = $this->findDevice($norm);
+
+        // یافتن برند دیتابیسی (پایگاه دانش مستقل از برندهای ثبت‌شده کاربر)
+        $brandId = null;
+        if ($brandKey !== null) {
+            $row = $this->db->fetch('SELECT id FROM brands WHERE name_fa LIKE ? OR name_en LIKE ? LIMIT 1', ["%{$brandKey}%", "%{$brandKey}%"]);
+            if ($row) {
+                $brandId = (int)$row['id'];
+            }
+        }
+        if ($brandId === null) {
+            $row = $this->db->fetchValue('SELECT MIN(id) FROM brands WHERE is_active = 1');
+            $brandId = $row ? (int)$row : null;
+        }
+
+        if ($brandId === null) {
+            return [
+                'action'  => 'article',
+                'success' => false,
+                'message' => 'هنوز برندی ثبت نشده است. ابتدا از پنل مدیریت برند بسازید.',
+                'suggestions' => $this->suggestions(),
+            ];
+        }
+
+        // نوع مقاله از فرمان
+        $topicType = 'troubleshooting';
+        if (preg_match('/(آموزش|راهنمای استفاده)/u', $norm)) {
+            $topicType = 'user_guide';
+        } elseif (preg_match('/(نگهداری|تعمیر و نگهداری|سرویس دوره)/u', $norm)) {
+            $topicType = 'maintenance';
+        } elseif (preg_match('/(مقایسه|بهترین)/u', $norm)) {
+            $topicType = 'comparison';
+        } elseif (preg_match('/(هزینه|قیمت|تعرفه)/u', $norm)) {
+            $topicType = 'cost_guide';
+        } elseif (preg_match('/(فصلی|تابستان|زمستان)/u', $norm)) {
+            $topicType = 'seasonal_care';
+        }
+
+        $result = $this->ai->smartGenerate([
+            'brand_id'  => $brandId,
+            'topic_type'=> $topicType,
+            'device_key'=> $deviceKey,
+            'variants'  => 2,
+        ]);
+
+        return [
+            'action'  => 'article',
+            'success' => true,
+            'message' => 'مقاله با خط تولید هوشمند تولید شد.',
+            'params'  => ['brand_id' => $brandId, 'topic_type' => $topicType, 'device_key' => $deviceKey],
+            'result'  => $result,
+            'suggestions' => [
+                'این متن را بهبود بده: ...',
+                'امتیاز این متن: ...',
+                'عنوان برای ' . ($result['keyword']['focus'] ?? 'این موضوع') . ' بده',
+            ],
+        ];
+    }
+
+    /**
+     * 🔑 کلمات کلیدی از فرمان
+     */
+    private function keywords(string $command): array
+    {
+        $topic = $this->extractTopic($command, ['/کلمات کلیدی/', '/کلیدواژه/']);
+        if ($topic === '') {
+            return ['action' => 'keywords', 'success' => false, 'message' => 'موضوع کلمات کلیدی را مشخص کنید؛ مثال: «کلمات کلیدی ماشین لباسشویی»'];
+        }
+        $result = $this->ai->suggestLongTail(['keyword' => $topic, 'count' => 10]);
+        $comp = (new KeywordAnalyzer())->estimateCompetition($topic);
+        return [
+            'action'  => 'keywords',
+            'success' => true,
+            'message' => "تحلیل کلیدواژه «{$topic}» انجام شد.",
+            'result'  => [
+                'topic'         => $topic,
+                'competition'   => $comp,
+                'longtail'      => $result,
+            ],
+            'suggestions' => ["مقاله بنویس درباره {$topic}", "عنوان برای {$topic} بده"],
+        ];
+    }
+
+    /**
+     * 🏆 امتیازدهی متن
+     */
+    private function score(string $text, string $command): array
+    {
+        if (TextProcessor::wordCount($text) < 30) {
+            return ['action' => 'score', 'success' => false, 'message' => 'متن برای امتیازدهی خیلی کوتاه است (حداقل ۳۰ کلمه).'];
+        }
+        $result = $this->ai->scoreContent(['content' => $text]);
+        return [
+            'action'  => 'score',
+            'success' => true,
+            'message' => 'امتیاز کیفیت متن: ' . $result['score'] . '/100 (' . $result['grade'] . ')',
+            'result'  => $result,
+            'suggestions' => ['این متن را بهبود بده: ' . mb_substr($text, 0, 80) . '...'],
+        ];
+    }
+
+    /**
+     * 🔧 بهبود متن
+     */
+    private function improve(string $text, string $command): array
+    {
+        if (TextProcessor::wordCount($text) < 30) {
+            return ['action' => 'improve', 'success' => false, 'message' => 'متن برای بهبود خیلی کوتاه است (حداقل ۳۰ کلمه).'];
+        }
+        $result = (new ContentImprover())->improve($text, ['target_score' => 85]);
+        return [
+            'action'  => 'improve',
+            'success' => true,
+            'message' => 'امتیاز از ' . $result['score_before'] . ' به ' . $result['score_after'] . ' رسید.',
+            'result'  => $result,
+            'suggestions' => ['امتیاز این متن: ' . mb_substr($result['content'], 0, 80) . '...'],
+        ];
+    }
+
+    /**
+     * 🏷️ پیشنهاد عنوان
+     */
+    private function titles(string $command): array
+    {
+        $topic = $this->extractTopic($command, ['/عنوان/', '/تیتر/', '/برای/', '/بده/', '/بساز/']);
+        if ($topic === '') {
+            return ['action' => 'titles', 'success' => false, 'message' => 'موضوع عنوان را مشخص کنید؛ مثال: «عنوان برای تعمیر ماشین ظرفشویی بده»'];
+        }
+        $result = (new TitleGenerator())->generate($topic, [], 8);
+        return [
+            'action'  => 'titles',
+            'success' => true,
+            'message' => count($result['titles']) . ' عنوان پیشنهادی برای «' . $topic . '».',
+            'result'  => $result,
+            'suggestions' => ["مقاله بنویس درباره {$topic}"],
+        ];
+    }
+
+    /**
+     * 🧭 نیت جستجو
+     */
+    private function intent(string $command): array
+    {
+        // حذف کلمات دستیار، موضوع باقی می‌ماند
+        $topic = preg_replace('/(نیت|قصد|جستجوی|جستجو|کاربر|چیست|چیه|؟|\?)/u', ' ', $command);
+        $topic = trim($topic);
+        if ($topic === '') {
+            return ['action' => 'intent', 'success' => false, 'message' => 'عبارت جستجو را مشخص کنید؛ مثال: «نیت جستجوی خرید یخچال چیست؟»'];
+        }
+        $result = $this->ai->classifyIntent(['queries' => [$topic]]);
+        return [
+            'action'  => 'intent',
+            'success' => true,
+            'message' => 'نیت تشخیص داده شد.',
+            'result'  => $result,
+            'suggestions' => ["کلمات کلیدی {$topic}"],
+        ];
+    }
+
+    /**
+     * 🩺 تشخیص عیب — علامت‌ها + تطبیق فازی سه‌سطحی
+     */
+    private function diagnose(string $command): array
+    {
+        $norm = TextProcessor::normalize(mb_strtolower($command));
+        $deviceKey = $this->findDevice($norm);
+        $devicesKnowledge = TextProcessor::loadKnowledge('devices');
+
+        // علامت: بخش پس از دونقطه، یا کل فرمان بدون کلیدواژه‌های دستوری
+        $symptom = trim((string)(preg_split('/[:：]/u', $command, 2)[1] ?? ''));
+        if (mb_strlen($symptom) < 4) {
+            $symptom = preg_replace('/(تشخیص عیب|عیب یابی|ایراد|را|از|دستگاه|برند)/u', ' ', $command);
+        }
+        $symptom = trim(preg_replace('/\s+/u', ' ', $symptom));
+
+        if ($deviceKey === null) {
+            // بدون دستگاه مشخص — تلاش با دستگاه‌های پرکاربرد
+            $candidates = ['refrigerator', 'washing_machine', 'dishwasher', 'air_conditioner', 'package'];
+            foreach ($candidates as $cand) {
+                if (isset($devicesKnowledge[$cand])) {
+                    $deviceKey = $cand;
+                    break;
+                }
+            }
+        }
+        if ($deviceKey === null || mb_strlen($symptom) < 4) {
+            return ['action' => 'diagnose', 'success' => false,
+                'message' => 'نشانه‌ها را بنویسید؛ مثال: «تشخیص عیب: یخچال سرد نمی‌کند»',
+                'suggestions' => ['تشخیص عیب: یخچال خنک نمی‌کند', 'تشخیص عیب: ماشین لباسشویی آب تخلیه نمی‌کند']];
+        }
+
+        try {
+            $result = $this->ai->diagnose([
+                'device'   => $deviceKey,
+                'symptom'  => $symptom,
+            ]);
+        } catch (RuntimeException $e) {
+            return ['action' => 'diagnose', 'success' => false,
+                'message' => 'علامت در پایگاه دانش یافت نشد: ' . $e->getMessage(),
+                'suggestions' => ['تشخیص عیب: یخچال خنک نمی‌کند', 'تشخیص عیب: ماشین لباسشویی آب تخلیه نمی‌کند']];
+        }
+
+        return [
+            'action'  => 'diagnose',
+            'success' => true,
+            'message' => 'تشخیص سه‌سطحی برای دستگاه «' . ($devicesKnowledge[$deviceKey]['name_fa'] ?? $deviceKey) . '» انجام شد.',
+            'result'  => ['device_key' => $deviceKey] + $result,
+            'suggestions' => ['مقاله بنویس درباره ' . ($devicesKnowledge[$deviceKey]['name_fa'] ?? 'این مشکل')],
+        ];
+    }
+
+    /**
+     * 🚨 جستجوی کد خطا
+     */
+    private function errorCodes(string $command): array
+    {
+        preg_match('/([eE]\s?-?\s?\d{1,2}|[0-9]{1,2}[eE]|[0-9]{1,2})/u', $command, $m);
+        $code = trim(str_replace(' ', '', $m[1] ?? ''));
+        $deviceKey = $this->findDevice(TextProcessor::normalize(mb_strtolower($command)));
+        $kb = TextProcessor::loadKnowledge('error-codes');
+        $hits = [];
+        foreach ($kb as $key => $ec) {
+            if ($code !== '' && (strcasecmp($key, $code) === 0 || str_contains($key, $code))) {
+                $hits[$key] = $ec;
+            }
+        }
+        return [
+            'action'  => 'error-codes',
+            'success' => !empty($hits),
+            'message' => empty($hits)
+                ? 'کد خطا یافت نشد. کد را دقیق‌تر بنویسید؛ مثال: «کد خطا E24 ماشین ظرفشویی بوش»'
+                : count($hits) . ' کد خطا یافت شد.',
+            'result'  => ['code' => $code, 'device_key' => $deviceKey, 'matches' => $hits],
+            'suggestions' => $this->suggestions(),
+        ];
+    }
+
+    /**
+     * 🏷️ لیست برندهای دانش
+     */
+    private function brands(): array
+    {
+        $brands = $this->ai->knowledgeBrands();
+        return [
+            'action'  => 'brands',
+            'success' => true,
+            'message' => count((array)$brands) . ' برند در پایگاه دانش موجود است.',
+            'result'  => $brands,
+            'suggestions' => ['مقاله بنویس برای اسنوا درباره یخچال'],
+        ];
+    }
+
+    /* ==================================================
+     * 🛠️ ابزارها
+     * ================================================== */
+
+    /**
+     * ❓ راهنمای دستیار
+     */
+    private function help(string $note = ''): array
+    {
+        return [
+            'action'  => 'help',
+            'success' => true,
+            'message' => $note !== '' ? $note : 'دستیار هوشمند سهند آماده است.',
+            'examples' => [
+                'مقاله بنویس برای اسنوا درباره ماشین لباسشویی',
+                'مقاله آموزشی درباره یخچال ببنویس',
+                'کلمات کلیدی ماشین ظرفشویی',
+                'امتیاز این متن: <متن شما>',
+                'این متن را بهبود بده: <متن شما>',
+                'عنوان برای تعمیر جاروبرشی بده',
+                'نیت جستجوی خرید تلویزیون چیست؟',
+                'تشخیص عیب: یخچال سرد نمی‌کند',
+                'کد خطا E24 ماشین ظرفشویی',
+                'برندهای پایگاه دانش',
+            ],
+            'capabilities' => [
+                'article'   => 'تولید مقاله کامل با خط تولید هوشمند',
+                'keywords'  => 'تحلیل کلیدواژه + رقابت‌پذیری + long-tail',
+                'score'     => 'امتیاز ۷ بُعدی کیفیت متن',
+                'improve'   => 'بهبود خودکار متن تا امتیاز هدف',
+                'titles'    => 'پیشنهاد عنوان بهینه CTR-محور',
+                'intent'    => 'تشخیص نیت جستجو',
+                'diagnose'  => 'تشخیص سه‌سطحی علامت → علت → قطعه',
+                'errors'    => 'جستجوی کد خطا در پایگاه دانش',
+                'brands'    => 'لیست برندهای پایگاه دانش',
+            ],
+            'suggestions' => $this->suggestions(),
+        ];
+    }
+
+    /**
+     * 💡 فرمان‌های پیشنهادی
+     */
+    private function suggestions(): array
+    {
+        return [
+            'راهنما',
+            'مقاله بنویس برای پاکشما درباره ماشین لباسشویی',
+            'کلمات کلیدی یخچال',
+            'عنوان برای تعمیر کولر گازی بده',
+        ];
+    }
+
+    /**
+     * 🔎 یافتن برند دانشی در متن فرمان
+     */
+    private function findBrand(string $norm): ?string
+    {
+        if ($this->brandMap === null) {
+            $this->brandMap = [];
+            foreach (TextProcessor::loadKnowledge('brands') as $key => $b) {
+                $names = array_filter([
+                    $b['name_fa'] ?? null,
+                    $b['name_en'] ?? null,
+                    is_array($b['aliases'] ?? null) ? null : null,
+                ]);
+                $this->brandMap[$key] = $names;
+                foreach ((array)($b['aliases'] ?? []) as $alias) {
+                    $this->brandMap[$key][] = $alias;
+                }
+            }
+        }
+        foreach ($this->brandMap as $key => $names) {
+            foreach ($names as $name) {
+                if (is_string($name) && $name !== '' && mb_strpos($norm, TextProcessor::normalize(mb_strtolower($name))) !== false) {
+                    return $key;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 🔎 یافتن دستگاه در متن فرمان
+     */
+    private function findDevice(string $norm): ?string
+    {
+        foreach (TextProcessor::loadKnowledge('devices') as $key => $d) {
+            $name = TextProcessor::normalize(mb_strtolower($d['name_fa'] ?? ''));
+            if ($name !== '' && mb_strpos($norm, $name) !== false) {
+                return $key;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * ✂️ استخراج موضوع از فرمان (حذف کلمات دستوری)
+     */
+    private function extractTopic(string $command, array $stripPatterns): string
+    {
+        $topic = $command;
+        foreach ($stripPatterns as $p) {
+            $topic = preg_replace($p . 'u', ' ', $topic);
+        }
+        $topic = preg_replace('/(برای|درباره|از|را|بده|بساز|بنویس|چیست|چیه|لطففاً|لطفا|؟|\?|:|،)/u', ' ', $topic);
+        $topic = trim(preg_replace('/\s+/u', ' ', $topic));
+        return mb_strlen($topic) >= 3 ? $topic : '';
+    }
+}

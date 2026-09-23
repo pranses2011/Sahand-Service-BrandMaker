@@ -1,6 +1,6 @@
 <?php
 /**
- * 🤖 موتور هوش مصنوعی داخلی سهند — SahandAI Engine v2.0
+ * 🤖 موتور هوش مصنوعی داخلی سهند — SahandAI Engine v3.0 «بی‌رقیب»
  * ======================================================
  * موتور تولید محتوای فارسی کاملاً داخلی (بدون هیچ API خارجی)
  * بهینه‌شده برای زبان فارسی و صنعت تعمیرات لوازم خانگی.
@@ -10,15 +10,18 @@
  *   ⚙️ موتور پردازش (generators + analyzers)
  *   🏆 امتیازده کیفیت (QualityScorer) + 🧭 تشخیص نیت (IntentClassifier)
  *   🗓️ برنامه‌ریز محتوا (ContentPlanner)
+ *   🧠 خط تولید هوشمند (SmartPipeline) + 🔧 بهبوددهنده خودکار (ContentImprover)
+ *   🎙️ تحلیل صدای برند (BrandVoiceAnalyzer) + 🏷️ عنوان‌ساز CTR (TitleGenerator)
+ *   💬 دستیار فرمان فارسی (CommandAssistant) + ⚡ کش موتور (EngineCache)
  *   🔌 API داخلی (routes در api/index.php)
  *
  * @package SahandBrandMaker\Engine
- * @version 2.0.0
+ * @version 3.0.0
  */
 class SahandAI
 {
     /** 🔖 نسخه موتور */
-    public const ENGINE_VERSION = '2.0.0';
+    public const ENGINE_VERSION = '3.0.0';
 
     /** @var Database دیتابیس */
     private $db;
@@ -70,12 +73,17 @@ class SahandAI
 
     /**
      * ✍️ تولید محتوای یکتا — POST /api/ai/generate-content
+     * پارامترها: type (الزامی)، brand_id، device_key، ...
      *
-     * @param string $type نوع محتوا (brand_intro|brand_history|agency_about|warranty|service_area|device_desc|services_intro)
-     * @param array  $params پارامترها (brand_id, device_key, ...)
+     * ⚠️ نسخه ۳: امضا به پارامتر آرایه‌ای تغییر کرد (رفع باگ ناسازگاری
+     * با روتر API که ورودی JSON را آرایه می‌دهد)
      */
-    public function generateContent(string $type, array $params = []): array
+    public function generateContent(array $params = []): array
     {
+        $type = (string)($params['type'] ?? $params[0] ?? '');
+        if ($type === '' || !is_string($type)) {
+            throw new RuntimeException('پارامتر type الزامی است.');
+        }
         $brandId = (int)($params['brand_id'] ?? 0);
         $brand = $this->db->fetch('SELECT * FROM brands WHERE id = ?', [$brandId]);
         if (!$brand) {
@@ -572,8 +580,9 @@ class SahandAI
             'engine_version'    => self::ENGINE_VERSION,
             'system_version'    => SAHAND_VERSION,
             'capabilities'      => [
-                'generators'    => ['ArticleGenerator', 'BrandInfoGenerator', 'ContentGenerator', 'ErrorCodeGenerator', 'FaqGenerator', 'SeoGenerator', 'ContentPlanner'],
-                'analyzers'     => ['ColorAnalyzer', 'KeywordAnalyzer', 'SeoAnalyzer', 'UniquenessChecker', 'QualityScorer', 'IntentClassifier'],
+                'generators'    => ['ArticleGenerator', 'BrandInfoGenerator', 'ContentGenerator', 'ErrorCodeGenerator', 'FaqGenerator', 'SeoGenerator', 'ContentPlanner', 'SmartPipeline', 'ContentImprover', 'TitleGenerator'],
+                'analyzers'     => ['ColorAnalyzer', 'KeywordAnalyzer', 'SeoAnalyzer', 'UniquenessChecker', 'QualityScorer', 'IntentClassifier', 'BrandVoiceAnalyzer'],
+                'assistants'    => ['CommandAssistant'],
                 'article_types' => 9,
                 'best_of_n'     => true,
                 'quality_score' => true,
@@ -581,8 +590,120 @@ class SahandAI
                 'content_plan'  => true,
                 'tf_idf'        => true,
                 'clustering'    => true,
+                'smart_pipeline'   => true,   // 🧠 خط تولید یک‌فراخوانی
+                'auto_improve'     => true,   // 🔧 چرخه خود-درمانی کیفیت
+                'brand_voice'      => true,   // 🎙️ پروفایل و انطباق صدای برند
+                'ctr_titles'       => true,   // 🏷️ عنوان‌سازی بهینه CTR
+                'nl_assistant'     => true,   // 💬 دستیار فرمان فارسی
+                'response_cache'   => true,   // ⚡ کش پاسخ‌ها
             ],
             'knowledge_size'    => $kb,
         ];
+    }
+
+    /* ==================================================
+     * 🧠 قابلیت‌های نسخه ۳ «بی‌رقیب»
+     * ================================================== */
+
+    /**
+     * 🚀 خط تولید هوشمند — POST /api/ai/smart-generate
+     * یک فراخوانی = مقاله + سئو + FAQ + کیفیت تضمینی + ردِیابی
+     *
+     * پارامترها: brand_id (الزامی)، topic_type، device_key، topic،
+     *            variants، target_score، max_rounds، auto_save، no_cache
+     */
+    public function smartGenerate(array $params): array
+    {
+        return EngineCache::remember('smart-generate', $params, 1800, function () use ($params) {
+            return (new SmartPipeline())->run($params);
+        });
+    }
+
+    /**
+     * 🔧 بهبود خودکار محتوا — POST /api/ai/improve-content
+     * پارامترها: content (الزامی)، focus_keyword، target_score، max_rounds، device_key
+     */
+    public function improveContent(array $params): array
+    {
+        $content = (string)($params['content'] ?? '');
+        if (trim($content) === '') {
+            throw new RuntimeException('پارامتر content الزامی است.');
+        }
+        return (new ContentImprover())->improve($content, $params);
+    }
+
+    /**
+     * 🎙️ تحلیل صدای برند — POST /api/ai/brand-voice
+     * حالت ۱: texts → استخراج پروفایل
+     * حالت ۲: texts + content → پروفایل + انطباق متن
+     */
+    public function brandVoice(array $params): array
+    {
+        $analyzer = new BrandVoiceAnalyzer();
+        $texts = $params['texts'] ?? ($params['text'] ?? '');
+        if (is_string($texts) && trim($texts) === '' && empty($params['content'])) {
+            throw new RuntimeException('پارامتر texts (متن یا آرایه متن‌های برند) الزامی است.');
+        }
+
+        $profile = $analyzer->profile($texts);
+        $result = ['profile' => $profile];
+
+        // 🔍 حالت انطباق — متن جدید با پروفایل مقایسه شود
+        if (!empty($params['content'])) {
+            $result['comparison'] = $analyzer->compare((string)$params['content'], $profile);
+        }
+        return $result;
+    }
+
+    /**
+     * 🏷️ تولید عنوان بهینه — POST /api/ai/generate-titles
+     * پارامترها: topic (الزامی)، brand_fa، device_fa، city، season، count
+     */
+    public function generateTitles(array $params): array
+    {
+        $topic = trim((string)($params['topic'] ?? ''));
+        if ($topic === '') {
+            throw new RuntimeException('پارامتر topic الزامی است.');
+        }
+        return (new TitleGenerator())->generate(
+            $topic,
+            [
+                'brand_fa'  => (string)($params['brand_fa'] ?? ''),
+                'device_fa' => (string)($params['device_fa'] ?? ''),
+                'city'      => (string)($params['city'] ?? ''),
+                'season'    => (string)($params['season'] ?? ''),
+            ],
+            (int)($params['count'] ?? 10)
+        );
+    }
+
+    /**
+     * 💬 دستیار فرمان فارسی — POST /api/ai/assistant
+     * پارامترها: command (الزامی) — فرمان زبان طبیعی
+     */
+    public function assistant(array $params): array
+    {
+        $command = trim((string)($params['command'] ?? ''));
+        if ($command === '') {
+            throw new RuntimeException('پارامتر command الزامی است.');
+        }
+        return (new CommandAssistant())->handle($command);
+    }
+
+    /**
+     * ⚡ آمار کش موتور — GET /api/ai/cache-stats
+     */
+    public function cacheStats(): array
+    {
+        return EngineCache::stats();
+    }
+
+    /**
+     * 🧹 پاکسازی کش موتور — POST /api/ai/cache-clear
+     */
+    public function cacheClear(): array
+    {
+        $cleared = EngineCache::clear();
+        return ['cleared' => $cleared, 'message' => $cleared . ' ورودی کش پاک شد.'];
     }
 }
