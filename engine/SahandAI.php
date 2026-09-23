@@ -25,7 +25,7 @@
 class SahandAI
 {
     /** 🔖 نسخه موتور */
-    public const ENGINE_VERSION = '3.5.0'; // ۳.۵: اسکیل UI/UX Pro + PHP 8.3
+    public const ENGINE_VERSION = '3.7.0'; // ۳.۷: سئو موضوع‌محور + خطایاب وب‌محور + نگارش فارسی v1.2 + بهبوددهنده HTML-امن
 
     /** @var Database دیتابیس */
     private $db;
