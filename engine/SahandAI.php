@@ -342,7 +342,7 @@ class SahandAI
     }
 
     /**
-     * 📈 آمار عملکرد موتور AI (برای داشبورد)
+     * 📈 آمار عملکرد موتور AI (برای داشبورد) — نسخه تقویت‌شده
      */
     public function engineStats(): array
     {
@@ -351,6 +351,7 @@ class SahandAI
         $totalDevices = $this->db->count('brand_devices');
         $knowledgeBrands = count($this->brandGen->allKnowledgeBrands());
         $uniqueness = $this->uniquenessChecker->systemReport();
+        $kbStats = KnowledgeBase::stats();
 
         return [
             'articles_generated'   => $totalArticles,
@@ -360,6 +361,87 @@ class SahandAI
             'knowledge_templates'  => count(TextProcessor::loadKnowledge('templates')),
             'synonym_words'        => count(TextProcessor::loadSynonyms()),
             'uniqueness_health'    => $uniqueness['health'],
+            // 🆕 آمار پایگاه دانش تقویت‌شده
+            'knowledge_devices'    => $kbStats['devices'],
+            'knowledge_error_codes'=> $kbStats['error_codes'],
+            'knowledge_diagnostic_scenarios' => $kbStats['diagnostic_scenarios'],
+            'knowledge_spare_parts'=> $kbStats['spare_parts'],
+            'knowledge_phrases'    => $kbStats['phrase_patterns'],
+            'knowledge_stats'      => $kbStats,
         ];
+    }
+
+    /* ==================================================
+     * 🧠 اندپوینت‌های دانش جدید (فاز K)
+     * ================================================== */
+
+    /**
+     * 📊 آمار کامل پایگاه دانش — GET /api/ai/knowledge/stats
+     */
+    public function knowledgeStats(): array
+    {
+        return KnowledgeBase::stats();
+    }
+
+    /**
+     * 🩺 سناریوهای عیب‌یابی دستگاه — GET /api/ai/diagnostics/{device}
+     */
+    public function deviceDiagnostics(string $deviceKey): array
+    {
+        $scenarios = KnowledgeBase::diagnostics($deviceKey);
+        if (empty($scenarios)) {
+            throw new RuntimeException('دستگاه در پایگاه عیب‌یابی یافت نشد.');
+        }
+        return $scenarios;
+    }
+
+    /**
+     * 🎯 تشخیص علت از روی علامت — POST /api/ai/diagnose
+     * پارامترها: device, symptom
+     */
+    public function diagnose(array $params): array
+    {
+        $device = (string)($params['device'] ?? '');
+        $symptom = (string)($params['symptom'] ?? '');
+        if ($device === '' || $symptom === '') {
+            throw new RuntimeException('پارامترهای device و symptom الزامی هستند.');
+        }
+        $result = KnowledgeBase::diagnose($device, $symptom);
+        if (!$result) {
+            throw new RuntimeException('علامت مورد نظر در پایگاه دانش یافت نشد.');
+        }
+        // ➕ قطعات مرتبط با این علامت
+        $result['related_parts'] = KnowledgeBase::partsForSymptom($symptom);
+        return $result;
+    }
+
+    /**
+     * 📅 تقویم فصلی — GET /api/ai/seasonal (بدون پارامتر = ماه جاری)
+     */
+    public function seasonal(array $params = []): array
+    {
+        if (!empty($params['month'])) {
+            $calendar = KnowledgeBase::seasonalCalendar();
+            if (!isset($calendar[$params['month']])) {
+                throw new RuntimeException('ماه نامعتبر است.');
+            }
+            return $calendar[$params['month']];
+        }
+        return KnowledgeBase::currentSeason();
+    }
+
+    /**
+     * 🧰 دانش قطعات — GET /api/ai/parts (همه یا یکی)
+     */
+    public function parts(array $params = []): array
+    {
+        if (!empty($params['key'])) {
+            $part = KnowledgeBase::part((string)$params['key']);
+            if (!$part) {
+                throw new RuntimeException('قطعه یافت نشد.');
+            }
+            return $part;
+        }
+        return KnowledgeBase::parts();
     }
 }

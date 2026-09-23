@@ -48,7 +48,8 @@ class ContentGenerator
             // ۲️⃣ جایگذاری متغیرها
             $content = TextProcessor::fillTemplate($template, $vars);
 
-            // ۳️⃣ تنوع‌سازی: مترادف + بازنویسی ساختار
+            // ۳️⃣ تنوع‌سازی سه‌لایه: عبارت + مترادف + بازنویسی ساختار
+            $content = TextProcessor::applyPhrases($content, $seed . '|phr');
             $content = TextProcessor::applySynonyms($content, $seed . '|syn');
             $content = TextProcessor::restructureSentences($content, $seed . '|rst');
 
@@ -86,6 +87,7 @@ class ContentGenerator
             );
             foreach ($picks as $tplKey) {
                 $text = TextProcessor::fillTemplate($typeTemplates[$tplKey], $vars);
+                $text = TextProcessor::applyPhrases($text, $seed . '|phr' . md5($tplKey), 0.5);
                 $parts[] = TextProcessor::applySynonyms($text, $seed . '|i' . md5($tplKey), 0.3);
             }
             return TextProcessor::normalize(implode("\n\n", $parts));
@@ -134,16 +136,21 @@ class ContentGenerator
                 }
             }
 
-            // ۳️⃣ پاراگراف‌های پایانی از قالب‌های تکمیلی (دو مورد)
+            // 📚 پاراگراف‌های پایانی از قالب‌های تکمیلی (دو مورد)
             $extraPicks = TextProcessor::seededPickMany($extraTemplates ?: [''], 2, $seed . '|extra');
             foreach ($extraPicks as $extraPick) {
                 if ($extraPick) {
-                    $parts[] = TextProcessor::fillTemplate($extraPick, $vars);
+                    $parts[] = TextProcessor::applyPhrases(
+                        TextProcessor::fillTemplate($extraPick, $vars),
+                        $seed . '|phrx' . md5((string)$extraPick),
+                        0.5
+                    );
                 }
             }
 
-            // ۴️⃣ تنوع‌سازی نهایی روی کل متن
+            // ۴️⃣ تنوع‌سازی نهایی روی کل متن (سه لایه)
             $content = implode("\n\n", array_filter($parts));
+            $content = TextProcessor::applyPhrases($content, $seed . '|phrsyn', 0.4);
             $content = TextProcessor::applySynonyms($content, $seed . '|syn', 0.3);
             return TextProcessor::normalize($content);
         }, 3, $brandId);
@@ -209,6 +216,7 @@ class ContentGenerator
 
     /**
      * 🧱 ساخت متغیرهای استاندارد برند برای قالب‌ها
+     * شامل فیلدهای جدید پایگاه دانش: slogan, positioning, price_range
      */
     private function brandVars(array $brand, array $devices): array
     {
@@ -225,6 +233,10 @@ class ContentGenerator
             'agency_name'   => $agency,
             'main_site'     => Config::get(Config::KEY_MAIN_SITE) ?: AGENCY_MAIN_SITE,
             'year_now'      => (string)((int)jdate(date('Y-m-d')) ?: date('Y')),
+            // 🆕 فیلدهای دانش تقویت‌شده
+            'slogan'        => $brand['slogan'] ?? '',
+            'positioning'   => $brand['positioning'] ?? '',
+            'tech_facts_list' => implode('. ', array_slice((array)($brand['tech_facts'] ?? []), 0, 3)),
         ];
     }
 }

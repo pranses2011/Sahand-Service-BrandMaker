@@ -49,6 +49,7 @@ class BrandInfoGenerator
 
     /**
      * 🔍 تطبیق برند کاربر با پایگاه دانش (جستجوی فازی)
+     * نسخه تقویت‌شده: جستجو در نام‌های مستعار (aliases) هم انجام می‌شود
      */
     public function matchBrand(string $nameFa, string $nameEn): ?array
     {
@@ -60,14 +61,30 @@ class BrandInfoGenerator
         if ($knowledge) {
             return $knowledge;
         }
-        // جستجوی فازی: تطابق جزئی نام
         $brands = TextProcessor::loadKnowledge('brands');
-        $needleEn = mb_strtolower($nameEn);
+        $needleEn = mb_strtolower(trim($nameEn));
+        $needleFa = mb_strtolower(trim($nameFa));
+
         foreach ($brands as $key => $brand) {
             $brandEn = mb_strtolower($brand['name_en'] ?? '');
+            // تطبیق فازی نام اصلی
             if ($brandEn !== '' && ($needleEn !== '' && (strpos($needleEn, $brandEn) !== false || strpos($brandEn, $needleEn) !== false))) {
                 $brand['key'] = $key;
                 return $brand;
+            }
+            // 🆕 تطبیق با نام‌های مستعار (aliases) — املاهای مختلف فارسی و انگلیسی
+            foreach ((array)($brand['aliases'] ?? []) as $alias) {
+                $aliasLower = mb_strtolower(trim($alias));
+                if ($aliasLower === '') {
+                    continue;
+                }
+                if ($aliasLower === $needleFa
+                    || ($needleEn !== '' && $aliasLower === $needleEn)
+                    || ($needleFa !== '' && strpos($needleFa, $aliasLower) !== false)
+                    || ($needleEn !== '' && strpos($needleEn, $aliasLower) !== false)) {
+                    $brand['key'] = $key;
+                    return $brand;
+                }
             }
         }
         return null;

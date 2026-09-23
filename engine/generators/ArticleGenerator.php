@@ -155,6 +155,8 @@ class ArticleGenerator
                 $sections[] = $this->section('علت‌های رایج خرابی ' . $d . ' ' . $b, $this->bullets($issues, 5, $seed, "مورد قابل ذکر") . $this->paragraphsFrom($issues, 3, $seed . 's1'));
                 $sections[] = $this->section('نشانه‌هایی که نشان می‌دهد ' . $d . ' نیاز به تعمیر دارد', $this->paragraphsFrom($issues, 4, $seed . 's2'));
                 $sections[] = $this->section('راه‌حل‌های عملی و گام‌به‌گام', $this->numberedSteps($issues, $seed . 's3') . $this->paragraphsFrom($issues, 2, $seed . 's3b'));
+                // 🩺 بخش جدید: عیب‌یابی هوشمند علامت‌محور از پایگاه دانش
+                $sections[] = $this->diagnosticSection($device['device_key'], $d, $seed);
                 $sections[] = $this->section('هزینه تعمیر و زمان انجام آن', $this->paragraphsFrom($maintenance, 3, $seed . 's5'));
                 $sections[] = $this->section('چه زمانی باید با تعمیرکار تماس بگیرید؟', $this->paragraphsFrom($issues, 3, $seed . 's4'));
                 break;
@@ -171,6 +173,8 @@ class ArticleGenerator
                 $sections[] = $this->section('اهمیت سرویس دوره‌ای ' . $d, $this->paragraphsFrom($maintenance, 3, $seed . 'm1'));
                 $sections[] = $this->section('چک‌لیست نگهداری ماهانه', $this->numberedSteps($maintenance, $seed . 'm2') . $this->paragraphsFrom($maintenance, 2, $seed . 'm2b'));
                 $sections[] = $this->section('نگهداری فصلی', $this->bullets($maintenance, 5, $seed, "اقدام فصلی") . $this->paragraphsFrom($maintenance, 3, $seed . 'm3b'));
+                // 🔧 بخش جدید: قطعات مصرفی و زمان تعویض از دانش دستگاه
+                $sections[] = $this->partsWearSection($device['device_key'], $d, $seed);
                 $sections[] = $this->section('قطعات مصرفی و زمان تعویض', $this->paragraphsFrom($issues, 3, $seed . 'm4'));
                 break;
 
@@ -184,8 +188,22 @@ class ArticleGenerator
             case 'error_codes': // عیب‌یابی و کدهای خطا
                 $sections[] = $this->section('کدهای خطای رایج ' . $d . ' ' . $b . ' و معنی آن‌ها', $this->errorCodeTable($device['device_key']) . $this->paragraphsFrom($usage, 2, $seed . 'e1b'));
                 $sections[] = $this->section('راه‌حل هر کد خطا', $this->paragraphsFrom($issues, 4, $seed . 'e2'));
-                $sections[] = $this->section('ریست کردن ' . $d . ' در صورت بروز خطا', $this->numberedSteps($issues, $seed . 'e3') . $this->paragraphsFrom($maintenance, 2, $seed . 'e3b'));
+                $sections[] = $this->section('ریست کردن ' . $d . ' در صورت بروز خطا', $this->resetTipsSection($device['device_key']) . $this->numberedSteps($issues, $seed . 'e3') . $this->paragraphsFrom($maintenance, 2, $seed . 'e3b'));
                 $sections[] = $this->section('پیشگیری از بروز مجدد خطاها', $this->paragraphsFrom($maintenance, 3, $seed . 'e4'));
+                break;
+
+            case 'buying_guide': // 🆕 راهنمای خرید
+                $sections[] = $this->section('معیارهای کلیدی انتخاب ' . $d . ' ' . $b, $this->bullets($usage, 6, $seed, "معیار خرید") . $this->paragraphsFrom($usage, 2, $seed . 'b1'));
+                $sections[] = $this->section('بررسی رده‌های قیمتی و تناسب با نیاز', $this->paragraphsFrom($maintenance, 3, $seed . 'b2'));
+                $sections[] = $this->section('نکاتی که فروشنده‌ها نمی‌گویند', $this->paragraphsFrom($issues, 4, $seed . 'b3'));
+                $sections[] = $this->section('هزینه مالکیت واقعی؛ از مصرف انرژی تا قطعات یدکی', $this->paragraphsFrom($maintenance, 3, $seed . 'b4'));
+                break;
+
+            case 'energy_saving': // 🆕 صرفه‌جویی انرژی
+                $sections[] = $this->section('مصرف انرژی ' . $d . ' چقدر است؟', $this->paragraphsFrom($usage, 3, $seed . 'n1'));
+                $sections[] = $this->section('تنظیمات طلایی برای کاهش قبض', $this->bullets($maintenance, 6, $seed, "تنظیم بهینه") . $this->paragraphsFrom($maintenance, 2, $seed . 'n2b'));
+                $sections[] = $this->section('عادت‌هایی که برق را هدر می‌دهند', $this->paragraphsFrom($issues, 4, $seed . 'n3'));
+                $sections[] = $this->section('زمان‌بندی هوشمند استفاده از ' . $d, $this->paragraphsFrom($usage, 3, $seed . 'n4'));
                 break;
         }
 
@@ -228,12 +246,95 @@ class ArticleGenerator
             $itemShapes = TextProcessor::seededPickMany($shapes, 2, $seed . '|exp|' . md5((string)$item));
             foreach ($itemShapes as $shape) {
                 $text = strtr($shape, ['{{knowledge}}' => (string)$item]);
+                // تنوع‌سازی دو لایه: عبارت + مترادف
+                $text = TextProcessor::applyPhrases($text, $seed . '|phr' . md5($text));
                 $text = TextProcessor::applySynonyms($text, $seed . '|' . md5((string)$item . $shape));
                 $parts[] = TextProcessor::normalize($text);
             }
         }
         // گروه‌بندی جمله‌ها در ۱-۲ پاراگراف
         return '<p>' . implode(' ', $parts) . '</p>';
+    }
+
+    /**
+     * 🩺 بخش عیب‌یابی هوشمند علامت‌محور — از diagnostics.json
+     * جدول علامت → علت محتمل (مرتب بر اساس احتمال) + اقدام فوری
+     */
+    private function diagnosticSection(string $deviceKey, string $deviceFa, string $seed): ?array
+    {
+        $scenarios = KnowledgeBase::diagnostics($deviceKey);
+        if (empty($scenarios)) {
+            return null;
+        }
+        $scenario = TextProcessor::seededPick($scenarios, $seed . '|diag');
+        if (!$scenario) {
+            return null;
+        }
+
+        // مرتب‌سازی علت‌ها بر اساس احتمال نزولی
+        $causes = $scenario['causes'] ?? [];
+        usort($causes, function ($a, $b) {
+            return ($b['probability'] ?? 0) <=> ($a['probability'] ?? 0);
+        });
+
+        $html = '<p>اگر با علامت «' . e($scenario['symptom']) . '» مواجه هستید، این جدول علت‌های محتمل را به ترتیب احتمال نشان می‌دهد:</p>' . "\n";
+        $html .= '<table><thead><tr><th>علت محتمل</th><th>احتمال</th><th>روش بررسی</th></tr></thead><tbody>' . "\n";
+        foreach (array_slice($causes, 0, 4) as $cause) {
+            $percent = (int)round(($cause['probability'] ?? 0) * 100);
+            $html .= '<tr><td>' . e($cause['cause']) . '</td><td>' . $percent . '٪</td><td>'
+                . e($cause['check'] ?? '') . '</td></tr>' . "\n";
+        }
+        $html .= '</tbody></table>' . "\n";
+
+        // اقدام‌های فوری
+        if (!empty($scenario['immediate_actions'])) {
+            $html .= '<p><strong>قبل از تماس با تعمیرکار این کارها را بکنید:</strong></p>' . "\n" . '<ul>' . "\n";
+            foreach (array_slice($scenario['immediate_actions'], 0, 4) as $action) {
+                $html .= '<li>' . e($action) . '</li>' . "\n";
+            }
+            $html .= '</ul>';
+        }
+
+        return $this->section('عیب‌یابی هوشمند: ' . $scenario['symptom'], $html);
+    }
+
+    /**
+     * 🔧 بخش قطعات مصرفی دستگاه — از parts_wear در devices.json
+     */
+    private function partsWearSection(string $deviceKey, string $deviceFa, string $seed): ?array
+    {
+        $parts = KnowledgeBase::wearableParts($deviceKey);
+        if (empty($parts)) {
+            return null;
+        }
+        $html = '<table><thead><tr><th>قطعه مصرفی</th><th>دوره بازدید/تعویض</th></tr></thead><tbody>' . "\n";
+        foreach (array_slice($parts, 0, 5) as $part) {
+            if (!is_array($part) || empty($part['part'])) {
+                continue;
+            }
+            $html .= '<tr><td>' . e($part['part']) . '</td><td>' . e($part['interval'] ?? '') . '</td></tr>' . "\n";
+        }
+        $html .= '</tbody></table>' . "\n";
+        $html .= '<p>رعایت زمان‌بندی تعویض این اقلام، از بیش از نیمی از خرابی‌های ناگهانی جلوگیری می‌کند.</p>';
+        return $this->section('جدول قطعات مصرفی ' . $deviceFa, $html);
+    }
+
+    /**
+     * 💡 بخش نکات ریست — از reset_tip در error-codes.json
+     */
+    private function resetTipsSection(string $deviceKey): string
+    {
+        $errors = TextProcessor::loadKnowledge('error-codes')[$deviceKey] ?? [];
+        if (empty($errors)) {
+            return '';
+        }
+        $html = '';
+        foreach (array_slice($errors, 0, 3) as $error) {
+            if (!empty($error['reset_tip'])) {
+                $html .= '<p><strong>خطای ' . e($error['code']) . ':</strong> ' . e($error['reset_tip']) . '</p>' . "\n";
+            }
+        }
+        return $html;
     }
 
     /**
@@ -334,7 +435,7 @@ class ArticleGenerator
             'SELECT device_key, name_fa FROM brand_devices WHERE brand_id = ? AND is_active = 1',
             [$brand['id']]
         );
-        $types = ['troubleshooting', 'user_guide', 'maintenance', 'comparison', 'error_codes'];
+        $types = ['troubleshooting', 'user_guide', 'maintenance', 'comparison', 'error_codes', 'buying_guide', 'energy_saving'];
         $suggestions = [];
         $i = 0;
         while (count($suggestions) < $count && $i < 30) {
@@ -367,6 +468,8 @@ class ArticleGenerator
             'maintenance'     => 'نکات مهم نگهداری',
             'comparison'      => 'مقایسه مدل‌های',
             'error_codes'     => 'کدهای خطای رایج',
+            'buying_guide'    => 'راهنمای خرید',
+            'energy_saving'   => 'صرفه‌جویی در مصرف انرژی',
         ];
         return $device . ' ' . $brand . ' — ' . ($map[$type] ?? 'راهنمای جامع');
     }

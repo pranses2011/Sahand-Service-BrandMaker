@@ -191,9 +191,47 @@ $router->add('GET', 'ai/templates', function () {
 $router->add('GET', 'ai/knowledge', function () {
     json_response(['success' => true, 'data' => (new SahandAI())->knowledgeBrands()]);
 });
+$router->add('GET', 'ai/knowledge/stats', function () {
+    json_response(['success' => true, 'data' => KnowledgeBase::stats()]);
+});
 $router->add('GET', 'ai/knowledge/{brand}', function ($p) {
     try {
         json_response(['success' => true, 'data' => (new SahandAI())->knowledge($p['brand'])]);
+    } catch (Exception $e) {
+        json_response(['success' => false, 'error' => $e->getMessage()], 404);
+    }
+});
+
+/* ==================================================
+ * 🧠 اندپوینت‌های پایگاه دانش تقویت‌شده (فاز K)
+ * ================================================== */
+$router->add('GET', 'ai/diagnostics', function () {
+    json_response(['success' => true, 'data' => array_keys(TextProcessor::loadKnowledge('diagnostics'))]);
+});
+$router->add('GET', 'ai/diagnostics/{device}', function ($p) {
+    try {
+        json_response(['success' => true, 'data' => (new SahandAI())->deviceDiagnostics($p['device'])]);
+    } catch (Exception $e) {
+        json_response(['success' => false, 'error' => $e->getMessage()], 404);
+    }
+});
+$router->add('POST', 'ai/diagnose', $aiHandler('diagnose'));
+$router->add('GET', 'ai/seasonal', function () {
+    json_response(['success' => true, 'data' => (new SahandAI())->seasonal()]);
+});
+$router->add('GET', 'ai/seasonal/{month}', function ($p) {
+    try {
+        json_response(['success' => true, 'data' => (new SahandAI())->seasonal(['month' => $p['month']])]);
+    } catch (Exception $e) {
+        json_response(['success' => false, 'error' => $e->getMessage()], 404);
+    }
+});
+$router->add('GET', 'ai/parts', function () {
+    json_response(['success' => true, 'data' => (new SahandAI())->parts()]);
+});
+$router->add('GET', 'ai/parts/{key}', function ($p) {
+    try {
+        json_response(['success' => true, 'data' => (new SahandAI())->parts(['key' => $p['key']])]);
     } catch (Exception $e) {
         json_response(['success' => false, 'error' => $e->getMessage()], 404);
     }

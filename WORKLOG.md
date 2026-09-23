@@ -281,3 +281,80 @@
 
 ### 📦 کامیت‌ها
 - `final: مستندات ۷ سند + PWA + راستی‌آزمایی کامل ۷۷/۷۷ — پروژه ۱۰۰٪ تکمیل شد`
+
+## 🔟 فاز K — تقویت و قدرتمندسازی پایگاه دانش موتور AI 📅 2025-09-23
+
+> 🧠 به درخواست مالک پروژه: «فایل‌های engine/knowledge/ را تقویت کن و بسیار قدرتمندترش کن»
+
+### K.1 — brands.json (۵۷ → ۷۷ برند)
+- 🔴 **رفع باگ مهم**: `history_facts` در هر ۵۷ برند به‌جای آرایه، رشته واحد بود؛ سیستم فقط ۱ فکت از هر برند استفاده می‌کرد → به آرایه‌های ۳-۸ فکتی تبدیل شد
+- ۸ فیلد جدید برای همه برندها: `slogan`, `positioning`, `price_range`, `parts_availability`, `aliases`, `service_note`, `popular_models`, `tech_facts`
+- ۲۰ برند جدید: دلسا، جی‌پلاس، اخوان، زانوسی، هوور، برانت، آسپس، اسمگ، لایبهر، گروندیگ، تلوفونکن، آرچلیک، سیلورلاین، بمپانی، وستفروست، بلومبرگ، کارشر، دایسون، هیتاچی، اکس
+- جمع: ۳۱۶ فکت تاریخی، ۳۰۸ نقطه قوت، ۲۶۰ فکت فنی | اصلاح کلیدهای دستگاه نامعتبر (radiator, sink)
+
+### K.2 — devices.json (۳۲ → ۴۲ دستگاه)
+- ۶ فیلد فنی جدید برای همه دستگاه‌ها: `avg_lifespan`, `service_interval`, `energy_note`, `safety_warnings`, `diy_checks`, `parts_wear`
+- ۱۰ دستگاه جدید: پلوپز، چای‌ساز، بخارشوی، ماشین اصلاح، آبسردکن، فن کویل، آبگرمکن خورشیدی، تصفیه هوا، رطوبت‌گیر، وین‌کلاب
+- جمع: ۴۸۳ ایراد رایج، ۳۰۸ نکته نگهداری، ۲۳۰ نکته مصرف، ۱۳۶ قطعه مصرفی
+
+### K.3 — error-codes.json (۸ دسته/۳۸ کد → ۱۲ دسته/۱۲۵ کد)
+- ۴ دسته جدید: فر، اجاق گاز، خشک‌کن، هود
+- فیلدهای جدید برای همه کدها: `brand_examples` (کدام برندها این کد را می‌دهند) و `reset_tip` (راهنمای ریست قبل از تماس با تعمیرکار)
+- کدهای واقعی برندها: 4E/5E سامسونگ، F21/F43 بوش، E15 بوش ظرفشویی، F08 اریستون، H3/F1 گری و…
+
+### K.4 — synonyms.json (۲۳۴ → ۴۷۵ واژه)
+- ۲۴۱ واژه جدید در ۱۲ حوزه: قطعات فنی، خدمات، قیمت، زمان، مکان، صفات، پدیده‌ها، وضعیت‌ها
+- ۱۱۸۴ مترادف جمعاً | نرمال‌سازی مقادیر رشته‌ای به آرایه
+
+### K.5 — keywords + sentences + seo-patterns
+- keywords: ۳۰ شهر، ۲۵ خدمت، ۳۰ الگوی long-tail + **کلیدهای جدید**: question_patterns (۲۰)، commercial، informational، negative_keywords، seasonal ساختاریافته
+- sentences: openers ۱۴→۴۱، connectors ۱۰→۳۴، closers ۵→۲۰ + **کلیدهای جدید**: transitions، emphasis، warnings، stats_intro، cta_phrases
+- seo-patterns: title_patterns ۵→۱۵، meta_patterns ۴→۱۱ + **۸ بخش جدید**: slug_rules، internal_linking، content_structure، readability، featured_snippet، local_seo، image_seo، voice_search + اسکیمای HowTo/Product
+
+### K.6 — templates.json (همه بخش‌ها ۲-۳ برابر)
+- brand_intro ۱۲→۱۸، brand_history ۵→۹، agency_about ۳→۸، services_intro ۲→۶، warranty ۲→۷، device_desc ۴→۱۰، article_intro ۵→۱۳، article_conclusion ۵→۱۳، knowledge_expansion ۵→۱۸
+- FAQ ۱۶→۳۰ (هزینه، زمان، قطعه اصلی، در محل، فوریت و…)
+- **۲ نوع مقاله جدید**: buying_guide و energy_saving (۶+۶ عنوان)
+- قالب‌های جدید از فیلدهای تازه: `{{slogan}}`، `{{positioning}}`
+
+### K.7-K.11 — ۵ فایل دانش جدید 🆕
+| فایل | محتوا |
+|------|-------|
+| `phrases.json` | ۶۰ عبارت × ۳ جایگزین — بازنویسی عبارت‌های چندکلمه‌ای |
+| `diagnostics.json` | ۲۱ سناریوی عیب‌یابی علامت‌محور با علت‌های وزن‌دار (probability) + اقدام فوری + زمان تماس |
+| `parts.json` | ۲۰ قطعه یدکی: نقش، علائم خرابی، عمر، سختی تعویض، رده قیمت، ترفندها |
+| `seasonal-calendar.json` | ۱۲ ماه جلالی × دستگاه‌ها × خدمات × پیام بازاریابی × ایده محتوا |
+| `city-areas.json` | ۱۰ شهر بزرگ با محله‌های واقعی (۴۸ منطقه تهران) برای سئوی محلی |
+
+### K.12 — یکپارچه‌سازی موتور (دانش → قدرت واقعی)
+- 🆕 `engine/utils/KnowledgeBase.php`: سرویس یکپارچه — stats، diagnose (تطبیق سه‌سطحی فازی)، partsForSymptom، currentSeason (ماه جلالی)، areasOf
+- `TextProcessor`: متد جدید `applyPhrases()` — تنوع‌سازی سه‌لایه (عبارت ← مترادف ← ساختار)
+- `BrandInfoGenerator::matchBrand`: تطبیق با `aliases` (مثلاً «سنوا» → اسنوا، «ال جی» → ال‌جی)
+- `ContentGenerator`: متغیرهای جدید slogan/positioning/tech_facts_list + لایه applyPhrases
+- `ArticleGenerator`: بخش‌های جدید در مقالات — «عیب‌یابی هوشمند» (جدول علت/احتمال/بررسی)، «جدول قطعات مصرفی»، «نکات ریست» + ۷ نوع مقاله
+- `SahandAI::engineStats`: آمار دانش جدید + ۵ متد API جدید
+
+### K.13 — ۸ مسیر API جدید
+`GET ai/knowledge/stats` | `GET ai/diagnostics` | `GET ai/diagnostics/{device}` | `POST ai/diagnose` | `GET ai/seasonal` | `GET ai/seasonal/{month}` | `GET ai/parts` | `GET ai/parts/{key}`
+
+### K.14 — تست‌ها: ۱۴۱ موفق ✅
+- `test-knowledge-base.php` (۷۱ تست): آمار، عیب‌یابی، قطعات، تقویم، مناطق، بازنویسی، aliases، فیلدهای جدید
+- `test-knowledge-e2e.php` (۲۷ تست): تولید واقعی مقاله ۱۴۸۶ کلمه‌ای با جدول عیب‌یابی هوشمند + نوع‌های جدید
+- `test-ai-engine.php` (۴۳ تست): بدون رگرسیون
+
+### 📊 مقایسه قبل/بعد
+| شاخص | قبل | بعد | رشد |
+|------|-----|-----|-----|
+| برندها | ۵۷ | ۷۷ | +۳۵٪ |
+| فکت تاریخی برند | ~۵۷ (۱ رشته) | ۳۱۶ | ×۵.۵ |
+| دستگاه‌ها | ۳۲ | ۴۲ | +۳۱٪ |
+| ایرادات رایج | ۱۸۹ | ۴۸۳ | ×۲.۵ |
+| کدهای خطا | ۳۸ | ۱۲۵ | ×۳.۳ |
+| واژه مترادف | ۲۳۴ | ۴۷۵ | ×۲ |
+| قالب FAQ | ۱۶ | ۳۰ | +۸۷٪ |
+| نوع مقاله | ۵ | ۷ | +۴۰٪ |
+| فایل دانش | ۸ | ۱۳ | +۶۲٪ |
+| سناریوی عیب‌یابی | ۰ | ۲۱ | 🆕 |
+| دانش قطعات | ۰ | ۲۰ | 🆕 |
+
+- کامیت‌ها: `phase-k1-k2`، `phase-k3-k11`، `phase-k12-final`

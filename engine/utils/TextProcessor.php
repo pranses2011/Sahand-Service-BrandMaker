@@ -16,6 +16,9 @@ class TextProcessor
     /** @var array|null کش ساختارهای جمله */
     private static $sentences = null;
 
+    /** @var array|null کش دیکشنری عبارات چندکلمه‌ای */
+    private static $phrases = null;
+
     /**
      * 🧹 نرمال‌سازی متن فارسی (حذف نیم‌فاصله‌های خراب، یکسان‌سازی ی/ک)
      */
@@ -61,6 +64,58 @@ class TextProcessor
             self::$sentences = self::loadKnowledge('sentences');
         }
         return self::$sentences;
+    }
+
+    /**
+     * 🔤 بارگذاری دیکشنری عبارات چندکلمه‌ای از پایگاه دانش
+     */
+    public static function loadPhrases(): array
+    {
+        if (self::$phrases === null) {
+            self::$phrases = self::loadKnowledge('phrases');
+        }
+        return self::$phrases;
+    }
+
+    /**
+     * 🔄 بازنویسی عبارات چندکلمه‌ای — سطح قوی‌تر یکتاسازی
+     * قبل از جایگزینی تک‌واژه‌ای مترادف‌ها اجرا می‌شود.
+     * مثلاً «با کیفیت بالا» ← «در سطحی بالا از کیفیت»
+     *
+     * @param string $text متن ورودی
+     * @param string $seed بذر تصادفی (تکرارپذیری)
+     * @param float  $ratio نسبت عبارات جایگزین‌شونده
+     */
+    public static function applyPhrases(string $text, string $seed, float $ratio = 0.6): string
+    {
+        $phrases = self::loadPhrases();
+        if (empty($phrases)) {
+            return $text;
+        }
+
+        // مرتب‌سازی بر اساس طول نزولی تا عبارات بلندتر اول جایگزین شوند
+        $keys = array_keys($phrases);
+        usort($keys, function ($a, $b) {
+            return mb_strlen($b) <=> mb_strlen($a);
+        });
+
+        $state = self::seededRandom($seed . '|phr');
+        foreach ($keys as $phrase) {
+            if (mb_strpos($text, $phrase) === false) {
+                continue;
+            }
+            $state = ($state * 1103515245 + 12345 + mb_strlen($phrase)) & 0x7FFFFFFF;
+            if (($state % 1000) / 1000 >= $ratio) {
+                continue; // این عبارت این بار جایگزین نمی‌شود
+            }
+            $options = $phrases[$phrase];
+            if (!is_array($options) || empty($options)) {
+                continue;
+            }
+            $replacement = $options[$state % count($options)];
+            $text = str_replace($phrase, $replacement, $text);
+        }
+        return $text;
     }
 
     /**
