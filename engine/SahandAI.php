@@ -10,19 +10,20 @@
  *   ⚙️ موتور پردازش (generators + analyzers)
  *   🏆 امتیازده کیفیت (QualityScorer) + 🧭 تشخیص نیت (IntentClassifier)
  *   🗓️ برنامه‌ریز محتوا (ContentPlanner)
- *   🧠 خط تولید هوشمند (SmartPipeline) + 🔧 بهبوددهنده خودکار (ContentImprover)
+ *   🧠 خط تولید هوشمند (SmartPipeline v3.2) + 🔧 بهبوددهنده خودکار (ContentImprover)
  *   🎙️ تحلیل صدای برند (BrandVoiceAnalyzer) + 🏷️ عنوان‌ساز CTR (TitleGenerator)
  *   💬 دستیار فرمان فارسی (CommandAssistant) + ⚡ کش موتور (EngineCache)
- *   🌐 جستجوی آنلاین وب (WebSearchService — نسخه ۳.۱)
+ *   🌐 جستجوی آنلاین وب (WebSearchService v1.1 — وب + اخبار + Mojeek)
+ *   🖼️ سرویس تصاویر مقاله (ArticleImageService — ۳ تصویر هر مقاله)
  *   🔌 API داخلی (routes در api/index.php)
  *
  * @package SahandBrandMaker\Engine
- * @version 3.1.0
+ * @version 3.2.0
  */
 class SahandAI
 {
     /** 🔖 نسخه موتور */
-    public const ENGINE_VERSION = '3.1.0';
+    public const ENGINE_VERSION = '3.2.0';
 
     /** @var Database دیتابیس */
     private $db;
@@ -751,5 +752,26 @@ class SahandAI
     public function webSearchStatus(): array
     {
         return (new WebSearchService())->status();
+    }
+
+    /**
+     * 📰 جستجوی اخبار زنده وب — POST /api/ai/news (v3.2)
+     * پارامترها: query (الزامی)، limit (۱-۱۵، پیش‌فرض ۸)
+     */
+    public function webNews(array $params): array
+    {
+        $query = trim((string)($params['query'] ?? ($params['q'] ?? '')));
+        if ($query === '') {
+            throw new RuntimeException('پارامتر query الزامی است.');
+        }
+        return (new WebSearchService())->news($query, (int)($params['limit'] ?? 8));
+    }
+
+    /**
+     * 🖼️ فهرست تصاویر مقاله — GET /api/ai/article-images (v3.2)
+     */
+    public function articleImages(): array
+    {
+        return ArticleImageService::catalog();
     }
 }

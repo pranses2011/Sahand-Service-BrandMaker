@@ -297,18 +297,26 @@ $router->add('GET', 'ai/cache-stats', function () {
 $router->add('POST', 'ai/cache-clear', $aiHandler('cacheClear'));
 
 /* ==================================================
- * 🌐 اندپوینت‌های موتور نسخه ۳.۱ — جستجوی آنلاین وب
+ * 🌐 اندپوینت‌های موتور نسخه ۳.۲ — جستجوی آنلاین وب + اخبار + تصاویر
  * ================================================== */
 
 // 🔎 جستجوی آنلاین اینترنت (بهبود محتوا/سئو/مقالات)
 $router->add('POST', 'ai/web-search', $aiHandler('webSearch'));
 
-// 🧪 تحقیق ساختاریافته آنلاین (کلیدواژه ترند + سؤالات + داده تازه)
+// 🧪 تحقیق ساختاریافته آنلاین (کلیدواژه ترند + سؤالات + داده تازه + فرصت‌ها)
 $router->add('POST', 'ai/research', $aiHandler('researchTopic'));
 
 // 📊 وضعیت سرویس جستجوی وب (ارائه‌دهندگان + نرخ + کش)
 $router->add('GET', 'ai/websearch-status', function () {
     json_response(['success' => true, 'data' => (new SahandAI())->webSearchStatus()]);
+});
+
+// 📰 جستجوی اخبار زنده وب — v3.2 (روندها، قیمت روز، رویداد صنعت)
+$router->add('POST', 'ai/news', $aiHandler('webNews'));
+
+// 🖼️ فهرست تصاویر مقاله (۹ تصویر تخصصی بسته‌بندی‌شده) — v3.2
+$router->add('GET', 'ai/article-images', function () {
+    json_response(['success' => true, 'data' => (new SahandAI())->articleImages()]);
 });
 
 /* ==================================================

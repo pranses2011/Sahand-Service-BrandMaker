@@ -1,6 +1,6 @@
 <?php
 /**
- * 🌐 سرویس جستجوی آنلاین وب — WebSearchService v1.0
+ * 🌐 سرویس جستجوی آنلاین وب — WebSearchService v1.1
  * ================================================
  * قدرت جدید موتور سهند: دسترسی به داده‌های زنده اینترنت
  * برای بهبود محتوا، سئو و مقالات — فقط در صورت لزوم.
@@ -11,20 +11,23 @@
  *   3️⃣ Bing API       (اختیاری — نیازمند کلید اشتراک)
  *   4️⃣ DuckDuckGo HTML (رایگان — بدون کلید، پیش‌فرض)
  *   5️⃣ DuckDuckGo Lite (رایگان — جایگزین)
- *   6️⃣ Bing HTML      (رایگان — آخرین جایگزین)
+ *   6️⃣ Mojeek HTML    (رایگان — ایندکس مستقل، جایگزین جدید v1.1)
+ *   7️⃣ Bing HTML      (رایگان — آخرین جایگزین)
+ *   📰 Google News RSS (اخبار زنده — متد news())
  *
  * امنیت و پایداری:
  *   🛡️ محافظت SSRF (آدرس‌های داخلی/خصوصی مسدود)
  *   ⏱️ محدودیت نرخ (پیش‌فرض ۶۰ جستجو در ساعت)
  *   ⚡ کش TTL-دار (پیش‌فرض ۳۰ دقیقه)
  *   🔄 جایگزینی خودکار ارائه‌دهنده در صورت خطا
+ *   🔁 تلاش مجدد خودکار در خطای شبکه (v1.1)
  *
  * تنظیمات (جدول settings — کلید websearch_settings):
  *   enabled, timeout, max_results, cache_ttl, rate_per_hour,
  *   providers[], serpapi_key, google_cse_key, google_cse_cx, bing_api_key
  *
  * @package SahandBrandMaker\Engine
- * @version 1.0.0
+ * @version 1.1.0
  */
 class WebSearchService
 {
@@ -97,6 +100,91 @@ class WebSearchService
         unset($result['fresh']);
         $result['took_ms'] = (int)round((microtime(true) - $t0) * 1000);
         return $result;
+    }
+
+    /**
+     * 📰 جستجوی اخبار زنده — Google News RSS (فارسی/ایران)
+     * برای روند‌های فصلی، قیمت‌های روز و رویداد‌های صنعت.
+     *
+     * @param string $query عبارت جستجو
+     * @param int    $limit حداکثر خبر (۱ تا ۱۵)
+     * @return array [query, results[], provider, cached, took_ms]
+     */
+    public function news(string $query, int $limit = 8): array
+    {
+        $query = trim($query);
+        if (mb_strlen($query) < 2) {
+            throw new RuntimeException('عبارت جستجوی خبر خیلی کوتاه است.');
+        }
+        $this->guard();
+        $limit = max(1, min(15, $limit));
+        $t0 = microtime(true);
+
+        $result = EngineCache::remember('webnews', ['q' => $query, 'l' => $limit], self::SEARCH_TTL, function () use ($query, $limit) {
+            $this->rateHit();
+            $url = 'https://news.google.com/rss/search?' . http_build_query([
+                'q'    => $query,
+                'hl'   => 'fa',
+                'gl'   => 'IR',
+                'ceid' => 'IR:fa',
+            ]);
+            [$ok, $status, $body, $error] = $this->httpGet($url);
+            if (!$ok) {
+                throw new RuntimeException('دریافت اخبار ناموفق بود: ' . ($error ?: "HTTP {$status}"));
+            }
+            $results = $this->parseGoogleNewsRss($body, $limit);
+            if (!$results) {
+                throw new RuntimeException('خبری برای این عبارت یافت نشد.');
+            }
+            return [
+                'query'    => $query,
+                'results'  => $results,
+                'provider' => 'google_news_rss',
+                'fresh'    => true,
+            ];
+        });
+
+        $result['cached'] = empty($result['fresh']);
+        unset($result['fresh']);
+        $result['took_ms'] = (int)round((microtime(true) - $t0) * 1000);
+        return $result;
+    }
+
+    /** 🧩 تجزیه RSS اخبار گوگل (قابل تست آفلاین) */
+    public function parseGoogleNewsRss(string $xml, int $limit): array
+    {
+        $out = [];
+        if (preg_match_all('#<item>(.*?)</item>#is', $xml, $items)) {
+            foreach (array_slice($items[1], 0, $limit) as $i => $item) {
+                $title = $desc = $link = $date = $source = '';
+                if (preg_match('#<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</title>#is', $item, $m)) {
+                    $title = $this->cleanText($m[1]);
+                }
+                if (preg_match('#<link>(.*?)</link>#is', $item, $m)) {
+                    $link = trim($m[1]);
+                }
+                if (preg_match('#<description>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</description>#is', $item, $m)) {
+                    $desc = $this->cleanText($m[1]);
+                }
+                if (preg_match('#<pubDate>(.*?)</pubDate>#is', $item, $m)) {
+                    $ts = strtotime(trim($m[1]));
+                    $date = $ts ? date('Y-m-d H:i', $ts) : trim($m[1]);
+                }
+                if (preg_match('#<source[^>]*>(.*?)</source>#is', $item, $m)) {
+                    $source = $this->cleanText($m[1]);
+                }
+                if ($title === '' || $link === '') { continue; }
+                $out[] = [
+                    'title'    => $title,
+                    'url'      => $link,
+                    'snippet'  => mb_substr($desc, 0, 220),
+                    'source'   => $source ?: $this->hostOf($link),
+                    'date'     => $date,
+                    'rank'     => $i + 1,
+                ];
+            }
+        }
+        return $out;
     }
 
     /**
@@ -227,20 +315,24 @@ class WebSearchService
                 return ['title' => $r['title'], 'url' => $r['url'], 'source' => $r['source'] ?? ''];
             }, array_slice($results, 0, $limit));
 
+            // ۷️⃣ فرصت‌های کلیدواژه long-tail (موضوع × ترند) — v1.1
+            $opportunities = $this->buildOpportunities($topic, $keywords, $questions);
+
             $took = (int)round((microtime(true) - $t0) * 1000);
             $summary = $this->buildSummary($topic, $keywords, $questions, $facts, $sources, $took);
 
             return [
-                'topic'     => $topic,
-                'keywords'  => $keywords,
-                'questions' => $questions,
-                'facts'     => $facts,
-                'pages'     => $pages,
-                'sources'   => $sources,
-                'summary'   => $summary,
-                'provider'  => $main['provider'],
-                'fresh'     => true,
-                'took_ms'   => $took,
+                'topic'        => $topic,
+                'keywords'     => $keywords,
+                'questions'    => $questions,
+                'facts'        => $facts,
+                'opportunities'=> $opportunities,
+                'pages'        => $pages,
+                'sources'      => $sources,
+                'summary'      => $summary,
+                'provider'     => $main['provider'],
+                'fresh'        => true,
+                'took_ms'      => $took,
             ];
         });
     }
@@ -251,7 +343,7 @@ class WebSearchService
     public function status(): array
     {
         $providers = [];
-        foreach (['serpapi', 'google_cse', 'bing_api', 'duckduckgo_html', 'duckduckgo_lite', 'bing_html'] as $p) {
+        foreach (['serpapi', 'google_cse', 'bing_api', 'duckduckgo_html', 'duckduckgo_lite', 'mojeek', 'bing_html'] as $p) {
             $providers[$p] = $this->providerAvailable($p);
         }
         $bucket = $this->rateBucket();
@@ -317,6 +409,7 @@ class WebSearchService
         if ($this->providerAvailable('bing_api'))   { $chain[] = 'bing_api'; }
         $chain[] = 'duckduckgo_html';
         $chain[] = 'duckduckgo_lite';
+        $chain[] = 'mojeek';
         $chain[] = 'bing_html';
         return $chain;
     }
@@ -330,6 +423,7 @@ class WebSearchService
             case 'bing_api':        return trim((string)$this->cfg['bing_api_key']) !== '';
             case 'duckduckgo_html':
             case 'duckduckgo_lite':
+            case 'mojeek':
             case 'bing_html':       return true;
         }
         return false;
@@ -344,6 +438,7 @@ class WebSearchService
             case 'bing_api':        return $this->searchBingApi($query, $limit);
             case 'duckduckgo_html': return $this->searchDuckDuckGoHtml($query, $limit);
             case 'duckduckgo_lite': return $this->searchDuckDuckGoLite($query, $limit);
+            case 'mojeek':          return $this->searchMojeek($query, $limit);
             case 'bing_html':       return $this->searchBingHtml($query, $limit);
         }
         throw new RuntimeException('ارائه‌دهنده ناشناخته: ' . $provider);
@@ -511,6 +606,45 @@ class WebSearchService
         return $this->parseBingHtml($body, $limit);
     }
 
+    /** 🟠 Mojeek — موتور مستقل با ایندکس خودش (رایگان، بدون کلید) */
+    private function searchMojeek(string $query, int $limit): array
+    {
+        $url = 'https://www.mojeek.com/search?' . http_build_query([
+            'q'      => $query,
+            'fmt'    => 'html',
+            't'      => $limit,
+        ]);
+        [$ok, $status, $body, $error] = $this->httpGet($url);
+        if (!$ok) { throw new RuntimeException($error ?: "HTTP {$status}"); }
+        return $this->parseMojeekHtml($body, $limit);
+    }
+
+    /** 🧩 تجزیه HTML نتایج Mojeek (قابل تست آفلاین) */
+    public function parseMojeekHtml(string $body, int $limit): array
+    {
+        $out = [];
+        // ساختار Mojeek: <ul class="results-standard"><li><h2><a href=...>title</a></h2><p class="s">snippet</p>
+        if (preg_match_all('#<li>\s*<h2[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>\s*</h2>(.*?)</li>#is', $body, $items, PREG_SET_ORDER)) {
+            foreach ($items as $i => $m) {
+                if (count($out) >= $limit) { break; }
+                $url = html_entity_decode($m[1], ENT_QUOTES, 'UTF-8');
+                if (!preg_match('#^https?://#i', $url)) { continue; }
+                $snippet = '';
+                if (preg_match('#<p[^>]*class="[^"]*s[^"]*"[^>]*>(.*?)</p>#is', $m[3], $s)) {
+                    $snippet = $this->cleanText($s[1]);
+                }
+                $out[] = [
+                    'title'   => $this->cleanText($m[2]),
+                    'url'     => $url,
+                    'snippet' => $snippet,
+                    'source'  => $this->hostOf($url),
+                    'rank'    => count($out) + 1,
+                ];
+            }
+        }
+        return $out;
+    }
+
     /** 🧩 تجزیه پاسخ HTML نتایج Bing (قابل تست آفلاین) */
     public function parseBingHtml(string $body, int $limit): array
     {
@@ -617,6 +751,42 @@ class WebSearchService
         return implode(' ', $parts);
     }
 
+    /**
+     * 🎯 ساخت فرصت‌های کلیدواژه long-tail — ترکیب موضوع با ترندها
+     * برای عنوان‌ها، H2ها و برنامه تولید محتوا
+     */
+    private function buildOpportunities(string $topic, array $keywords, array $questions): array
+    {
+        $out = [];
+        $templates = [
+            '{topic} در تهران',
+            'هزینه {topic}',
+            '{topic} + قیمت قطعات',
+            'آموزش {topic} گام‌به‌گام',
+            '{topic} در منزل',
+            'علت و رفع {topic}',
+        ];
+        foreach ($templates as $tpl) {
+            $out[] = str_replace('{topic}', $topic, $tpl);
+        }
+        // ترکیب با ۳ ترند برتر وب
+        foreach (array_slice($keywords, 0, 3) as $kw) {
+            $k = is_array($kw) ? (string)($kw['keyword'] ?? '') : (string)$kw;
+            if ($k !== '' && mb_strpos($topic, $k) === false) {
+                $out[] = $topic . ' ' . $k;
+            }
+        }
+        // از سؤالات واقعی: حذف واژه پرسشی → عبارت کلیدواژه‌ای
+        foreach (array_slice($questions, 0, 2) as $q) {
+            $phrase = trim(preg_replace('/^(چرا|چطور|چگونه|آیا|کدام|چند)\s+/u', '', (string)$q));
+            $phrase = trim(preg_replace('/\s*(است|هست|می‌شود|می شود)[؟?.]*/u', '', $phrase));
+            if (mb_strlen($phrase) >= 8) {
+                $out[] = $phrase;
+            }
+        }
+        return array_values(array_slice(array_unique($out), 0, 10));
+    }
+
     /* ==================================================
      * 🌐 HTTP + امنیت + نرخ + ابزار
      * ================================================== */
@@ -686,29 +856,39 @@ class WebSearchService
         return $url;
     }
 
-    /** GET با cURL — خروجی: [ok, status, body, error] */
+    /** GET با cURL — خروجی: [ok, status, body, error] — 🔁 با یک تلاش مجدد در خطای شبکه */
     private function httpGet(string $url, array $headers = []): array
     {
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS      => 3,
-            CURLOPT_CONNECTTIMEOUT => (int)$this->cfg['connect_timeout'],
-            CURLOPT_TIMEOUT        => (int)$this->cfg['timeout'],
-            CURLOPT_ENCODING       => '',
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_USERAGENT      => $this->userAgent(),
-            CURLOPT_HTTPHEADER     => array_merge([
-                'Accept: text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
-                'Accept-Language: fa-IR,fa;q=0.9,en;q=0.8',
-            ], $headers),
-        ]);
-        $body = curl_exec($ch);
-        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch) ?: null;
-        curl_close($ch);
-        return [is_string($body) && $body !== '', $status, is_string($body) ? $body : '', $error];
+        $attempt = static function () use ($url, $headers) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_MAXREDIRS      => 3,
+                CURLOPT_CONNECTTIMEOUT => (int)$this->cfg['connect_timeout'],
+                CURLOPT_TIMEOUT        => (int)$this->cfg['timeout'],
+                CURLOPT_ENCODING       => '',
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_USERAGENT      => $this->userAgent(),
+                CURLOPT_HTTPHEADER     => array_merge([
+                    'Accept: text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
+                    'Accept-Language: fa-IR,fa;q=0.9,en;q=0.8',
+                ], $headers),
+            ]);
+            $body = curl_exec($ch);
+            $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch) ?: null;
+            curl_close($ch);
+            return [is_string($body) && $body !== '', $status, is_string($body) ? $body : '', $error];
+        };
+
+        $res = $attempt();
+        // 🔁 تلاش مجدد: خطای شبکه بدون پاسخ HTTP یا خطای ۵xx گذرا
+        if (!$res[0] && ($res[3] || $res[1] >= 500)) {
+            usleep(400000); // ۰٫۴ ثانیه
+            $res = $attempt();
+        }
+        return $res;
     }
 
     /** POST فرم با cURL — خروجی: [ok, status, body, error] */

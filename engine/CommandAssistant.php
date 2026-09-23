@@ -68,6 +68,17 @@ class CommandAssistant
             return $this->webResearch($topic, $command);
         }
 
+        // 1.7️⃣ 📰 اخبار زنده — «اخبار: ...» / «اخبار امروز درباره ...» / «خبر: ...»
+        if (preg_match('/(اخبار|خبر)/u', $norm)
+            && (preg_match('/[:：]/u', $command) || preg_match('/(درباره|از)/u', $norm))) {
+            $query = trim((string)(preg_split('/[:：]/u', $command, 2)[1] ?? ''));
+            if ($query === '') {
+                $query = preg_replace('/(اخبار|خبر|امروز|درباره|از|جدید|تازه|را|بده|نمایش)/u', ' ', $command);
+                $query = trim(preg_replace('/\s+/u', ' ', $query));
+            }
+            return $this->webNews($query, $command);
+        }
+
         // 2️⃣ امتیاز متن — «امتیاز این متن: ...» (دارای دونقطه — قبل از تشخیص عیب تا تداخل نشود)
         if (preg_match('/(امتیاز|نمره)/u', $norm) && preg_match('/[:：]/u', $command)) {
             $text = trim(preg_split('/[:：]/u', $command, 2)[1] ?? '');
@@ -173,6 +184,30 @@ class CommandAssistant
             ];
         } catch (Exception $e) {
             return ['action' => 'web_research', 'success' => false, 'message' => 'تحقیق آنلاین ناموفق بود: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * 📰 اخبار زنده وب از فرمان طبیعی (v3.2)
+     */
+    private function webNews(string $query, string $command): array
+    {
+        $query = trim($query);
+        if (mb_strlen($query) < 3) {
+            return ['action' => 'web_news', 'success' => false, 'message' => 'موضوع خبر را بنویسید؛ مثال: «اخبار: قیمت یخچال» یا «اخبار امروز درباره ماشین لباسشویی»'];
+        }
+        try {
+            $result = (new WebSearchService())->news($query, 6);
+            return [
+                'action'  => 'web_news',
+                'success' => true,
+                'message' => count($result['results']) . ' خبر تازه درباره «' . $query . '» پیدا شد' .
+                             ($result['cached'] ? ' (کش)' : ''),
+                'result'  => $result,
+                'suggestions' => ["مقاله بنویس درباره {$query}", "تحقیق درباره: {$query}"],
+            ];
+        } catch (Exception $e) {
+            return ['action' => 'web_news', 'success' => false, 'message' => 'جستجوی اخبار ناموفق بود: ' . $e->getMessage()];
         }
     }
 
@@ -461,7 +496,7 @@ class CommandAssistant
                 'برندهای پایگاه دانش',
             ],
             'capabilities' => [
-                'article'     => 'تولید مقاله کامل با خط تولید هوشمند',
+                'article'     => 'تولید مقاله کامل با خط تولید هوشمند + ۳ تصویر',
                 'keywords'    => 'تحلیل کلیدواژه + رقابت‌پذیری + long-tail',
                 'score'       => 'امتیاز ۷ بُعدی کیفیت متن',
                 'improve'     => 'بهبود خودکار متن تا امتیاز هدف',
@@ -472,6 +507,7 @@ class CommandAssistant
                 'brands'      => 'لیست برندهای پایگاه دانش',
                 'web_search'  => 'جستجوی آنلاین اینترنت — «جستجوی وب: ...»',
                 'web_research'=> 'تحقیق ساختاریافته آنلاین — «تحقیق درباره: ...»',
+                'web_news'    => 'اخبار زنده — «اخبار: ...» (v3.2)',
             ],
             'suggestions' => $this->suggestions(),
         ];

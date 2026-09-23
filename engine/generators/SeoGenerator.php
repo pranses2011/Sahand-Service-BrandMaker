@@ -5,8 +5,12 @@
  * تولید خودکار عناصر سئو با رعایت محدودیت‌های طول استاندارد
  * و پشتیبانی از نام فارسی + انگلیسی برند.
  *
+ * 🆕 نسخه ۱.۱: اسکیمای Article غنی‌شده (تصاویر/سایز/بازبینی) +
+ * HowTo برای مقالات راهنما + Speakable + تحلیل تراکم کلیدواژه +
+ * پیشنهاد لینک داخلی + og:image و twitter:image.
+ *
  * @package SahandBrandMaker\Engine
- * @version 1.0.0
+ * @version 1.1.0
  */
 class SeoGenerator
 {
@@ -70,29 +74,44 @@ class SeoGenerator
 
     /**
      * 📰 تولید پکیج کامل سئو برای مقاله
+     *
+     * @param string $title        عنوان مقاله
+     * @param string $content      HTML مقاله
+     * @param string $focusKeyword کلیدواژه کانونی
+     * @param array  $vars         متغیرها (brand_fa, agency, city, images[])
      */
     public function generateForArticle(string $title, string $content, string $focusKeyword, array $vars): array
     {
         $seoTitle = $this->title($title, $vars);
         $meta = $this->metaDescription($content, $vars);
+        $images = array_values(array_filter((array)($vars['images'] ?? [])));
 
-        // 🏷️ OG tags
+        // 🏷️ OG tags — کامل با تصویر
         $og = [
             'og:title'       => $seoTitle,
             'og:description' => $meta,
             'og:type'        => 'article',
             'og:locale'      => 'fa_IR',
+            'og:site_name'   => $vars['agency'] ?? 'سهند سرویس',
         ];
+        if ($images) {
+            $og['og:image'] = $images[0];
+            $og['og:image:width'] = 1344;
+            $og['og:image:height'] = 768;
+        }
 
-        // 🐦 Twitter Card
+        // 🐦 Twitter Card — کامل با تصویر
         $twitter = [
-            'twitter:card'        => 'summary_large_image',
+            'twitter:card'        => $images ? 'summary_large_image' : 'summary',
             'twitter:title'       => $seoTitle,
             'twitter:description' => $meta,
         ];
+        if ($images) {
+            $twitter['twitter:image'] = $images[0];
+        }
 
-        // 🧩 Schema.org JSON-LD Article
-        $schema = $this->articleSchema($title, $content, $vars);
+        // 🧩 Schema.org JSON-LD Article غنی‌شده
+        $schema = $this->articleSchema($title, $content, $vars, $images);
 
         return [
             'title'       => $seoTitle,
@@ -101,6 +120,8 @@ class SeoGenerator
             'og'          => $og,
             'twitter'     => $twitter,
             'schema'      => $schema,
+            'keyword_density' => $this->keywordDensity($content, $focusKeyword),
+            'reading_time' => max(1, (int)ceil(TextProcessor::wordCount(strip_tags($content)) / 220)),
         ];
     }
 
@@ -174,23 +195,87 @@ class SeoGenerator
     }
 
     /**
-     * 📰 Schema.org Article
+     * 📰 Schema.org Article — غنی‌شده نسخه ۱.۱
+     * تصاویر + حجم محتوا + بازبینی + صفحه مرجع + Speakable
      */
-    public function articleSchema(string $title, string $content, array $vars): array
+    public function articleSchema(string $title, string $content, array $vars, array $images = []): array
     {
-        return [
-            '@context'      => 'https://schema.org',
-            '@type'         => 'Article',
-            'headline'      => $title,
-            'description'   => excerpt(strip_tags($content), 200),
-            'author'        => ['@type' => 'Organization', 'name' => $vars['agency'] ?? 'سهند سرویس'],
-            'publisher'     => [
+        $agency = $vars['agency'] ?? 'سهند سرویس';
+        $schema = [
+            '@context'        => 'https://schema.org',
+            '@type'           => 'Article',
+            'headline'        => $title,
+            'description'     => excerpt(strip_tags($content), 200),
+            'author'          => ['@type' => 'Organization', 'name' => $agency],
+            'publisher'       => [
                 '@type' => 'Organization',
-                'name'  => $vars['agency'] ?? 'سهند سرویس',
+                'name'  => $agency,
             ],
-            'inLanguage'    => 'fa-IR',
-            'datePublished' => date('c'),
+            'inLanguage'      => 'fa-IR',
+            'datePublished'   => date('c'),
+            'dateModified'    => date('c'),
+            'wordCount'       => TextProcessor::wordCount(strip_tags($content)),
         ];
+        if (!empty($vars['brand_domain'])) {
+            $schema['mainEntityOfPage'] = 'https://' . $vars['brand_domain'];
+        }
+        if ($images) {
+            $schema['image'] = array_values($images);
+        }
+        // 🗣️ Speakable — برای دستیار‌های صوتی و سئوی شفاف
+        $schema['speakable'] = [
+            '@type'       => 'SpeakableSpecification',
+            'cssSelector' => ['.article-single-title', '.article-toc'],
+        ];
+        return $schema;
+    }
+
+    /**
+     * 🪜 Schema.org HowTo — برای مقالات راهنما و آموزش (نسخه ۱.۱)
+     *
+     * @param string $name        عنوان راهنما
+     * @param array  $steps       [['name' => '...', 'text' => '...'], ...]
+     */
+    public function howToSchema(string $name, array $steps): array
+    {
+        $items = [];
+        foreach (array_values($steps) as $i => $step) {
+            $items[] = [
+                '@type'    => 'HowToStep',
+                'position' => $i + 1,
+                'name'     => (string)($step['name'] ?? 'مرحله ' . ($i + 1)),
+                'text'     => strip_tags((string)($step['text'] ?? '')),
+            ];
+        }
+        return [
+            '@context' => 'https://schema.org',
+            '@type'    => 'HowTo',
+            'name'     => $name,
+            'inLanguage' => 'fa-IR',
+            'step'     => $items,
+        ];
+    }
+
+    /**
+     * 📊 تحلیل تراکم کلیدواژه — درصد حضور کلیدواژه کانونی (نسخه ۱.۱)
+     * بازه سالم سئو: ۰.۵٪ تا ۲.۵٪
+     */
+    public function keywordDensity(string $content, string $focusKeyword): array
+    {
+        $text = trim(strip_tags($content));
+        $words = TextProcessor::wordCount($text);
+        if ($words < 10 || $focusKeyword === '') {
+            return ['percent' => 0.0, 'count' => 0, 'status' => 'unknown', 'words' => $words];
+        }
+        $count = substr_count(strtolower($text), strtolower($focusKeyword));
+        $percent = round(($count * mb_substr_count($focusKeyword, ' ') + $count) / max(1, $words) * 100, 2);
+        $status = 'low';
+        if ($percent > 2.5) {
+            $status = 'high';
+        } elseif ($percent >= 0.5) {
+            $status = 'healthy';
+        }
+        return ['percent' => $percent, 'count' => $count, 'status' => $status, 'words' => $words];
     }
 
     /**
