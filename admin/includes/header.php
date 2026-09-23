@@ -107,6 +107,9 @@ try {
                 <a class="nav-link <?= $activeMenu === 'seo' ? 'active' : '' ?>" href="seo.php">
                     <span class="icon">🔍</span> مرکز سئو
                 </a>
+                <a class="nav-link <?= $activeMenu === 'telegram' ? 'active' : '' ?>" href="telegram.php">
+                    <span class="icon">🤖</span> ربات تلگرام
+                </a>
                 <a class="nav-link <?= $activeMenu === 'export' ? 'active' : '' ?>" href="export.php">
                     <span class="icon">📦</span> خروجی و استقرار
                 </a>

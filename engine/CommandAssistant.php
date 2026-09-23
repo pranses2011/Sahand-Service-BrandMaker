@@ -55,6 +55,19 @@ class CommandAssistant
             return $this->help();
         }
 
+        // 1.5️⃣ 🌐 جستجوی آنلاین وب — «جستجوی وب: ...» / «سرچ: ...» / «در اینترنت جستجو کن ...»
+        if (preg_match('/(جستجوی وب|جستجو در وب|جستجوی انلاین|جستجوی آنلاین|در اینترنت جستجو|سرچ)/u', $norm)
+            && preg_match('/[:：]/u', $command)) {
+            $query = trim(preg_split('/[:：]/u', $command, 2)[1] ?? '');
+            return $this->webSearch($query, $command);
+        }
+
+        // 1.6️⃣ 🧪 تحقیق آنلاین — «تحقیق درباره: ...» / «تحقیق کن: ...»
+        if (preg_match('/(تحقیق|بررسی آنلاین|بررسی وب)/u', $norm) && preg_match('/[:：]/u', $command)) {
+            $topic = trim(preg_split('/[:：]/u', $command, 2)[1] ?? '');
+            return $this->webResearch($topic, $command);
+        }
+
         // 2️⃣ امتیاز متن — «امتیاز این متن: ...» (دارای دونقطه — قبل از تشخیص عیب تا تداخل نشود)
         if (preg_match('/(امتیاز|نمره)/u', $norm) && preg_match('/[:：]/u', $command)) {
             $text = trim(preg_split('/[:：]/u', $command, 2)[1] ?? '');
@@ -115,6 +128,53 @@ class CommandAssistant
     /* ==================================================
      * 🎬 عملیات‌ها
      * ================================================== */
+
+    /**
+     * 🌐 جستجوی آنلاین وب از فرمان طبیعی
+     */
+    private function webSearch(string $query, string $command): array
+    {
+        $query = trim($query);
+        if (mb_strlen($query) < 2) {
+            return ['action' => 'web_search', 'success' => false, 'message' => 'عبارت جستجو را بعد از دونقطه بنویسید؛ مثال: «جستجوی وب: تعمیر ماشین لباسشویی در تهران»'];
+        }
+        try {
+            $result = (new WebSearchService())->search($query, 6);
+            return [
+                'action'  => 'web_search',
+                'success' => true,
+                'message' => 'جستجوی وب انجام شد — ' . count($result['results']) . ' نتیجه از ' . ($result['provider'] ?? 'وب') .
+                             ($result['cached'] ? ' (کش)' : ''),
+                'result'  => $result,
+                'suggestions' => ["تحقیق درباره: {$query}", "مقاله بنویس درباره {$query}"],
+            ];
+        } catch (Exception $e) {
+            return ['action' => 'web_search', 'success' => false, 'message' => 'جستجوی وب ناموفق بود: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * 🧪 تحقیق ساختاریافته آنلاین از فرمان طبیعی
+     */
+    private function webResearch(string $topic, string $command): array
+    {
+        $topic = trim($topic);
+        if (mb_strlen($topic) < 3) {
+            return ['action' => 'web_research', 'success' => false, 'message' => 'موضوع تحقیق را بعد از دونقطه بنویسید؛ مثال: «تحقیق درباره: ماشین لباسشویی دوو»'];
+        }
+        try {
+            $result = (new WebSearchService())->research($topic, ['limit' => 6]);
+            return [
+                'action'  => 'web_research',
+                'success' => true,
+                'message' => $result['summary'] ?? ('تحقیق آنلاین درباره «' . $topic . '» انجام شد.'),
+                'result'  => $result,
+                'suggestions' => ["مقاله بنویس درباره {$topic}", "کلمات کلیدی {$topic}"],
+            ];
+        } catch (Exception $e) {
+            return ['action' => 'web_research', 'success' => false, 'message' => 'تحقیق آنلاین ناموفق بود: ' . $e->getMessage()];
+        }
+    }
 
     /**
      * 📰 تولید مقاله از فرمان طبیعی
@@ -401,15 +461,17 @@ class CommandAssistant
                 'برندهای پایگاه دانش',
             ],
             'capabilities' => [
-                'article'   => 'تولید مقاله کامل با خط تولید هوشمند',
-                'keywords'  => 'تحلیل کلیدواژه + رقابت‌پذیری + long-tail',
-                'score'     => 'امتیاز ۷ بُعدی کیفیت متن',
-                'improve'   => 'بهبود خودکار متن تا امتیاز هدف',
-                'titles'    => 'پیشنهاد عنوان بهینه CTR-محور',
-                'intent'    => 'تشخیص نیت جستجو',
-                'diagnose'  => 'تشخیص سه‌سطحی علامت → علت → قطعه',
-                'errors'    => 'جستجوی کد خطا در پایگاه دانش',
-                'brands'    => 'لیست برندهای پایگاه دانش',
+                'article'     => 'تولید مقاله کامل با خط تولید هوشمند',
+                'keywords'    => 'تحلیل کلیدواژه + رقابت‌پذیری + long-tail',
+                'score'       => 'امتیاز ۷ بُعدی کیفیت متن',
+                'improve'     => 'بهبود خودکار متن تا امتیاز هدف',
+                'titles'      => 'پیشنهاد عنوان بهینه CTR-محور',
+                'intent'      => 'تشخیص نیت جستجو',
+                'diagnose'    => 'تشخیص سه‌سطحی علامت → علت → قطعه',
+                'errors'      => 'جستجوی کد خطا در پایگاه دانش',
+                'brands'      => 'لیست برندهای پایگاه دانش',
+                'web_search'  => 'جستجوی آنلاین اینترنت — «جستجوی وب: ...»',
+                'web_research'=> 'تحقیق ساختاریافته آنلاین — «تحقیق درباره: ...»',
             ],
             'suggestions' => $this->suggestions(),
         ];
@@ -425,6 +487,8 @@ class CommandAssistant
             'مقاله بنویس برای پاکشما درباره ماشین لباسشویی',
             'کلمات کلیدی یخچال',
             'عنوان برای تعمیر کولر گازی بده',
+            'جستجوی وب: قیمت موتور ماشین لباسشویی',
+            'تحقیق درباره: یخچال ساید بای ساید اسنوا',
         ];
     }
 

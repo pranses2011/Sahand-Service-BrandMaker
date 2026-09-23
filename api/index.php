@@ -10,6 +10,7 @@
  *   🤖 موتور AI v1: generate-content, generate-article, generate-seo, generate-brand-info, generate-faq, analyze-keywords, check-uniqueness, suggest-improvements, suggest-topics
  *   🧠 موتور AI v2: score-content, classify-intent, content-plan, suggest-longtail, cluster-keywords, tfidf, engine-info
  *   🚀 موتور AI v3: smart-generate, improve-content, brand-voice, generate-titles, assistant, cache-stats, cache-clear
+ *   🌐 موتور AI v3.1: web-search, research, websearch-status + 🤖 ربات تلگرام (telegram/webhook)
  *
  * @package SahandBrandMaker
  */
@@ -52,10 +53,12 @@ $router->use(function (array $params) {
     //    📊 track — ردیاب بازدید (brand_id اعتبارسنجی می‌شود)
     //    🖼️ icon — سرو آیکون در تگ <img> (امکان ارسال هدر نیست)
     //    🏷️ brands — لیست عمومی برندها برای فوتر سایت‌ها
+    //    🤖 telegram/webhook — وب‌هوک تلگرام (با توکن مخفی خودکار تلگرام راستی‌آزمایی می‌شود)
     if (preg_match('#^brand/[^/]+/request$#', $path) || preg_match('#^request$#', $path)
         || preg_match('#^track$#', $path)
         || preg_match('#^icon/#', $path)
-        || preg_match('#^brands$#', $path)) {
+        || preg_match('#^brands$#', $path)
+        || preg_match('#^telegram/webhook$#', $path)) {
         return true;
     }
     require_once __DIR__ . '/middleware/auth.php';
@@ -292,6 +295,31 @@ $router->add('GET', 'ai/cache-stats', function () {
 
 // 🧹 پاکسازی کش موتور
 $router->add('POST', 'ai/cache-clear', $aiHandler('cacheClear'));
+
+/* ==================================================
+ * 🌐 اندپوینت‌های موتور نسخه ۳.۱ — جستجوی آنلاین وب
+ * ================================================== */
+
+// 🔎 جستجوی آنلاین اینترنت (بهبود محتوا/سئو/مقالات)
+$router->add('POST', 'ai/web-search', $aiHandler('webSearch'));
+
+// 🧪 تحقیق ساختاریافته آنلاین (کلیدواژه ترند + سؤالات + داده تازه)
+$router->add('POST', 'ai/research', $aiHandler('researchTopic'));
+
+// 📊 وضعیت سرویس جستجوی وب (ارائه‌دهندگان + نرخ + کش)
+$router->add('GET', 'ai/websearch-status', function () {
+    json_response(['success' => true, 'data' => (new SahandAI())->webSearchStatus()]);
+});
+
+/* ==================================================
+ * 🤖 ربات تلگرام متصل به دستیار فارسی
+ * ================================================== */
+
+// 📨 وب‌هوک تلگرام — عمومی (احراز هویت با توکن مخفی خودکار تلگرام)
+$router->add('POST', 'telegram/webhook', function () {
+    require_once dirname(__DIR__) . '/telegram/TelegramBot.php';
+    telegram_webhook_handler();
+});
 
 /* ==================================================
  * 🔍 سئو (تولید برای صفحه)

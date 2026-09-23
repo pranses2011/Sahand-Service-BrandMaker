@@ -19,12 +19,12 @@ class NotificationService
      *
      * @param array $request داده‌های درخواست
      * @param array $brand   اطلاعات برند (نام + لوگو + دامنه)
-     * @return array گزارش ['email'=>bool, 'telegram'=>bool, 'gscript'=>bool, 'bale'=>bool, 'errors'=>[]]
+     * @return array گزارش ['email'=>bool, 'telegram'=>bool, 'gscript'=>bool, 'bale'=>bool, 'bot'=>bool, 'errors'=>[]]
      */
     public function sendServiceRequest(array $request, array $brand): array
     {
         $errors = [];
-        $result = ['email' => false, 'telegram' => false, 'gscript' => false, 'bale' => false];
+        $result = ['email' => false, 'telegram' => false, 'gscript' => false, 'bale' => false, 'bot' => false];
 
         /* ---------- 📧 کانال ایمیل ---------- */
         $emailCfg = (array)(Config::get(Config::KEY_NOTIFY_EMAIL) ?: []);
@@ -44,6 +44,16 @@ class NotificationService
         $tgCfg = (array)(Config::get(Config::KEY_NOTIFY_TELEGRAM) ?: []);
         $message = $this->formatTelegramMessage($request, $brand);
         $logoUrl = !empty($brand['logo']) ? (strpos($brand['logo'], 'http') === 0 ? $brand['logo'] : BASE_URL . '/' . $brand['logo']) : '';
+
+        /* ---------- 🤖 اعلان به ربات دستیار تلگرام (نسخه ۲.۱) ---------- */
+        try {
+            if (is_file(ROOT_PATH . '/telegram/TelegramBot.php')) {
+                require_once ROOT_PATH . '/telegram/TelegramBot.php';
+                $result['bot'] = TelegramBot::notifyNewRequest($request, $brand);
+            }
+        } catch (Throwable $e) {
+            $errors[] = 'ربات تلگرام: ' . $e->getMessage();
+        }
 
         // 📱 تلگرام مستقیم
         if (!empty($tgCfg['enabled']) && !empty($tgCfg['bot_token']) && !empty($tgCfg['chat_id'])) {

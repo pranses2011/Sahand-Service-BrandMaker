@@ -534,3 +534,40 @@
 
 ### 📦 کامیت
 - `fix-installer-critical-db-bug` — رفع باگ + ۲۵ تست + بروزرسانی CHECKLIST/WORKLOG
+
+## ✅ بخش ۲ و ۳ فاز N: سرویس جستجوی آنلاین وب + ربات تلگرام
+
+### 🌐 سرویس جستجوی آنلاین (`engine/services/WebSearchService.php` — ۷۸۴ خط)
+- معماری ۶ ارائه‌دهنده با زنجیره جایگزین خودکار:
+  - کلیددار (اختیاری): SerpApi → Google CSE → Bing API (از تنظیمات `websearch_settings`)
+  - رایگان (پیش‌فرض، بدون کلید): DuckDuckGo HTML → DuckDuckGo Lite → Bing HTML
+- `search(query, limit)` — جستجو با کش ۳۰ دقیقه‌ای + محدودیت نرخ ۶۰/ساعت + گزارش ارائه‌دهنده
+- `research(topic, opts)` — تحقیق ساختاریافته: ۲ جستجو (اصلی + قیمت) → استخراج کلیدواژه ترند (فراوانی) + سؤالات واقعی کاربران (چرا/چطور/؟) + داده‌های عددی (تومان/درصد/سال) + منابع + خلاصه فارسی؛ کش ۶ ساعته
+- `fetchPageText(url)` — خواندن متن صفحه (حذف script/style/nav، استخراج title+meta+text)
+- `status()` — وضعیت ارائه‌دهندگان + نرخ + کش
+- امنیت: محافظت SSRF کامل (بلوک localhost/IP خصوصی/.local/file:) + چرخش User-Agent + تایم‌اوت اتصال/کل
+- متدهای تجزیه عمومی (`parseDdgHtml`/`parseDdgLite`/`parseBingHtml`) — قابل تست آفلاین + ترتیب صفت‌ها مهم نیست + تبلیغات DDG (y.js) رد می‌شوند
+
+### 🧠 یکپارچه‌سازی در موتور
+- `SmartPipeline`: پارامتر `research` → گام تحقیق آنلاین بین انتخاب کلیدواژه و تولید مقاله؛ غنی‌سازی FAQ با ۳ سؤال واقعی وب + لحاظ کلیدواژه ترند در تولید عنوان + خروجی `research` در نتیجه؛ **شکست وب هرگز خط تولید را متوقف نمی‌کند**
+- `SahandAI` v3.1.0: ۳ متد جدید (webSearch، researchTopic، webSearchStatus) + engineInfo با قابلیت‌های جدید
+- `CommandAssistant`: ۲ فرمان جدید — «جستجوی وب: ...» / «سرچ: ...» و «تحقیق درباره: ...» + بروزرسانی راهنما و پیشنهادها
+- API: ۳ اندپوینت جدید — POST `ai/web-search`، POST `ai/research`، GET `ai/websearch-status` (مجموع ۳۷ اندپوینت)
+
+### 🤖 ربات تلگرام (`telegram/TelegramBot.php` + `telegram/poll.php` + `admin/telegram.php`)
+- کلاس `TelegramBot`: فراخوانی Bot API (getMe/setWebhook/deleteWebhook/getWebhookInfo) + sendMessage با HTML + تقسیم خودکار پیام‌های بلند (سقف ۴۰۹۶، مرز خط، بدون از دست رفتن محتوا)
+- مغز ربات `handleUpdate`: احراز هویت لیست چت (خالی=هیچ‌کس، *=همه) + فرمان‌های /start /help /status /id + زبان طبیعی فارسی → CommandAssistant
+- قالب‌بندی هوشمند ۱۱ نوع عملیات (مقاله/کلیدواژه/امتیاز/بهبود/عنوان/نیت/عیب‌یابی/کد خطا/برندها/جستجوی وب/تحقیق) با XSS ایمن
+- وب‌هوک `POST api/telegram/webhook` (عمومی، راستی‌آزمایی با هدر X-Telegram-Bot-Api-Secret-Token + hash_equals)
+- long-polling `telegram/poll.php` برای تست محلی/هاست بدون SSL
+- پنل مدیریت: ذخیره توکن/شناسه‌ها + تست اتصال + راه‌اندازی/حذف وب‌هوک با توکن مخفی خودکار + پیام آزمایشی + وضعیت + راهنمای ۶ مرحله‌ای + افزودن به سایدبار
+- اعلان درخواست جدید: `TelegramBot::notifyNewRequest` متصل به `NotificationService` (کانال پنجم: bot)
+- seed تنظیمات: `websearch_settings` + `telegram_bot_settings` در database.sql
+
+### 🧪 تست‌ها
+- `scripts/test-engine-v31.php` — **۸۰/۸۰ موفق شامل ۳ تست زنده اینترنت** (جستجوی Bing واقعی + تحقیق زنده + دستیار+جستجو)
+- رگرسیون کامل: v2 (70) + v3 (62) + knowledge (71+27) + ai-engine (43) = **۲۷۳ موفق** پس از بروزرسانی انتظارات نسخه
+- فیکسچر آفلاین: DDG HTML/Lite + Bing با HTML واقعی‌نما + ۱۰ مورد SSRF + دیکود ریدایرکت/تبلیغ
+
+### 📦 کامیت
+- `engine-v3.1-websearch-telegram` — سرویس جستجو + ربات + یکپارچه‌سازی + پنل + تست‌ها

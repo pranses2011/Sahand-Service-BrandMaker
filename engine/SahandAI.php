@@ -13,15 +13,16 @@
  *   🧠 خط تولید هوشمند (SmartPipeline) + 🔧 بهبوددهنده خودکار (ContentImprover)
  *   🎙️ تحلیل صدای برند (BrandVoiceAnalyzer) + 🏷️ عنوان‌ساز CTR (TitleGenerator)
  *   💬 دستیار فرمان فارسی (CommandAssistant) + ⚡ کش موتور (EngineCache)
+ *   🌐 جستجوی آنلاین وب (WebSearchService — نسخه ۳.۱)
  *   🔌 API داخلی (routes در api/index.php)
  *
  * @package SahandBrandMaker\Engine
- * @version 3.0.0
+ * @version 3.1.0
  */
 class SahandAI
 {
     /** 🔖 نسخه موتور */
-    public const ENGINE_VERSION = '3.0.0';
+    public const ENGINE_VERSION = '3.1.0';
 
     /** @var Database دیتابیس */
     private $db;
@@ -583,6 +584,7 @@ class SahandAI
                 'generators'    => ['ArticleGenerator', 'BrandInfoGenerator', 'ContentGenerator', 'ErrorCodeGenerator', 'FaqGenerator', 'SeoGenerator', 'ContentPlanner', 'SmartPipeline', 'ContentImprover', 'TitleGenerator'],
                 'analyzers'     => ['ColorAnalyzer', 'KeywordAnalyzer', 'SeoAnalyzer', 'UniquenessChecker', 'QualityScorer', 'IntentClassifier', 'BrandVoiceAnalyzer'],
                 'assistants'    => ['CommandAssistant'],
+                'services'      => ['WebSearchService'],
                 'article_types' => 9,
                 'best_of_n'     => true,
                 'quality_score' => true,
@@ -596,6 +598,9 @@ class SahandAI
                 'ctr_titles'       => true,   // 🏷️ عنوان‌سازی بهینه CTR
                 'nl_assistant'     => true,   // 💬 دستیار فرمان فارسی
                 'response_cache'   => true,   // ⚡ کش پاسخ‌ها
+                'web_search'       => true,   // 🌐 جستجوی آنلاین وب (نسخه ۳.۱)
+                'web_research'     => true,   // 🧪 تحقیق ساختاریافته آنلاین
+                'telegram_bot'     => true,   // 🤖 ربات تلگرام متصل به دستیار
             ],
             'knowledge_size'    => $kb,
         ];
@@ -705,5 +710,46 @@ class SahandAI
     {
         $cleared = EngineCache::clear();
         return ['cleared' => $cleared, 'message' => $cleared . ' ورودی کش پاک شد.'];
+    }
+
+    /* ==================================================
+     * 🌐 قابلیت‌های نسخه ۳.۱ — جستجوی آنلاین وب
+     * ================================================== */
+
+    /**
+     * 🔎 جستجوی آنلاین وب — POST /api/ai/web-search
+     * پارامترها: query (الزامی)، limit (۱-۱۰، پیش‌فرض ۸)
+     */
+    public function webSearch(array $params): array
+    {
+        $query = trim((string)($params['query'] ?? ($params['q'] ?? '')));
+        if ($query === '') {
+            throw new RuntimeException('پارامتر query الزامی است.');
+        }
+        return (new WebSearchService())->search($query, (int)($params['limit'] ?? 0));
+    }
+
+    /**
+     * 🧪 تحقیق ساختاریافته آنلاین — POST /api/ai/research
+     * پارامترها: topic (الزامی)، fetch_pages، limit
+     */
+    public function researchTopic(array $params): array
+    {
+        $topic = trim((string)($params['topic'] ?? ''));
+        if ($topic === '') {
+            throw new RuntimeException('پارامتر topic الزامی است.');
+        }
+        return (new WebSearchService())->research($topic, [
+            'fetch_pages' => !empty($params['fetch_pages']),
+            'limit'       => (int)($params['limit'] ?? 8),
+        ]);
+    }
+
+    /**
+     * 📊 وضعیت سرویس جستجوی وب — GET /api/ai/websearch-status
+     */
+    public function webSearchStatus(): array
+    {
+        return (new WebSearchService())->status();
     }
 }

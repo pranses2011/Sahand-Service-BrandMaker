@@ -108,6 +108,30 @@ class SmartPipeline
             'focus_keyword' => $focusKeyword,
         ]);
 
+        /* ---------- 🌐 تحقیق آنلاین وب (اختیاری — پارامتر research) ---------- */
+        $webResearch = null;
+        if (!empty($params['research'])) {
+            $t = microtime(true);
+            try {
+                $webResearch = (new WebSearchService())->research($focusKeyword, [
+                    'fetch_pages' => !empty($params['research_fetch_pages']),
+                    'limit'       => 6,
+                ]);
+                $trace[] = $this->step('research', 'تحقیق آنلاین وب', $t, [
+                    'provider'   => $webResearch['provider'] ?? null,
+                    'keywords'   => count($webResearch['keywords'] ?? []),
+                    'questions'  => count($webResearch['questions'] ?? []),
+                    'facts'      => count($webResearch['facts'] ?? []),
+                    'sources'    => count($webResearch['sources'] ?? []),
+                ]);
+            } catch (Exception $e) {
+                // شکست تحقیق نباید خط تولید را متوقف کند — مقاله با دانش داخلی ادامه می‌یابد
+                $trace[] = $this->step('research', 'تحقیق آنلاین وب (ناموفق — ادامه با دانش داخلی)', $t, [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
         /* ---------- ۳️⃣ تولید مقاله بهترین-از-N ---------- */
         $t = microtime(true);
         $variants = (int)($params['variants'] ?? 3);
@@ -143,9 +167,15 @@ class SmartPipeline
         /* ---------- ۵️⃣ عنوان بهینه ---------- */
         $t = microtime(true);
         $titleGen = new TitleGenerator();
+        // 🌐 اگر تحقیق وب کلیدواژه ترند دارد، در تولید عنوان لحاظ شود
+        $titleSeason = '';
+        if ($webResearch && !empty($webResearch['keywords'][0]['keyword'])) {
+            $titleSeason = $webResearch['keywords'][0]['keyword'];
+        }
         $titles = $titleGen->generate($focusKeyword, [
             'brand_fa'  => $brand['name_fa'],
             'device_fa' => $deviceFa,
+            'season'    => $titleSeason,
         ], 5);
         $bestTitle = $titles['best'] !== '' ? $titles['best'] : ($article['title'] ?? '');
         $trace[] = $this->step('title', 'انتخاب عنوان بهینه', $t, [
@@ -170,6 +200,19 @@ class SmartPipeline
         /* ---------- ۷️⃣ سوالات متداول + اسکیما ---------- */
         $t = microtime(true);
         $faqItems = $this->buildFaqs($focusKeyword, $brand, $deviceKnowledge);
+        // 🌐 غنی‌سازی FAQ با سؤالات واقعی کاربران از تحقیق وب
+        if ($webResearch && !empty($webResearch['questions'])) {
+            foreach (array_slice($webResearch['questions'], 0, 3) as $webQ) {
+                $webQ = trim($webQ);
+                if ($webQ === '' || mb_strlen($webQ) > 120) { continue; }
+                $faqItems[] = [
+                    'question' => $webQ,
+                    'answer'   => 'بر اساس آخرین داده‌های وب، این موضوع یکی از دغدغه‌های رایج کاربران است. ' .
+                                 'برای پاسخ دقیق متناسب با مدل و شرایط دستگاه خود، مشاوره رایگان کارشناسان سهند سرویس را دریافت کنید.',
+                    'source'   => 'web_research',
+                ];
+            }
+        }
         $faqSchema = $seoGen->faqSchema($faqItems);
         $trace[] = $this->step('faq', 'تولید سوالات متداول', $t, ['count' => count($faqItems)]);
 
@@ -223,6 +266,14 @@ class SmartPipeline
                 'alternatives' => $titles['titles'] ? array_column(array_slice($titles['titles'], 0, 3), 'title') : [],
             ],
             'uniqueness' => $uniqueness,
+            'research' => $webResearch ? [
+                'enabled'  => true,
+                'provider' => $webResearch['provider'] ?? null,
+                'summary'  => $webResearch['summary'] ?? '',
+                'keywords' => array_column($webResearch['keywords'] ?? [], 'keyword'),
+                'facts'    => $webResearch['facts'] ?? [],
+                'sources'  => array_column($webResearch['sources'] ?? [], 'url'),
+            ] : ['enabled' => false],
             'pipeline' => [
                 'steps'   => $trace,
                 'elapsed_ms' => $elapsed,
