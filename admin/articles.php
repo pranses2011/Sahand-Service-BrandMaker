@@ -60,11 +60,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'gen_og') {
     header('Content-Type: application/json; charset=utf-8');
     try {
         $id = (int)post('article_id');
-        $article = $db->fetch('SELECT a.*, b.name_fa AS brand_name, b.extra_settings FROM brand_articles a JOIN brands b ON b.id = a.brand_id WHERE a.id = ?', [$id]);
+        $article = $db->fetch('SELECT a.*, b.name_fa AS brand_name, b.logo AS brand_logo, b.extra_settings FROM brand_articles a JOIN brands b ON b.id = a.brand_id WHERE a.id = ?', [$id]);
         if (!$article) {
             json_response(['success' => false, 'error' => 'مقاله یافت نشد.'], 404);
         }
-        $brand = ['name_fa' => $article['brand_name'] ?? '', 'extra_settings' => $article['extra_settings'] ?? ''];
+        $brand = ['name_fa' => $article['brand_name'] ?? '', 'extra_settings' => $article['extra_settings'] ?? '', 'logo' => $article['brand_logo'] ?? ''];
         $gen = new AiImageGenerator();
         /* بذر متفاوت با هر بار کلیک → هر تولید یک ترکیب جدید */
         $og = $gen->generateOgForPage('article', $article['title'], $brand, 'article-' . $id . '-' . substr((string)time(), -5));
@@ -81,10 +81,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'gen_og') {
 
 /* 🖼️ تولید مجدد ۲ تصویر یکتای AI مقاله (v2.6) */
 if (get_param('regen_images') === '1' && ($regenId = (int)get_param('edit')) > 0) {
-    $article = $db->fetch('SELECT a.*, b.name_fa AS brand_name, b.extra_settings FROM brand_articles a JOIN brands b ON b.id = a.brand_id WHERE a.id = ?', [$regenId]);
+    $article = $db->fetch('SELECT a.*, b.name_fa AS brand_name, b.logo AS brand_logo, b.extra_settings FROM brand_articles a JOIN brands b ON b.id = a.brand_id WHERE a.id = ?', [$regenId]);
     if ($article) {
         try {
-            $brand = ['name_fa' => $article['brand_name'] ?? '', 'extra_settings' => $article['extra_settings'] ?? ''];
+            $brand = ['name_fa' => $article['brand_name'] ?? '', 'extra_settings' => $article['extra_settings'] ?? '', 'logo' => $article['brand_logo'] ?? ''];
             $gen = new AiImageGenerator();
             $aiImages = $gen->generateForArticle(
                 $regenId,
@@ -220,6 +220,106 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'improve_seo_met
     }
 }
 
+/* 👁 پیش‌نمایش مقاله — نمایش کامل شبیه سایت عمومی (v2.7) */
+if ((int)get_param('preview') > 0) {
+    $previewArticle = $db->fetch(
+        'SELECT a.*, b.name_fa AS brand_name, b.logo AS brand_logo, b.extra_settings
+         FROM brand_articles a JOIN brands b ON b.id = a.brand_id WHERE a.id = ?',
+        [(int)get_param('preview')]
+    );
+    if ($previewArticle) {
+        $extra = json_decode((string)($previewArticle['extra_settings'] ?? ''), true) ?: [];
+        $pColor = $extra['palette']['primary'] ?? '#0e7490';
+        $pAccent = $extra['palette']['accent'] ?? '#f59e0b';
+        $wc = TextProcessor::wordCount(strip_tags((string)$previewArticle['content']));
+        $readMin = max(1, (int)ceil($wc / 220));
+        $tags = json_decode((string)($previewArticle['tags'] ?? '[]'), true) ?: [];
+        ?><!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title><?= e($previewArticle['title']) ?> — پیش‌نمایش</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Vazirmatn, Vazir, Tahoma, sans-serif; background: #f1f5f9; color: #1e293b; line-height: 1.95; font-size: 16px; }
+.pv-topbar { position: sticky; top: 0; z-index: 50; background: #0f172a; color: #fff; padding: 10px 18px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.pv-topbar .badge-preview { background: #f59e0b; color: #78350f; font-weight: 800; border-radius: 8px; padding: 3px 10px; font-size: 12px; }
+.pv-topbar a { color: #93c5fd; text-decoration: none; }
+.pv-topbar .sep { color: #475569; }
+.pv-hero { background: linear-gradient(135deg, <?= e($pColor) ?>, <?= e($pAccent) ?>); color: #fff; padding: 52px 20px 46px; text-align: center; }
+.pv-hero h1 { font-size: clamp(21px, 4vw, 32px); max-width: 780px; margin: 0 auto 14px; line-height: 1.6; }
+.pv-meta { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; font-size: 13px; opacity: .92; }
+.pv-meta span { background: rgba(255,255,255,.16); border-radius: 20px; padding: 4px 14px; }
+.pv-container { max-width: 780px; margin: -28px auto 48px; padding: 0 18px; }
+.pv-card { background: #fff; border-radius: 16px; box-shadow: 0 12px 40px rgba(2,8,23,.10); padding: 34px 32px; }
+.pv-featured { width: 100%; border-radius: 12px; margin-bottom: 22px; display: block; }
+.pv-og { border-radius: 12px; margin-bottom: 22px; width: 100%; display: block; border: 1px solid #e2e8f0; }
+.pv-label { font-size: 12px; color: #64748b; margin: -14px 0 22px; text-align: center; }
+.pv-content h2 { font-size: 21px; margin: 30px 0 12px; color: #0f172a; border-inline-start: 4px solid <?= e($pColor) ?>; padding-inline-start: 12px; }
+.pv-content h3 { font-size: 17.5px; margin: 24px 0 10px; }
+.pv-content p { margin-bottom: 16px; text-align: justify; }
+.pv-content ul, .pv-content ol { margin: 0 24px 16px 0; }
+.pv-content li { margin-bottom: 8px; }
+.pv-content img { max-width: 100%; border-radius: 10px; }
+.pv-content a { color: <?= e($pColor) ?>; }
+.pv-content blockquote { border-inline-start: 4px solid <?= e($pAccent) ?>; background: #f8fafc; padding: 14px 18px; border-radius: 10px; margin: 0 0 16px; }
+.pv-content table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 14.5px; }
+.pv-content th, .pv-content td { border: 1px solid #e2e8f0; padding: 9px 12px; text-align: right; }
+.pv-content th { background: #f1f5f9; }
+.pv-content code { background: #f1f5f9; border-radius: 6px; padding: 2px 7px; font-size: 13.5px; direction: ltr; display: inline-block; }
+.pv-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 26px; padding-top: 20px; border-top: 1px dashed #e2e8f0; }
+.pv-tags span { background: #f1f5f9; color: #475569; border-radius: 18px; padding: 4px 14px; font-size: 12.5px; }
+.pv-excerpt { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; font-size: 14.5px; color: #475569; margin-bottom: 22px; }
+@media (max-width: 600px) { .pv-card { padding: 22px 16px; } .pv-content p { text-align: right; } }
+</style>
+</head>
+<body>
+<div class="pv-topbar">
+    <span class="badge-preview">👁 پیش‌نمایش</span>
+    <span>مقاله «<?= e(mb_substr($previewArticle['title'], 0, 40)) ?>»</span>
+    <span class="sep">|</span>
+    <a href="articles.php?edit=<?= (int)$previewArticle['id'] ?>">✏️ بازگشت به ویرایش</a>
+    <a href="articles.php">📋 فهرست مقالات</a>
+    <span class="sep">|</span>
+    <span>وضعیت: <?= e($previewArticle['status'] === 'published' ? 'منتشرشده' : 'پیش‌نویس') ?></span>
+</div>
+<div class="pv-hero">
+    <h1><?= e($previewArticle['title']) ?></h1>
+    <div class="pv-meta">
+        <span>🏷 <?= e($previewArticle['brand_name']) ?></span>
+        <span>📅 <?= e(jdate((string)($previewArticle['created_at'] ?? 'now'))) ?></span>
+        <span>⏱ ~<?= e(en_to_fa_digits((string)$readMin)) ?> دقیقه مطالعه</span>
+        <span>👁 <?= e(en_to_fa_digits((string)($previewArticle['views'] ?? 0))) ?> بازدید</span>
+    </div>
+</div>
+<div class="pv-container">
+    <div class="pv-card">
+        <?php if (!empty($previewArticle['featured_image'])): ?>
+            <img class="pv-featured" src="<?= e(asset_url((string)$previewArticle['featured_image'])) ?>" alt="تصویر شاخص">
+        <?php endif; ?>
+        <?php if (!empty($previewArticle['excerpt'])): ?>
+            <div class="pv-excerpt">💡 <?= e($previewArticle['excerpt']) ?></div>
+        <?php endif; ?>
+        <div class="pv-content"><?= $previewArticle['content'] /* sanitize شده هنگام ذخیره */ ?></div>
+        <?php if (!empty($previewArticle['og_image'])): ?>
+            <div class="pv-label">🖼 تصویر OG (شبکه‌های اجتماعی)</div>
+            <img class="pv-og" src="<?= e(asset_url((string)$previewArticle['og_image'])) ?>" alt="OG">
+        <?php endif; ?>
+        <?php if ($tags): ?>
+            <div class="pv-tags"><?php foreach ($tags as $t): ?><span>#<?= e((string)$t) ?></span><?php endforeach; ?></div>
+        <?php endif; ?>
+    </div>
+</div>
+</body>
+</html><?php
+        exit;
+    }
+    flash('danger', 'مقاله موردنظر برای پیش‌نمایش یافت نشد.');
+    redirect('articles.php');
+}
+
 $pageTitle = 'مدیریت مقالات';
 $activeMenu = 'articles';
 require __DIR__ . '/includes/header.php';
@@ -270,6 +370,7 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
         <h3>✏️ ویرایش مقاله — <?= e($editArticle['brand_name']) ?></h3>
         <div class="tools">
             <?php if ($editArticle['generated_by_ai']): ?><span class="badge badge-info">🤖 تولید AI</span><?php endif; ?>
+            <a href="articles.php?preview=<?= (int)$editArticle['id'] ?>" target="_blank" class="btn btn-primary btn-sm">👁 پیش‌نمایش مقاله</a>
             <a href="articles.php" class="btn btn-outline btn-sm">بازگشت</a>
         </div>
     </div>
@@ -523,6 +624,7 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
                     <td style="font-size:11px;color:var(--text-light)"><?= $article['published_at'] ? jdate($article['published_at']) : '—' ?></td>
                     <td>
                         <div class="actions">
+                            <a href="articles.php?preview=<?= (int)$article['id'] ?>" target="_blank" class="btn btn-outline btn-sm" title="پیش‌نمایش مقاله">👁</a>
                             <a href="articles.php?edit=<?= (int)$article['id'] ?>" class="btn btn-outline btn-sm">✏️</a>
                             <?php if ($article['status'] !== 'published'): ?>
                                 <form method="post" style="display:inline"><?= Auth::csrfField() ?><input type="hidden" name="action" value="status"><input type="hidden" name="article_id" value="<?= (int)$article['id'] ?>"><input type="hidden" name="status" value="published"><button class="btn btn-success btn-sm" title="انتشار">▶️</button></form>
