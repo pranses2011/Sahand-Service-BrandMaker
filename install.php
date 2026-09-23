@@ -14,6 +14,7 @@
 
 define('SAHAND_INIT', true);
 define('SAHAND_NO_SESSION', true);
+define('SAHAND_NO_DB_MIGRATE', true); /* 🆕 v2.6: مهاجرت دیتابیس فقط پس از نصب اجرا شود */
 require_once __DIR__ . '/config.php';
 
 /* ==================================================

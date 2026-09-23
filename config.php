@@ -231,6 +231,11 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
     try {
         $migrateMarker = ROOT_PATH . '/cache/.schema_v26';
         if (!file_exists($migrateMarker)) {
+            /* 🛡️ اتصال آزمایشی مستقیم (قابل گرفتن) — چون Database::getInstance
+               در خطای اتصال die می‌کند و نباید نصب تازه/محیط بدون DB را بشکند */
+            $dsn = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=%s', DB_HOST, DB_PORT, DB_NAME, DB_CHARSET);
+            $probe = new PDO($dsn, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 3]);
+            $probe = null;
             $pdo = Database::getInstance()->pdo();
             // 🆕 v2.6: ستون تصویر OG مقاله
             $cols = $pdo->query("SHOW COLUMNS FROM `brand_articles` LIKE 'og_image'")->fetchAll();
