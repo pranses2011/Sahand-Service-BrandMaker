@@ -214,14 +214,14 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
     <div class="card-header">
         <h3>📰 مقالات (<?= en_to_fa_digits((string)$total) ?>)</h3>
         <div class="tools">
-            <form method="get" style="display:flex;gap:8px">
-                <select name="brand" class="form-control" style="width:150px">
+            <form method="get" style="display:flex;gap:8px;flex-wrap:wrap">
+                <select name="brand" class="form-control" style="max-width:170px;min-width:140px">
                     <option value="">همه برندها</option>
                     <?php foreach ($brands as $brand): ?>
                         <option value="<?= (int)$brand['id'] ?>" <?= $brandFilter === (int)$brand['id'] ? 'selected' : '' ?>><?= e($brand['name_fa']) ?></option>
                     <?php endforeach; ?>
                 </select>
-                <select name="status" class="form-control" style="width:130px">
+                <select name="status" class="form-control" style="max-width:150px;min-width:120px">
                     <option value="">همه وضعیت‌ها</option>
                     <?php foreach ($statusMap as $key => [$label]): ?>
                         <option value="<?= $key ?>" <?= $statusFilter === $key ? 'selected' : '' ?>><?= $label ?></option>

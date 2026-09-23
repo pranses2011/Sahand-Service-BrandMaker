@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow">
     <title>ورود به پنل | <?= e(Config::get(Config::KEY_AGENCY_NAME_FA) ?: SAHAND_NAME_FA) ?></title>
-    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/admin.css">
+    <link rel="stylesheet" href="<?= asset_ver('assets/css/admin.css') ?>">
 </head>
 <body>
 <div class="login-page">
@@ -77,6 +77,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 </div>
-<script src="<?= BASE_URL ?>/assets/js/admin.js"></script>
+<script src="<?= asset_ver('assets/js/admin.js') ?>"></script>
 </body>
 </html>

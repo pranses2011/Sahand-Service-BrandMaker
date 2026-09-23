@@ -74,9 +74,9 @@ $statusMap = [
     <div class="card-header">
         <h3>🏷️ لیست برندها (<?= en_to_fa_digits((string)count($brands)) ?>)</h3>
         <div class="tools">
-            <form method="get" style="display:flex;gap:8px">
-                <input type="text" name="q" class="form-control" placeholder="🔎 جستجو برند..." value="<?= e($search) ?>" style="width:200px">
-                <select name="status" class="form-control" style="width:150px">
+            <form method="get" style="display:flex;gap:8px;flex-wrap:wrap">
+                <input type="text" name="q" class="form-control" placeholder="🔎 جستجو برند..." value="<?= e($search) ?>" style="max-width:220px;min-width:150px">
+                <select name="status" class="form-control" style="max-width:160px;min-width:130px">
                     <option value="">همه وضعیت‌ها</option>
                     <?php foreach ($statusMap as $key => [$label]): ?>
                         <option value="<?= $key ?>" <?= $statusFilter === $key ? 'selected' : '' ?>><?= $label ?></option>

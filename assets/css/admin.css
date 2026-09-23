@@ -191,7 +191,32 @@ body.no-scroll { overflow: hidden; }
     flex-wrap: wrap;
 }
 .card-header h3 { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-.card-header .tools { margin-inline-start: auto; display: flex; gap: 8px; align-items: center; }
+.card-header .tools { margin-inline-start: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+/* 📱 ریسپانسیو نوار ابزار/فیلتر بالای کارت‌ها — قبلاً با عرض ثابت ۲۰۰/۱۵۰ پیکسل
+   در موبایل سرریز می‌شد و نیمی از فیلتر بیرون از کادر می‌ماند */
+.card-header .tools form {
+    flex-wrap: wrap;
+    min-width: 0;
+}
+.card-header .tools .form-control {
+    max-width: 100%;
+}
+@media (max-width: 768px) {
+    .card-header .tools {
+        width: 100%;
+        margin-inline-start: 0;
+        border-top: 1px dashed var(--border);
+        padding-top: 12px;
+        margin-top: 10px;
+    }
+    .card-header .tools form { width: 100%; }
+    .card-header .tools .form-control {
+        width: auto !important;
+        min-width: 0 !important;
+        flex: 1 1 140px;
+    }
+    .card-header .tools .btn { flex: 0 0 auto; }
+}
 .card-body { padding: 22px; }
 
 /* ---------- 📊 کارت‌های آماری داشبورد ---------- */
@@ -327,7 +352,8 @@ select.form-control { cursor: pointer; }
 }
 
 /* متن‌های بلند بدون فاصله نباید چیدمان را بشکنند */
-td, .card-body, .alert { overflow-wrap: anywhere; }
+td, .card-body, .alert, .card-header h3, .topbar-titles { overflow-wrap: anywhere; }
+.form-group, .form-control { min-width: 0; }
 
 /* چک‌باکس و سوییچ */
 .form-check { display: flex; align-items: center; gap: 9px; cursor: pointer; }
@@ -374,6 +400,32 @@ td, .card-body, .alert { overflow-wrap: anywhere; }
 
 /* ---------- 🗂️ تب‌ها ---------- */
 .tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--border); margin-bottom: 22px; flex-wrap: wrap; }
+.tabs.scrollable {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    padding-bottom: 2px;
+}
+.tabs.scrollable::-webkit-scrollbar { height: 4px; }
+.tabs.scrollable::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.tabs.scrollable .tab-btn { scroll-snap-align: end; }
+
+/* 🧲 نوار بالای تب‌ها: نوار تب اسکرولی + دکمه ذخیره */
+.tabs-bar {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 22px;
+}
+.tabs-bar .tabs { flex: 1 1 auto; min-width: 0; margin-bottom: 0; }
+.tabs-actions { flex-shrink: 0; padding-top: 4px; }
+@media (max-width: 768px) {
+    .tabs-bar { flex-direction: column; align-items: stretch; gap: 12px; }
+    .tabs-actions { padding-top: 0; }
+    .tabs-actions .btn { width: 100%; justify-content: center; }
+}
 .tab-btn {
     padding: 10px 20px;
     background: none;
@@ -516,6 +568,12 @@ td, .card-body, .alert { overflow-wrap: anywhere; }
     .content { padding: 14px; }
     .card-body { padding: 16px; }
     .card-header { padding: 13px 16px; }
+    .card-header h3 { font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
+    .form-control { font-size: 13px; }
+    input[type="file"].form-control { font-size: 11.5px; }
+    .topbar { gap: 10px; }
+    .topbar-titles { min-width: 0; }
+    .topbar h2 { overflow-wrap: anywhere; }
     .stats-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
     .stat-card { padding: 15px; gap: 11px; }
     .stat-card .icon { width: 44px; height: 44px; font-size: 20px; }

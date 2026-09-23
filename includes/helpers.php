@@ -387,3 +387,22 @@ function asset_url(string $path): string
     }
     return (strpos($path, 'http') === 0) ? $path : BASE_URL . '/' . ltrim($path, '/');
 }
+
+/**
+ * 🧊 نسخه‌دار کردن دارایی‌های استاتیک (CSS/JS) برای شکستن کش مرورگر
+ * =========================================================
+ * پس از هر بروزرسانی، مرورگرهای قدیمی هنوز فایل CSS/JS قبلی را
+ * از کش نشان می‌دهند و کاربر چیدمان به‌هم‌ریخته می‌بیند.
+ * این تابع زمان آخرین تغییر فایل را به صورت ?v= به آدرس می‌چسباند
+ * تا با هر بروزرسانی، آدرس جدید و کش مرورگر شکسته شود.
+ *
+ * @param string $relPath مسیر نسبی از ریشه پروژه (مثلاً assets/css/admin.css)
+ * @return string آدرس کامل با پارامتر نسخه
+ */
+function asset_ver(string $relPath): string
+{
+    $url = BASE_URL . '/' . ltrim($relPath, '/');
+    $file = ROOT_PATH . '/' . ltrim($relPath, '/');
+    $mtime = @filemtime($file);
+    return $url . '?v=' . ($mtime ?: SAHAND_VERSION);
+}

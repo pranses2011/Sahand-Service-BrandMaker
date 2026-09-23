@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // 💡 پیشنهاد دامنه از نام انگلیسی
 $suggestedDomain = SlugGenerator::brandDomain('brand');
-?>
+
 $pageTitle = 'افزودن برند جدید';
 $activeMenu = 'brands';
 require __DIR__ . '/includes/header.php';

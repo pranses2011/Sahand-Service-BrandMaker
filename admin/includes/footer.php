@@ -14,6 +14,6 @@
     </div><!-- /main -->
 </div><!-- /layout -->
 
-<script src="<?= BASE_URL ?>/assets/js/admin.js"></script>
+<script src="<?= asset_ver('assets/js/admin.js') ?>"></script>
 </body>
 </html>

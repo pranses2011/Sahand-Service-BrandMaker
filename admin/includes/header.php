@@ -34,7 +34,7 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow">
     <title><?= e($pageTitle) ?> | <?= e(Config::get(Config::KEY_AGENCY_NAME_FA) ?: SAHAND_NAME_FA) ?></title>
-    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/admin.css">
+    <link rel="stylesheet" href="<?= asset_ver('assets/css/admin.css') ?>">
     <link rel="icon" href="<?= asset_url((string)Config::get(Config::KEY_AGENCY_FAVICON)) ?>">
 </head>
 <body>

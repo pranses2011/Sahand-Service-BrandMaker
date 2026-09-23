@@ -197,16 +197,18 @@ $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنب�
     <?= Auth::csrfField() ?>
     <input type="hidden" name="action" value="save_settings">
 
-    <!-- 🗂️ تب‌ها -->
-    <div class="tabs">
-        <button type="button" class="tab-btn active" onclick="switchTab(this,'tab-basic')">📇 پایه</button>
-        <button type="button" class="tab-btn" onclick="switchTab(this,'tab-contact')">📞 تماس</button>
-        <button type="button" class="tab-btn" onclick="switchTab(this,'tab-hours')">🕐 ساعات کاری</button>
-        <button type="button" class="tab-btn" onclick="switchTab(this,'tab-warranty')">🛡️ ضمانت</button>
-        <button type="button" class="tab-btn" onclick="switchTab(this,'tab-cost')">💰 هزینه و دامنه</button>
-        <button type="button" class="tab-btn" onclick="switchTab(this,'tab-notify')">📨 ارسال درخواست</button>
-        <button type="button" class="tab-btn" onclick="switchTab(this,'tab-links')">🔗 لینک‌دهی</button>
-        <div style="margin-inline-start:auto;padding:5px 0">
+    <!-- 🗂️ تب‌ها + دکمه ذخیره (ریسپانسیو: تب‌ها اسکرولی، دکمه در موبایل تمام‌عرض) -->
+    <div class="tabs-bar">
+        <div class="tabs scrollable">
+            <button type="button" class="tab-btn active" onclick="switchTab(this,'tab-basic')">📇 پایه</button>
+            <button type="button" class="tab-btn" onclick="switchTab(this,'tab-contact')">📞 تماس</button>
+            <button type="button" class="tab-btn" onclick="switchTab(this,'tab-hours')">🕐 ساعات کاری</button>
+            <button type="button" class="tab-btn" onclick="switchTab(this,'tab-warranty')">🛡️ ضمانت</button>
+            <button type="button" class="tab-btn" onclick="switchTab(this,'tab-cost')">💰 هزینه و دامنه</button>
+            <button type="button" class="tab-btn" onclick="switchTab(this,'tab-notify')">📨 ارسال درخواست</button>
+            <button type="button" class="tab-btn" onclick="switchTab(this,'tab-links')">🔗 لینک‌دهی</button>
+        </div>
+        <div class="tabs-actions">
             <button type="submit" class="btn btn-primary">💾 ذخیره همه تنظیمات</button>
         </div>
     </div>

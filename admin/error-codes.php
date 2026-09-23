@@ -215,9 +215,9 @@ $severityMap = ['low' => ['کم', 'badge-secondary'], 'medium' => ['متوسط',
     <div class="card-header">
         <h3>🚨 کدهای خطا (<?= en_to_fa_digits((string)$total) ?>)</h3>
         <div class="tools">
-            <form method="get" style="display:flex;gap:8px">
-                <input type="text" name="q" class="form-control" placeholder="🔎 جستجو کد یا عنوان..." value="<?= e($search) ?>" style="width:200px">
-                <select name="brand" class="form-control" style="width:150px">
+            <form method="get" style="display:flex;gap:8px;flex-wrap:wrap">
+                <input type="text" name="q" class="form-control" placeholder="🔎 جستجو کد یا عنوان..." value="<?= e($search) ?>" style="max-width:220px;min-width:150px">
+                <select name="brand" class="form-control" style="max-width:170px;min-width:140px">
                     <option value="">همه</option>
                     <option value="-1">فقط عمومی</option>
                     <?php foreach ($brands as $brand): ?>

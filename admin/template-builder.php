@@ -111,7 +111,7 @@ $blockLibrary = [
     ],
 ];
 ?>
-<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/builder.css">
+<link rel="stylesheet" href="<?= asset_ver('assets/css/builder.css') ?>">
 
 <form method="post" id="builder-form">
     <?= Auth::csrfField() ?>

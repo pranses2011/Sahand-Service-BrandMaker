@@ -401,7 +401,7 @@ foreach ($pages as $p) {
             <div class="card-header">
                 <h3>🔍 سئوی صفحات <?= e($brand['name_fa']) ?></h3>
                 <div class="tools">
-                    <form method="get" style="display:flex;gap:8px">
+                    <form method="get" style="display:flex;gap:8px;flex-wrap:wrap">
                         <input type="hidden" name="id" value="<?= (int)$brandId ?>">
                         <input type="hidden" name="tab" value="seo">
                         <select name="page" class="form-control" onchange="this.form.submit()">
