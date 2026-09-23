@@ -134,6 +134,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'improve_seo') {
     }
 }
 
+/* 🎯 بهبود «فقط یک سنجه» سئو (v2.6 — دکمه کنار هر سنجه) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'improve_seo_metric') {
+    Auth::enforceCsrf();
+    header('Content-Type: application/json; charset=utf-8');
+    try {
+        $articleId = (int)post('article_id');
+        $metric = (string)post('metric');
+        $article = $db->fetch('SELECT * FROM brand_articles WHERE id = ?', [$articleId]);
+        if (!$article) {
+            json_response(['success' => false, 'error' => 'مقاله یافت نشد.'], 404);
+        }
+        $improver = new SeoImprover();
+        $result = $improver->improveMetric($article, $metric);
+        if (empty($result['applied'])) {
+            json_response(['success' => false, 'error' => 'برای این سنجه مورد قابل اصلاحی یافت نشد — سنجه پاس شده یا نیازمند بازنویسی دستی است.'], 422);
+        }
+        $db->update('brand_articles', [
+            'content'         => $result['content'],
+            'seo_title'       => $result['seo_title'],
+            'seo_description' => $result['seo_description'],
+            'seo_keywords'    => implode(', ', $result['seo_keywords']),
+            'seo_score'       => $result['seo_score'],
+            'updated_at'      => date('Y-m-d H:i:s'),
+        ], 'id = ?', [$articleId]);
+        (new Cache())->delete('brand_articles_all');
+        unset($result['content']);
+        json_response(['success' => true, 'data' => $result]);
+    } catch (Throwable $e) {
+        json_response(['success' => false, 'error' => $e->getMessage()], 400);
+    }
+}
+
 $pageTitle = 'مدیریت مقالات';
 $activeMenu = 'articles';
 require __DIR__ . '/includes/header.php';
@@ -243,7 +275,7 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
                     <div id="seo-improve-report" style="display:none;margin-bottom:14px"></div>
                     <div class="table-wrap">
                         <table class="table">
-                            <thead><tr><th>سنجه</th><th>وضعیت</th><th>جزئیات</th><th>اصلاح خودکار</th></tr></thead>
+                            <thead><tr><th>سنجه</th><th>وضعیت</th><th>جزئیات</th><th>اصلاح خودکار</th><th>بهبود تک‌سنجه</th></tr></thead>
                             <tbody>
                             <?php foreach ($seoStats['checks'] as $check): ?>
                                 <?php [$icon, $badge] = $statusMeta[$check['status']] ?? ['•', 'badge-secondary']; ?>
@@ -252,12 +284,21 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
                                     <td><span class="badge <?= $badge ?>"><?= $icon ?></span></td>
                                     <td style="font-size:12px"><?= e($check['detail']) ?></td>
                                     <td><?= $check['fixable'] ? '<span class="badge badge-info">قابل اصلاح</span>' : '<span style="color:var(--text-light)">—</span>' ?></td>
+                                    <td>
+                                        <?php if ($check['fixable'] && $check['status'] !== 'pass'): ?>
+                                            <button type="button" class="btn btn-success btn-sm btn-metric-improve" data-metric="<?= e($check['id']) ?>" data-label="<?= e($check['label']) ?>" title="فقط همین سنجه را بهبود بده">🎯 بهبود</button>
+                                        <?php elseif ($check['status'] === 'pass'): ?>
+                                            <span class="badge badge-success">✔ پاس شده</span>
+                                        <?php else: ?>
+                                            <span style="color:var(--text-light);font-size:11px">نیازمند بازنویسی</span>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
-                    <div class="hint">💡 دکمه «بهبود سئو» همه موارد قابل اصلاح را به‌صورت خودکار اعمال می‌کند: اصلاح نگارش، کلیدواژه در مقدمه، عنوان و متای استاندارد، لینک داخلی، alt تصاویر، بخش سوالات متداول و فهرست مطالب.</div>
+                    <div class="hint">💡 دکمه «بهبود سئو» (سربرگ) همه موارد قابل اصلاح را یکجا اعمال می‌کند؛ دکمه «🎯 بهبود» هر ردیف فقط همان سنجه را اصلاح می‌کند. حجم محتوا، ساختار هدینگ و خوانایی نیازمند بازنویسی مقاله هستند.</div>
                 </div>
             </div>
 
@@ -503,6 +544,52 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
             } else { run(); }
         });
     }
+
+    /* ---------- 🎯 بهبود تک‌سنجه (v2.6 — دکمه کنار هر سنجه) ---------- */
+    var metricButtons = document.querySelectorAll('.btn-metric-improve');
+    Array.prototype.forEach.call(metricButtons, function (mbtn) {
+        mbtn.addEventListener('click', function () {
+            var metric = mbtn.getAttribute('data-metric');
+            var label = mbtn.getAttribute('data-label') || metric;
+            var run = function () {
+                var csrf = document.querySelector('input[name="csrf_token"]');
+                var articleId = document.querySelector('input[name="article_id"]');
+                mbtn.disabled = true;
+                mbtn.innerHTML = '⏳ در حال بهبود...';
+                var body = new URLSearchParams();
+                body.append('action', 'improve_seo_metric');
+                body.append('article_id', articleId ? articleId.value : '0');
+                body.append('metric', metric);
+                if (csrf) { body.append('csrf_token', csrf.value); }
+
+                fetch('articles.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrf ? csrf.value : '', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: body.toString(),
+                    credentials: 'same-origin'
+                }).then(function (r) { return r.json(); }).then(function (res) {
+                    if (!res.success) {
+                        mbtn.disabled = false;
+                        mbtn.innerHTML = '🎯 بهبود';
+                        if (window.sahandToast) { sahandToast({ message: res.error || 'بهبود ممکن نشد', type: 'warning' }); }
+                        return;
+                    }
+                    var d = res.data;
+                    var fa = function (n) { return String(n).replace(/[0-9]/g, function (x) { return '۰۱۲۳۴۵۶۷۸۹'[+x]; }); };
+                    mbtn.innerHTML = '✅ ' + fa(d.after.score) + '/۱۰۰';
+                    if (window.sahandToast) { sahandToast({ message: '«' + label + '» بهبود یافت — امتیاز کل: ' + fa(d.before.score) + ' → ' + fa(d.after.score), type: 'success' }); }
+                    setTimeout(function () { window.location.reload(); }, 1400);
+                }).catch(function (err) {
+                    mbtn.disabled = false;
+                    mbtn.innerHTML = '🎯 بهبود';
+                    if (window.sahandToast) { sahandToast({ message: 'خطای ارتباط با سرور: ' + err.message, type: 'danger' }); }
+                });
+            };
+            if (window.sahandConfirm) {
+                sahandConfirm({ title: 'بهبود تک‌سنجه', message: 'فقط سنجه «' + label + '» بهبود داده و ذخیره شود؟ (سایر بخش‌های مقاله دست‌نخورده می‌مانند)', type: 'question', confirmText: 'بله، بهبود بده', confirmIcon: '🎯' }).then(function (ok) { if (ok) { run(); } });
+            } else { run(); }
+        });
+    });
 
     /* ---------- 🎯 پیشنهاد بهترین عنوان سئو (فاز Q.5) ---------- */
     var btn = document.getElementById('btn-suggest-titles');

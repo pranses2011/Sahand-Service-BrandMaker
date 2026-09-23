@@ -115,6 +115,9 @@ try {
                 <a class="nav-link <?= $activeMenu === 'seo' ? 'active' : '' ?>" href="seo.php">
                     <span class="icon">🔍</span> مرکز سئو
                 </a>
+                <a class="nav-link <?= $activeMenu === 'ai-learning' ? 'active' : '' ?>" href="ai-learning.php">
+                    <span class="icon">🧠</span> یادگیری AI
+                </a>
                 <a class="nav-link <?= $activeMenu === 'telegram' ? 'active' : '' ?>" href="telegram.php">
                     <span class="icon">🤖</span> ربات تلگرام
                 </a>

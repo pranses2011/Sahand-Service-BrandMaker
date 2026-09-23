@@ -394,6 +394,205 @@ class SeoImprover
     }
 
     /* ==================================================
+     * ۳) 🎯 بهبود «فقط یک سنجه» — برای دکمه‌های کنار هر سنجه
+     * ================================================== */
+
+    /**
+     * 🎯 اصلاح خودکار فقط سنجه انتخابی (بدون دست زدن به بقیه بخش‌ها)
+     *
+     * @param array  $article رکورد brand_articles
+     * @param string $metric  شناسه سنجه (seo_title, meta_description, keyword_density,
+     *                        keyword_early, internal_links, image_alt, faq_section, toc, grammar)
+     * @return array مانند improve() — ['content','seo_title','seo_description','seo_keywords','seo_score','applied','before','after','gain','metric']
+     */
+    public function improveMetric(array $article, string $metric): array
+    {
+        $allowed = ['seo_title', 'meta_description', 'keyword_density', 'keyword_early', 'internal_links', 'image_alt', 'faq_section', 'toc', 'grammar'];
+        if (!in_array($metric, $allowed, true)) {
+            throw new RuntimeException('این سنجه قابل اصلاح خودکار نیست (حجم محتوا، ساختار هدینگ و خوانایی نیازمند بازنویسی دستی/AI مقاله هستند): ' . $metric);
+        }
+
+        $before = $this->analyze($article);
+        $title = (string)($article['title'] ?? '');
+        $content = (string)($article['content'] ?? '');
+        $seoTitle = (string)($article['seo_title'] ?? '');
+        $seoDesc = (string)($article['seo_description'] ?? '');
+        $focus = $before['focus_keyword'];
+        $applied = [];
+
+        switch ($metric) {
+            case 'grammar':
+                $grammarFix = PersianGrammar::fix($content);
+                if ($grammarFix['content'] !== $content) {
+                    $content = $grammarFix['content'];
+                    $applied[] = 'اصلاح نگارشی فارسی (' . en_to_fa_digits((string)$grammarFix['stats']['total_fixes']) . ' مورد)';
+                }
+                break;
+
+            case 'keyword_early':
+                if ($focus !== '' && !$this->hasEarlyKeyword($content, $focus)) {
+                    $kwSentence = '<p><strong>' . e($focus) . '</strong> موضوع اصلی این راهنماست؛ در ادامه همه نکات کلیدی، علل رایج و راه‌حل‌های عملی را به‌صورت گام‌به‌گام بررسی می‌کنیم.</p>' . "\n";
+                    $firstP = mb_strpos($content, '</p>');
+                    $content = $firstP !== false
+                        ? mb_substr($content, 0, $firstP + 4) . "\n" . $kwSentence . mb_substr($content, $firstP + 4)
+                        : $kwSentence . $content;
+                    $applied[] = 'افزودن کلیدواژه کانونی به مقدمه';
+                }
+                break;
+
+            case 'seo_title':
+                $suggested = $this->optimizedSeoTitle($title, $focus);
+                if ($suggested !== null && $suggested !== $seoTitle) {
+                    $seoTitle = $suggested;
+                    $applied[] = 'بازنویسی عنوان سئو در بازه ۴۵-۶۰ کاراکتر با کلیدواژه';
+                }
+                break;
+
+            case 'meta_description':
+                $newDesc = $this->optimizedMetaDescription($content, $focus, $title);
+                if ($newDesc !== null && $newDesc !== $seoDesc) {
+                    $seoDesc = $newDesc;
+                    $applied[] = 'بازنویسی متا توضیحات در بازه ۱۲۰-۱۶۰ کاراکتر با کلیدواژه';
+                }
+                break;
+
+            case 'internal_links':
+                $linkResult = $this->ensureInternalLinks($content, $focus);
+                $content = $linkResult['content'];
+                if ($linkResult['added'] > 0) {
+                    $applied[] = 'افزودن ' . en_to_fa_digits((string)$linkResult['added']) . ' لینک داخلی';
+                }
+                break;
+
+            case 'image_alt':
+                $altFixed = 0;
+                $content = preg_replace_callback('/<img\s[^>]*>/iu', function ($m) use ($focus, &$altFixed) {
+                    $img = $m[0];
+                    if (!preg_match('/alt="[^"]*"/iu', $img)) {
+                        $altText = $focus !== '' ? $focus : 'تصویر مقاله';
+                        $altFixed++;
+                        return preg_replace('/\/?>$/u', ' alt="' . e($altText) . '">', $img) ?? $img;
+                    }
+                    return $img;
+                }, $content) ?? $content;
+                if ($altFixed > 0) {
+                    $applied[] = 'افزودن alt به ' . en_to_fa_digits((string)$altFixed) . ' تصویر';
+                }
+                break;
+
+            case 'faq_section':
+                if (mb_strpos($content, 'سوالات متداول') === false && mb_strpos($content, 'سؤالات متداول') === false) {
+                    $faqs = $this->buildFaqs($focus, $title);
+                    if (!empty($faqs)) {
+                        $faqHtml = '<h2>سوالات متداول</h2>' . "\n";
+                        foreach ($faqs as $faq) {
+                            $faqHtml .= '<h3>' . e($faq['question']) . '</h3>' . "\n" . '<p>' . e($faq['answer']) . '</p>' . "\n";
+                        }
+                        $content .= "\n" . $faqHtml;
+                        $applied[] = 'افزودن بخش سوالات متداول (' . en_to_fa_digits((string)count($faqs)) . ' پرسش)';
+                    }
+                }
+                break;
+
+            case 'toc':
+                if (mb_strpos($content, 'article-toc') === false && mb_strpos($content, 'فهرست مطالب') === false) {
+                    $tocResult = $this->buildSimpleToc($content);
+                    if ($tocResult !== null) {
+                        $content = $tocResult['toc'] . $tocResult['content'];
+                        $applied[] = 'افزودن فهرست مطالب (TOC)';
+                    }
+                }
+                break;
+
+            case 'keyword_density':
+                $densityResult = $this->fixKeywordDensity($content, $focus);
+                if ($densityResult['changed']) {
+                    $content = $densityResult['content'];
+                    $applied[] = $densityResult['message'];
+                }
+                break;
+        }
+
+        /* --- سنجش مجدد --- */
+        $improved = $article;
+        $improved['content'] = $content;
+        $improved['seo_title'] = $seoTitle;
+        $improved['seo_description'] = $seoDesc;
+        $after = $this->analyze($improved);
+
+        $seoKeywords = [];
+        if ($focus !== '') {
+            $seoKeywords[] = $focus;
+        }
+        try {
+            $analyzer = new KeywordAnalyzer();
+            foreach (array_slice($analyzer->extract(strip_tags($content), 8), 0, 6) as $kw) {
+                $seoKeywords[] = $kw['keyword'];
+            }
+        } catch (Throwable $e) {
+            // اختیاری
+        }
+        $seoKeywords = array_values(array_unique(array_filter($seoKeywords)));
+
+        $result = [
+            'content'         => $content,
+            'seo_title'       => $seoTitle,
+            'seo_description' => $seoDesc,
+            'seo_keywords'    => $seoKeywords,
+            'seo_score'       => $after['score'],
+            'applied'         => $applied,
+            'metric'          => $metric,
+            'metric_label'    => $this->metricLabel($metric),
+            'before'          => ['score' => $before['score'], 'grade' => $before['grade'], 'summary' => $before['summary']],
+            'after'           => ['score' => $after['score'], 'grade' => $after['grade'], 'summary' => $after['summary'], 'checks' => $after['checks']],
+            'gain'            => $after['score'] - $before['score'],
+        ];
+
+        /* 🧠 خودیادگیر: بهبود موفق → ثبت درس برای کارهای بعدی */
+        try {
+            if ($result['gain'] > 0 || !empty($applied)) {
+                SelfLearner::record(
+                    'seo_fix',
+                    $metric,
+                    $this->metricAction($metric),
+                    ['target_gain' => max(0, $result['gain'])],
+                    ['score' => $before['score']],
+                    ['score' => $after['score']],
+                    'اقدام «' . $this->metricAction($metric) . '» روی سنجه «' . $this->metricLabel($metric) . '» نتیجه بخشید — در بهبودهای بعدی همین سنجه ترجیح داده می‌شود.'
+                );
+            }
+        } catch (Throwable $e) {
+            // خودیادگیر هرگز نباید جریان اصلی را بشکند
+        }
+
+        return $result;
+    }
+
+    /** 🏷️ نام فارسی سنجه */
+    private function metricLabel(string $metric): string
+    {
+        $map = [
+            'seo_title' => 'عنوان سئو', 'meta_description' => 'متا توضیحات', 'keyword_density' => 'تراکم کلیدواژه',
+            'keyword_early' => 'کلیدواژه در مقدمه', 'internal_links' => 'لینک داخلی', 'image_alt' => 'تصاویر و alt',
+            'faq_section' => 'سوالات متداول', 'toc' => 'فهرست مطالب', 'grammar' => 'نگارش فارسی',
+            'word_count' => 'حجم محتوا', 'headings' => 'ساختار هدینگ', 'readability' => 'خوانایی',
+        ];
+        return $map[$metric] ?? $metric;
+    }
+
+    /** 🔑 کلید اقدام برای خودیادگیر */
+    private function metricAction(string $metric): string
+    {
+        $map = [
+            'seo_title' => 'rewrite_seo_title', 'meta_description' => 'rewrite_meta_description',
+            'keyword_density' => 'fix_keyword_density', 'keyword_early' => 'inject_keyword_intro',
+            'internal_links' => 'add_internal_links', 'image_alt' => 'add_image_alt',
+            'faq_section' => 'append_faq_block', 'toc' => 'prepend_toc', 'grammar' => 'persian_grammar_fix',
+        ];
+        return $map[$metric] ?? $metric;
+    }
+
+    /* ==================================================
      * 🛠️ متدهای داخلی
      * ================================================== */
 
