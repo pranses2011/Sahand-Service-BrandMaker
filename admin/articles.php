@@ -183,13 +183,43 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>نوع مقاله</label>
+                    <label>نوع مقاله (۲۵ نوع)</label>
                     <select name="topic_type" class="form-control">
-                        <option value="troubleshooting">رفع ایراد</option>
-                        <option value="user_guide">راهنمای استفاده</option>
-                        <option value="maintenance">نگهداری</option>
-                        <option value="comparison">مقایسه مدل‌ها</option>
-                        <option value="error_codes">کدهای خطا</option>
+                        <optgroup label="🔧 فنی و عیب‌یابی">
+                            <option value="troubleshooting">رفع ایراد و مشکلات رایج</option>
+                            <option value="error_codes">کدهای خطا و ریست</option>
+                            <option value="symptom_focus">عیب‌یابی علامت‌محور (روشن نمی‌شود، صدا، نشتی...)</option>
+                            <option value="case_study">مطالعه موردی تعمیر واقعی</option>
+                            <option value="diy_vs_pro">تعمیر شخصی یا تخصصی؟</option>
+                        </optgroup>
+                        <optgroup label="📘 آموزشی و راهنما">
+                            <option value="user_guide">راهنمای استفاده</option>
+                            <option value="installation_guide">راهنمای نصب و راه‌اندازی</option>
+                            <option value="common_mistakes">اشتباهات رایج کاربران</option>
+                            <option value="checklist">چک‌لیست بازدید و نگهداری</option>
+                            <option value="glossary">واژه‌نامه تخصصی</option>
+                            <option value="tech_explainer">فناوری‌های به‌کاررفته (اینورتر و...)</option>
+                        </optgroup>
+                        <optgroup label="🛡️ نگهداری و ایمنی">
+                            <option value="maintenance">نگهداری و سرویس دوره‌ای</option>
+                            <option value="seasonal_care">مراقبت فصلی</option>
+                            <option value="safety_guide">نکات ایمنی و احتیاط</option>
+                            <option value="expert_tips">نکات حرفه‌ای تکنسین‌ها</option>
+                            <option value="environment">محیط زیست و بازیافت</option>
+                        </optgroup>
+                        <optgroup label="💰 خرید و هزینه">
+                            <option value="buying_guide">راهنمای خرید</option>
+                            <option value="comparison">مقایسه مدل‌ها</option>
+                            <option value="cost_guide">راهنمای هزینه تعمیر</option>
+                            <option value="warranty_guide">گارانتی و خدمات پس از فروش</option>
+                            <option value="energy_saving">صرفه‌جویی انرژی و قبض</option>
+                        </optgroup>
+                        <optgroup label="📚 اعتمادسازی و محتوا">
+                            <option value="myths_facts">باورهای غلط در برابر واقعیت</option>
+                            <option value="history_evolution">تاریخچه و تکامل</option>
+                            <option value="statistics">آمار و ارقام صنعت</option>
+                            <option value="service_process">فرآیند تعمیر در نمایندگی</option>
+                        </optgroup>
                     </select>
                 </div>
                 <div class="form-group">

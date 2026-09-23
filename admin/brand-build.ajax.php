@@ -173,7 +173,11 @@ try {
             $ai = new SahandAI();
             $brand = $db->fetch('SELECT * FROM brands WHERE id = ?', [$brandId]);
             $articles = [];
-            $topicTypes = ['troubleshooting', 'user_guide', 'maintenance', 'error_codes', 'comparison'];
+            // 🆕 فاز Q.4: تنوع ۸ نوع از ۲۵ نوع (پوشش ۴ دسته اصلی)
+            $topicTypes = [
+                'troubleshooting', 'user_guide', 'maintenance', 'error_codes',
+                'buying_guide', 'safety_guide', 'common_mistakes', 'expert_tips',
+            ];
             foreach ($topicTypes as $i => $topicType) {
                 $article = $ai->generateArticle(['brand_id' => $brandId, 'topic_type' => $topicType]);
                 $articleId = $ai->saveArticle($brandId, $article, $topicType);
@@ -192,7 +196,7 @@ try {
             }
             json_response([
                 'success' => true,
-                'message' => '۵ مقاله یکتا تولید شد',
+                'message' => '۸ مقاله یکتا تولید شد',
                 'details' => $articles,
             ]);
 

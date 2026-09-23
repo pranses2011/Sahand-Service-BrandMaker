@@ -425,6 +425,128 @@ class ArticleGenerator
                 $sections[] = $this->section('تعمیر بخرم یا دستگاه جدید؟ معیار تصمیم‌گیری', $this->paragraphsFrom($maintenance, 4, $seed . 'cg4'));
                 $sections[] = $this->section('چگونه از هزینه‌های پنهان جلوگیری کنیم؟', $this->paragraphsFrom($issues, 3, $seed . 'cg5'));
                 break;
+
+            /* ════════ 🆕 انواع فاز Q.4 (۱۶ نوع جدید) ════════ */
+
+            case 'safety_guide': // ایمنی و احتیاط
+                $sections[] = $this->section('چرا ایمنی در کار با ' . $d . ' اهمیت حیاتی دارد؟', $this->paragraphsFrom($usage, 3, $seed . 'sg1'));
+                $sections[] = $this->section('خطرات اصلی: برق، گاز، حرارت و قطعات متحرک', $this->bullets($issues, 6, $seed . 'sg2', "خطر بالقوه") . $this->paragraphsFrom($issues, 2, $seed . 'sg2b'));
+                $sections[] = $this->section('قبل از هر اقدام؛ چک‌لیست قطع ایمن', $this->numberedSteps($maintenance, $seed . 'sg3') . $this->paragraphsFrom($maintenance, 2, $seed . 'sg3b'));
+                $sections[] = $this->section('علائم هشداردهنده ' . $d . ' که باید بلافاصله جدی گرفته شوند', $this->paragraphsFrom($issues, 4, $seed . 'sg4'));
+                $sections[] = $this->section('تجهیزات حفاظت فردی برای تعمیرکاران و کاربران', $this->paragraphsFrom($maintenance, 2, $seed . 'sg5'));
+                break;
+
+            case 'installation_guide': // نصب و راه‌اندازی
+                $sections[] = $this->section('آماده‌سازی پیش از نصب ' . $d . ' ' . $b, $this->paragraphsFrom($usage, 3, $seed . 'ig1'));
+                $sections[] = $this->section('شرایط محیطی استاندارد: فضا، تهویه و زیربنا', $this->bullets($maintenance, 5, $seed . 'ig2', "شرایط لازم") . $this->paragraphsFrom($maintenance, 2, $seed . 'ig2b'));
+                $sections[] = $this->section('مراحل نصب گام‌به‌گام', $this->numberedSteps($usage, $seed . 'ig3') . $this->paragraphsFrom($usage, 2, $seed . 'ig3b'));
+                $sections[] = $this->section('راه‌اندازی اولیه و تنظیمات پیشنهادی', $this->paragraphsFrom($usage, 3, $seed . 'ig4'));
+                $sections[] = $this->section('تست نهایی و امضای گارانتی نصب', $this->paragraphsFrom($issues, 2, $seed . 'ig5'));
+                break;
+
+            case 'diy_vs_pro': // خودم یا تعمیرکار؟
+                $sections[] = $this->section('ایرادهایی که می‌توانید خودتان رفع کنید', $this->bullets($usage, 5, $seed . 'dp1', "قابل رفع شخصی") . $this->paragraphsFrom($usage, 2, $seed . 'dp1b'));
+                $sections[] = $this->section('ایرادهایی که فقط باید متخصص حل کند', $this->bullets($issues, 5, $seed . 'dp2', "نیازمند تخصص") . $this->paragraphsFrom($issues, 2, $seed . 'dp2b'));
+                $sections[] = $this->section('مقایسه هزینه، زمان و ریسک دو مسیر', $this->paragraphsFrom($maintenance, 3, $seed . 'dp3'));
+                $sections[] = $this->section('ریسک‌های تعمیر شخصی ' . $d . '؛ از باطل‌شدن گارانتی تا آسیب ثانویه', $this->paragraphsFrom($issues, 3, $seed . 'dp4'));
+                $sections[] = $this->section('تصمیم‌گیری هوشمندانه؛ درخت انتخاب درست', $this->paragraphsFrom($maintenance, 2, $seed . 'dp5'));
+                break;
+
+            case 'common_mistakes': // اشتباهات رایج
+                $sections[] = $this->section('اشتباهات پرتکرار کاربران ' . $d . ' ' . $b, $this->bullets($issues, 7, $seed . 'cm1', "اشتباه شایع") . $this->paragraphsFrom($issues, 3, $seed . 'cm1b'));
+                $sections[] = $this->section('پیامدهای پنهان هر اشتباه', $this->paragraphsFrom($issues, 3, $seed . 'cm2'));
+                $sections[] = $this->section('رفتارهایی که به‌ظاهر بی‌ضرر اما مخرب‌اند', $this->paragraphsFrom($usage, 3, $seed . 'cm3'));
+                $sections[] = $this->section('جایگزین درست برای هر عادت غلط', $this->bullets($maintenance, 5, $seed . 'cm4', "عادت درست") . $this->paragraphsFrom($maintenance, 2, $seed . 'cm4b'));
+                break;
+
+            case 'warranty_guide': // گارانتی و خدمات پس از فروش
+                $sections[] = $this->section('گارانتی ' . $d . ' ' . $b . ' چه مواردی را پوشش می‌دهد؟', $this->paragraphsFrom($usage, 3, $seed . 'wg1'));
+                $sections[] = $this->section('استثناهای رایج؛ چه مواردی تحت پوشش نیست؟', $this->bullets($issues, 5, $seed . 'wg2', "خارج از پوشش") . $this->paragraphsFrom($issues, 2, $seed . 'wg2b'));
+                $sections[] = $this->section('اقداماتی که گارانتی را باطل می‌کند', $this->paragraphsFrom($issues, 3, $seed . 'wg3'));
+                $sections[] = $this->section('مراحل درست استفاده از خدمات گارانتی', $this->numberedSteps($maintenance, $seed . 'wg4') . $this->paragraphsFrom($maintenance, 2, $seed . 'wg4b'));
+                $sections[] = $this->section('مدارک لازم برای پذیرش درخواست گارانتی', $this->paragraphsFrom($usage, 2, $seed . 'wg5'));
+                break;
+
+            case 'tech_explainer': // فناوری‌های به‌کاررفته
+                $sections[] = $this->section('فناوری‌های اصلی به‌کاررفته در ' . $d . ' ' . $b, $this->paragraphsFrom($usage, 3, $seed . 'te1'));
+                $sections[] = $this->section('سنسورها و الگوریتم‌های هوشمند؛ به زبان ساده', $this->bullets($usage, 5, $seed . 'te2', "فناوری کلیدی") . $this->paragraphsFrom($usage, 2, $seed . 'te2b'));
+                $sections[] = $this->section('تفاوت مدل‌های معمولی و نسل جدید در عمل', $this->paragraphsFrom($maintenance, 3, $seed . 'te3'));
+                $sections[] = $this->section('فناوری چگونه در هزینه و راحتی شما اثر می‌گذارد؟', $this->paragraphsFrom($issues, 3, $seed . 'te4'));
+                $sections[] = $this->section('نگهداری قطعات الکترونیکی حساس', $this->paragraphsFrom($maintenance, 2, $seed . 'te5'));
+                break;
+
+            case 'myths_facts': // باور غلط و واقعیت
+                $sections[] = $this->section('شایع‌ترین باورهای غلط درباره ' . $d . ' ' . $b, $this->bullets($issues, 6, $seed . 'mf1', "باور غلط رایج") . $this->paragraphsFrom($issues, 2, $seed . 'mf1b'));
+                $sections[] = $this->section('واقعیت علمی در برابر هر باور', $this->paragraphsFrom($usage, 4, $seed . 'mf2'));
+                $sections[] = $this->section('ریشه‌یابی شایعات؛ از کجا آمدند؟', $this->paragraphsFrom($maintenance, 2, $seed . 'mf3'));
+                $sections[] = $this->section('منبع درست اطلاعات؛ دفترچه یا تکنسین مجاز؟', $this->paragraphsFrom($usage, 2, $seed . 'mf4'));
+                break;
+
+            case 'checklist': // چک‌لیست
+                $sections[] = $this->section('چک‌لیست بازدید روزانه ' . $d, $this->bullets($usage, 5, $seed . 'cl1', "بازدید روزانه") . $this->paragraphsFrom($usage, 2, $seed . 'cl1b'));
+                $sections[] = $this->section('چک‌لیست ماهانه نگهداری', $this->numberedSteps($maintenance, $seed . 'cl2') . $this->paragraphsFrom($maintenance, 2, $seed . 'cl2b'));
+                $sections[] = $this->section('چک‌لیست عیب‌یابی اولیه قبل از تماس با تعمیرکار', $this->bullets($issues, 6, $seed . 'cl3', "بررسی سریع") . $this->paragraphsFrom($issues, 2, $seed . 'cl3b'));
+                $sections[] = $this->partsWearSection($device['device_key'], $d, $seed);
+                $sections[] = $this->section('نحوه استفاده درست از این چک‌لیست‌ها', $this->paragraphsFrom($maintenance, 2, $seed . 'cl5'));
+                break;
+
+            case 'case_study': // مطالعه موردی
+                $sections[] = $this->section('شرح ماجرا: ورود ' . $d . ' به میز عیب‌یابی', $this->paragraphsFrom($issues, 3, $seed . 'cs1'));
+                $sections[] = $this->diagnosticSection($device['device_key'], $d, $seed);
+                $sections[] = $this->section('تشخیص نهایی و علت ریشه‌ای', $this->paragraphsFrom($issues, 3, $seed . 'cs3'));
+                $sections[] = $this->section('مسیر تعمیر؛ قطعات، مراحل و تست‌ها', $this->numberedSteps($maintenance, $seed . 'cs4') . $this->paragraphsFrom($maintenance, 2, $seed . 'cs4b'));
+                $sections[] = $this->section('درس‌های این پرونده برای سایر کاربران', $this->bullets($usage, 4, $seed . 'cs5', "درس کلیدی") . $this->paragraphsFrom($usage, 2, $seed . 'cs5b'));
+                break;
+
+            case 'glossary': // واژه‌نامه تخصصی
+                $sections[] = $this->section('اصطلاحات پایه دنیای ' . $d, $this->paragraphsFrom($usage, 3, $seed . 'gl1'));
+                $sections[] = $this->section('قطعات اصلی و نقش هر یک', $this->bullets($maintenance, 7, $seed . 'gl2', "قطعه و نقش") . $this->paragraphsFrom($maintenance, 2, $seed . 'gl2b'));
+                $sections[] = $this->section('اصطلاحات فنی دفترچه راهنما به زبان ساده', $this->paragraphsFrom($usage, 3, $seed . 'gl3'));
+                $sections[] = $this->section('پرمخاطب‌ترین سوالات واژگانی کاربران', $this->paragraphsFrom($issues, 3, $seed . 'gl4'));
+                break;
+
+            case 'history_evolution': // تاریخچه و تکامل
+                $sections[] = $this->section('خاستگاه: ' . $d . ' چگونه متولد شد؟', $this->paragraphsFrom($usage, 3, $seed . 'he1'));
+                $sections[] = $this->section('نقاط عطف توسعه فناوری ' . $d, $this->bullets($usage, 6, $seed . 'he2', "نقطه عطف") . $this->paragraphsFrom($usage, 2, $seed . 'he2b'));
+                $sections[] = $this->section('نسل امروزی ' . $d . ' ' . $b . ' چه تفاوتی با گذشتگان دارد؟', $this->paragraphsFrom($maintenance, 3, $seed . 'he3'));
+                $sections[] = $this->section('روندهای آینده؛ چه چیزهایی در راه است؟', $this->paragraphsFrom($issues, 2, $seed . 'he4'));
+                break;
+
+            case 'expert_tips': // نکات خبرگان
+                $sections[] = $this->section('نکاتی که تکنسین‌های باتجربه به همه می‌گویند', $this->bullets($maintenance, 6, $seed . 'et1', "نکته حرفه‌ای") . $this->paragraphsFrom($maintenance, 2, $seed . 'et1b'));
+                $sections[] = $this->section('ترفندهای کمترشنیده درباره ' . $d . ' ' . $b, $this->paragraphsFrom($usage, 3, $seed . 'et2'));
+                $sections[] = $this->section('عادت‌های کوچکی که عمر دستگاه را دو برابر می‌کند', $this->numberedSteps($maintenance, $seed . 'et3') . $this->paragraphsFrom($maintenance, 2, $seed . 'et3b'));
+                $sections[] = $this->section('از زبان متخصصان: اشتباهاتی که بیشترین هزینه را دارند', $this->paragraphsFrom($issues, 3, $seed . 'et4'));
+                break;
+
+            case 'symptom_focus': // علامت‌محور
+                $sections[] = $this->section('علامت اصلی و چرایی اهمیت آن', $this->paragraphsFrom($issues, 3, $seed . 'sf1'));
+                $sections[] = $this->diagnosticSection($device['device_key'], $d, $seed);
+                $sections[] = $this->section('علت‌های محتمل به ترتیب احتمال', $this->bullets($issues, 6, $seed . 'sf3', "علت محتمل") . $this->paragraphsFrom($issues, 2, $seed . 'sf3b'));
+                $sections[] = $this->section('اقدامات فوری که همین حالا می‌توانید انجام دهید', $this->numberedSteps($usage, $seed . 'sf4') . $this->paragraphsFrom($usage, 2, $seed . 'sf4b'));
+                $sections[] = $this->section('چه زمانی علامت به معنی تعمیر فوری است؟', $this->paragraphsFrom($maintenance, 3, $seed . 'sf5'));
+                break;
+
+            case 'statistics': // آمار و ارقام
+                $sections[] = $this->section('نگاه آماری به بازار ' . $d . ' در ایران', $this->paragraphsFrom($usage, 3, $seed . 'st1'));
+                $sections[] = $this->section('شایع‌ترین ایرادهای ثبت‌شده ' . $d . ' در اعداد', $this->bullets($issues, 5, $seed . 'st2', "آمار ایراد") . $this->paragraphsFrom($issues, 2, $seed . 'st2b'));
+                $sections[] = $this->section('عمر مفید واقعی در برابر عمر تبلیغاتی', $this->paragraphsFrom($maintenance, 3, $seed . 'st3'));
+                $sections[] = $this->section('هزینه مالکیت در بازه پنج‌ساله؛ محاسبه واقعی', $this->paragraphsFrom($issues, 2, $seed . 'st4'));
+                break;
+
+            case 'environment': // محیط زیست و بازیافت
+                $sections[] = $this->section('اثر زیست‌محیطی ' . $d . '؛ نگاه مسئولانه', $this->paragraphsFrom($usage, 3, $seed . 'en1'));
+                $sections[] = $this->section('مصرف انرژی و راه‌های کاهش آن', $this->bullets($maintenance, 6, $seed . 'en2', "اقدام سبز") . $this->paragraphsFrom($maintenance, 2, $seed . 'en2b'));
+                $sections[] = $this->section('گاز مبرد و مسئولیت مشترک ما', $this->paragraphsFrom($issues, 3, $seed . 'en3'));
+                $sections[] = $this->section('بازیافت درست قطعات در پایان عمر مفید', $this->paragraphsFrom($maintenance, 2, $seed . 'en4'));
+                break;
+
+            case 'service_process': // فرآیند تعمیر در نمایندگی
+                $sections[] = $this->section('از ثبت درخواست تا پذیرش؛ گام‌های اول', $this->paragraphsFrom($usage, 3, $seed . 'sp1'));
+                $sections[] = $this->section('پشت صحنه عیب‌یابی تخصصی ' . $d, $this->numberedSteps($issues, $seed . 'sp2') . $this->paragraphsFrom($issues, 2, $seed . 'sp2b'));
+                $sections[] = $this->section('اعتبارسنجی و شفافیت قطعات یدکی', $this->bullets($maintenance, 5, $seed . 'sp3', "استاندارد کیفیت") . $this->paragraphsFrom($maintenance, 2, $seed . 'sp3b'));
+                $sections[] = $this->section('تحویل، تست نهایی و گارانتی تعمیر', $this->paragraphsFrom($issues, 3, $seed . 'sp4'));
+                break;
         }
 
         // 🎁 بخش عمومی مشترک برای همه انواع مقاله
@@ -636,14 +758,31 @@ class ArticleGenerator
     private function categoryForTopic(string $topicType): int
     {
         $map = [
-            'troubleshooting' => 1, // رفع ایراد
-            'user_guide'      => 2, // راهنمای استفاده
-            'maintenance'     => 3, // نگهداری
-            'diagnostics'     => 4, // عیب‌یابی
-            'comparison'      => 5, // عمومی
-            'error_codes'     => 4, // عیب‌یابی
-            'seasonal_care'   => 3, // نگهداری
-            'cost_guide'      => 5, // عمومی
+            'troubleshooting'    => 1, // رفع ایراد
+            'user_guide'         => 2, // راهنمای استفاده
+            'maintenance'        => 3, // نگهداری
+            'diagnostics'        => 4, // عیب‌یابی
+            'comparison'         => 5, // عمومی
+            'error_codes'        => 4, // عیب‌یابی
+            'seasonal_care'      => 3, // نگهداری
+            'cost_guide'         => 5, // عمومی
+            // 🆕 فاز Q.4
+            'safety_guide'       => 3,
+            'installation_guide' => 2,
+            'diy_vs_pro'         => 5,
+            'common_mistakes'    => 2,
+            'warranty_guide'     => 5,
+            'tech_explainer'     => 5,
+            'myths_facts'        => 5,
+            'checklist'          => 3,
+            'case_study'         => 4,
+            'glossary'           => 5,
+            'history_evolution'  => 5,
+            'expert_tips'        => 3,
+            'symptom_focus'      => 1,
+            'statistics'         => 5,
+            'environment'        => 5,
+            'service_process'    => 5,
         ];
         return $map[$topicType] ?? 5;
     }
@@ -657,7 +796,13 @@ class ArticleGenerator
             'SELECT device_key, name_fa FROM brand_devices WHERE brand_id = ? AND is_active = 1',
             [$brand['id']]
         );
-        $types = ['troubleshooting', 'user_guide', 'maintenance', 'comparison', 'error_codes', 'buying_guide', 'energy_saving', 'seasonal_care', 'cost_guide'];
+        $types = [
+            'troubleshooting', 'user_guide', 'maintenance', 'comparison', 'error_codes',
+            'buying_guide', 'energy_saving', 'seasonal_care', 'cost_guide',
+            'safety_guide', 'installation_guide', 'diy_vs_pro', 'common_mistakes', 'warranty_guide',
+            'tech_explainer', 'myths_facts', 'checklist', 'case_study', 'glossary',
+            'history_evolution', 'expert_tips', 'symptom_focus', 'statistics', 'environment', 'service_process',
+        ];
         $suggestions = [];
         $i = 0;
         while (count($suggestions) < $count && $i < 30) {
@@ -685,15 +830,32 @@ class ArticleGenerator
     private function topicTitle(string $type, string $device, string $brand): string
     {
         $map = [
-            'troubleshooting' => 'علت و راه‌حل مشکلات رایج',
-            'user_guide'      => 'آموزش کامل استفاده',
-            'maintenance'     => 'نکات مهم نگهداری',
-            'comparison'      => 'مقایسه مدل‌های',
-            'error_codes'     => 'کدهای خطای رایج',
-            'buying_guide'    => 'راهنمای خرید',
-            'energy_saving'   => 'صرفه‌جویی در مصرف انرژی',
-            'seasonal_care'   => 'مراقبت فصلی و آماده‌سازی',
-            'cost_guide'      => 'راهنمای هزینه تعمیر و تصمیم درست',
+            'troubleshooting'    => 'علت و راه‌حل مشکلات رایج',
+            'user_guide'         => 'آموزش کامل استفاده',
+            'maintenance'        => 'نکات مهم نگهداری',
+            'comparison'         => 'مقایسه مدل‌های',
+            'error_codes'        => 'کدهای خطای رایج',
+            'buying_guide'       => 'راهنمای خرید',
+            'energy_saving'      => 'صرفه‌جویی در مصرف انرژی',
+            'seasonal_care'      => 'مراقبت فصلی و آماده‌سازی',
+            'cost_guide'         => 'راهنمای هزینه تعمیر و تصمیم درست',
+            // 🆕 فاز Q.4
+            'safety_guide'       => 'نکات ایمنی کار با',
+            'installation_guide' => 'راهنمای نصب و راه‌اندازی',
+            'diy_vs_pro'         => 'تعمیر شخصی یا تخصصی',
+            'common_mistakes'    => 'اشتباهات رایج در استفاده از',
+            'warranty_guide'     => 'راهنمای گارانتی',
+            'tech_explainer'     => 'فناوری‌های به‌کاررفته در',
+            'myths_facts'        => 'باورهای غلط درباره',
+            'checklist'          => 'چک‌لیست کامل',
+            'case_study'         => 'مطالعه موردی تعمیر',
+            'glossary'           => 'واژه‌نامه تخصصی',
+            'history_evolution'  => 'تاریخچه و تکامل',
+            'expert_tips'        => 'نکات حرفه‌ای درباره',
+            'symptom_focus'      => 'عیب‌یابی علامت‌محور',
+            'statistics'         => 'آمار و ارقام',
+            'environment'        => 'نگاه زیست‌محیطی به',
+            'service_process'    => 'فرآیند تعمیر در نمایندگی',
         ];
         return $device . ' ' . $brand . ' — ' . ($map[$type] ?? 'راهنمای جامع');
     }
