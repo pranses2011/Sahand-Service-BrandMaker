@@ -724,3 +724,18 @@
 | سینتکس PHP تست‌شده | ۱۱۲ فایل (php-parser) — همه PASS |
 | راستی‌آزمایی مرورگر | ۳ viewport (320/390/1280) — بدون سرریز |
 | تغییر دیتابیس | هیچ — کاملاً file-level |
+
+## ✅ بخش ۱ فاز Q: دانلود مستقیم فونت و آیکون روی سرور (AssetDownloader v1.0)
+
+- ⬇️ کلاس جدید `core/AssetDownloader.php` (۷۰۹ خط): دانلود مستقیم فایل‌های فونت و آرشیو پک آیکون **روی همان سرور سایت‌ساز** — دیگر نیازی به دانلود روی کامپیوتر و آپلود مجدد نیست
+  - 🔒 امنیت: وایت‌لیست میزبان‌ها (cdn.jsdelivr.net / registry.npmjs.org / codeload.github.com / fonts.gstatic.com / raw.githubusercontent.com)، سقف حجم (۱۲MB فایل تکی / ۶۴MB آرشیو)، پاک‌سازی XSS روی SVG (حذف script/on*/foreignObject/data:)، نام فایل امن، فقط https
+  - 📦 پشتیبانی هر دو فرمت آرشیو: ZIP (GitHub codeload) و TAR.GZ (npm registry با PharData)
+  - 🏷️ دیکشنری فارسی ~۲۵۰ نام آیکون → برچسب فارسی خودکار + حذف پیشوندهای پک (bx/bxs/bxl/ri/md/fa/hi/ph)
+- 📝 `assets/fonts/sources.json`: منابع تست‌شده ۹ فونت فارسی متن‌باز (وزیرمتن/وزیر/صمیم/شبنم/گندم/تنها/پرستو/میخک/لاله‌زار) + هر ۱۰ فونت انگلیسی (Roboto تا Source Sans از Fontsource) — فونت‌های تجاری (ایران‌سنس/دانا/یکان‌بخ/…) به‌درستی «آپلود دستی» نمایش داده می‌شوند
+- 📝 `assets/icons/sources.json`: منابع رسمی ۹ پک با الگوی استخراج + prefix_map + category_map — همه لینک‌ها با curl راستی‌آزمایی شدند (۲۰۰)
+- 🖼️ `admin/fonts.php`: ستون جدید «دانلود مستقیم روی سرور» — دکمه «⬇️ دانلود و نصب» (سبز) / «🔄 دانلود مجدد» + شمارنده n/N نصب + نمایش مجوز
+- 🖼️ `admin/icons.php`: دکمه «⬇️ نصب کامل پک» / «🔄 نصب مجدد کامل» + نشان «کامل: ~N» + هشدار راهنما بالای فرم ایمپورت دستی
+- 🧪 راستی‌آزمایی: سینتکس PHP هر ۳ فایل PASS با php-parser + ساختار داخلی همه آرشیوها (lucide/feather/heroicons/tabler/remix/material/fa/phosphor/boxicons) بازرسی و الگوها تنظیم شد
+
+### 📦 کامیت
+- `feat-asset-downloader-v1` — ۵ فایل
