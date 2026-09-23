@@ -197,6 +197,58 @@ class SahandAI
     }
 
     /**
+     * 📊 آمار کامل سئوی مقاله — POST /api/ai/article-seo-stats (فاز Q.6)
+     *
+     * @param array $params [article_id]
+     */
+    public function articleSeoStats(array $params): array
+    {
+        $articleId = (int)($params['article_id'] ?? 0);
+        $article = $this->db->fetch('SELECT id, title, content, seo_title, seo_description, seo_keywords FROM brand_articles WHERE id = ?', [$articleId]);
+        if (!$article) {
+            throw new RuntimeException('مقاله یافت نشد.');
+        }
+        $improver = new SeoImprover();
+        return $improver->analyze($article);
+    }
+
+    /**
+     * 🎯 بهبود خودکار سئوی مقاله — POST /api/ai/improve-article-seo (فاز Q.6)
+     * مقاله را اصلاح و ذخیره می‌کند؛ گزارش قبل/بعد برمی‌گرداند.
+     *
+     * @param array $params [article_id, apply] — apply=false فقط پیش‌نمایش
+     */
+    public function improveArticleSeo(array $params): array
+    {
+        $articleId = (int)($params['article_id'] ?? 0);
+        $article = $this->db->fetch('SELECT * FROM brand_articles WHERE id = ?', [$articleId]);
+        if (!$article) {
+            throw new RuntimeException('مقاله یافت نشد.');
+        }
+
+        $improver = new SeoImprover();
+        $result = $improver->improve($article);
+
+        // 💾 ذخیره اصلاحات (مگر اینکه فقط پیش‌نمایش خواسته شده باشد)
+        if (($params['apply'] ?? true) !== false) {
+            $this->db->update('brand_articles', [
+                'content'         => $result['content'],
+                'seo_title'       => $result['seo_title'],
+                'seo_description' => $result['seo_description'],
+                'seo_keywords'    => implode(', ', $result['seo_keywords']),
+                'seo_score'       => $result['seo_score'],
+                'updated_at'      => date('Y-m-d H:i:s'),
+            ], 'id = ?', [$articleId]);
+            (new Cache())->delete('brand_articles_all');
+            $result['saved'] = true;
+        } else {
+            $result['saved'] = false;
+        }
+        unset($result['content']); // محتوای کامل در پاسخ API نمی‌آید
+        return $result;
+    }
+
+    /**
      * 🔍 تولید پکیج سئو — POST /api/ai/generate-seo
      */
     public function generateSeo(array $params): array

@@ -104,6 +104,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'suggest_titles'
     }
 }
 
+/* 🎯 بهبود خودکار سئو (فاز Q.6 — AJAX) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'improve_seo') {
+    Auth::enforceCsrf();
+    header('Content-Type: application/json; charset=utf-8');
+    try {
+        $articleId = (int)post('article_id');
+        $article = $db->fetch('SELECT * FROM brand_articles WHERE id = ?', [$articleId]);
+        if (!$article) {
+            json_response(['success' => false, 'error' => 'مقاله یافت نشد.'], 404);
+        }
+        $improver = new SeoImprover();
+        $result = $improver->improve($article);
+        $db->update('brand_articles', [
+            'content'         => $result['content'],
+            'seo_title'       => $result['seo_title'],
+            'seo_description' => $result['seo_description'],
+            'seo_keywords'    => implode(', ', $result['seo_keywords']),
+            'seo_score'       => $result['seo_score'],
+            'updated_at'      => date('Y-m-d H:i:s'),
+        ], 'id = ?', [$articleId]);
+        (new Cache())->delete('brand_articles_all');
+        unset($result['content']);
+        json_response(['success' => true, 'data' => $result]);
+    } catch (Exception $e) {
+        json_response(['success' => false, 'error' => $e->getMessage()], 400);
+    }
+}
+
 $pageTitle = 'مدیریت مقالات';
 $activeMenu = 'articles';
 require __DIR__ . '/includes/header.php';
@@ -190,6 +218,47 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
                     <input type="text" name="seo_description" class="form-control" value="<?= e($editArticle['seo_description'] ?? '') ?>">
                 </div>
             </div>
+
+            <?php
+            /* 📊 پنل آمار کامل سئو (فاز Q.6) */
+            $seoStats = (new SeoImprover())->analyze($editArticle);
+            $statusMeta = [
+                'pass' => ['✅', 'badge-success'],
+                'warn' => ['⚠️', 'badge-warning'],
+                'fail' => ['❌', 'badge-danger'],
+            ];
+            ?>
+            <div class="card" style="margin:18px 0;border-color:var(--primary)">
+                <div class="card-header">
+                    <h3>📊 آمار کامل سئو</h3>
+                    <div class="tools" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                        <span class="badge <?= $seoStats['score'] >= 70 ? 'badge-success' : ($seoStats['score'] >= 55 ? 'badge-warning' : 'badge-danger') ?>" style="font-size:14px;padding:6px 14px">امتیاز: <?= en_to_fa_digits((string)$seoStats['score']) ?>/۱۰۰ — <?= e($seoStats['grade']) ?></span>
+                        <button type="button" id="btn-improve-seo" class="btn btn-success" <?= $seoStats['fixable_count'] === 0 ? 'disabled title="مورد قابل اصلاح خودکار نیست"' : '' ?>>🎯 بهبود سئو (<?= en_to_fa_digits((string)$seoStats['fixable_count']) ?> مورد)</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="hint" style="margin-bottom:10px">🎯 کلیدواژه کانونی: <b><?= e($seoStats['focus_keyword'] ?: '—') ?></b> · <?= e($seoStats['summary']) ?></div>
+                    <div id="seo-improve-report" style="display:none;margin-bottom:14px"></div>
+                    <div class="table-wrap">
+                        <table class="table">
+                            <thead><tr><th>سنجه</th><th>وضعیت</th><th>جزئیات</th><th>اصلاح خودکار</th></tr></thead>
+                            <tbody>
+                            <?php foreach ($seoStats['checks'] as $check): ?>
+                                <?php [$icon, $badge] = $statusMeta[$check['status']] ?? ['•', 'badge-secondary']; ?>
+                                <tr>
+                                    <td style="font-weight:600;white-space:nowrap"><?= e($check['label']) ?></td>
+                                    <td><span class="badge <?= $badge ?>"><?= $icon ?></span></td>
+                                    <td style="font-size:12px"><?= e($check['detail']) ?></td>
+                                    <td><?= $check['fixable'] ? '<span class="badge badge-info">قابل اصلاح</span>' : '<span style="color:var(--text-light)">—</span>' ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="hint">💡 دکمه «بهبود سئو» همه موارد قابل اصلاح را به‌صورت خودکار اعمال می‌کند: اصلاح نگارش، کلیدواژه در مقدمه، عنوان و متای استاندارد، لینک داخلی، alt تصاویر، بخش سوالات متداول و فهرست مطالب.</div>
+                </div>
+            </div>
+
             <button type="submit" class="btn btn-primary btn-lg">💾 ذخیره مقاله</button>
         </form>
     </div>
@@ -359,10 +428,66 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
 </div>
 <?php endif; ?>
 
-<!-- 🎯 فاز Q.5: پیشنهاد بهترین عنوان سئو -->
+<!-- 🎯 فاز Q.5 + Q.6: پیشنهاد عنوان سئو + بهبود خودکار سئو -->
 <script>
 (function () {
     'use strict';
+
+    /* ---------- 🎯 بهبود خودکار سئو (فاز Q.6) ---------- */
+    var improveBtn = document.getElementById('btn-improve-seo');
+    var reportBox = document.getElementById('seo-improve-report');
+    if (improveBtn && reportBox) {
+        improveBtn.addEventListener('click', function () {
+            if (!confirm('همه اصلاحات سئو به‌صورت خودکار روی این مقاله اعمال و ذخیره شود؟')) {
+                return;
+            }
+            var csrf = document.querySelector('input[name="csrf_token"]');
+            var articleId = document.querySelector('input[name="article_id"]');
+            improveBtn.disabled = true;
+            improveBtn.textContent = '⏳ در حال اعمال اصلاحات سئو...';
+            reportBox.style.display = 'block';
+            reportBox.innerHTML = '<div style="padding:12px;color:var(--text-light)">در حال تحلیل و اصلاح مقاله... (نگارش، کلیدواژه، متا، لینک‌ها، FAQ و TOC)</div>';
+
+            var body = new URLSearchParams();
+            body.append('action', 'improve_seo');
+            body.append('article_id', articleId ? articleId.value : '0');
+            if (csrf) { body.append('csrf_token', csrf.value); }
+
+            fetch('articles.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrf ? csrf.value : '' },
+                body: body.toString(),
+                credentials: 'same-origin'
+            }).then(function (r) { return r.json(); }).then(function (res) {
+                improveBtn.disabled = false;
+                improveBtn.textContent = '🎯 بهبود سئو (اجرای مجدد)';
+                if (!res.success) {
+                    reportBox.innerHTML = '<div style="padding:12px;color:#e74c3c">خطا: ' + (res.error || 'نامشخص') + '</div>';
+                    return;
+                }
+                var d = res.data;
+                var fa = function (n) { return String(n).replace(/[0-9]/g, function (x) { return '۰۱۲۳۴۵۶۷۸۹'[+x]; }); };
+                var gainColor = d.gain > 0 ? '#27ae60' : '#e67e22';
+                var html = '<div style="border:1px solid ' + gainColor + ';border-radius:10px;padding:14px;background:#fafefe">';
+                html += '<div style="font-weight:700;margin-bottom:8px">🎯 نتیجه بهبود سئو: ' + fa(d.before.score) + ' ← <span style="color:' + gainColor + ';font-size:16px">' + fa(d.after.score) + '</span> (' + (d.gain > 0 ? '+' + fa(d.gain) : 'بدون تغییر') + ' امتیاز) — ' + d.after.grade + '</div>';
+                if (d.applied && d.applied.length) {
+                    html += '<div style="font-weight:600;margin:8px 0 4px">✅ اصلاحات اعمال‌شده:</div><ul style="margin:0;padding-right:20px;font-size:12.5px">';
+                    d.applied.forEach(function (a) { html += '<li style="margin-bottom:3px">' + a + '</li>'; });
+                    html += '</ul>';
+                } else {
+                    html += '<div style="color:var(--text-light);font-size:12.5px">این مقاله از قبل بهینه است — مورد قابل اصلاح جدیدی یافت نشد.</div>';
+                }
+                html += '<div style="margin-top:10px;font-size:12px;color:var(--text-light)">🔄 برای دیدن محتوای بهبودیافته، صفحه را رفرش کنید.</div></div>';
+                reportBox.innerHTML = html;
+            }).catch(function (err) {
+                improveBtn.disabled = false;
+                improveBtn.textContent = '🎯 بهبود سئو';
+                reportBox.innerHTML = '<div style="padding:12px;color:#e74c3c">خطای ارتباط با سرور: ' + err.message + '</div>';
+            });
+        });
+    }
+
+    /* ---------- 🎯 پیشنهاد بهترین عنوان سئو (فاز Q.5) ---------- */
     var btn = document.getElementById('btn-suggest-titles');
     var input = document.getElementById('gen-custom-title');
     var box = document.getElementById('title-suggestions');
