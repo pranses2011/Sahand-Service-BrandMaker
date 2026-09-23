@@ -285,6 +285,12 @@ $router->add('POST', 'ai/brand-voice', $aiHandler('brandVoice'));
 // 🏷️ تولید عنوان بهینه CTR-محور
 $router->add('POST', 'ai/generate-titles', $aiHandler('generateTitles'));
 
+// 🏅 پکیج کامل سئوی پیشرفته — v3.3 (متا + اسکیما + E-E-A-T + موجودیت + خوشه + شکاف)
+$router->add('POST', 'ai/seo-package', $aiHandler('seoPackage'));
+
+// ✅ چک‌لیست E-E-A-T مستقل — v3.3
+$router->add('POST', 'ai/eeat-check', $aiHandler('eeatCheck'));
+
 // 💬 دستیار فرمان فارسی (زبان طبیعی)
 $router->add('POST', 'ai/assistant', $aiHandler('assistant'));
 

@@ -9,8 +9,12 @@
  * HowTo برای مقالات راهنما + Speakable + تحلیل تراکم کلیدواژه +
  * پیشنهاد لینک داخلی + og:image و twitter:image.
  *
+ * 🆕 نسخه ۱.۲ (v2.3): چک‌لیست E-E-A-T + استخراج موجودیت‌ها (Entity) +
+ * تحلیل شکاف محتوایی نسبت به رقبا + خوشه‌بندی کلیدواژه ثانویه +
+ * پیشنهاد پرس‌وجوهای مرتبط (People Also Ask).
+ *
  * @package SahandBrandMaker\Engine
- * @version 1.1.0
+ * @version 1.2.0
  */
 class SeoGenerator
 {
@@ -122,6 +126,190 @@ class SeoGenerator
             'schema'      => $schema,
             'keyword_density' => $this->keywordDensity($content, $focusKeyword),
             'reading_time' => max(1, (int)ceil(TextProcessor::wordCount(strip_tags($content)) / 220)),
+            // 🆕 v1.2
+            'entities'      => $this->extractEntities($content),
+            'eeat'          => $this->eeatChecklist($content, $vars),
+            'secondary_keywords' => $this->secondaryKeywordClusters($focusKeyword, $content),
+        ];
+    }
+
+    /**
+     * 🧠 v1.2: استخراج موجودیت‌ها (Entity) از محتوا — پایه سئوی معنایی
+     * برندها/دستگاه‌ها/شهرها/اصطلاحات فنی شناخته‌شده را برمی‌گرداند.
+     */
+    public function extractEntities(string $content): array
+    {
+        $text = ' ' . strip_tags($content) . ' ';
+        $entities = [];
+
+        // 🏷️ برندهای شناخته‌شده (از پایگاه دانش)
+        $knowledge = TextProcessor::loadKnowledge('brands');
+        $brandKeys = is_array($knowledge) ? array_keys($knowledge) : [];
+        foreach ($brandKeys as $key) {
+            if (mb_strlen($key) >= 3 && mb_stripos($text, $key) !== false) {
+                $entities[] = ['name' => $key, 'type' => 'Brand'];
+            }
+        }
+
+        // 🔧 دستگاه‌ها
+        $devices = TextProcessor::loadKnowledge('devices');
+        if (is_array($devices)) {
+            foreach ($devices as $key => $d) {
+                $nameFa = (string)($d['name_fa'] ?? '');
+                if ($nameFa !== '' && mb_stripos($text, $nameFa) !== false) {
+                    $entities[] = ['name' => $nameFa, 'type' => 'Product'];
+                }
+            }
+        }
+
+        // 📍 شهرهای ایران
+        $cities = ['تهران', 'مشهد', 'اصفهان', 'شیراز', 'تبریز', 'کرج', 'اهواز', 'قم', 'رشت', 'زاهدان', 'یزد', 'کرمان'];
+        foreach ($cities as $city) {
+            if (mb_strpos($text, $city) !== false) {
+                $entities[] = ['name' => $city, 'type' => 'City'];
+            }
+        }
+
+        // 🔬 اصطلاحات فنی حوزه تعمیرات
+        $terms = [
+            'کمپرسور' => 'Thing', 'برد الکترونیکی' => 'Thing', 'واپسوزی' => 'Thing',
+            'یخچال فریزر' => 'Product', 'ماشین لباسشویی' => 'Product', 'ظرفشویی' => 'Product',
+            'جاروبرقی' => 'Product', 'تلمه' => 'Thing', 'کولر گازی' => 'Product',
+            'ایرادیابی' => 'Thing', 'قطعات یدکی' => 'Thing', 'گارانتی' => 'Thing',
+        ];
+        foreach ($terms as $term => $type) {
+            if (mb_strpos($text, $term) !== false) {
+                $entities[] = ['name' => $term, 'type' => $type];
+            }
+        }
+
+        return array_slice($entities, 0, 20);
+    }
+
+    /**
+     * 🏅 v1.2: چک‌لیست E-E-A-T — تجربه/تخصص/اعتبار/اعتماد محتوا
+     */
+    public function eeatChecklist(string $content, array $vars = []): array
+    {
+        $text = strip_tags($content);
+        $wordCount = TextProcessor::wordCount($text);
+        $checks = [];
+
+        $checks[] = [
+            'key' => 'experience', 'label' => 'تجربه (Experience)',
+            'pass' => (bool)preg_match('#(سال تجربه|تکنسین|متخصص|نمایندگی|کارشناس)#u', $text),
+            'hint' => 'اشاره به سال‌های تجربه یا تخصص تکنسین‌ها در متن اضافه شود',
+        ];
+        $checks[] = [
+            'key' => 'expertise', 'label' => 'تخصص (Expertise)',
+            'pass' => (bool)preg_match('#(قطعات اصلی|استاندارد|کالیبراسیون|الگوریتم|فنی|تخصصی)#u', $text),
+            'hint' => 'اصطلاحات فنی تخصصی و اشاره به قطعات اصلی اضافه شود',
+        ];
+        $checks[] = [
+            'key' => 'authoritativeness', 'label' => 'اعتبار (Authoritativeness)',
+            'pass' => (bool)preg_match('#(نمایندگی رسمی|گارانتی|ضمانت|مشخصه|مجاز)#u', $text),
+            'hint' => 'اشاره به نمایندگی رسمی/گارانتی/ضمانت کتبی اضافه شود',
+        ];
+        $checks[] = [
+            'key' => 'trust_safety', 'label' => 'اعتماد و ایمنی (Trust)',
+            'pass' => (bool)preg_match('#(هشدار|ایمنی|احتیاط|برق بکشید|خاموش)#u', $text),
+            'hint' => 'جعبه هشدار ایمنی برای مقالات فنی اضافه شود',
+        ];
+        $checks[] = [
+            'key' => 'structure', 'label' => 'ساختار عنوان‌بندی',
+            'pass' => substr_count($content, '<h2') >= 3,
+            'hint' => 'حداقل ۳ سرفصل h2 برای ساختار بهتر داشته باشید',
+        ];
+        $checks[] = [
+            'key' => 'depth', 'label' => 'عمق محتوا (۱۰۰۰+ کلمه)',
+            'pass' => $wordCount >= 1000,
+            'hint' => 'محتوای عمیق‌تر با جزئیات فنی بیشتر',
+        ];
+        $checks[] = [
+            'key' => 'faq', 'label' => 'پاسخ به سوالات رایج',
+            'pass' => (bool)preg_match('#<h3>[^<]*؟#u', $content) || mb_stripos($content, 'سوالات متداول') !== false,
+            'hint' => 'بخش سوالات متداول برای پوشش پرس‌وجوهای کاربران',
+        ];
+        $checks[] = [
+            'key' => 'cta', 'label' => 'فراخوان اقدام (CTA)',
+            'pass' => (bool)preg_match('#(تماس بگیرید|ثبت درخواست|درخواست تعمیر|همین حالا)#u', $text),
+            'hint' => 'دکمه/متن فراخوان اقدام در انتهای مقاله',
+        ];
+
+        $passed = count(array_filter($checks, function ($c) { return $c['pass']; }));
+        return [
+            'score'   => (int)round($passed / max(1, count($checks)) * 100),
+            'passed'  => $passed,
+            'total'   => count($checks),
+            'checks'  => $checks,
+        ];
+    }
+
+    /**
+     * 🔗 v1.2: خوشه‌بندی کلیدواژه‌های ثانویه — برای پوشش معنایی موضوع
+     */
+    public function secondaryKeywordClusters(string $focusKeyword, string $content): array
+    {
+        $focus = trim($focusKeyword);
+        $clusters = [
+            'informational' => [
+                $focus . ' چیست',
+                'دلایل خرابی ' . str_replace('تعمیر ', '', $focus),
+                'علائم خرابی ' . str_replace('تعمیر ', '', $focus),
+            ],
+            'commercial' => [
+                'هزینه ' . $focus,
+                'قیمت ' . $focus,
+                $focus . ' در تهران',
+            ],
+            'howto' => [
+                'آموزش ' . $focus,
+                'راه حل ' . $focus,
+                'رفع عیب ' . $focus,
+            ],
+        ];
+        // پرس‌وجوهای People Also Ask پیشنهادی
+        $paa = [
+            'آیا ' . str_replace('تعمیر ', '', $focus) . ' صرفه اقتصادی دارد؟',
+            'چه زمانی باید به تعمیرکار متخصص مراجعه کرد؟',
+            'قطعات مصرفی اصلی از کجا تهیه شود؟',
+        ];
+        return [
+            'clusters' => $clusters,
+            'people_also_ask' => $paa,
+        ];
+    }
+
+    /**
+     * 📊 v1.2: تحلیل شکاف محتوایی — مقایسه عنوان‌های رقبا با محتوای فعلی
+     */
+    public function contentGap(array $competitorTitles, string $content): array
+    {
+        $text = ' ' . strip_tags($content) . ' ';
+        $gaps = [];
+        foreach ($competitorTitles as $title) {
+            $title = trim((string)$title);
+            if ($title === '') { continue; }
+            // استخراج واژه‌های معنادار عنوان رقیب
+            $words = preg_split('/[\s\|\-–—:,،]+/u', $title);
+            $covered = 0;
+            $total = 0;
+            foreach ($words as $w) {
+                $w = trim($w);
+                if (mb_strlen($w) < 3) { continue; }
+                $total++;
+                if (mb_stripos($text, $w) !== false) { $covered++; }
+            }
+            if ($total === 0) { continue; }
+            $coverage = $covered / $total;
+            if ($coverage < 0.5) {
+                $gaps[] = ['title' => $title, 'coverage' => round($coverage * 100) . '٪', 'missing' => true];
+            }
+        }
+        return [
+            'analyzed' => count($competitorTitles),
+            'gaps' => array_slice($gaps, 0, 5),
+            'hint' => 'موضوعات فهرست‌شده در محتوا پوشش داده نشده‌اند — افزودن بخش مرتبط به رتبه کمک می‌کند',
         ];
     }
 

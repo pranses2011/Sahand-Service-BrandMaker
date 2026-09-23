@@ -7,7 +7,7 @@
  * تولید N واریانت و انتخاب بهترین با QualityScorer
  *
  * @package SahandBrandMaker\Engine
- * @version 2.0.0
+ * @version 2.1.0
  */
 class ArticleGenerator
 {
@@ -134,6 +134,15 @@ class ArticleGenerator
         /* ---------- ۳.۵) 🆕 جعبه «نکات کلیدی» (TL;DR) ---------- */
         $content = $this->addKeyTakeaways($content, $sections, $vars, $seed);
 
+        /* ---------- ۳.۵۵) 🆕 v2.1: ساختار حرفه‌ای مقاله ----------
+         * فهرست مطالب (TOC) + زمان مطالعه + جعبه‌های نکته/هشدار +
+         * مزایا و معایب + باکس آمار — همان عناصری که نشریات حرفه‌ای
+         * برای E-E-A-T و تجربه کاربری بهتر به کار می‌برند */
+        $structure = $this->enrichStructure($content, $vars, $topicType, $seed);
+        $content = $structure['content'];
+        $toc = $structure['toc'];
+        $readingTime = $structure['reading_time'];
+
         /* ---------- ۳.۶) 🆕 بخش سوالات متداول مقاله ---------- */
         $faqs = $this->articleFaq($vars, $topicType, $seed);
         if (!empty($faqs)) {
@@ -158,9 +167,9 @@ class ArticleGenerator
             $attempts++;
         }
 
-        /* ---------- ۵.۵) 🆕 تضمین حداقل حجم مقاله (۸۰۰ کلمه) ---------- */
+        /* ---------- ۵.۵) 🆕 تضمین حداقل حجم مقاله (۱۰۰۰ کلمه — v2.1) ---------- */
         $expandTries = 0;
-        while (TextProcessor::wordCount(strip_tags($content)) < 800 && $expandTries < 3) {
+        while (TextProcessor::wordCount(strip_tags($content)) < 1000 && $expandTries < 4) {
             $extra = $this->paragraphsFrom(array_merge($usage, $maintenance, $issues), 3, $seed . '|expand' . $expandTries);
             if ($extra === '') {
                 break;
@@ -200,11 +209,119 @@ class ArticleGenerator
             'seo'        => $seo,
             'uniqueness' => $check,
             'word_count' => TextProcessor::wordCount(strip_tags($content)),
+            'reading_time' => $readingTime,
+            'toc'        => $toc,
             'quality'    => $quality,
             'faqs'       => $faqs,
             'generated_by_ai' => 1,
             'uniqueness_hash' => $check['hash'] ?? TextProcessor::contentHash($content),
         ];
+    }
+
+    /**
+     * ✨ v2.1: غنی‌سازی ساختاری مقاله — فهرست مطالب + لنگرها + زمان مطالعه +
+     * جعبه‌های نکته/هشدار حرفه‌ای + مزایا و معایب + باکس آمار
+     *
+     * @return array ['content', 'toc', 'reading_time']
+     */
+    private function enrichStructure(string $content, array $vars, string $topicType, string $seed): array
+    {
+        $d = $vars['device_fa'];
+        $b = $vars['brand_fa'];
+
+        /* 🧭 فهرست مطالب + لنگرگذاری روی تیترهای h2 */
+        $toc = [];
+        $anchorIdx = 0;
+        $content = preg_replace_callback('#<h2>(.*?)</h2>#u', function ($m) use (&$toc, &$anchorIdx) {
+            $anchorIdx++;
+            $title = trim(strip_tags($m[1]));
+            if ($title === '') { return $m[0]; }
+            $slug = 'sec-' . $anchorIdx;
+            $toc[] = ['title' => $title, 'anchor' => $slug];
+            return '<h2 id="' . $slug . '">' . $m[1] . '</h2>';
+        }, $content);
+
+        $wordCount = TextProcessor::wordCount(strip_tags($content));
+        $readingTime = max(1, (int)ceil($wordCount / 220)); // میانگین ۲۲۰ کلمه بر دقیقه فارسی
+
+        if (!empty($toc)) {
+            $tocHtml = '<div class="article-toc"><div class="toc-title">📑 فهرست مطالب</div><ul>';
+            foreach ($toc as $item) {
+                $tocHtml .= '<li><a href="#' . e($item['anchor']) . '">' . e($item['title']) . '</a></li>';
+            }
+            $tocHtml .= '</ul><div class="toc-meta">⏱️ زمان مطالعه: حدود ' . en_to_fa_digits((string)$readingTime) . ' دقیقه</div></div>';
+            // درج بعد از اولین پاراگراف (مقدمه)
+            $firstP = (int)mb_strpos($content, '</p>');
+            if ($firstP !== false) {
+                $content = mb_substr($content, 0, $firstP + 4) . "\n" . $tocHtml . "\n" . mb_substr($content, $firstP + 4);
+            } else {
+                $content = $tocHtml . "\n" . $content;
+            }
+        }
+
+        /* 💡 جعبه نکته پرو — بعد از اولین h2 */
+        $tipPool = [
+            'قبل از باز کردن بدنه ' . $d . '، حتماً دستگاه را از برق بکشید تا از برق‌گرفتگی و آسیب به برد الکترونیکی جلوگیری شود.',
+            'عکس گرفتن از مراحل باز و بسته شدن قطعات، در هنگام سرهم‌کردن مجدد دستگاه باعث صرفه‌جویی قابل توجهی در زمان می‌شود.',
+            'شماره مدل دقیق ' . $d . ' معمولاً روی پلاک پشت دستگاه درج شده است؛ این کد برای تهیه قطعه سازگار ضروری است.',
+            'به یاد داشته باشید که کالیبراسیون مجدد پس از تعویض قطعات حساس، بخشی از فرآیند تعمیر حرفه‌ای است نه یک گام اختیاری.',
+        ];
+        $tip = TextProcessor::seededPick($tipPool, $seed . '|tip');
+        $tipBox = '<div class="callout callout-tip"><span class="callout-ico">💡</span><div><b>نکته حرفه‌ای:</b> ' . e($tip) . '</div></div>';
+        $content = $this->insertAfterHeading($content, 1, $tipBox);
+
+        /* ⚠️ جعبه هشدار ایمنی — بعد از دومین h2 (فقط مقالات فنی) */
+        if (in_array($topicType, ['troubleshooting', 'error_codes', 'user_guide', 'maintenance'], true)) {
+            $warnPool = [
+                'تعمیرات مرتبط با گاز مبرد، کمپرسور و مدارهای قدرت باید فقط توسط تکنسین مجاز انجام شود؛ انجام شخصی این موارد می‌تواند ضمانت دستگاه را باطل کند.',
+                'هرگز قطعات اصلی ' . $d . ' را با قطعات فاقد استاندارد جایگزین نکنید؛ خرابی‌های ثانویه ناشی از قطعات بی‌کیفیت معمولاً پرهزینه‌تر از تعمیر اولیه است.',
+                'در صورت بوی سوختگی، صدای غیرعادی بلند یا نشتی آب، دستگاه را فوراً خاموش و از برق بکشید و با نمایندگی ' . $b . ' تماس بگیرید.',
+            ];
+            $warn = TextProcessor::seededPick($warnPool, $seed . '|warn');
+            $warnBox = '<div class="callout callout-warning"><span class="callout-ico">⚠️</span><div><b>هشدار ایمنی:</b> ' . e($warn) . '</div></div>';
+            $content = $this->insertAfterHeading($content, 2, $warnBox);
+        }
+
+        /* ⚖️ جعبه مزایا و معایب — برای مقالات مقایسه/راهنمای خرید */
+        if (in_array($topicType, ['comparison', 'buying_guide'], true)) {
+            $prosCons = '<div class="pros-cons"><div class="pros"><div class="pc-title">✅ نقاط قوت</div><ul>'
+                . '<li>صرفه‌جویی در مصرف انرژی نسبت به مدل‌های قدیمی‌تر</li>'
+                . '<li>دسترسی آسان به قطعات یدکی اصلی در نمایندگی‌های مجاز</li>'
+                . '<li>گارانتی معتبر و خدمات پس از فروش رسمی ' . e($b) . '</li></ul></div>'
+                . '<div class="cons"><div class="pc-title">⚠️ نقاط ضعف</div><ul>'
+                . '<li>هزینه بالاتر تعمیر نسبت به برندهای اقتصادی</li>'
+                . '<li>نیاز به تکنسین متخصص برای تشخیص ایرادات برد الکترونیکی</li></ul></div></div>';
+            $content = $this->insertAfterHeading($content, 2, $prosCons);
+        }
+
+        /* 📊 باکس آمار و اعتماد — قبل از جمع‌بندی */
+        $statBox = '<div class="article-stats"><div class="stat"><span class="stat-num">' . en_to_fa_digits('12') . '+</span><span class="stat-lbl">سال تجربه</span></div>'
+            . '<div class="stat"><span class="stat-num">' . en_to_fa_digits('98') . '٪</span><span class="stat-lbl">رضایت مشتریان</span></div>'
+            . '<div class="stat"><span class="stat-num">' . en_to_fa_digits((string)$readingTime) . '</span><span class="stat-lbl">دقیقه مطالعه</span></div></div>';
+        $pos = mb_strripos($content, '<h2>جمع‌بندی</h2>');
+        if ($pos !== false) {
+            $content = mb_substr($content, 0, $pos) . $statBox . "\n" . mb_substr($content, $pos);
+        }
+
+        return ['content' => $content, 'toc' => $toc, 'reading_time' => $readingTime];
+    }
+
+    /**
+     * 📌 درج یک بلوک HTML بعد از n-امین تیتر h2 (یا انتهای محتوا اگر وجود نداشت)
+     */
+    private function insertAfterHeading(string $content, int $n, string $html): string
+    {
+        $count = 0;
+        $offset = 0;
+        while ($count < $n) {
+            $pos = mb_strpos($content, '</h2>', $offset);
+            if ($pos === false) {
+                return $content . "\n" . $html;
+            }
+            $count++;
+            $offset = $pos + 5;
+        }
+        return mb_substr($content, 0, $offset) . "\n" . $html . "\n" . mb_substr($content, $offset);
     }
 
     /**

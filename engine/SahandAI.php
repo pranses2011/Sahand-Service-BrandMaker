@@ -13,17 +13,19 @@
  *   🧠 خط تولید هوشمند (SmartPipeline v3.2) + 🔧 بهبوددهنده خودکار (ContentImprover)
  *   🎙️ تحلیل صدای برند (BrandVoiceAnalyzer) + 🏷️ عنوان‌ساز CTR (TitleGenerator)
  *   💬 دستیار فرمان فارسی (CommandAssistant) + ⚡ کش موتور (EngineCache)
- *   🌐 جستجوی آنلاین وب (WebSearchService v1.1 — وب + اخبار + Mojeek)
+ *   🌐 جستجوی آنلاین وب (WebSearchService v1.2 — ۹ ارائه‌دهنده + مسابقه موازی + ویکی‌پدیا)
  *   🖼️ سرویس تصاویر مقاله (ArticleImageService — ۳ تصویر هر مقاله)
+ *   📰 ساختار حرفه‌ای مقاله (TOC + زمان مطالعه + جعبه نکته/هشدار + مزایا-معایب)
+ *   🏅 سئوی E-E-A-T (چک‌لیست + موجودیت‌ها + شکاف محتوایی + خوشه کلیدواژه)
  *   🔌 API داخلی (routes در api/index.php)
  *
  * @package SahandBrandMaker\Engine
- * @version 3.2.0
+ * @version 3.3.0
  */
 class SahandAI
 {
     /** 🔖 نسخه موتور */
-    public const ENGINE_VERSION = '3.2.0';
+    public const ENGINE_VERSION = '3.3.0';
 
     /** @var Database دیتابیس */
     private $db;
@@ -599,8 +601,15 @@ class SahandAI
                 'ctr_titles'       => true,   // 🏷️ عنوان‌سازی بهینه CTR
                 'nl_assistant'     => true,   // 💬 دستیار فرمان فارسی
                 'response_cache'   => true,   // ⚡ کش پاسخ‌ها
-                'web_search'       => true,   // 🌐 جستجوی آنلاین وب (نسخه ۳.۱)
+                'web_search'       => true,   // 🌐 جستجوی آنلاین وب (v3.3 — ۹ ارائه‌دهنده + مسابقه موازی)
                 'web_research'     => true,   // 🧪 تحقیق ساختاریافته آنلاین
+                'parallel_race'    => true,   // ⚡ مسابقه موازی ارائه‌دهندگان (curl_multi)
+                'wikipedia'        => true,   // 📚 ارائه‌دهنده ویکی‌پدیا fa+en
+                'freshness_rank'   => true,   // 📅 تشخیص تازگی نتایج + اعتماد دامنه
+                'article_toc'      => true,   // 📰 فهرست مطالب + زمان مطالعه خودکار
+                'callouts'         => true,   // 💡⚠️ جعبه نکته/هشدار + مزایا-معایب
+                'eeat_seo'         => true,   // 🏅 چک‌لیست E-E-A-T + موجودیت‌ها
+                'content_gap'      => true,   // 📊 تحلیل شکاف محتوایی رقبا
                 'telegram_bot'     => true,   // 🤖 ربات تلگرام متصل به دستیار
             ],
             'knowledge_size'    => $kb,
@@ -681,6 +690,86 @@ class SahandAI
             ],
             (int)($params['count'] ?? 10)
         );
+    }
+
+    /* ==================================================
+     * 🆕 قابلیت‌های نسخه ۳.۳ (v2.3)
+     * ================================================== */
+
+    /**
+     * 🏅 پکیج کامل سئوی پیشرفته — POST /api/ai/seo-package
+     * همه ابزارهای سئو در یک فراخوانی: متا + اسکیما + E-E-A-T +
+     * موجودیت‌ها + خوشه کلیدواژه + شکاف محتوایی (در صورت ارائه رقبا)
+     *
+     * پارامترها: title (الزامی)، content (الزامی)، focus_keyword،
+     *            brand_fa، brand_en، images[]، competitor_titles[]
+     */
+    public function seoPackage(array $params): array
+    {
+        $title = trim((string)($params['title'] ?? ''));
+        $content = (string)($params['content'] ?? '');
+        if ($title === '' || trim($content) === '') {
+            throw new RuntimeException('پارامترهای title و content الزامی هستند.');
+        }
+        $brandId = (int)($params['brand_id'] ?? 0);
+        $brand = $brandId > 0
+            ? ($this->db->fetch('SELECT name_fa, name_en FROM brands WHERE id = ?', [$brandId]) ?: [])
+            : [];
+        $vars = [
+            'brand_fa'  => (string)($params['brand_fa'] ?? ($brand['name_fa'] ?? '')),
+            'brand_en'  => (string)($params['brand_en'] ?? ($brand['name_en'] ?? '')),
+            'agency'    => Config::get(Config::KEY_AGENCY_NAME_FA) ?: 'سهند سرویس',
+            'images'    => (array)($params['images'] ?? []),
+        ];
+        $focusKeyword = (string)($params['focus_keyword'] ?? '');
+
+        $seoGen = new SeoGenerator();
+        $result = $seoGen->generateForArticle($title, $content, $focusKeyword, $vars);
+
+        // 📊 شکاف محتوایی — اگر عنوان رقبا داده شده باشد
+        $competitorTitles = (array)($params['competitor_titles'] ?? []);
+        if (!empty($competitorTitles)) {
+            $result['content_gap'] = $seoGen->contentGap($competitorTitles, $content);
+        }
+        return $result;
+    }
+
+    /**
+     * 🧪 تحقیق موضوعی آنلاین — POST /api/ai/research
+     * جستجوی وب + اخبار + ویکی‌پدیا برای یک موضوع، همراه با تازگی و اعتماد دامنه
+     *
+     * پارامترها: topic (الزامی)، depth (quick|deep)، include_news، max_sources
+     */
+    public function researchTopic(array $params): array
+    {
+        $topic = trim((string)($params['topic'] ?? ''));
+        if ($topic === '') {
+            throw new RuntimeException('پارامتر topic الزامی است.');
+        }
+        $opts = [
+            'depth'        => ($params['depth'] ?? 'quick') === 'deep' ? 'deep' : 'quick',
+            'include_news' => !empty($params['include_news']),
+            'max_sources'  => max(3, min(15, (int)($params['max_sources'] ?? 8))),
+        ];
+        return EngineCache::remember('research', $params, 900, function () use ($topic, $opts) {
+            $service = new WebSearchService();
+            $result = $service->research($topic, $opts);
+            $result['engine'] = self::ENGINE_VERSION;
+            return $result;
+        });
+    }
+
+    /**
+     * 🏅 چک‌لیست E-E-A-T مستقل — POST /api/ai/eeat-check
+     * پارامترها: content (الزامی)
+     */
+    public function eeatCheck(array $params): array
+    {
+        $content = (string)($params['content'] ?? '');
+        if (trim($content) === '') {
+            throw new RuntimeException('پارامتر content الزامی است.');
+        }
+        return (new SeoGenerator())->eeatChecklist($content);
     }
 
     /**
