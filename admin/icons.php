@@ -1,7 +1,9 @@
 <?php
 /**
- * 🖼️ مدیریت آیکون‌ها — ۱۰ پک + جستجو + ایمپورت
- * ==============================================
+ * 🖼️ مدیریت آیکون‌ها — پک‌ها + دسته‌بندی پوشه‌ها + جستجو + نصب/لغو نصب
+ * =====================================================================
+ * v2.6: نمایش همه آیکون‌ها با دسته‌بندی (پوشه‌بندی) و صفحه‌بندی —
+ *       قبلاً فقط ۱۲۰ آیکون اول مانیفست نمایش داده می‌شد.
  *
  * @package SahandBrandMaker
  */
@@ -23,6 +25,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = $downloader->installIconPack($packSlug, true);
         flash($result['success'] ? 'success' : 'danger', $result['message']);
         (new Cache())->delete('icon_packs_all');
+        redirect('icons.php');
+    }
+
+    /* 🗑️ لغو نصب پک — حذف کامل پوشه پک از سرور */
+    if ($action === 'uninstall_pack') {
+        $packSlug = post('pack_slug');
+        if (!preg_match('/^[a-z0-9\-]+$/', $packSlug)) {
+            flash('danger', 'نام پک نامعتبر است.');
+            redirect('icons.php');
+        }
+        $ok = $fm->deleteDir('assets/icons/' . $packSlug, 'assets/icons');
+        (new Cache())->delete('icon_packs_all');
+        flash($ok ? 'success' : 'danger',
+            $ok ? "🗑️ پک «{$packSlug}» به‌طور کامل از سرور حذف شد — هر زمان لازم بود دوباره نصبش کنید."
+                 : 'حذف پک ناموفق بود (دسترسی نوشتن را بررسی کنید).');
         redirect('icons.php');
     }
 
@@ -119,6 +136,90 @@ if ($searchIcon !== '') {
         }
     }
 }
+
+/* 🗂️ مرور پک انتخاب‌شده: دسته‌بندی + صفحه‌بندی */
+$browsePack = preg_match('/^[a-z0-9\-]+$/', (string)get_param('pack')) ? (string)get_param('pack') : '';
+$browseCat = (string)get_param('cat');
+$browsePage = max(1, (int)get_param('ipage'));
+$perPage = 96;
+$browse = null;
+
+if ($browsePack !== '') {
+    $packDir = ASSETS_PATH . '/icons/' . $browsePack;
+    if (is_dir($packDir)) {
+        $manifestFile = $packDir . '/manifest.json';
+        $manifest = file_exists($manifestFile) ? (json_decode((string)file_get_contents($manifestFile), true) ?: []) : [];
+        $icons = array_values(array_filter(array_map(function ($ic) use ($packDir, $browsePack) {
+            if (!is_array($ic) || empty($ic['file'])) {
+                return null;
+            }
+            if (!file_exists($packDir . '/' . $ic['file'])) {
+                return null;
+            }
+            $ic['category'] = $ic['category'] ?? 'general';
+            $ic['label_fa'] = $ic['label_fa'] ?? ($ic['name'] ?? $ic['file']);
+            return $ic;
+        }, $manifest['icons'] ?? [])));
+
+        // 🗂️ گروه‌بندی دسته‌ها (پوشه‌بندی) با تعداد
+        $catCounts = [];
+        foreach ($icons as $ic) {
+            $catCounts[$ic['category']] = ($catCounts[$ic['category']] ?? 0) + 1;
+        }
+        uksort($catCounts, function ($a, $b) use ($catCounts) {
+            if ($a === 'general') { return 1; }
+            if ($b === 'general') { return -1; }
+            return $catCounts[$b] <=> $catCounts[$a];
+        });
+
+        $filtered = $browseCat !== ''
+            ? array_values(array_filter($icons, fn($ic) => $ic['category'] === $browseCat))
+            : $icons;
+
+        $totalPages = max(1, (int)ceil(count($filtered) / $perPage));
+        $browsePage = min($browsePage, $totalPages);
+        $pageIcons = array_slice($filtered, ($browsePage - 1) * $perPage, $perPage);
+
+        $cfg = $iconSourcesCfg[$browsePack] ?? [];
+        $browse = [
+            'slug' => $browsePack,
+            'name_fa' => $manifest['name_fa'] ?? ($cfg['name_fa'] ?? $browsePack),
+            'description' => $manifest['description'] ?? ($cfg['description'] ?? ''),
+            'icons' => $pageIcons,
+            'total' => count($icons),
+            'cats' => $catCounts,
+            'active_cat' => $browseCat,
+            'page' => $browsePage,
+            'total_pages' => $totalPages,
+            'has_source' => !empty($cfg['archive']),
+        ];
+    }
+}
+
+/** 🔗 ساخت لینک مرور با حفظ پارامترها */
+function browseUrl(string $pack, string $cat, int $page): string
+{
+    $qs = http_build_query(['pack' => $pack, 'cat' => $cat, 'ipage' => $page]);
+    return 'icons.php?' . $qs . '#browse';
+}
+
+/** 🏷️ نام فارسی دسته */
+function iconCatFa(string $cat): string
+{
+    $map = [
+        'general' => 'عمومی', 'system' => 'سیستمی', 'media' => 'رسانه‌ای', 'communication' => 'ارتباطات',
+        'weather' => 'آب‌وهوا', 'home' => 'خانه', 'kitchen' => 'آشپزخانه', 'cleaning' => 'نظافت',
+        'climate' => 'تهویه و سرمایش', 'laundry' => 'لباسشویی', 'sound' => 'صدا', 'security' => 'امنیت',
+        'energy' => 'انرژی', 'plumbing' => 'تأسیسات', 'tools' => 'ابزار', 'device' => 'دستگاه‌ها',
+        'brand' => 'برندها', 'solid' => 'توپر (Solid)', 'outline' => 'خطی (Outline)',
+        'duotone' => 'دورنگ (Duotone)', 'logos' => 'لوگوها', 'maps' => 'نقشه', 'editor' => 'ویرایشگر',
+        'files' => 'فایل‌ها', 'users' => 'کاربران', 'commerce' => 'تجارت', 'design' => 'طراحی',
+        'food' => 'خوراکی', 'transport' => 'حمل‌ونقل', 'health' => 'سلامت', 'education' => 'آموزش',
+        'finance' => 'مالی', 'gaming' => 'بازی', 'science' => 'علمی', 'nature' => 'طبیعت',
+        'technology' => 'فناوری', 'travel' => 'سفر', 'photography' => 'عکاسی', 'text' => 'متن',
+    ];
+    return $map[$cat] ?? $cat;
+}
 ?>
 <div class="stats-grid">
     <?php foreach (array_slice($packs, 0, 6) as $pack): ?>
@@ -132,8 +233,8 @@ if ($searchIcon !== '') {
     <?php endforeach; ?>
 </div>
 
-<form method="get" class="card" style="padding:14px 18px;display:flex;gap:10px;align-items:center">
-    <input type="text" name="q" class="form-control" placeholder="🔎 جستجوی آیکون در تمام پک‌ها (نام فارسی یا انگلیسی)..." value="<?= e($searchIcon) ?>" style="flex:1">
+<form method="get" class="card" style="padding:14px 18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <input type="text" name="q" class="form-control" placeholder="🔎 جستجوی آیکون در تمام پک‌ها (نام فارسی یا انگلیسی)..." value="<?= e($searchIcon) ?>" style="flex:1;min-width:200px">
     <button type="submit" class="btn btn-primary">جستجو</button>
 </form>
 
@@ -175,23 +276,70 @@ if ($searchIcon !== '') {
                         </button>
                     </form>
                 <?php endif; ?>
-                <button type="button" class="btn btn-outline btn-sm" onclick="togglePack('pack-<?= e($pack['slug']) ?>')">👁️ نمایش / مخفی</button>
+                <a href="<?= e(browseUrl($pack['slug'], '', 1)) ?>" class="btn btn-primary btn-sm">👁️ نمایش آیکون‌ها (<?= en_to_fa_digits((string)$pack['count']) ?>)</a>
+                <form method="post" data-confirm="پک «<?= e($pack['name_fa']) ?>» به‌طور کامل از سرور حذف می‌شود (همه <?= en_to_fa_digits((string)$pack['count']) ?> آیکون). هر زمان خواستید می‌توانید دوباره نصبش کنید. ادامه؟">
+                    <?= Auth::csrfField() ?>
+                    <input type="hidden" name="action" value="uninstall_pack">
+                    <input type="hidden" name="pack_slug" value="<?= e($pack['slug']) ?>">
+                    <button type="submit" class="btn btn-danger btn-sm">🗑️ لغو نصب</button>
+                </form>
             </div>
         </div>
-        <div class="card-body" id="pack-<?= e($pack['slug']) ?>" style="display:none">
-            <p style="font-size:12px;color:var(--text-light);margin-bottom:14px"><?= e($pack['description']) ?></p>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:10px;max-height:420px;overflow-y:auto;padding:4px">
-                <?php foreach (array_slice($pack['manifest']['icons'] ?? [], 0, 120) as $icon): ?>
-                    <?php if (!file_exists(ASSETS_PATH . '/icons/' . $pack['slug'] . '/' . $icon['file'])) { continue; } ?>
-                    <div style="text-align:center;border:1px solid var(--border);border-radius:10px;padding:11px 5px">
-                        <img src="<?= BASE_URL ?>/assets/icons/<?= e($pack['slug']) ?>/<?= e($icon['file']) ?>" alt="<?= e($icon['label_fa']) ?>" style="width:30px;height:30px" loading="lazy">
-                        <div style="font-size:10px;margin-top:6px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($icon['label_fa']) ?></div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
+        <div class="card-body" style="display:none">
+            <p style="font-size:12px;color:var(--text-light)"><?= e($pack['description']) ?></p>
+            <div class="hint">💡 برای مرور همه آیکون‌های این پک با دسته‌بندی و صفحه‌بندی، روی «نمایش آیکون‌ها» کلیک کنید.</div>
         </div>
     </div>
 <?php endforeach; ?>
+
+<?php if ($browse): ?>
+<!-- 🗂️ مرور کامل پک: دسته‌بندی (پوشه‌ها) + صفحه‌بندی -->
+<div class="card" id="browse" style="border-color:var(--primary)">
+    <div class="card-header">
+        <h3>🗂️ <?= e($browse['name_fa']) ?> — <?= en_to_fa_digits((string)$browse['total']) ?> آیکون</h3>
+        <div class="tools">
+            <a href="icons.php" class="btn btn-outline btn-sm">✖ بستن مرور</a>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- 📁 نوار پوشه‌بندی (دسته‌ها) -->
+        <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding-bottom:14px;border-bottom:1px dashed var(--border)">
+            <span style="font-size:12px;font-weight:700;color:var(--text-light)">📁 پوشه‌ها:</span>
+            <a href="<?= e(browseUrl($browse['slug'], '', 1)) ?>" class="badge <?= $browse['active_cat'] === '' ? 'badge-info' : 'badge-secondary' ?>" style="font-size:11.5px;padding:5px 12px;text-decoration:none">همه (<?= en_to_fa_digits((string)$browse['total']) ?>)</a>
+            <?php foreach ($browse['cats'] as $cat => $cnt): ?>
+                <a href="<?= e(browseUrl($browse['slug'], $cat, 1)) ?>" class="badge <?= $browse['active_cat'] === $cat ? 'badge-info' : 'badge-secondary' ?>" style="font-size:11.5px;padding:5px 12px;text-decoration:none"><?= e(iconCatFa($cat)) ?> (<?= en_to_fa_digits((string)$cnt) ?>)</a>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- 🖼️ آیکون‌های صفحه جاری -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:10px">
+            <?php foreach ($browse['icons'] as $icon): ?>
+                <div style="text-align:center;border:1px solid var(--border);border-radius:10px;padding:11px 5px" title="<?= e($icon['label_fa']) ?> · <?= e($icon['name']) ?>">
+                    <img src="<?= BASE_URL ?>/assets/icons/<?= e($browse['slug']) ?>/<?= e($icon['file']) ?>" alt="<?= e($icon['label_fa']) ?>" style="width:30px;height:30px" loading="lazy">
+                    <div style="font-size:10px;margin-top:6px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($icon['label_fa']) ?></div>
+                    <div style="font-size:9px;color:var(--text-light);direction:ltr;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($icon['name']) ?></div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- 📄 صفحه‌بندی -->
+        <?php if ($browse['total_pages'] > 1): ?>
+            <div class="pagination" style="margin-top:18px">
+                <?php for ($p = 1; $p <= $browse['total_pages']; $p++): ?>
+                    <?php if ($p === $browse['page']): ?>
+                        <span class="current"><?= en_to_fa_digits((string)$p) ?></span>
+                    <?php elseif ($p <= 2 || $p > $browse['total_pages'] - 2 || abs($p - $browse['page']) <= 2): ?>
+                        <a href="<?= e(browseUrl($browse['slug'], $browse['active_cat'], $p)) ?>"><?= en_to_fa_digits((string)$p) ?></a>
+                    <?php elseif (abs($p - $browse['page']) === 3): ?>
+                        <span style="color:var(--text-light)">…</span>
+                    <?php endif; ?>
+                <?php endfor; ?>
+            </div>
+        <?php endif; ?>
+        <div class="hint" style="margin-top:10px">📄 نمایش <?= en_to_fa_digits((string)count($browse['icons'])) ?> آیکون از <?= en_to_fa_digits((string)$browse['total']) ?> آیکون — صفحه <?= en_to_fa_digits((string)$browse['page']) ?> از <?= en_to_fa_digits((string)$browse['total_pages']) ?></div>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- 📥 ایمپورت پک -->
 <div class="card">
@@ -219,11 +367,4 @@ if ($searchIcon !== '') {
         </form>
     </div>
 </div>
-
-<script>
-function togglePack(id) {
-    const el = document.getElementById(id);
-    el.style.display = el.style.display === 'none' ? 'block' : 'none';
-}
-</script>
 <?php require __DIR__ . '/includes/footer.php'; ?>

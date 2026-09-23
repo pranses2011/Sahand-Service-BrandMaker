@@ -66,9 +66,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <label>🔒 کد امنیتی</label>
                 <div class="captcha-row">
                     <input type="text" name="captcha" class="form-control" required maxlength="5" placeholder="کد را وارد کنید" style="direction:ltr;text-align:center;letter-spacing:4px;font-size:17px;font-weight:700;min-width:120px" inputmode="latin" autocomplete="off">
-                    <img src="captcha.php" alt="کد امنیتی" id="captcha-img" width="220" height="72" onclick="refreshCaptcha(this)" title="برای تغییر کلیک کنید">
-                    <button type="button" class="captcha-refresh" onclick="refreshCaptcha(document.getElementById('captcha-img'))" title="تولید کد جدید" aria-label="تولید کد جدید">🔄</button>
+                    <img src="security-code.php" alt="کد امنیتی" id="captcha-img" width="220" height="72" onclick="refreshLoginCaptcha()" title="برای تغییر کلیک کنید" style="background:#f3f4f6;border-radius:10px">
+                    <button type="button" class="captcha-refresh" onclick="refreshLoginCaptcha()" title="تولید کد جدید" aria-label="تولید کد جدید">🔄</button>
                 </div>
+                <div class="hint" id="captcha-hint" style="display:none">🔍 نمایش مستقیم توسط مرورگر مسدود شد — حالت جایگزین فعال شد.</div>
             </div>
             <button type="submit" class="btn btn-primary btn-lg btn-block">🚀 ورود به پنل</button>
         </form>
@@ -79,5 +80,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </div>
 <script src="<?= asset_ver('assets/js/admin.js') ?>"></script>
+<script>
+/* 🔒 کپچای ضد-بلاک — سه لایه:
+   ۱) اندپوینت با نام خنثی security-code.php (ادبلاکرها واژه captcha را بلاک می‌کنند)
+   ۲) اگر تصویر مستقیم بلاک شد → fetch با AJAX و data-URI (هیچ بلاکر تصویری نمی‌تواند fetch/JSON را بلاک کند)
+   ۳) رفرش مستقل با هر دو لایه */
+function captchaFallback(img) {
+    if (img.dataset.fb === '1') { return; }
+    img.dataset.fb = '1';
+    var hint = document.getElementById('captcha-hint');
+    fetch('security-code.php?ajax=1', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (res && res.success && res.data_uri) {
+                img.src = res.data_uri;
+                if (hint) { hint.style.display = 'block'; }
+            }
+        })
+        .catch(function () { /* سکوت — کاربر با رفرش می‌تواند دوباره تلاش کند */ });
+}
+function refreshLoginCaptcha() {
+    var img = document.getElementById('captcha-img');
+    if (!img) { return; }
+    img.dataset.fb = '';
+    img.src = 'security-code.php?t=' + Date.now();
+}
+document.addEventListener('DOMContentLoaded', function () {
+    var img = document.getElementById('captcha-img');
+    if (img) { img.addEventListener('error', function () { captchaFallback(img); }); }
+});
+</script>
 </body>
 </html>

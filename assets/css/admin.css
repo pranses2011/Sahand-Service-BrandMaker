@@ -50,7 +50,9 @@ body.no-scroll { overflow: hidden; }
     background: var(--sidebar-bg);
     color: var(--sidebar-text);
     position: fixed;
-    inset-inline-end: 0;
+    /* 📌 همیشه سمت «راست» در همه دستگاه‌ها — عمداً فیزیکی (نه منطقی) تا با
+       تغییر جهت سند هم جابه‌جا نشود؛ پنل فارسی RTL استاندارد منو را سمت راست دارد */
+    right: 0;
     top: 0;
     bottom: 0;
     overflow-y: auto;
@@ -116,7 +118,7 @@ body.no-scroll { overflow: hidden; }
     text-align: center;
 }
 
-.main { flex: 1; margin-inline-end: 250px; display: flex; flex-direction: column; min-width: 0; }
+.main { flex: 1; margin-right: 250px; display: flex; flex-direction: column; min-width: 0; }
 
 /* ---------- 🔝 نوار بالا ---------- */
 .topbar {
@@ -447,6 +449,57 @@ td, .card-body, .alert, .card-header h3, .topbar-titles { overflow-wrap: anywher
 .tab-pane.active { display: block; animation: fadeIn .25s; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
+/* ---------- 🗂️ تب‌های مقاوم (سیستم جدید stab — مستقل و ضدتداخل) ---------- */
+/* برای صفحاتی که سیستم تب خوداتکا می‌خواهند (تنظیمات و...)؛
+   نام‌گذاری اختصاصی تا با هیچ تب دیگری تداخل نکند و همیشه تمام‌عرض باشد */
+.stab-bar {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    margin-bottom: 22px;
+}
+.stab-tabs {
+    display: flex;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-width: 0;
+    border-bottom: 2px solid var(--border);
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+}
+.stab-tabs::-webkit-scrollbar { height: 4px; }
+.stab-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.stab-actions { flex-shrink: 0; padding-top: 4px; }
+.stab-btn {
+    padding: 10px 18px;
+    background: none;
+    border: none;
+    border-bottom: 2.5px solid transparent;
+    margin-bottom: -2px;
+    font-family: var(--font);
+    font-size: 13.5px;
+    color: var(--text-light);
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.stab-btn:hover { color: var(--text); }
+.stab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 700; }
+.stab-pane { display: none !important; width: 100%; }
+.stab-pane.active { display: block !important; width: 100%; animation: fadeIn .25s; }
+@media (max-width: 768px) {
+    .stab-bar { flex-direction: column; align-items: stretch; gap: 12px; }
+    .stab-actions { padding-top: 0; }
+    .stab-actions .btn { width: 100%; justify-content: center; }
+    .stab-btn { padding: 9px 14px; font-size: 12.5px; }
+}
+
 /* ---------- 🧩 متفرقه ---------- */
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 @media (max-width: 992px) { .grid-2 { grid-template-columns: 1fr; } }
@@ -561,12 +614,12 @@ td, .card-body, .alert, .card-header h3, .topbar-titles { overflow-wrap: anywher
 .sidebar-backdrop.show { opacity: 1; visibility: visible; }
 
 @media (max-width: 992px) {
-    /* 🐛 رفع باگ: سایدبار در RTL به لبه «چپ» چسبیده است،
-       پس باید با translateX منفی به «بیرون صفحه» (سمت چپ) برود.
-       قبلاً translateX(100%) بود که سایدبار را وسط صفحه شناور می‌کرد. */
-    .sidebar { transform: translateX(-105%); box-shadow: none; }
+    /* 📌 سایدبار در سمت «راست» چسبیده است؛ برای مخفی‌سازی باید به سمت راست
+       (مثبت فیزیکی) بیرون صفحه برود. قبلاً translateX منفی بود که سایدبار را
+       وسط صفحه شناور می‌کرد. */
+    .sidebar { transform: translateX(105%); box-shadow: none; }
     .sidebar.open { transform: none; box-shadow: 0 0 40px rgba(0,0,0,.35); }
-    .main { margin-inline-end: 0; }
+    .main { margin-right: 0; }
     .menu-toggle {
         display: flex;
         background: var(--bg);

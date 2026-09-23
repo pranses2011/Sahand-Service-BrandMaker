@@ -29,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         Config::KEY_AGENCY_SLOGAN_FA => post('agency_slogan_fa'),
         Config::KEY_AGENCY_SLOGAN_EN => post('agency_slogan_en'),
         Config::KEY_MAIN_SITE        => post('agency_main_site'),
+        Config::KEY_AGENCY_FOUNDED   => (int)post('agency_founded_year') > 1300 ? (int)post('agency_founded_year') : '',
     ]);
 
     // 🖼️ آپلود لوگو و فاویکون
@@ -172,6 +173,7 @@ $nameEn   = (string)Config::get(Config::KEY_AGENCY_NAME_EN);
 $sloganFa = (string)Config::get(Config::KEY_AGENCY_SLOGAN_FA);
 $sloganEn = (string)Config::get(Config::KEY_AGENCY_SLOGAN_EN);
 $mainSite = (string)Config::get(Config::KEY_MAIN_SITE);
+$foundedYear = (string)Config::get(Config::KEY_AGENCY_FOUNDED);
 $logo     = (string)Config::get(Config::KEY_AGENCY_LOGO);
 $favicon  = (string)Config::get(Config::KEY_AGENCY_FAVICON);
 
@@ -197,24 +199,24 @@ $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنب�
     <?= Auth::csrfField() ?>
     <input type="hidden" name="action" value="save_settings">
 
-    <!-- 🗂️ تب‌ها + دکمه ذخیره (ریسپانسیو: تب‌ها اسکرولی، دکمه در موبایل تمام‌عرض) -->
-    <div class="tabs-bar">
-        <div class="tabs scrollable">
-            <button type="button" class="tab-btn active" onclick="switchTab(this,'tab-basic')">📇 پایه</button>
-            <button type="button" class="tab-btn" onclick="switchTab(this,'tab-contact')">📞 تماس</button>
-            <button type="button" class="tab-btn" onclick="switchTab(this,'tab-hours')">🕐 ساعات کاری</button>
-            <button type="button" class="tab-btn" onclick="switchTab(this,'tab-warranty')">🛡️ ضمانت</button>
-            <button type="button" class="tab-btn" onclick="switchTab(this,'tab-cost')">💰 هزینه و دامنه</button>
-            <button type="button" class="tab-btn" onclick="switchTab(this,'tab-notify')">📨 ارسال درخواست</button>
-            <button type="button" class="tab-btn" onclick="switchTab(this,'tab-links')">🔗 لینک‌دهی</button>
+    <!-- 🗂️ تب‌های مقاوم (سیستم stab مستقل — با پشتیبانی hash و بازگشت به بالای صفحه) -->
+    <div class="stab-bar" id="settings-tabs-bar">
+        <div class="stab-tabs" id="settings-tabs">
+            <button type="button" class="stab-btn active" data-tab="basic">📇 پایه</button>
+            <button type="button" class="stab-btn" data-tab="contact">📞 تماس</button>
+            <button type="button" class="stab-btn" data-tab="hours">🕐 ساعات کاری</button>
+            <button type="button" class="stab-btn" data-tab="warranty">🛡️ ضمانت</button>
+            <button type="button" class="stab-btn" data-tab="cost">💰 هزینه و دامنه</button>
+            <button type="button" class="stab-btn" data-tab="notify">📨 ارسال درخواست</button>
+            <button type="button" class="stab-btn" data-tab="links">🔗 لینک‌دهی</button>
         </div>
-        <div class="tabs-actions">
+        <div class="stab-actions">
             <button type="submit" class="btn btn-primary">💾 ذخیره همه تنظیمات</button>
         </div>
     </div>
 
     <!-- 📇 تب اطلاعات پایه -->
-    <div id="tab-basic" class="tab-pane active">
+    <div id="pane-basic" class="stab-pane active">
         <div class="card">
             <div class="card-header"><h3>📇 اطلاعات پایه نمایندگی</h3></div>
             <div class="card-body">
@@ -239,6 +241,11 @@ $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنب�
                     </div>
                 </div>
                 <div class="form-group">
+                    <label>📅 سال شروع فعالیت نمایندگی</label>
+                    <input type="number" name="agency_founded_year" class="form-control" min="1350" max="1410" placeholder="مثلاً ۱۳۸۵" style="direction:ltr;text-align:center" value="<?= e((string)($foundedYear ?: '')) ?>">
+                    <div class="hint">برای کارت‌های سایت‌ها («... سال سابقه خدمات‌رسانی») استفاده می‌شود و به‌صورت خودکار به‌روز محاسبه می‌شود.</div>
+                </div>
+                <div class="form-group">
                     <label>🌐 آدرس سایت اصلی نمایندگی</label>
                     <input type="url" name="agency_main_site" class="form-control" style="direction:ltr;text-align:left" value="<?= e($mainSite) ?>" placeholder="https://ea-fixer.ir">
                     <div class="hint">تمام سایت‌های برند به این آدرس لینک می‌دهند.</div>
@@ -261,7 +268,7 @@ $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنب�
     </div>
 
     <!-- 📞 تب تماس -->
-    <div id="tab-contact" class="tab-pane">
+    <div id="pane-contact" class="stab-pane">
         <div class="card">
             <div class="card-header"><h3>📞 شماره‌های تماس (چندتایی — نامحدود)</h3></div>
             <div class="card-body">
@@ -331,7 +338,7 @@ $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنب�
     </div>
 
     <!-- 🕐 تب ساعات کاری -->
-    <div id="tab-hours" class="tab-pane">
+    <div id="pane-hours" class="stab-pane">
         <div class="card">
             <div class="card-header"><h3>🕐 ساعات و روزهای کاری</h3></div>
             <div class="card-body">
@@ -378,7 +385,7 @@ $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنب�
     </div>
 
     <!-- 🛡️ تب ضمانت -->
-    <div id="tab-warranty" class="tab-pane">
+    <div id="pane-warranty" class="stab-pane">
         <div class="card">
             <div class="card-header"><h3>🛡️ شرایط ضمانت</h3></div>
             <div class="card-body">
@@ -412,7 +419,7 @@ $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنب�
     </div>
 
     <!-- 💰 تب هزینه و دامنه -->
-    <div id="tab-cost" class="tab-pane">
+    <div id="pane-cost" class="stab-pane">
         <div class="card">
             <div class="card-header"><h3>💰 تنظیمات هزینه</h3></div>
             <div class="card-body">
@@ -451,7 +458,7 @@ $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنب�
     </div>
 
     <!-- 📨 تب ارسال درخواست -->
-    <div id="tab-notify" class="tab-pane">
+    <div id="pane-notify" class="stab-pane">
         <div class="card">
             <div class="card-header"><h3>📧 کانال ایمیل</h3></div>
             <div class="card-body">
@@ -532,7 +539,7 @@ $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنب�
     </div>
 
     <!-- 🔗 تب لینک‌دهی -->
-    <div id="tab-links" class="tab-pane">
+    <div id="pane-links" class="stab-pane">
         <div class="card">
             <div class="card-header"><h3>🔗 تنظیمات لینک‌دهی</h3></div>
             <div class="card-body">
@@ -556,6 +563,50 @@ $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنب�
         <button type="submit" class="btn btn-primary btn-lg">💾 ذخیره همه تنظیمات</button>
     </div>
 </form>
+
+<script>
+/* 🗂️ تب‌های مقاوم تنظیمات — خوداتکا (مستقل از admin.js)، پشتیبانی hash، بازگشت به بالا
+   🔧 علت بازنویسی: سیستم قبلی (switchTab سراسری) با کش قدیمی مرورگر یا تداخل کلاس‌ها
+   باعث می‌شد تب پایه باز بماند و تب جدید در پایین صفحه ظاهر شود. این سیستم:
+   - کلاس‌های اختصاصی stab-* دارد (ضدتداخل)
+   - inline است (حتی با کش قدیمی admin.js کار می‌کند)
+   - با hash (#notify و...) لینک‌پذیر است و پس از تعویض تب به بالای صفحه برمی‌گردد */
+(function () {
+    'use strict';
+    var bar = document.getElementById('settings-tabs');
+    if (!bar) { return; }
+    var panes = document.querySelectorAll('.stab-pane');
+    function activate(id, scroll) {
+        var found = false;
+        bar.querySelectorAll('.stab-btn').forEach(function (b) {
+            var on = b.getAttribute('data-tab') === id;
+            b.classList.toggle('active', on);
+            if (on) { found = true; }
+        });
+        if (!found) { id = 'basic'; activate(id, false); return; }
+        panes.forEach(function (p) {
+            p.classList.toggle('active', p.id === 'pane-' + id);
+        });
+        if (location.hash !== '#' + id) {
+            try { history.replaceState(null, '', '#' + id); } catch (e) {}
+        }
+        if (scroll) {
+            var top = bar.getBoundingClientRect().top + window.pageYOffset - 70;
+            window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+        }
+    }
+    bar.addEventListener('click', function (e) {
+        var b = e.target.closest('.stab-btn');
+        if (b) { activate(b.getAttribute('data-tab'), true); }
+    });
+    var h = (location.hash || '').replace('#', '');
+    activate(h && document.getElementById('pane-' + h) ? h : 'basic', false);
+    window.addEventListener('hashchange', function () {
+        var id = (location.hash || '').replace('#', '');
+        if (id && document.getElementById('pane-' + id)) { activate(id, false); }
+    });
+})();
+</script>
 
 <script>
 /* 📍 افزودن شعبه جدید — کپی آخرین بلوک آدرس */

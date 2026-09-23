@@ -159,6 +159,17 @@ class Database
     }
 
     /**
+     * ⚡ اجرای عبارت خام (DELETE/UPDATE چندجدولی، ALTER و...) با پارامترهای آماده
+     * برای عبارت‌هایی که در متدهای ازپیش‌ساخته نمی‌گنجند.
+     */
+    public function query(string $sql, array $params = []): int
+    {
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->rowCount();
+    }
+
+    /**
      * 🔢 شمارش ردیف‌ها
      */
     public function count(string $table, string $whereClause = '1=1', array $params = []): int

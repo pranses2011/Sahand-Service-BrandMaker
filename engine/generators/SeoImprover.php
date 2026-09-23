@@ -339,6 +339,15 @@ class SeoImprover
             }
         }
 
+        /* --- ۹) تنظیم تراکم کلیدواژه (bug: «بهینه است» با وجود ۱ مورد قابل‌اصلاح) ---
+               این سنجه fixable=true بود اما هیچ اصلاح‌کننده‌ای نداشت؛ در نتیجه دکمه
+               «(۱ مورد)» نشان می‌داد ولی بهبود می‌گفت «از قبل بهینه است». */
+        $densityResult = $this->fixKeywordDensity($content, $focus);
+        if ($densityResult['changed']) {
+            $content = $densityResult['content'];
+            $applied[] = $densityResult['message'];
+        }
+
         /* --- سنجش مجدد --- */
         $improved = $article;
         $improved['content'] = $content;
@@ -529,21 +538,88 @@ class SeoImprover
      */
     private function buildFaqs(string $focus, string $title): array
     {
-        $kw = $focus !== '' ? $focus : 'این موضوع';
+        $safeTitle = $title !== '' ? $title : ($focus !== '' ? $focus : 'این موضوع');
         return [
-            [
-                'question' => 'هزینه ' . $kw . ' چقدر است؟',
-                'answer' => 'هزینه نهایی پس از عیب‌یابی دقیق و بر اساس قطعه و میزان خرابی تعیین می‌شود. برای برآورد شفاف، پیش از شروع کار از تعمیرکار کتبی درخواست کنید.',
-            ],
-            [
-                'question' => 'آیا ' . $kw . ' خودم امکان‌پذیر است؟',
-                'answer' => 'بررسی‌های اولیه مانند تنظیمات و نظافت را می‌توانید خودتان انجام دهید؛ اما ایرادهای برد الکترونیکی، گاز مبرد و قطعات قدرت باید فقط توسط تکنسین مجاز برطرف شود.',
-            ],
-            [
-                'question' => 'چه زمانی باید با تعمیرکار تماس بگیرم؟',
-                'answer' => 'اگر پس از بررسی‌های اولیه مشکل ادامه داشت، یا صدای غیرعادی، بوی سوختگی و نشتی دیدید، بلافاصله دستگاه را خاموش کنید و درخواست تعمیر ثبت نمایید.',
-            ],
+            ['question' => 'علت اصلی ' . $safeTitle . ' چیست؟', 'answer' => 'شایع‌ترین علت، شرایط بهره‌برداری و فرسودگی تدریجی قطعات مرتبط است؛ در این راهنما همه علل به‌ترتیب احتمال بررسی شده‌اند.'],
+            ['question' => 'آیا ادامه استفاده از دستگاه در این حالت توصیه می‌شود؟', 'answer' => 'بستگی به شدت مشکل دارد؛ در موارد سبک ادامه کار ممکن است اما بررسی سریع‌تر، از خسارت ثانویه به قطعات دیگر جلوگیری می‌کند.'],
+            ['question' => 'هزینه تعمیر چقدر است و چه مدت زمان می‌برد؟', 'answer' => 'پس از تشخیص دقیق علت، هزینه قطعه و اجرت به شما اعلام می‌شود؛ بیشتر تعمیرهای این حوزه در نخستین جلسه خدمت قابل انجام است.'],
+            ['question' => 'برای رزرو تعمیرکار چه باید کرد؟', 'answer' => 'از طریق صفحه ثبت درخواست همین سایت، شماره تماس و نشانی خود را ثبت کنید تا کارشناس با شما تماس بگیرد.'],
         ];
+    }
+
+    /**
+     * 🧲 تنظیم تراکم کلیدواژه در بازه استاندارد ۱ تا ۲.۵٪
+     * کمبود → افزودن طبیعی کلیدواژه (جمع‌بندی سئو-پسند) / زیادی → جایگزینی بخشی با ضمیر
+     * @return array ['changed' => bool, 'content' => string, 'message' => string]
+     */
+    private function fixKeywordDensity(string $content, string $focus): array
+    {
+        if ($focus === '' || trim(strip_tags($content)) === '') {
+            return ['changed' => false, 'content' => $content, 'message' => ''];
+        }
+        $wordCount = TextProcessor::wordCount(trim(strip_tags($content)));
+        if ($wordCount < 50) {
+            return ['changed' => false, 'content' => $content, 'message' => ''];
+        }
+        $occurrences = mb_substr_count(trim(strip_tags($content)), $focus);
+        $density = ($occurrences / max(1, $wordCount)) * 100;
+
+        /* 🔽 تراکم کم → افزودن طبیعی کلیدواژه */
+        if ($density < 1.0) {
+            $target = (int)ceil(($wordCount * 1.3) / 100); // هدف ~۱.۳٪
+            $need = max(1, $target - $occurrences);
+            $need = min($need, 6);
+            $kwSafe = e($focus);
+            $summary = '<h2>جمع‌بندی: نکات کلیدی درباره ' . $kwSafe . '</h2>' . "\n";
+            $summary .= '<p>در این راهنما، ' . $kwSafe . ' را از همه ابعاد بررسی کردیم: علل رایج، نشانه‌های هشداردهنده و راه‌حل‌های عملی که می‌توانید همین امروز اجرا کنید. تجربه نشان می‌دهد مراقبت به‌موقع درباره ' . $kwSafe . ' هزینه‌های تعمیر سنگین را تا حد زیادی پیشگیری می‌کند. اگر تازه با ' . $kwSafe . ' آشنا شده‌اید، پیشنهاد می‌کنیم راهنما را یک‌بار کامل بخوانید و بررسی‌های اولیه را بدون عجله انجام دهید.</p>' . "\n";
+            $mentions = 4; // تعداد کلیدواژه در متن بالا
+            if ($need > $mentions) {
+                $summary .= '<p>نکته پایانی: برای ' . $kwSafe . ' همیشه از قطعات اصل و تکنسین مجاز استفاده کنید؛ راه‌حل‌های موقت معمولاً مشکل را پیچیده‌تر می‌کنند و ' . $kwSafe . ' نیاز به برخورد اصولی دارد.</p>' . "\n";
+                $mentions += 2;
+            }
+            $content = rtrim($content) . "\n\n" . $summary;
+            return [
+                'changed' => true,
+                'content' => $content,
+                'message' => 'افزایش تراکم کلیدواژه به بازه استاندارد (بخش جمع‌بندی سئو-پسند افزوده شد)',
+            ];
+        }
+
+        /* 🔼 تراکم زیاد (> ۲.۸٪) → کاهش طبیعی با ضمیر */
+        if ($density > 2.8) {
+            $text = trim(strip_tags($content));
+            $occ = mb_substr_count($text, $focus);
+            $target = (int)floor(($wordCount * 2.0) / 100);
+            $toRemove = max(1, $occ - max(1, $target));
+            $replacements = ['آن', 'این موضوع', 'این مورد', 'همین ایراد'];
+            $ri = 0;
+            $pos = 0;
+            $count = 0;
+            // از سومین مورد به بعد، هر دومین تکرار با ضمیر جایگزین می‌شود (حفظ ۲ مورد اول + مقدمه)
+            $seen = 0;
+            $search = $focus;
+            $offset = 0;
+            while ($count < $toRemove && ($offset = mb_strpos($content, $search, $offset)) !== false) {
+                $seen++;
+                if ($seen > 3 && $seen % 2 === 0) {
+                    $rep = $replacements[$ri++ % count($replacements)];
+                    $content = mb_substr($content, 0, $offset) . $rep . mb_substr($content, $offset + mb_strlen($search));
+                    $count++;
+                    $offset += mb_strlen($rep);
+                } else {
+                    $offset += mb_strlen($search);
+                }
+            }
+            if ($count > 0) {
+                return [
+                    'changed' => true,
+                    'content' => $content,
+                    'message' => 'کاهش تراکم بیش‌ازحد کلیدواژه (' . en_to_fa_digits((string)$count) . ' تکرار با مترادف/ضمیر جایگزین شد — پرهیز از keyword stuffing)',
+                ];
+            }
+        }
+
+        return ['changed' => false, 'content' => $content, 'message' => ''];
     }
 
     /**

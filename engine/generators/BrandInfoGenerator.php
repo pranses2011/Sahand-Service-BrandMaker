@@ -118,11 +118,37 @@ class BrandInfoGenerator
         }
 
         // 🔧 ثبت دستگاه‌های برند از دانش
+        // 🐛 رفع باگ تکراری‌شدن دستگاه‌ها: این متد پس از مرحله ۲ (که خودش دستگاه‌ها را
+        //    با چک وجود ثبت می‌کند) فراخوانی می‌شد و بدون چک، دوباره درج می‌کرد →
+        //    هر دستگاه ۲ ردیف می‌شد. حالا هم چک وجود دارد و هم پاکسازی یک‌باره تکراری‌ها.
         $deviceKeys = $knowledge['devices'] ?? [];
         if (!empty($deviceKeys)) {
+            // 🧹 پاکسازی ردیف‌های تکراری قدیمی (نگه‌داشتن کمترین id برای هر دستگاه)
+            try {
+                $this->db->query(
+                    'DELETE bd1 FROM brand_devices bd1
+                     INNER JOIN brand_devices bd2
+                       ON bd1.brand_id = bd2.brand_id
+                      AND bd1.device_key = bd2.device_key
+                      AND bd1.id > bd2.id
+                     WHERE bd1.brand_id = ?',
+                    [$brandId]
+                );
+            } catch (Throwable $e) {
+                // پاکسازی تکراری‌ها اختیاری است — ادامه می‌دهیم
+            }
+
             $devicesKnowledge = TextProcessor::loadKnowledge('devices');
             foreach ($deviceKeys as $deviceKey) {
                 if (!isset($devicesKnowledge[$deviceKey])) {
+                    continue;
+                }
+                // 🛡️ جلوگیری قطعی از درج تکراری (حتی اگر دو مسطیر همزمان اجرا شوند)
+                $already = $this->db->fetchValue(
+                    'SELECT COUNT(*) FROM brand_devices WHERE brand_id = ? AND device_key = ?',
+                    [$brandId, $deviceKey]
+                );
+                if ($already) {
                     continue;
                 }
                 $dk = $devicesKnowledge[$deviceKey];

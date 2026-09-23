@@ -160,7 +160,7 @@ class Auth
     {
         $code = self::generateCaptchaCode(5);
 
-        // 💾 ذخیره در سشن (در صورت فعال بودن — captcha.php سشن را فعال می‌کند)
+        // 💾 ذخیره در سشن (در صورت فعال بودن — security-code.php سشن را فعال می‌کند)
         if (session_status() === PHP_SESSION_ACTIVE) {
             $_SESSION['captcha_code'] = $code;
         }
@@ -191,6 +191,39 @@ class Auth
 
         // 🛟 لایه ۳: SVG — بدون هیچ وابستگی، همیشه کار می‌کند
         self::renderCaptchaSvg($code, $width, $height);
+    }
+
+    /**
+     * 📦 حالت AJAX کپچا — data-URI برای دور زدن ادبلاکرهای دسکتاپ
+     *
+     * برخی افزونه‌های مرورگر (uBlock/AdGuard و...) درخواست‌های تصویری با آدرس حاوی
+     * «captcha» را بلاک می‌کنند (لب‌تاپ: بلا می‌شود؛ گوشی بدون افزونه: نمایش داده می‌شود).
+     * این متد کپچا را به‌صورت JSON با data-URI برمی‌گرداند تا از fetch (نه تگ img)
+     * بارگذاری شود و هیچ بلاکر تصویری نتواند آن را متوقف کند.
+     */
+    public static function renderCaptchaDataUri(): void
+    {
+        $code = self::generateCaptchaCode(5);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $_SESSION['captcha_code'] = $code;
+        }
+        while (ob_get_level() > 0) {
+            @ob_end_clean();
+        }
+        try {
+            $svg = self::buildCaptchaSvg($code, 220, 72);
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+            header('Pragma: no-cache');
+            echo json_encode([
+                'success'  => true,
+                'data_uri' => 'data:image/svg+xml;base64,' . base64_encode($svg),
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+        exit;
     }
 
     /**
@@ -262,6 +295,18 @@ class Auth
      */
     private static function renderCaptchaSvg(string $code, int $width, int $height): void
     {
+        header('Content-Type: image/svg+xml; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        header('Pragma: no-cache');
+        echo self::buildCaptchaSvg($code, $width, $height);
+        exit;
+    }
+
+    /**
+     * 🧩 ساخت بدنه SVG کپچا (مشترک بین خروجی مستقیم و حالت data-URI)
+     */
+    private static function buildCaptchaSvg(string $code, int $width, int $height): string
+    {
         $parts = [];
         $parts[] = '<rect width="' . $width . '" height="' . $height . '" rx="10" fill="#f3f4f6"/>';
 
@@ -297,12 +342,8 @@ class Auth
             $x += 38;
         }
 
-        header('Content-Type: image/svg+xml; charset=utf-8');
-        header('Cache-Control: no-store, no-cache, must-revalidate');
-        header('Pragma: no-cache');
-        echo '<svg xmlns="http://www.w3.org/2000/svg" width="' . $width . '" height="' . $height . '" viewBox="0 0 ' . $width . ' ' . $height . '">'
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="' . $width . '" height="' . $height . '" viewBox="0 0 ' . $width . ' ' . $height . '">'
             . implode('', $parts) . '</svg>';
-        exit;
     }
 
     /**

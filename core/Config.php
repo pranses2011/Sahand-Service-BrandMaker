@@ -113,6 +113,7 @@ class Config
     const KEY_AGENCY_FAVICON   = 'agency_favicon';    // فاویکون
     const KEY_AGENCY_SLOGAN_FA = 'agency_slogan_fa';  // شعار فارسی
     const KEY_AGENCY_SLOGAN_EN = 'agency_slogan_en';  // شعار انگلیسی
+    const KEY_AGENCY_FOUNDED  = 'agency_founded_year'; // سال شروع فعالیت (برای «... سال سابقه» کارت‌ها)
     const KEY_MAIN_SITE        = 'agency_main_site';  // آدرس سایت اصلی
 
     // 📞 اطلاعات تماس (آرایه‌های چندتایی)

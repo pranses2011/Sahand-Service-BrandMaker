@@ -160,6 +160,54 @@ class FileManager
     }
 
     /**
+     * 🗑️ حذف کامل یک پوشه به‌صورت بازگشتی (برای لغو نصب پک آیکون و...)
+     *
+     * @param string $relativePath مسیر نسبی از روت سایت‌ساز (مثل assets/icons/lucide)
+     * @param string $allowedRoot پیشوند مجاز حذف (مثل assets/icons) — لایه امنیتی دوم
+     * @return bool موفقیت عملیات
+     */
+    public function deleteDir(string $relativePath, string $allowedRoot = 'assets/'): bool
+    {
+        $relativePath = rtrim($relativePath, '/');
+        $allowedRoot = rtrim($allowedRoot, '/') . '/';
+        // 🛡️ مسیر باید داخل پیشوند مجاز باشد
+        if (strpos($relativePath . '/', $allowedRoot) !== 0) {
+            return false;
+        }
+        $path = ROOT_PATH . '/' . ltrim($relativePath, '/');
+        $realPath = realpath($path);
+        $rootReal = realpath(ROOT_PATH . '/' . rtrim($allowedRoot, '/'));
+        if ($realPath === false || $rootReal === false || strpos($realPath, $rootReal) !== 0) {
+            return false;
+        }
+        // 🛡️ هرگز خود روت مجاز حذف نشود
+        if ($realPath === $rootReal) {
+            return false;
+        }
+        return $this->rrmdir($realPath);
+    }
+
+    /** 🔁 حذف بازگشتی */
+    private function rrmdir(string $dir): bool
+    {
+        if (!is_dir($dir)) {
+            return false;
+        }
+        foreach (scandir($dir) ?: [] as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+            $full = $dir . '/' . $item;
+            if (is_dir($full) && !is_link($full)) {
+                $this->rrmdir($full);
+            } else {
+                @unlink($full);
+            }
+        }
+        return @rmdir($dir);
+    }
+
+    /**
      * 📁 دریافت لیست فایل‌های یک پوشه
      */
     public function listFiles(string $dir, string $extension = ''): array
