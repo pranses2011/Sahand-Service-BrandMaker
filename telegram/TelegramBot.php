@@ -1,16 +1,21 @@
 <?php
 /**
- * 🤖 ربات تلگرام متصل به دستیار فارسی سهند — TelegramBot v1.0
- * ==============================================================
+ * 🤖 ربات تلگرام متصل به دستیار فارسی سهند — TelegramBot v2.0
+ * ==================================================================
  * پل ارتباطی بین تلگرام و موتور هوش مصنوعی سهند:
  * کاربر در تلگرام فارسی می‌نویسد → CommandAssistant پردازش
  * می‌کند → پاسخ قالب‌بندی‌شده HTML برگردانده می‌شود.
  *
- * قابلیت‌ها:
- *   💬 گفتگو با دستیار فارسی (زبان طبیعی — ۱۱ عملیات)
- *   🌐 جستجوی آنلاین وب و تحقیق ساختاریافته
- *   📰 تولید مقاله، کلیدواژه، امتیازدهی، عیب‌یابی و ...
- *   ⚙️ فرمان‌های مدیریتی: /start /help /status /id
+ * قابلیت‌های نسخه ۲:
+ *   💬 گفتگو با دستیار فارسی (زبان طبیعی — ۱۲ عملیات)
+ *   📰 تحویل «کامل» مقاله در تلگرام: فایل HTML مستقل آماده انتشار
+ *       برای هر سایت دیگری + نسخه Markdown + آلبوم ۳ تصویر
+ *   🌐 جستجوی آنلاین وب + تحقیق ساختاریافته + اخبار زنده
+ *   📊 امتیازدهی، بهبود متن، عنوان‌ساز، عیب‌یابی و ...
+ *   ⚙️ فرمان‌های مدیریتی: /start /help /status /id /article
+ *      /keywords /search /research /news /titles /improve /score
+ *   ⌨️ کیبورد شیشه‌ای + دکمه‌های شیشه‌ای (callback)
+ *   ⏳ نمایش «در حال نوشتن...» هنگام تولید
  *   🔐 احراز هویت با لیست شناسه‌های مجاز + توکن مخفی وب‌هوک
  *   ✂️ تقسیم خودکار پیام‌های بلند (سقف ۴۰۹۶ کاراکتر تلگرام)
  *
@@ -25,7 +30,7 @@
  *   webhook_secret, notify_new_request, welcome_text
  *
  * @package SahandBrandMaker\Telegram
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 define('TELEGRAM_API_BASE', 'https://api.telegram.org/bot');
@@ -55,7 +60,7 @@ class TelegramBot
      * ================================================== */
 
     /**
-     * 🔗 فراخوانی متد Bot API تلگرام
+     * 🔗 فراخوانی متد Bot API تلگرام (JSON)
      *
      * @return array پاسخ JSON — throw در صورت خطای شبکه/توکن
      */
@@ -71,7 +76,7 @@ class TelegramBot
             CURLOPT_POSTFIELDS     => json_encode($params, JSON_UNESCAPED_UNICODE),
             CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
             CURLOPT_CONNECTTIMEOUT => 8,
-            CURLOPT_TIMEOUT        => 25,
+            CURLOPT_TIMEOUT        => 60,
             CURLOPT_SSL_VERIFYPEER => true,
         ]);
         $body = curl_exec($ch);
@@ -89,6 +94,45 @@ class TelegramBot
         if (empty($data['ok'])) {
             $this->lastError = (string)($data['description'] ?? 'نامشخص');
             throw new RuntimeException('خطای تلگرام: ' . $this->lastError);
+        }
+        return $data['result'] ?? [];
+    }
+
+    /**
+     * 📎 فراخوانی متد Bot API با آپلود فایل (multipart/form-data)
+     *
+     * @param array $params پارامترهای متد (بدون فایل‌ها)
+     * @param array $files  نگاشت نام فایل مجازی → CURLFile یا مسیر
+     */
+    public function apiUpload(string $method, array $params, array $files): array
+    {
+        if ($this->token === '') {
+            throw new RuntimeException('توکن ربات تنظیم نشده است.');
+        }
+        $post = $params;
+        foreach ($files as $field => $path) {
+            $post[$field] = $path instanceof CURLFile ? $path : new CURLFile((string)$path);
+        }
+        $ch = curl_init(TELEGRAM_API_BASE . $this->token . '/' . $method);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $post,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+        $body = curl_exec($ch);
+        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err  = curl_error($ch);
+        curl_close($ch);
+
+        if (!is_string($body) || $body === '') {
+            throw new RuntimeException('خطای شبکه تلگرام (آپلود): ' . ($err ?: "HTTP {$http}"));
+        }
+        $data = json_decode($body, true);
+        if (!is_array($data) || empty($data['ok'])) {
+            throw new RuntimeException('خطای تلگرام (آپلود): ' . (string)($data['description'] ?? 'نامشخص'));
         }
         return $data['result'] ?? [];
     }
@@ -128,7 +172,7 @@ class TelegramBot
     }
 
     /* ==================================================
-     * ✉️ ارسال پیام
+     * ✉️ ارسال پیام و فایل
      * ================================================== */
 
     /**
@@ -136,7 +180,7 @@ class TelegramBot
      *
      * @param int|string $chatId شناسه چت مقصد
      * @param string     $text   متن پیام (HTML مجاز)
-     * @param array      $opts   [disable_preview, keyboard]
+     * @param array      $opts   [disable_preview, keyboard, inline_keyboard]
      * @return int شناسه آخرین پیام ارسال‌شده
      */
     public function sendMessage($chatId, string $text, array $opts = []): int
@@ -157,11 +201,84 @@ class TelegramBot
                     'resize_keyboard' => true,
                     'is_persistent'   => false,
                 ], JSON_UNESCAPED_UNICODE);
+            } elseif (!empty($opts['inline_keyboard'])) {
+                $params['reply_markup'] = json_encode([
+                    'inline_keyboard' => $opts['inline_keyboard'],
+                ], JSON_UNESCAPED_UNICODE);
             }
             $msg = $this->api('sendMessage', $params);
             $lastId = (int)($msg['message_id'] ?? 0);
         }
         return $lastId;
+    }
+
+    /** ⏳ نمایش وضعیت (typing / upload_document و ...) */
+    public function sendChatAction($chatId, string $action = 'typing'): void
+    {
+        try {
+            $this->api('sendChatAction', ['chat_id' => $chatId, 'action' => $action]);
+        } catch (Exception $e) {
+            // بی‌اهمیت — نادیده گرفته می‌شود
+        }
+    }
+
+    /**
+     * 📎 ارسال فایل (متن/سند) از محتوای رشته‌ای
+     *
+     * @param string $filename نام فایل با پسوند
+     * @param string $content  محتوای فایل
+     * @param string $caption  کپشن (HTML)
+     * @return int شناسه پیام
+     */
+    public function sendDocumentFromString($chatId, string $filename, string $content, string $caption = ''): int
+    {
+        $tmp = tempnam(sys_get_temp_dir(), 'tg_');
+        file_put_contents($tmp, $content);
+        try {
+            $params = [
+                'chat_id' => $chatId,
+                'caption' => $caption,
+                'parse_mode' => 'HTML',
+            ];
+            if (mb_strlen($caption) > 1000) {
+                $params['caption'] = mb_substr($caption, 0, 1000);
+            }
+            $msg = $this->apiUpload('sendDocument', $params, ['document' => new CURLFile($tmp, 'application/octet-stream', $filename)]);
+            return (int)($msg['message_id'] ?? 0);
+        } finally {
+            @unlink($tmp);
+        }
+    }
+
+    /**
+     * 🖼️ ارسال آلبوم تصاویر (sendMediaGroup) از مسیرهای محلی
+     *
+     * @param array $items [['path' => '/abs/x.jpg', 'caption' => '...'], ...]
+     * @return bool موفقیت
+     */
+    public function sendImageAlbum($chatId, array $items): bool
+    {
+        if (!$items) { return false; }
+        $media = [];
+        $files = [];
+        foreach (array_values($items) as $i => $item) {
+            $path = (string)$item['path'];
+            if (!is_file($path)) { continue; }
+            $ref = 'file' . $i;
+            $entry = ['type' => 'photo', 'media' => 'attach://' . $ref];
+            if (!empty($item['caption'])) {
+                $entry['caption'] = mb_substr((string)$item['caption'], 0, 1000);
+                $entry['parse_mode'] = 'HTML';
+            }
+            $media[] = $entry;
+            $files[$ref] = new CURLFile($path, 'image/jpeg');
+        }
+        if (count($media) < 1) { return false; }
+        $this->apiUpload('sendMediaGroup', [
+            'chat_id' => $chatId,
+            'media'   => json_encode($media, JSON_UNESCAPED_UNICODE),
+        ], $files);
+        return true;
     }
 
     /** ✂️ تقسیم متن به قطعات <= ۴۰۰۰ کاراکتر (مرز خط) */
@@ -205,6 +322,11 @@ class TelegramBot
      */
     public function handleUpdate(array $update): bool
     {
+        // ⌨️ پردازش دکمه‌های شیشه‌ای (callback)
+        if (!empty($update['callback_query'])) {
+            return $this->handleCallback($update['callback_query']);
+        }
+
         $message = $update['message'] ?? null;
         if (!$message || empty($message['chat']['id'])) {
             return false;
@@ -241,9 +363,24 @@ class TelegramBot
                 return $this->handleCommand($chatId, $text, $from);
             }
 
+            // 📰 نیّت مقاله از زبان طبیعی → تحویل کامل پکیج مقاله
+            $norm = TextProcessor::normalize(mb_strtolower($text));
+            if (preg_match('/(مقاله|مطلب).*(بنویس|بنویسید|بساز|تولید|بده)|بنویس.*مقاله|مقاله جدید|مقاله کامل/u', $norm)) {
+                return $this->deliverFullArticle($chatId, $text);
+            }
+
             // 💬 هدایت به دستیار فارسی موتور سهند
+            $this->sendChatAction($chatId, 'typing');
             $assistant = new CommandAssistant();
             $result = $assistant->handle($text);
+
+            // 📰 پاسخ اخبار — قالب اختصاصی
+            if (($result['action'] ?? '') === 'web_news') {
+                $reply = $this->formatNewsReply($result);
+                $this->sendMessage($chatId, $reply, ['disable_preview' => true]);
+                return true;
+            }
+
             $reply = $this->formatAssistantReply($result);
             $this->sendMessage($chatId, $reply, ['disable_preview' => true]);
             return true;
@@ -257,10 +394,63 @@ class TelegramBot
         }
     }
 
+    /** ⌨️ پردازش دکمه شیشه‌ای (callback_query) */
+    private function handleCallback(array $cb): bool
+    {
+        $chatId = (string)($cb['message']['chat']['id'] ?? '');
+        $data = (string)($cb['data'] ?? '');
+        $cbId = (string)($cb['id'] ?? '');
+        try {
+            // پاسخ فوری به تلگرام (رفع loading دکمه)
+            if ($cbId !== '') {
+                try { $this->api('answerCallbackQuery', ['callback_query_id' => $cbId]); } catch (Exception $e) {}
+            }
+            if ($chatId === '' || !$this->isAllowed($chatId)) {
+                return false;
+            }
+            $payload = json_decode($data, true) ?: ['act' => $data];
+
+            switch ((string)($payload['act'] ?? '')) {
+                case 'article':
+                    $subject = (string)($payload['topic'] ?? '');
+                    return $this->deliverFullArticle($chatId, 'مقاله بنویس' . ($subject !== '' ? " درباره {$subject}" : ''));
+                case 'research':
+                    $topic = (string)($payload['topic'] ?? '');
+                    if ($topic === '') { return false; }
+                    $this->sendChatAction($chatId, 'typing');
+                    $result = (new CommandAssistant())->handle("تحقیق درباره: {$topic}");
+                    $this->sendMessage($chatId, $this->formatAssistantReply($result), ['disable_preview' => true]);
+                    return true;
+                case 'keywords':
+                    $topic = (string)($payload['topic'] ?? '');
+                    if ($topic === '') { return false; }
+                    $this->sendChatAction($chatId, 'typing');
+                    $result = (new CommandAssistant())->handle("کلمات کلیدی {$topic}");
+                    $this->sendMessage($chatId, $this->formatAssistantReply($result), ['disable_preview' => true]);
+                    return true;
+                case 'news':
+                    $topic = (string)($payload['topic'] ?? '');
+                    $this->sendChatAction($chatId, 'typing');
+                    $result = (new CommandAssistant())->handle("اخبار: {$topic}");
+                    $this->sendMessage($chatId, $this->formatNewsReply($result), ['disable_preview' => true]);
+                    return true;
+                case 'help':
+                    $this->sendMessage($chatId, $this->helpText(), ['disable_preview' => true]);
+                    return true;
+            }
+            return false;
+        } catch (Throwable $e) {
+            @error_log('[TelegramBot] callback error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
     /** ⚙️ فرمان‌های مدیریتی ربات */
     private function handleCommand(string $chatId, string $text, array $from): bool
     {
-        $cmd = strtolower(trim(preg_split('/[@\s]/', $text)[0]));
+        $parts = preg_split('/\s+/', trim($text), 2);
+        $cmd = strtolower(trim(preg_split('/[@\s]/', $parts[0])[0]));
+        $args = trim((string)($parts[1] ?? ''));
 
         switch ($cmd) {
             case '/start':
@@ -271,7 +461,8 @@ class TelegramBot
                 $name = trim((string)($from['first_name'] ?? ''));
                 $this->sendMessage($chatId,
                     ($name !== '' ? "{$name} عزیز، خوش آمدید! 👋\n\n" : '') . $welcome . "\n\n" .
-                    "📖 برای دیدن امکانات، /help را بفرستید.",
+                    "📖 برای دیدن امکانات، /help را بفرستید.\n" .
+                    "📰 مقاله کامل با ۳ عکس: <code>/article تعمیر یخچال اسنوا</code>",
                     ['keyboard' => $this->defaultKeyboard()]
                 );
                 return true;
@@ -288,72 +479,357 @@ class TelegramBot
                 $this->sendMessage($chatId, $this->statusText());
                 return true;
 
+            case '/article':
+            case '/مقاله':
+                if ($args === '') {
+                    $this->sendMessage($chatId,
+                        "📰 <b>ساخت مقاله کامل</b>\n\n" .
+                        "موضوع را جلوی فرمان بنویسید:\n" .
+                        "<code>/article تعمیر ماشین لباسشویی پاکشما</code>\n" .
+                        "<code>/article هزینه تعمیر یخچال</code>\n\n" .
+                        "یا فارسی بنویسید: «مقاله بنویس درباره یخچال دوو»\n\n" .
+                        "📦 تحویل: فایل HTML آماده انتشار + Markdown + ۳ تصویر"
+                    );
+                    return true;
+                }
+                return $this->deliverFullArticle($chatId, 'مقاله بنویس درباره ' . $args);
+
+            case '/search':
+            case '/جستجو':
+                if ($args === '') {
+                    $this->sendMessage($chatId, "🌐 عبارت را بنویسید: <code>/search قیمت موتور ماشین لباسشویی</code>");
+                    return true;
+                }
+                $this->sendChatAction($chatId, 'typing');
+                $result = (new CommandAssistant())->handle('جستجوی وب: ' . $args);
+                $this->sendMessage($chatId, $this->formatAssistantReply($result), ['disable_preview' => true]);
+                return true;
+
+            case '/research':
+            case '/تحقیق':
+                if ($args === '') {
+                    $this->sendMessage($chatId, "🧪 موضوع را بنویسید: <code>/research یخچال ساید بای ساید اسنوا</code>");
+                    return true;
+                }
+                $this->sendChatAction($chatId, 'typing');
+                $result = (new CommandAssistant())->handle('تحقیق درباره: ' . $args);
+                $this->sendMessage($chatId, $this->formatAssistantReply($result), ['disable_preview' => true]);
+                return true;
+
+            case '/news':
+            case '/اخبار':
+                if ($args === '') {
+                    $this->sendMessage($chatId, "📰 موضوع خبر را بنویسید: <code>/news لوازم خانگی</code>");
+                    return true;
+                }
+                $this->sendChatAction($chatId, 'typing');
+                $result = (new CommandAssistant())->handle('اخبار: ' . $args);
+                $this->sendMessage($chatId, $this->formatNewsReply($result), ['disable_preview' => true]);
+                return true;
+
+            case '/keywords':
+            case '/کلمات':
+                if ($args === '') {
+                    $this->sendMessage($chatId, "🔑 موضوع را بنویسید: <code>/keywords ماشین ظرفشویی</code>");
+                    return true;
+                }
+                $this->sendChatAction($chatId, 'typing');
+                $result = (new CommandAssistant())->handle('کلمات کلیدی ' . $args);
+                $this->sendMessage($chatId, $this->formatAssistantReply($result), ['disable_preview' => true]);
+                return true;
+
+            case '/titles':
+            case '/عنوان':
+                if ($args === '') {
+                    $this->sendMessage($chatId, "🏷️ موضوع را بنویسید: <code>/titles تعمیر کولر گازی</code>");
+                    return true;
+                }
+                $this->sendChatAction($chatId, 'typing');
+                $result = (new CommandAssistant())->handle('عنوان برای ' . $args . ' بده');
+                $this->sendMessage($chatId, $this->formatAssistantReply($result));
+                return true;
+
+            case '/improve':
+            case '/بهبود':
+                if ($args === '') {
+                    $this->sendMessage($chatId, "🔧 متن را بعد از فرمان بفرستید: <code>/improve متن شما...</code>");
+                    return true;
+                }
+                $this->sendChatAction($chatId, 'typing');
+                $result = (new CommandAssistant())->handle('این متن را بهبود بده: ' . $args);
+                $this->sendMessage($chatId, $this->formatAssistantReply($result));
+                return true;
+
+            case '/score':
+            case '/امتیاز':
+                if ($args === '') {
+                    $this->sendMessage($chatId, "🏆 متن را بعد از فرمان بفرستید: <code>/score متن شما...</code>");
+                    return true;
+                }
+                $this->sendChatAction($chatId, 'typing');
+                $result = (new CommandAssistant())->handle('امتیاز این متن: ' . $args);
+                $this->sendMessage($chatId, $this->formatAssistantReply($result));
+                return true;
+
             default:
                 $this->sendMessage($chatId, "🤔 فرمان ناشناخته: <code>" . htmlspecialchars($cmd) . "</code>\n\n📖 /help را ببینید.");
                 return true;
         }
     }
 
-    /** ⌨️ کیبورد پیش‌فرض */
-    private function defaultKeyboard(): array
-    {
-        return [
-            ['راهنما', 'برندهای پایگاه دانش'],
-            ['کلمات کلیدی یخچال', 'عنوان برای تعمیر کولر گازی بده'],
-        ];
-    }
+    /* ==================================================
+     * 📰 تحویل کامل مقاله (قلب نسخه ۲)
+     * ================================================== */
 
-    /** 📖 متن راهنمای ربات */
-    private function helpText(): string
+    /**
+     * 📦 ساخت مقاله کامل با خط تولید هوشمند و تحویل در تلگرام:
+     *   ۱) پیام شروع + typing
+     *   ۲) خلاصه (عنوان/امتیاز/کلیدواژه/تعداد کلمه)
+     *   ۳) فایل HTML مستقل آماده انتشار برای هر سایت
+     *   ۴) نسخه Markdown
+     *   ۵) آلبوم ۳ تصویر
+     *   ۶) دکمه‌های شیشه‌ای اقدام بعدی
+     */
+    public function deliverFullArticle(string $chatId, string $request): bool
     {
-        return "🤖 <b>دستیار هوشمند سهند سرویس</b>\n" .
-            "موتور هوش مصنوعی داخلی نسخه " . SahandAI::ENGINE_VERSION . " — متصل به اینترنت 🌐\n\n" .
-            "💬 <b>کافیست فارسی بنویسید:</b>\n" .
-            "📰 «مقاله بنویس برای پاکشما درباره ماشین لباسشویی»\n" .
-            "🔑 «کلمات کلیدی یخچال»\n" .
-            "🏆 «امتیاز این متن: ...»\n" .
-            "🔧 «این متن را بهبود بده: ...»\n" .
-            "🏷️ «عنوان برای تعمیر ماشین ظرفشویی بده»\n" .
-            "🧭 «نیت جستجوی خرید یخچال ساید بای ساید چیست؟»\n" .
-            "🔍 «تشخیص عیب: یخچال سرد نمی‌کند»\n" .
-            "⚠️ «کد خطا E24 ماشین ظرفشویی»\n" .
-            "🌐 «جستجوی وب: قیمت موتور ماشین لباسشویی»\n" .
-            "🧪 «تحقیق درباره: یخچال ساید بای ساید اسنوا»\n\n" .
-            "⚙️ <b>فرمان‌ها:</b>\n" .
-            "/start — شروع\n/help — راهنما\n/status — وضعیت سیستم\n/id — شناسه چت شما";
-    }
+        $t0 = microtime(true);
+        $this->sendChatAction($chatId, 'typing');
+        $this->sendMessage($chatId,
+            "⚙️ <b>خط تولید هوشمند فعال شد</b>\n" .
+            "در حال ساخت مقاله کامل هستم: تحقیق آنلاین (در صورت فعال بودن) → تولید → بهبود کیفیت → سئو → ۳ تصویر\n" .
+            "⏳ چند لحظه صبر کنید..."
+        );
 
-    /** 📊 متن وضعیت سیستم */
-    private function statusText(): string
-    {
         try {
-            $info = (new SahandAI())->engineInfo();
-            $dbOk = '✅';
-            $lines = [
-                '📊 <b>وضعیت سیستم سهند</b>',
-                '',
-                '🤖 موتور AI: نسخه ' . $info['engine_version'],
-                '🏗️ سیستم: نسخه ' . $info['system_version'],
-                '📚 برندهای دانش: ' . ($info['knowledge_size']['brands'] ?? '؟'),
-                '🔧 دستگاه‌ها: ' . ($info['knowledge_size']['devices'] ?? '؟'),
-                '⚠️ کدهای خطا: ' . ($info['knowledge_size']['error_codes'] ?? '؟'),
-            ];
-            // وضعیت جستجوی وب
-            try {
-                $ws = (new WebSearchService())->status();
-                $lines[] = '🌐 جستجوی وب: ' . ($ws['enabled'] ? '✅ فعال' : '❌ غیرفعال');
-            } catch (Exception $e) {
-                $lines[] = '🌐 جستجوی وب: ⚠️ ' . $e->getMessage();
+            $assistant = new CommandAssistant();
+            $parsed = $assistant->handle($request);
+            if (empty($parsed['success']) || ($parsed['action'] ?? '') !== 'article' || empty($parsed['result'])) {
+                $this->sendMessage($chatId, '❌ ' . htmlspecialchars((string)($parsed['message'] ?? 'مقاله تولید نشد.')));
+                return false;
             }
-            $lines[] = '🗄️ دیتابیس: ' . $dbOk;
-            return implode("\n", $lines);
+            $pkg = $parsed['result'];
+            $took = (int)round((microtime(true) - $t0));
+
+            /* ---------- ۱) خلاصه ---------- */
+            $art = $pkg['article'] ?? [];
+            $q = $pkg['quality'] ?? [];
+            $kw = $pkg['keyword']['focus'] ?? '';
+            $words = (int)($art['word_count'] ?? 0);
+            $readMin = max(1, (int)ceil($words / 220));
+            $summary =
+                "✅ <b>مقاله آماده شد!</b> ({$took} ثانیه)\n\n" .
+                '📰 <b>' . htmlspecialchars((string)($art['title'] ?? '')) . "</b>\n\n" .
+                '🏆 کیفیت: <b>' . ($q['final_score'] ?? '؟') . '/100</b>' . (isset($q['grade']) ? ' (' . htmlspecialchars((string)$q['grade']) . ')' : '') . "\n" .
+                "📝 حجم: <b>{$words}</b> کلمه (~{$readMin} دقیقه مطالعه)\n" .
+                '🎯 کلیدواژه کانونی: <b>' . htmlspecialchars((string)$kw) . "</b>\n" .
+                '🖼️ تصاویر: <b>' . count((array)($pkg['images'] ?? [])) . "</b>\n" .
+                '❓ پرسش متداول: <b>' . count((array)($pkg['faq']['items'] ?? [])) . "</b>\n";
+            if (!empty($pkg['research']['enabled'])) {
+                $summary .= '🌐 تحقیق آنلاین: انجام‌شده (' . htmlspecialchars((string)($pkg['research']['provider'] ?? '')) . ")\n";
+            }
+            if (!empty($pkg['seo']['keyword_density'])) {
+                $d = $pkg['seo']['keyword_density'];
+                $summary .= '📊 تراکم کلیدواژه: <b>' . $d['percent'] . '٪</b> (' . htmlspecialchars((string)$d['status']) . ")\n";
+            }
+            $this->sendMessage($chatId, $summary);
+
+            /* ---------- ۲) فایل HTML مستقل ---------- */
+            $this->sendChatAction($chatId, 'upload_document');
+            $html = $this->buildStandaloneHtml($pkg);
+            $slug = SlugGenerator::generate((string)($art['title'] ?? 'article'));
+            $this->sendDocumentFromString($chatId, $slug . '.html', $html,
+                '📰 <b>نسخه HTML</b> — آماده انتشار برای هر سایت' .
+                "\nشامل: استایل داخلی + متا سئو + اسکیمای Article/FAQ + تصاویر با لینک مطلق"
+            );
+
+            /* ---------- ۳) نسخه Markdown ---------- */
+            $md = $this->buildMarkdown($pkg);
+            $this->sendDocumentFromString($chatId, $slug . '.md', $md,
+                '📝 <b>نسخه Markdown</b> — مناسب وردپرس/انجمن/ابزارهای محتوا'
+            );
+
+            /* ---------- ۴) آلبوم ۳ تصویر ---------- */
+            $images = (array)($pkg['images'] ?? []);
+            if ($images) {
+                $this->sendChatAction($chatId, 'upload_photo');
+                $album = [];
+                foreach ($images as $img) {
+                    $album[] = [
+                        'path'    => dirname(__DIR__, 2) . '/' . ltrim((string)($img['path'] ?? ''), '/'),
+                        'caption' => '🖼️ ' . htmlspecialchars((string)($img['alt'] ?? '')),
+                    ];
+                }
+                $this->sendImageAlbum($chatId, $album);
+            }
+
+            /* ---------- ۵) دکمه‌های اقدام بعدی ---------- */
+            $topic = (string)($kw ?? '');
+            $this->sendMessage($chatId, '🚀 <b>قدم بعدی؟</b>', [
+                'inline_keyboard' => [
+                    [
+                        ['text' => '📰 مقاله دیگر', 'callback_data' => json_encode(['act' => 'article'], JSON_UNESCAPED_UNICODE)],
+                        ['text' => '🔑 کلیدواژه‌ها', 'callback_data' => json_encode(['act' => 'keywords', 'topic' => $topic], JSON_UNESCAPED_UNICODE)],
+                    ],
+                    [
+                        ['text' => '🧪 تحقیق آنلاین', 'callback_data' => json_encode(['act' => 'research', 'topic' => $topic], JSON_UNESCAPED_UNICODE)],
+                        ['text' => '📰 اخبار مرتبط', 'callback_data' => json_encode(['act' => 'news', 'topic' => $topic], JSON_UNESCAPED_UNICODE)],
+                    ],
+                ],
+            ]);
+            return true;
         } catch (Throwable $e) {
-            return '⚠️ خطا در دریافت وضعیت: ' . $e->getMessage();
+            @error_log('[TelegramBot] deliverFullArticle error: ' . $e->getMessage());
+            $this->sendMessage($chatId, '⚠️ خطا در تولید/تحویل مقاله: ' . htmlspecialchars($e->getMessage()));
+            return false;
         }
     }
 
+    /**
+     * 🏗️ ساخت فایل HTML مستقل و کامل — قابل انتشار روی هر سایت دیگر
+     * شامل: استایل inline RTL + متا + OG + Twitter + اسکیما + تصاویر مطلق
+     */
+    public function buildStandaloneHtml(array $pkg): string
+    {
+        $art = $pkg['article'] ?? [];
+        $seo = $pkg['seo'] ?? [];
+        $faq = $pkg['faq']['items'] ?? [];
+        $title = (string)($art['title'] ?? 'مقاله');
+        $content = (string)($art['content'] ?? '');
+        $esc = static function ($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); };
+
+        $ogTags = '';
+        foreach ((array)($seo['og'] ?? []) as $p => $v) {
+            $ogTags .= '  <meta property="' . $esc($p) . '" content="' . $esc($v) . '">' . "\n";
+        }
+        foreach ((array)($seo['twitter'] ?? []) as $p => $v) {
+            $ogTags .= '  <meta name="' . $esc($p) . '" content="' . $esc($v) . '">' . "\n";
+        }
+
+        $schemas = [];
+        if (!empty($seo['schema'])) {
+            $schemas[] = $seo['schema'];
+        }
+        if (!empty($pkg['faq']['schema'])) {
+            $schemas[] = $pkg['faq']['schema'];
+        }
+        if (!empty($seo['howto_schema'])) {
+            $schemas[] = $seo['howto_schema'];
+        }
+        $schemaHtml = '';
+        foreach ($schemas as $sc) {
+            $schemaHtml .= '  <script type="application/ld+json">' .
+                json_encode($sc, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "</script>\n";
+        }
+
+        $faqHtml = '';
+        if ($faq) {
+            $faqHtml = "<h2>❓ سوالات متداول</h2>\n";
+            foreach ($faq as $item) {
+                $faqHtml .= '<h3>' . $esc($item['question'] ?? '') . "</h3>\n" .
+                    '<p>' . ($item['answer'] ?? '') . "</p>\n";
+            }
+        }
+
+        $metaBlock = '';
+        $keywords = (string)($seo['keywords'] ?? '');
+        if ($keywords !== '') {
+            $metaBlock .= "<!-- کلیدواژه‌ها: {$keywords} -->\n";
+        }
+        if (!empty($seo['reading_time'])) {
+            $metaBlock .= '<!-- زمان مطالعه: ' . (int)$seo['reading_time'] . " دقیقه -->\n";
+        }
+
+        return '<!doctype html>' . "\n"
+            . '<html lang="fa" dir="rtl">' . "\n"
+            . "<head>\n"
+            . '  <meta charset="utf-8">' . "\n"
+            . '  <meta name="viewport" content="width=device-width, initial-scale=1">' . "\n"
+            . '  <title>' . $esc($seo['title'] ?? $title) . "</title>\n"
+            . '  <meta name="description" content="' . $esc($seo['description'] ?? '') . "\">\n"
+            . $ogTags
+            . $schemaHtml
+            . "  <style>\n"
+            . "    body{font-family:Vazirmatn,Tahoma,'Segoe UI',Arial,sans-serif;line-height:2.1;color:#1e293b;background:#f8fafc;margin:0;padding:24px 14px;font-size:15px}\n"
+            . "    .article-wrap{max-width:820px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:34px 30px;box-shadow:0 4px 20px rgba(0,0,0,.06)}\n"
+            . "    h1{font-size:clamp(21px,4vw,30px);line-height:1.7;margin:0 0 14px}\n"
+            . "    h2{font-size:19px;margin:30px 0 12px;border-inline-start:4px solid #3b82f6;padding-inline-start:12px}\n"
+            . "    h3{font-size:16px;margin:20px 0 8px}\n"
+            . "    p{margin:0 0 15px}\n"
+            . "    ul,ol{margin:0 22px 15px 0}\n"
+            . "    li{margin-bottom:7px}\n"
+            . "    img{max-width:100%;height:auto;border-radius:12px;margin:18px 0}\n"
+            . "    figcaption{text-align:center;font-size:12px;color:#64748b;margin-top:8px}\n"
+            . "    table{width:100%;border-collapse:collapse;margin:18px 0;font-size:13.5px}\n"
+            . "    th,td{border:1px solid #e2e8f0;padding:9px 13px;text-align:right}\n"
+            . "    th{background:#f1f5f9}\n"
+            . "    .article-toc{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;margin:20px 0}\n"
+            . "    .article-eeat{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:16px 20px;margin:24px 0}\n"
+            . "    .meta-row{display:flex;gap:14px;flex-wrap:wrap;color:#64748b;font-size:12.5px;margin-bottom:20px}\n"
+            . "    .generator-note{margin-top:26px;padding:12px 16px;background:#eff6ff;border-radius:10px;font-size:11.5px;color:#1e40af}\n"
+            . "    @media(max-width:520px){.article-wrap{padding:20px 14px}}\n"
+            . "  </style>\n"
+            . "</head>\n"
+            . "<body>\n"
+            . '<article class="article-wrap">' . "\n"
+            . '  <h1>' . $esc($title) . "</h1>\n"
+            . '  <div class="meta-row"><span>🗓️ ' . $esc(jdate(date('Y-m-d'))) . '</span><span>✍️ تیم فنی سهند سرویس</span>'
+            . '<span>⏱️ ' . ($seo['reading_time'] ?? 0) . ' دقیقه مطالعه</span></div>' . "\n"
+            . $metaBlock
+            . $content . "\n"
+            . $faqHtml
+            . '  <div class="generator-note">📦 این مقاله توسط موتور هوش مصنوعی سهند (نسخه ' . SahandAI::ENGINE_VERSION . ') تولید شده و آماده انتشار روی هر سایت است.</div>' . "\n"
+            . "</article>\n"
+            . "</body>\n"
+            . "</html>";
+    }
+
+    /**
+     * 📝 ساخت نسخه Markdown مقاله — مناسب وردپرس و ابزارهای محتوا
+     */
+    public function buildMarkdown(array $pkg): string
+    {
+        $art = $pkg['article'] ?? [];
+        $seo = $pkg['seo'] ?? [];
+        $faq = $pkg['faq']['items'] ?? [];
+        $title = (string)($art['title'] ?? 'مقاله');
+
+        $md = '# ' . $title . "\n\n";
+        $md .= '> ' . ($art['tldr'] ?? ($seo['description'] ?? '')) . "\n\n";
+        $md .= '**تاریخ تولید:** ' . jdate(date('Y-m-d')) . "  \n";
+        $md .= '**کلیدواژه کانونی:** ' . ($pkg['keyword']['focus'] ?? '') . "  \n";
+        $md .= '**امتیاز کیفیت:** ' . ($pkg['quality']['final_score'] ?? '؟') . '/100' . "  \n";
+        $md .= '**تعداد کلمات:** ' . ($art['word_count'] ?? 0) . "\n\n";
+        $md .= "---\n\n";
+
+        // تبدیل HTML → Markdown سبک
+        $c = (string)($art['content'] ?? '');
+        $c = preg_replace('#<figure class="article-figure">\s*<img[^>]*src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>\s*(?:<figcaption>(.*?)</figcaption>)?\s*</figure>#is',
+            '![$2]($1)' . "\n\n*$3*\n", $c);
+        $c = preg_replace('#<h2>(.*?)</h2>#is', "\n## $1\n\n", $c);
+        $c = preg_replace('#<h3>(.*?)</h3>#is', "\n### $1\n\n", $c);
+        $c = preg_replace('#<li>(.*?)</li>#is', '- $1 ', $c);
+        $c = preg_replace('#<(strong|b)>(.*?)</\1>#is', '**$2**', $c);
+        $c = preg_replace('#<(em|i)>(.*?)</\1>#is', '*$2*', $c);
+        $c = preg_replace('#<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>#is', '[$2]($1)', $c);
+        $c = preg_replace('#</(p|div|ul|ol|table|tr)>#i', "\n\n", $c);
+        $c = preg_replace('#<br\s*/?>#i', "  \n", $c);
+        $c = preg_replace('#<[^>]+>#', '', $c);
+        $c = html_entity_decode($c, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $c = preg_replace("/\n{3,}/", "\n\n", $c);
+        $md .= trim($c) . "\n\n---\n\n";
+
+        if ($faq) {
+            $md .= "## ❓ سوالات متداول\n\n";
+            foreach ($faq as $item) {
+                $md .= '### ' . ($item['question'] ?? '') . "\n\n" . strip_tags((string)($item['answer'] ?? '')) . "\n\n";
+            }
+        }
+        $md .= '---' . "\n" . '📦 تولیدشده توسط موتور هوش مصنوعی سهند v' . SahandAI::ENGINE_VERSION . "\n";
+        return $md;
+    }
+
     /* ==================================================
-     * 🎨 قالب‌بندی پاسخ دستیار → HTML تلگرام
+     * 🎨 قالب‌بندی پاسخ‌ها
      * ================================================== */
 
     /**
@@ -455,6 +931,7 @@ class TelegramBot
                 }
                 break;
 
+            case 'error-codes':
             case 'error_codes':
                 $r = $result['result'] ?? [];
                 $codes = $r['codes'] ?? ($r['matches'] ?? []);
@@ -511,6 +988,12 @@ class TelegramBot
                         $lines[] = '• ' . htmlspecialchars(mb_substr((string)$f, 0, 130));
                     }
                 }
+                if (!empty($r['opportunities'])) {
+                    $lines[] = "\n🎯 فرصت‌های کلیدواژه:";
+                    foreach (array_slice((array)$r['opportunities'], 0, 5) as $op) {
+                        $lines[] = '• ' . htmlspecialchars(mb_substr((string)$op, 0, 90));
+                    }
+                }
                 if (!empty($r['sources'])) {
                     $lines[] = "\n🔗 منابع: " . count($r['sources']) . ' سایت';
                 }
@@ -528,7 +1011,7 @@ class TelegramBot
         }
 
         // 💡 پیشنهادهای بعدی
-        if (!empty($result['suggestions']) && $action !== 'unknown' && $action !== 'web_search') {
+        if (!empty($result['suggestions']) && $action !== 'unknown' && $action !== 'web_search' && $action !== 'article') {
             $lines[] = "\n🔎 فرمان بعدی پیشنهادی:";
             foreach (array_slice((array)$result['suggestions'], 0, 3) as $s) {
                 $lines[] = '» ' . htmlspecialchars((string)$s);
@@ -537,6 +1020,27 @@ class TelegramBot
 
         $lines[] = "\n🤖 موتور سهند v" . SahandAI::ENGINE_VERSION;
         return implode("\n", array_filter($lines, static fn($l) => trim($l) !== ''));
+    }
+
+    /** 📰 قالب اختصاصی پاسخ اخبار زنده */
+    private function formatNewsReply(array $result): string
+    {
+        if (empty($result['success'])) {
+            return '❌ ' . htmlspecialchars((string)($result['message'] ?? 'جستجوی اخبار ناموفق بود.'));
+        }
+        $r = $result['result'] ?? [];
+        $lines = ['📰 <b>اخبار زنده</b> — ' . htmlspecialchars((string)($result['message'] ?? '')), ''];
+        foreach ((array)($r['results'] ?? []) as $i => $news) {
+            if ($i >= 8) { break; }
+            $date = !empty($news['date']) ? ' <i>(' . htmlspecialchars((string)$news['date']) . ')</i>' : '';
+            $lines[] = ($i + 1) . '. <a href="' . htmlspecialchars((string)($news['url'] ?? '#')) . '">' .
+                htmlspecialchars(mb_substr((string)($news['title'] ?? ''), 0, 90)) . '</a>' . $date;
+            if (!empty($news['source'])) {
+                $lines[] = '   <i>' . htmlspecialchars((string)$news['source']) . '</i>';
+            }
+        }
+        $lines[] = "\n🤖 موتور سهند v" . SahandAI::ENGINE_VERSION;
+        return implode("\n", $lines);
     }
 
     /** 📰 قالب‌بندی خروجی مقاله (خلاصه + آمار) */
@@ -556,16 +1060,95 @@ class TelegramBot
         if (!empty($r['keyword']['focus'])) {
             $out[] = "🎯 کلیدواژه: " . htmlspecialchars((string)$r['keyword']['focus']);
         }
+        if (!empty($r['images'])) {
+            $out[] = "🖼️ تصاویر: " . count($r['images']) . ' عدد';
+        }
         if (!empty($r['research']['enabled'])) {
             $out[] = "🌐 تحقیق آنلاین: انجام‌شده ✅";
         }
         // بخشی از متن مقاله
         $content = strip_tags((string)($r['article']['content'] ?? ''));
         if ($content !== '') {
-            $out[] = "\n📝 <b>پیش‌نمایش مقاله:</b>\n" . htmlspecialchars(mb_substr($content, 0, 2000)) .
-                (mb_strlen($content) > 2000 ? "\n… (متن کامل از پنل یا API)" : '');
+            $out[] = "\n📝 <b>پیش‌نمایش مقاله:</b>\n" . htmlspecialchars(mb_substr($content, 0, 1600)) .
+                (mb_strlen($content) > 1600 ? "\n… (نسخه کامل همین‌جا تحویل داده می‌شود)" : '');
         }
         return implode("\n", $out);
+    }
+
+    /* ==================================================
+     * ⌨️ کیبورد و متون ربات
+     * ================================================== */
+
+    /** ⌨️ کیبورد پیش‌فرض */
+    private function defaultKeyboard(): array
+    {
+        return [
+            ['📰 مقاله بنویس', '🔑 کلمات کلیدی یخچال'],
+            ['🌐 جستجوی وب:', '📰 اخبار: لوازم خانگی'],
+            ['راهنما', 'برندهای پایگاه دانش'],
+        ];
+    }
+
+    /** 📖 متن راهنمای ربات */
+    private function helpText(): string
+    {
+        return "🤖 <b>دستیار هوشمند سهند سرویس — v2</b>\n" .
+            "موتور هوش مصنوعی داخلی نسخه " . SahandAI::ENGINE_VERSION . " — متصل به اینترنت 🌐\n\n" .
+            "📰 <b>مقاله کامل + ۳ عکس (جدید!)</b>\n" .
+            "«مقاله بنویس برای پاکشما درباره ماشین لباسشویی»\n" .
+            "تحویل: فایل HTML آماده انتشار برای هر سایت + Markdown + آلبوم ۳ تصویر\n\n" .
+            "💬 <b>کافیست فارسی بنویسید:</b>\n" .
+            "🔑 «کلمات کلیدی یخچال»\n" .
+            "🏆 «امتیاز این متن: ...»\n" .
+            "🔧 «این متن را بهبود بده: ...»\n" .
+            "🏷️ «عنوان برای تعمیر ماشین ظرفشویی بده»\n" .
+            "🧭 «نیت جستجوی خرید یخچال ساید بای ساید چیست؟»\n" .
+            "🔍 «تشخیص عیب: یخچال سرد نمی‌کند»\n" .
+            "⚠️ «کد خطا E24 ماشین ظرفشویی»\n" .
+            "🌐 «جستجوی وب: قیمت موتور ماشین لباسشویی»\n" .
+            "🧪 «تحقیق درباره: یخچال ساید بای ساید اسنوا»\n" .
+            "📰 «اخبار: لوازم خانگی» (جدید)\n\n" .
+            "⚙️ <b>فرمان‌ها:</b>\n" .
+            "/article [موضوع] — مقاله کامل با فایل و عکس\n" .
+            "/keywords [موضوع] — کلیدواژه و long-tail\n" .
+            "/search [عبارت] — جستجوی آنلاین وب\n" .
+            "/research [موضوع] — تحقیق ساختاریافته\n" .
+            "/news [موضوع] — اخبار زنده\n" .
+            "/titles [موضوع] — پیشنهاد عنوان\n" .
+            "/improve [متن] — بهبود متن\n" .
+            "/score [متن] — امتیازدهی متن\n" .
+            "/start — شروع | /help — راهنما\n" .
+            "/status — وضعیت سیستم | /id — شناسه چت شما";
+    }
+
+    /** 📊 متن وضعیت سیستم */
+    private function statusText(): string
+    {
+        try {
+            $info = (new SahandAI())->engineInfo();
+            $lines = [
+                '📊 <b>وضعیت سیستم سهند</b>',
+                '',
+                '🤖 موتور AI: نسخه ' . $info['engine_version'],
+                '🏗️ سیستم: نسخه ' . $info['system_version'],
+                '📚 برندهای دانش: ' . ($info['knowledge_size']['brands'] ?? '؟'),
+                '🔧 دستگاه‌ها: ' . ($info['knowledge_size']['devices'] ?? '؟'),
+                '⚠️ کدهای خطا: ' . ($info['knowledge_size']['error_codes'] ?? '؟'),
+                '🖼️ تصاویر مقاله: ' . count(ArticleImageService::catalog()) . ' عدد',
+            ];
+            // وضعیت جستجوی وب
+            try {
+                $ws = (new WebSearchService())->status();
+                $lines[] = '🌐 جستجوی وب: ' . ($ws['enabled'] ? '✅ فعال' : '❌ غیرفعال') .
+                    ' — ' . count(array_filter($ws['providers'] ?? [])) . ' ارائه‌دهنده';
+            } catch (Exception $e) {
+                $lines[] = '🌐 جستجوی وب: ⚠️ ' . $e->getMessage();
+            }
+            $lines[] = '🗄️ دیتابیس: ✅';
+            return implode("\n", $lines);
+        } catch (Throwable $e) {
+            return '⚠️ خطا در دریافت وضعیت: ' . $e->getMessage();
+        }
     }
 
     /* ==================================================

@@ -382,10 +382,8 @@ class SmartPipeline
             $rows = '';
             foreach ($facts as $i => $fact) {
                 $src = $sourceHosts[$i] ?? 'منابع وب';
-                $rows .= '<li>' . e($fact) . ' <small>($source$ ' . $src . ')</small></li>';
+                $rows .= '<li>' . e($fact) . ' <small><span class="stat-source">منبع: ' . $src . '</span></small></li>';
             }
-            $rows = str_replace('($source$ ', '<span class="stat-source">منبع: ', $rows);
-            $rows = str_replace(')</small>', ')</span></small>', $rows);
             $statsHtml = '<h2>📊 داده‌های تازه از وب</h2>' .
                 '<p>بر اساس پایش زنده نتایج جستجوی فارسی، این داده‌ها در ارتباط با «' . e($ctx['focus']) . '» به‌روزرسانی شده‌اند:</p>' .
                 '<ul class="fresh-stats">' . $rows . '</ul>';

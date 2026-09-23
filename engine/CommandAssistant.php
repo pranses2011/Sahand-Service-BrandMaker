@@ -256,11 +256,17 @@ class CommandAssistant
             $topicType = 'seasonal_care';
         }
 
+        // 🆕 v3.2: موضوع دلخواه — برای ساخت مقاله درباره هر موضوعی (حتی خارج از دامنه دستگاه‌ها)
+        $customTopic = $this->extractTopic($command, ['/مقاله/', '/مطلب/', '/بنویس/', '/بنویسید/', '/بساز/', '/تولید/', '/جدید/']);
+        $hasCustomTopic = ($customTopic !== '' && mb_strlen($customTopic) >= 4);
+
         $result = $this->ai->smartGenerate([
             'brand_id'  => $brandId,
             'topic_type'=> $topicType,
             'device_key'=> $deviceKey,
+            'topic'     => $hasCustomTopic ? $customTopic : null,
             'variants'  => 2,
+            'no_cache'  => true, // هر درخواست مقاله = مقاله تازه و یکتا
         ]);
 
         return [
