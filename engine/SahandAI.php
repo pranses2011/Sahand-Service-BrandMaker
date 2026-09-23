@@ -1,6 +1,6 @@
 <?php
 /**
- * 🤖 موتور هوش مصنوعی داخلی سهند — SahandAI Engine v1.0
+ * 🤖 موتور هوش مصنوعی داخلی سهند — SahandAI Engine v2.0
  * ======================================================
  * موتور تولید محتوای فارسی کاملاً داخلی (بدون هیچ API خارجی)
  * بهینه‌شده برای زبان فارسی و صنعت تعمیرات لوازم خانگی.
@@ -8,13 +8,18 @@
  * ساختار:
  *   📚 پایگاه دانش (engine/knowledge/*.json)
  *   ⚙️ موتور پردازش (generators + analyzers)
+ *   🏆 امتیازده کیفیت (QualityScorer) + 🧭 تشخیص نیت (IntentClassifier)
+ *   🗓️ برنامه‌ریز محتوا (ContentPlanner)
  *   🔌 API داخلی (routes در api/index.php)
  *
  * @package SahandBrandMaker\Engine
- * @version 1.0.0
+ * @version 2.0.0
  */
 class SahandAI
 {
+    /** 🔖 نسخه موتور */
+    public const ENGINE_VERSION = '2.0.0';
+
     /** @var Database دیتابیس */
     private $db;
 
@@ -119,7 +124,7 @@ class SahandAI
     /**
      * 📰 تولید مقاله کامل — POST /api/ai/generate-article
      *
-     * @param array $params [brand_id, topic_type, device_key, auto_save]
+     * @param array $params [brand_id, topic_type, device_key, auto_save, variants]
      */
     public function generateArticle(array $params): array
     {
@@ -131,7 +136,9 @@ class SahandAI
 
         $topicType = (string)($params['topic_type'] ?? 'troubleshooting');
         $deviceKey = $params['device_key'] ?? null;
-        $article = $this->articleGen->generate($brand, $topicType, $deviceKey);
+        // 🆕 نسخه ۲: تولید چند واریانت و انتخاب بهترین (پیش‌فرض ۲)
+        $variants = (int)($params['variants'] ?? 2);
+        $article = $this->articleGen->generate($brand, $topicType, $deviceKey, $variants);
 
         // 💾 ذخیره خودکار در صورت درخواست
         if (!empty($params['auto_save'])) {
@@ -443,5 +450,139 @@ class SahandAI
             return $part;
         }
         return KnowledgeBase::parts();
+    }
+
+    /* ==================================================
+     * 🆕 اندپوینت‌های نسخه ۲ موتور (v2.0)
+     * ================================================== */
+
+    /**
+     * 🏆 امتیاز کیفیت محتوا — POST /api/ai/score-content
+     * پارامترها: content (الزامی)، focus_keyword، content_type
+     */
+    public function scoreContent(array $params): array
+    {
+        $content = (string)($params['content'] ?? '');
+        if (trim($content) === '') {
+            throw new RuntimeException('پارامتر content الزامی است.');
+        }
+        $scorer = new QualityScorer();
+        return $scorer->score(
+            $content,
+            (string)($params['focus_keyword'] ?? ''),
+            isset($params['content_type']) ? (string)$params['content_type'] : null
+        );
+    }
+
+    /**
+     * 🧭 تشخیص نیت جستجو — POST /api/ai/classify-intent
+     * پارامترها: query (تکی) یا queries (آرایه)
+     */
+    public function classifyIntent(array $params): array
+    {
+        $classifier = new IntentClassifier();
+        if (!empty($params['queries']) && is_array($params['queries'])) {
+            return $classifier->classifyBatch($params['queries']);
+        }
+        $query = (string)($params['query'] ?? '');
+        if (trim($query) === '') {
+            throw new RuntimeException('پارامتر query یا queries الزامی است.');
+        }
+        return $classifier->classify($query);
+    }
+
+    /**
+     * 🗓️ برنامه انتشار محتوا — POST /api/ai/content-plan
+     * پارامترها: brand_id (الزامی)، weeks، per_week
+     */
+    public function contentPlan(array $params): array
+    {
+        $planner = new ContentPlanner();
+        return $planner->plan(
+            (int)($params['brand_id'] ?? 0),
+            (int)($params['weeks'] ?? 4),
+            (int)($params['per_week'] ?? 2)
+        );
+    }
+
+    /**
+     * 🐎 پیشنهاد کلیدواژه long-tail — POST /api/ai/suggest-longtail
+     * پارامترها: keyword، count
+     */
+    public function suggestLongTail(array $params): array
+    {
+        $keyword = (string)($params['keyword'] ?? '');
+        if (trim($keyword) === '') {
+            throw new RuntimeException('پارامتر keyword الزامی است.');
+        }
+        $analyzer = new KeywordAnalyzer();
+        $suggestions = $analyzer->suggestLongTail($keyword, (int)($params['count'] ?? 12));
+        return [
+            'seed_keyword' => $keyword,
+            'suggestions'  => $suggestions,
+        ];
+    }
+
+    /**
+     * 🗂️ خوشه‌بندی کلیدواژه‌ها — POST /api/ai/cluster-keywords
+     * پارامترها: keywords (آرایه)
+     */
+    public function clusterKeywords(array $params): array
+    {
+        $keywords = (array)($params['keywords'] ?? []);
+        $keywords = array_filter($keywords, fn($k) => is_string($k) && trim($k) !== '');
+        if (empty($keywords)) {
+            throw new RuntimeException('پارامتر keywords (آرایه‌ای از کلیدواژه‌ها) الزامی است.');
+        }
+        $analyzer = new KeywordAnalyzer();
+        return [
+            'clusters' => $analyzer->cluster(array_values($keywords)),
+            'input_count' => count($keywords),
+        ];
+    }
+
+    /**
+     * 🧮 تحلیل TF-IDF نسبت به پایگاه دانش — POST /api/ai/tfidf
+     * پارامترها: text (الزامی)
+     */
+    public function tfidf(array $params): array
+    {
+        $text = (string)($params['text'] ?? '');
+        if (trim($text) === '') {
+            throw new RuntimeException('پارامتر text الزامی است.');
+        }
+        // ساخت corpus از دانش برندها (توصیف‌ها)
+        $corpus = [];
+        foreach (array_slice(TextProcessor::loadKnowledge('brands'), 0, 25, true) as $brand) {
+            $corpus[] = implode(' ', (array)($brand['history_facts'] ?? [])) . ' ' . (string)($brand['positioning'] ?? '');
+        }
+        $analyzer = new KeywordAnalyzer();
+        return [
+            'keywords' => $analyzer->tfIdf($text, $corpus, (int)($params['top'] ?? 15)),
+        ];
+    }
+
+    /**
+     * ℹ️ اطلاعات نسخه موتور — GET /api/ai/engine-info
+     */
+    public function engineInfo(): array
+    {
+        $kb = KnowledgeBase::stats();
+        return [
+            'engine_version'    => self::ENGINE_VERSION,
+            'system_version'    => SAHAND_VERSION,
+            'capabilities'      => [
+                'generators'    => ['ArticleGenerator', 'BrandInfoGenerator', 'ContentGenerator', 'ErrorCodeGenerator', 'FaqGenerator', 'SeoGenerator', 'ContentPlanner'],
+                'analyzers'     => ['ColorAnalyzer', 'KeywordAnalyzer', 'SeoAnalyzer', 'UniquenessChecker', 'QualityScorer', 'IntentClassifier'],
+                'article_types' => 9,
+                'best_of_n'     => true,
+                'quality_score' => true,
+                'intent_detect' => true,
+                'content_plan'  => true,
+                'tf_idf'        => true,
+                'clustering'    => true,
+            ],
+            'knowledge_size'    => $kb,
+        ];
     }
 }

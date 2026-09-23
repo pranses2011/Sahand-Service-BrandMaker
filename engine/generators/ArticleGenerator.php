@@ -1,12 +1,13 @@
 <?php
 /**
- * 📰 ژنراتور مقالات — تولید مقالات یکتای ۸۰۰-۱۵۰۰ کلمه‌ای
+ * 📰 ژنراتور مقالات — نسخه ۲ (تولید چندواریانته + انتخاب بهترین)
  * =========================================================
  * ساختار: انتخاب موضوع ← ساخت Outline ← نوشتن بخش‌ها ←
- * لینک‌دهی داخلی ← بهینه‌سازی سئو ← خروجی HTML
+ * TL;DR ← لینک‌دهی داخلی ← بررسی یکتایی ← سئو + FAQ Schema ←
+ * تولید N واریانت و انتخاب بهترین با QualityScorer
  *
  * @package SahandBrandMaker\Engine
- * @version 1.0.0
+ * @version 2.0.0
  */
 class ArticleGenerator
 {
@@ -16,21 +17,46 @@ class ArticleGenerator
     /** @var UniquenessChecker بررسی یکتایی */
     private $uniqueness;
 
+    /** @var QualityScorer امتیازده کیفیت (نسخه ۲) */
+    private $scorer;
+
     public function __construct()
     {
         $this->db = Database::getInstance();
         $this->uniqueness = new UniquenessChecker();
+        $this->scorer = new QualityScorer();
     }
 
     /**
-     * 📰 تولید یک مقاله کامل یکتا برای برند
+     * 📰 تولید یک مقاله کامل یکتا برای برند — نسخه ۲
      *
      * @param array  $brand اطلاعات برند (id, name_fa, name_en, ...)
-     * @param string $topicType نوع مقاله (troubleshooting|user_guide|maintenance|comparison|error_codes)
+     * @param string $topicType نوع مقاله (troubleshooting|user_guide|maintenance|comparison|error_codes|buying_guide|energy_saving|seasonal_care|cost_guide)
      * @param string|null $deviceKey کلید دستگاه هدف (اختیاری — تصادفی انتخاب می‌شود)
-     * @return array مقاله کامل ['title','slug','content','excerpt','seo',...]
+     * @param int   $variants تعداد واریانت تولیدی برای انتخاب بهترین (۱ تا ۴ — نسخه ۲)
+     * @return array مقاله کامل ['title','slug','content','excerpt','seo','quality',...]
      */
-    public function generate(array $brand, string $topicType, ?string $deviceKey = null): array
+    public function generate(array $brand, string $topicType, ?string $deviceKey = null, int $variants = 2): array
+    {
+        $variants = max(1, min(4, $variants));
+        $best = null;
+
+        // 🎰 تولید N واریانت با seed های متفاوت و انتخاب بهترین امتیاز کیفیت
+        for ($v = 0; $v < $variants; $v++) {
+            $candidate = $this->generateSingle($brand, $topicType, $deviceKey, $v);
+            if ($best === null || $candidate['quality']['score'] > $best['quality']['score']) {
+                $best = $candidate;
+            }
+        }
+
+        $best['variants_generated'] = $variants;
+        return $best;
+    }
+
+    /**
+     * 🎲 تولید یک واریانت مقاله (هسته تولید نسخه ۱ + قابلیت‌های جدید)
+     */
+    private function generateSingle(array $brand, string $topicType, ?string $deviceKey, int $variantIndex): array
     {
         $devices = $this->db->fetchAll(
             'SELECT * FROM brand_devices WHERE brand_id = ? AND is_active = 1',
@@ -64,8 +90,12 @@ class ArticleGenerator
         if (empty($topicTemplates)) {
             $topicTemplates = $templates['article_topics']['troubleshooting'] ?? [];
         }
+        // 📚 دانش دستگاه برای تضمین حجم (نسخه ۲)
+        $usage = $deviceKnowledge['usage_tips'] ?? [];
+        $maintenance = $deviceKnowledge['maintenance_tips'] ?? [];
+        $issues = $deviceKnowledge['common_issues'] ?? [];
 
-        $seed = 'article|' . $brand['id'] . '|' . $topicType . '|' . $device['device_key'] . '|' . time() . '|' . mt_rand();
+        $seed = 'article|' . $brand['id'] . '|' . $topicType . '|' . $device['device_key'] . '|' . time() . '|' . mt_rand() . '|v' . $variantIndex;
         $vars = [
             'brand_fa'  => $brand['name_fa'],
             'brand_en'  => $brand['name_en'],
@@ -101,6 +131,19 @@ class ArticleGenerator
         $content = '<p>' . $intro . '</p>' . "\n" . implode("\n", $bodyParts)
             . "\n" . '<h2>جمع‌بندی</h2>' . "\n" . '<p>' . $conclusion . '</p>';
 
+        /* ---------- ۳.۵) 🆕 جعبه «نکات کلیدی» (TL;DR) ---------- */
+        $content = $this->addKeyTakeaways($content, $sections, $vars, $seed);
+
+        /* ---------- ۳.۶) 🆕 بخش سوالات متداول مقاله ---------- */
+        $faqs = $this->articleFaq($vars, $topicType, $seed);
+        if (!empty($faqs)) {
+            $faqHtml = '<h2>سوالات متداول</h2>' . "\n";
+            foreach ($faqs as $faq) {
+                $faqHtml .= '<h3>' . e($faq['question']) . '</h3>' . "\n" . '<p>' . e($faq['answer']) . '</p>' . "\n";
+            }
+            $content .= "\n" . $faqHtml;
+        }
+
         /* ---------- ۴️⃣ لینک‌دهی داخلی ---------- */
         $content = $this->addInternalLinks($content, $brand, $device);
 
@@ -115,10 +158,36 @@ class ArticleGenerator
             $attempts++;
         }
 
+        /* ---------- ۵.۵) 🆕 تضمین حداقل حجم مقاله (۸۰۰ کلمه) ---------- */
+        $expandTries = 0;
+        while (TextProcessor::wordCount(strip_tags($content)) < 800 && $expandTries < 3) {
+            $extra = $this->paragraphsFrom(array_merge($usage, $maintenance, $issues), 3, $seed . '|expand' . $expandTries);
+            if ($extra === '') {
+                break;
+            }
+            // درج قبل از جمع‌بندی
+            $pos = mb_strripos($content, '<h2>جمع‌بندی</h2>');
+            if ($pos === false) {
+                $content .= $extra;
+            } else {
+                $content = mb_substr($content, 0, $pos) . $extra . "\n" . mb_substr($content, $pos);
+            }
+            $expandTries++;
+        }
+
         /* ---------- ۶️⃣ سئو ---------- */
         $seoGenerator = new SeoGenerator();
         $focusKeyword = 'تعمیر ' . $device['name_fa'] . ' ' . $brand['name_fa'];
         $seo = $seoGenerator->generateForArticle($title, $content, $focusKeyword, $vars);
+
+        /* ---------- ۶.۵) 🆕 افزودن FAQ Schema به سئو ---------- */
+        if (!empty($faqs)) {
+            $seo['schema_faq'] = $seoGenerator->faqSchema($faqs);
+            $seo['schema']['@graph'][] = $seo['schema_faq'];
+        }
+
+        /* ---------- ۷️⃣ 🆕 امتیاز کیفیت (QualityScorer نسخه ۲) ---------- */
+        $quality = $this->scorer->score($content, $focusKeyword, 'article');
 
         return [
             'title'      => $title,
@@ -131,6 +200,8 @@ class ArticleGenerator
             'seo'        => $seo,
             'uniqueness' => $check,
             'word_count' => TextProcessor::wordCount(strip_tags($content)),
+            'quality'    => $quality,
+            'faqs'       => $faqs,
             'generated_by_ai' => 1,
             'uniqueness_hash' => $check['hash'] ?? TextProcessor::contentHash($content),
         ];
@@ -204,6 +275,24 @@ class ArticleGenerator
                 $sections[] = $this->section('تنظیمات طلایی برای کاهش قبض', $this->bullets($maintenance, 6, $seed, "تنظیم بهینه") . $this->paragraphsFrom($maintenance, 2, $seed . 'n2b'));
                 $sections[] = $this->section('عادت‌هایی که برق را هدر می‌دهند', $this->paragraphsFrom($issues, 4, $seed . 'n3'));
                 $sections[] = $this->section('زمان‌بندی هوشمند استفاده از ' . $d, $this->paragraphsFrom($usage, 3, $seed . 'n4'));
+                break;
+
+            case 'seasonal_care': // 🆕 مراقبت فصلی — مبتنی بر تقویم فصلی پایگاه دانش
+                $sections[] = $this->seasonalIntroSection($d, $b, $seed);
+                $sections[] = $this->section('چک‌لیست آماده‌سازی ' . $d . ' برای این فصل', $this->bullets($maintenance, 6, $seed, "آماده‌سازی فصلی") . $this->paragraphsFrom($maintenance, 3, $seed . 'sc2'));
+                $sections[] = $this->section('خطرهای فصلی برای ' . $d, $this->paragraphsFrom($issues, 4, $seed . 'sc3'));
+                $wearSection = $this->partsWearSection($device['device_key'], $d, $seed);
+                $sections[] = $this->section('قطعات مصرفی پرتقاضای این فصل', ($wearSection['content'] ?? '') . $this->paragraphsFrom($issues, 2, $seed . 'sc4'));
+                $sections[] = $this->section('سرویس پیش از فصل؛ چرا به‌موقع اقدام کنید؟', $this->paragraphsFrom($maintenance, 3, $seed . 'sc5'));
+                break;
+
+            case 'cost_guide': // 🆕 راهنمای هزینه — شفاف‌سازی قیمت تعمیر
+                $sections[] = $this->section('هزینه تعمیر ' . $d . ' ' . $b . ' چگونه محاسبه می‌شود؟', $this->paragraphsFrom($usage, 3, $seed . 'cg1'));
+                $sections[] = $this->section('عوامل موثر بر قیمت قطعات و خدمات', $this->bullets($issues, 5, $seed, "عامل هزینه") . $this->paragraphsFrom($issues, 3, $seed . 'cg2b'));
+                $wearSection2 = $this->partsWearSection($device['device_key'], $d, $seed);
+                $sections[] = $this->section('قطعات مصرفی پرتقاضا و بازه بازدید آن‌ها', $wearSection2['content'] ?? '');
+                $sections[] = $this->section('تعمیر بخرم یا دستگاه جدید؟ معیار تصمیم‌گیری', $this->paragraphsFrom($maintenance, 4, $seed . 'cg4'));
+                $sections[] = $this->section('چگونه از هزینه‌های پنهان جلوگیری کنیم؟', $this->paragraphsFrom($issues, 3, $seed . 'cg5'));
                 break;
         }
 
@@ -422,6 +511,8 @@ class ArticleGenerator
             'diagnostics'     => 4, // عیب‌یابی
             'comparison'      => 5, // عمومی
             'error_codes'     => 4, // عیب‌یابی
+            'seasonal_care'   => 3, // نگهداری
+            'cost_guide'      => 5, // عمومی
         ];
         return $map[$topicType] ?? 5;
     }
@@ -435,7 +526,7 @@ class ArticleGenerator
             'SELECT device_key, name_fa FROM brand_devices WHERE brand_id = ? AND is_active = 1',
             [$brand['id']]
         );
-        $types = ['troubleshooting', 'user_guide', 'maintenance', 'comparison', 'error_codes', 'buying_guide', 'energy_saving'];
+        $types = ['troubleshooting', 'user_guide', 'maintenance', 'comparison', 'error_codes', 'buying_guide', 'energy_saving', 'seasonal_care', 'cost_guide'];
         $suggestions = [];
         $i = 0;
         while (count($suggestions) < $count && $i < 30) {
@@ -470,7 +561,146 @@ class ArticleGenerator
             'error_codes'     => 'کدهای خطای رایج',
             'buying_guide'    => 'راهنمای خرید',
             'energy_saving'   => 'صرفه‌جویی در مصرف انرژی',
+            'seasonal_care'   => 'مراقبت فصلی و آماده‌سازی',
+            'cost_guide'      => 'راهنمای هزینه تعمیر و تصمیم درست',
         ];
         return $device . ' ' . $brand . ' — ' . ($map[$type] ?? 'راهنمای جامع');
+    }
+
+    /* ==================================================
+     * 🆕 متدهای کمکی نسخه ۲ (v2.0)
+     * ================================================== */
+
+    /**
+     * 📌 جعبه «نکات کلیدی» (TL;DR) — درج بعد از مقدمه
+     * ۳ نکته فشرده از سرفصل‌های مقاله
+     */
+    private function addKeyTakeaways(string $content, array $sections, array $vars, string $seed): string
+    {
+        if (count($sections) < 2) {
+            return $content;
+        }
+        $templates = TextProcessor::loadKnowledge('templates');
+        $shapes = $templates['takeaway_shapes'] ?? [
+            'نکته کلیدی: {{point}}',
+            'مهم: {{point}}',
+            '{{point}}',
+        ];
+
+        // انتخاب ۳ سرفصل به عنوان نکات کلیدی
+        $picks = TextProcessor::seededPickMany(
+            array_column(array_slice($sections, 0, max(2, count($sections) - 1)), 'title'),
+            3,
+            $seed . '|tldr'
+        );
+        if (empty($picks)) {
+            return $content;
+        }
+
+        $items = '';
+        foreach ($picks as $pick) {
+            $shape = TextProcessor::seededPick($shapes, $seed . '|shape' . md5((string)$pick));
+            $point = strtr($shape, ['{{point}}' => (string)$pick]);
+            $items .= '<li>' . e($point) . '</li>' . "\n";
+        }
+        $box = '<div class="key-takeaways">' . "\n"
+            . '<strong>📌 نکات کلیدی این مقاله:</strong>' . "\n"
+            . '<ul>' . "\n" . $items . '</ul>' . "\n"
+            . '</div>' . "\n";
+
+        // درج بعد از اولین پاراگراف (مقدمه)
+        $firstClose = mb_strpos($content, '</p>');
+        if ($firstClose === false) {
+            return $box . $content;
+        }
+        $insertAt = $firstClose + 4;
+        return mb_substr($content, 0, $insertAt) . "\n" . $box . mb_substr($content, $insertAt);
+    }
+
+    /**
+     * ❓ تولید ۲-۳ پرسش و پاسخ متداول اختصاصی مقاله
+     * از قالب‌های FAQ پایگاه دانش + متغیرهای برند
+     */
+    private function articleFaq(array $vars, string $topicType, string $seed): array
+    {
+        $templates = TextProcessor::loadKnowledge('templates');
+        $faqTemplates = $templates['faq'] ?? [];
+        if (empty($faqTemplates)) {
+            return [];
+        }
+        $picks = TextProcessor::seededPickMany($faqTemplates, 3, $seed . '|faq');
+        $faqs = [];
+        foreach ($picks as $faq) {
+            // ساختار دانش: ['q' => سوال, 'a' => پاسخ] (سازگار با question/answer هم هست)
+            $questionRaw = is_array($faq) ? ($faq['q'] ?? $faq['question'] ?? '') : '';
+            $answerRaw = is_array($faq) ? ($faq['a'] ?? $faq['answer'] ?? '') : '';
+            if ($questionRaw === '' || $answerRaw === '') {
+                continue;
+            }
+            $question = TextProcessor::fillTemplate($questionRaw, $vars);
+            $answer = TextProcessor::fillTemplate($answerRaw, $vars);
+            $answer = TextProcessor::applyPhrases($answer, $seed . '|faqphr' . md5($question), 0.4);
+            $faqs[] = [
+                'question' => TextProcessor::normalize($question),
+                'answer'   => TextProcessor::normalize($answer),
+            ];
+        }
+        return $faqs;
+    }
+
+    /**
+     * 🔗 لینک‌دهی به مقالات مرتبط همین برند — سیلوی داخلی
+     * ۲ مقاله مرتبط در انتهای محتوا (قبل از جمع‌بندی نهایی)
+     */
+    private function addRelatedArticleLinks(string $content, array $brand): string
+    {
+        $related = $this->db->fetchAll(
+            'SELECT title, slug FROM brand_articles
+             WHERE brand_id = ? AND status = "published"
+             ORDER BY published_at DESC LIMIT 3',
+            [$brand['id']]
+        );
+        if (count($related) < 1) {
+            return $content;
+        }
+        $links = '';
+        foreach (array_slice($related, 0, 2) as $article) {
+            $links .= '<li><a href="/blog/' . e($article['slug']) . '">' . e($article['title']) . '</a></li>' . "\n";
+        }
+        $box = '<h3>مطالب مرتبط</h3>' . "\n" . '<ul>' . "\n" . $links . '</ul>' . "\n";
+
+        // درج قبل از «جمع‌بندی»
+        $pos = mb_strripos($content, '<h2>جمع‌بندی</h2>');
+        if ($pos === false) {
+            return $content . "\n" . $box;
+        }
+        return mb_substr($content, 0, $pos) . $box . "\n" . mb_substr($content, $pos);
+    }
+
+    /**
+     * 🍂 بخش مقدمه فصلی — از تقویم فصلی پایگاه دانش (seasonal-calendar.json)
+     */
+    private function seasonalIntroSection(string $deviceFa, string $brandFa, string $seed): ?array
+    {
+        $season = KnowledgeBase::currentSeason();
+        $label = $season['label'] ?? '';
+        if ($label === '') {
+            return null;
+        }
+        $focus = (array)($season['focus_devices'] ?? []);
+        $tips = (array)($season['tips'] ?? []);
+
+        $html = '<p>در ' . e($label) . '، میزان استقبال از سرویس ' . e($deviceFa) . ' به‌طور محسوسی تغییر می‌کند.';
+        if (!empty($focus)) {
+            $html .= ' طبق تجربه تعمیرگاه‌ها، در این ماه بیشتر روی «' . e(implode('» و «', array_slice($focus, 0, 3))) . '» تمرکز می‌شود.';
+        }
+        $html .= '</p>' . "\n";
+
+        if (!empty($tips)) {
+            $html .= '<p>' . e(implode(' ', array_slice($tips, 0, 2))) . '</p>' . "\n";
+        }
+        $html .= '<p>در ادامه، چک‌لیست کامل مراقبت فصلی از ' . e($deviceFa) . ' برند ' . e($brandFa) . ' را مرور می‌کنیم.</p>' . "\n";
+
+        return $this->section('چرا مراقبت فصلی از ' . $deviceFa . ' مهم است؟', $html);
     }
 }

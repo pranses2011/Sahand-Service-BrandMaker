@@ -238,6 +238,33 @@ $router->add('GET', 'ai/parts/{key}', function ($p) {
 });
 
 /* ==================================================
+ * 🆕 اندپوینت‌های موتور نسخه ۲ (v2.0)
+ * ================================================== */
+
+// ℹ️ اطلاعات موتور و قابلیت‌ها
+$router->add('GET', 'ai/engine-info', function () {
+    json_response(['success' => true, 'data' => (new SahandAI())->engineInfo()]);
+});
+
+// 🏆 امتیاز کیفیت محتوا (۷ بُعد + پیشنهادها)
+$router->add('POST', 'ai/score-content', $aiHandler('scoreContent'));
+
+// 🧭 تشخیص نیت جستجو (تکی یا گروهی)
+$router->add('POST', 'ai/classify-intent', $aiHandler('classifyIntent'));
+
+// 🗓️ برنامه انتشار محتوا (تقویم هوشمند فصلی)
+$router->add('POST', 'ai/content-plan', $aiHandler('contentPlan'));
+
+// 🐎 پیشنهاد کلیدواژه long-tail
+$router->add('POST', 'ai/suggest-longtail', $aiHandler('suggestLongTail'));
+
+// 🗂️ خوشه‌بندی کلیدواژه‌ها (Topic Clusters)
+$router->add('POST', 'ai/cluster-keywords', $aiHandler('clusterKeywords'));
+
+// 🧮 تحلیل TF-IDF نسبت به پایگاه دانش
+$router->add('POST', 'ai/tfidf', $aiHandler('tfidf'));
+
+/* ==================================================
  * 🔍 سئو (تولید برای صفحه)
  * ================================================== */
 $router->add('POST', 'seo/generate', $aiHandler('generateSeo'));
