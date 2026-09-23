@@ -204,6 +204,13 @@ class AiImageGenerator
         $bar = imagecolorallocate($img, $accent[0], $accent[1], $accent[2]);
         imagefilledrectangle($img, 0, 0, $w, 10, $bar);
 
+        /* --- 🖼 v2.7: لوگوی برند در بالای تصویر (به‌جای/همراه آیکون) --- */
+        $brandLogo = $this->brandLogoAsset($brand);
+        $logoBottom = 120; // محل شروع محدوده عنوان بعد از لوگو
+        if ($brandLogo !== null && $brandLogo['kind'] === 'raster') {
+            $this->drawBrandLogo($img, $brandLogo['path'], 92);
+        }
+
         /* --- متن عنوان فارسی: شکل‌دهی + دو خط --- */
         $white = imagecolorallocate($img, 255, 255, 255);
         $shadow = imagecolorallocate($img, 0, 0, 0);
@@ -211,7 +218,11 @@ class AiImageGenerator
         $size = count($lines) > 1 ? 46 : 54;
         $lineH = (int)($size * 1.55);
         $blockH = $lineH * count($lines);
-        $y = (int)(($h - $blockH) / 2 + $size);
+        $centerY = (int)(($h - $blockH) / 2 + $size);
+        if ($brandLogo !== null && $brandLogo['kind'] === 'raster') {
+            $centerY += 34; // جابه‌جایی جزئی برای جای لوگو
+        }
+        $y = $centerY;
         foreach ($lines as $line) {
             $shaped = PersianGlyphs::shapeForImage($line);
             $box = imagettfbbox($size, 0, $font, $shaped);
@@ -231,6 +242,12 @@ class AiImageGenerator
             $tw = abs($box[4] - $box[0]);
             imagettftext($img, $bs, 0, (int)(($w - $tw) / 2) + 1, $h - 38, $shadow, $font, $bShaped);
             imagettftext($img, $bs, 0, (int)(($w - $tw) / 2), $h - 39, $bar, $font, $bShaped);
+        }
+
+        /* --- 🪧 v2.7: واترمارک لوگوی نمایندگی در گوشه (نیمه‌شفاف) --- */
+        $agencyLogo = $this->agencyLogoAsset();
+        if ($agencyLogo !== null && $agencyLogo['kind'] === 'raster') {
+            $this->drawWatermark($img, $agencyLogo['path'], 110, 58);
         }
 
         $ok = imagepng($img, $destPath, 7);
@@ -298,8 +315,32 @@ class AiImageGenerator
         /* پرده پایین برای خوانایی متن */
         $p[] = '<rect y="' . ($h * .48) . '" width="' . $w . '" height="' . ($h * .52) . '" fill="url(#s' . $seed . ')"/>';
 
-        /* آیکون موضوعی */
-        $p[] = sprintf('<text x="%d" y="%d" font-size="86" text-anchor="middle" opacity=".95">%s</text>', $w / 2, $h * .36, $icon);
+        /* آیکون موضوعی (وقتی لوگوی برند موجود نیست) */
+        $brandLogo = $this->brandLogoAsset($brand);
+        if ($brandLogo === null) {
+            $p[] = sprintf('<text x="%d" y="%d" font-size="86" text-anchor="middle" opacity=".95">%s</text>', $w / 2, $h * .36, $icon);
+        } else {
+            /* 🖼 v2.7: لوگوی برند (رستر یا SVG) به‌صورت data-URI — وسط‌چین بالای عنوان */
+            $data = @file_get_contents($brandLogo['path']);
+            if (is_string($data) && $data !== '') {
+                $mime = $brandLogo['kind'] === 'svg' ? 'image/svg+xml' : 'image/' . strtolower(pathinfo($brandLogo['path'], PATHINFO_EXTENSION));
+                if ($mime === 'image/jpg') { $mime = 'image/jpeg'; }
+                $p[] = sprintf('<image x="%d" y="44" width="128" height="128" preserveAspectRatio="xMidYMid meet" opacity=".98" href="data:%s;base64,%s"/>',
+                    $w / 2 - 64, $mime, base64_encode($data));
+            }
+        }
+
+        /* 🪧 v2.7: واترمارک لوگوی نمایندگی — گوشه پایین-چپ، نیمه‌شفاف */
+        $agencyLogo = $this->agencyLogoAsset();
+        if ($agencyLogo !== null) {
+            $aData = @file_get_contents($agencyLogo['path']);
+            if (is_string($aData) && $aData !== '') {
+                $aMime = $agencyLogo['kind'] === 'svg' ? 'image/svg+xml' : 'image/' . strtolower(pathinfo($agencyLogo['path'], PATHINFO_EXTENSION));
+                if ($aMime === 'image/jpg') { $aMime = 'image/jpeg'; }
+                $p[] = sprintf('<image x="28" y="%d" width="104" height="104" preserveAspectRatio="xMidYMid meet" opacity=".42" href="data:%s;base64,%s"/>',
+                    $h - 132, $aMime, base64_encode($aData));
+            }
+        }
 
         /* عنوان — چند خطی */
         $lines = $this->wrapPersian($title, 30, 3);
@@ -348,21 +389,162 @@ class AiImageGenerator
         return array_combine(['c1', 'c2', 'accent'], $palettes[abs($seed) % count($palettes)]);
     }
 
-    /** 🔎 فونت فارسی TTF نصب‌شده روی سرور */
+    /** 🔎 فونت فارسی TTF — اولویت: فونت پیش‌فرض سایت‌ها (تنظیمات پنل فونت‌ها) → وزیرمتن → هر فونت موجود (v2.7) */
     private function findPersianFont(): ?string
     {
+        $candidates = [];
+
+        /* 🅰 فونت پیش‌فرض سیستم — همان فونتی که سایت‌های برند استفاده می‌کنند */
+        try {
+            $df = (array)(Config::get(Config::KEY_DEFAULT_FONT) ?: []);
+            foreach (['heading_fa', 'body_fa'] as $k) {
+                $slug = trim((string)($df[$k] ?? ''));
+                if ($slug !== '' && preg_match('/^[a-z0-9\-]+$/i', $slug)) {
+                    $candidates = array_merge($candidates, glob(ASSETS_PATH . '/fonts/fa/' . $slug . '/*bold*.ttf') ?: [], glob(ASSETS_PATH . '/fonts/fa/' . $slug . '/*.ttf') ?: []);
+                }
+            }
+        } catch (Throwable $e) {
+        }
+
+        /* 🅱 وزیرمتن (پیش‌فرض تاریخی) و بعد از آن هر فونت نصب‌شده */
         $candidates = array_merge(
+            $candidates,
             glob(ASSETS_PATH . '/fonts/fa/vazirmatn/*.ttf') ?: [],
             glob(ASSETS_PATH . '/fonts/fa/vazir/*.ttf') ?: [],
             glob(ASSETS_PATH . '/fonts/fa/*/*regular*.ttf') ?: [],
             glob(ASSETS_PATH . '/fonts/fa/*/*.ttf') ?: []
         );
+        $canRender = function_exists('imagettfbbox'); // 🛡 بدون FreeType، TTF قابل رندر نیست
         foreach ($candidates as $f) {
-            if (is_readable($f)) {
+            if (is_readable($f) && (!$canRender || @imagettfbbox(20, 0, $f, 'آ') !== false)) {
                 return $f;
             }
         }
         return null;
+    }
+
+    /**
+     * 🖼 مسیر لوگوی برند قابل استفاده در تصویر OG (v2.7)
+     * خروجی: ['path' => مطلق, 'kind' => 'raster'|'svg'] یا null
+     */
+    private function brandLogoAsset(array $brand): ?array
+    {
+        $rel = trim((string)($brand['logo'] ?? ''));
+        if ($rel === '') {
+            return null;
+        }
+        $abs = ROOT_PATH . '/' . ltrim($rel, '/');
+        if (!is_file($abs) || !is_readable($abs) || filesize($abs) > 3 * 1024 * 1024) {
+            return null;
+        }
+        $ext = strtolower(pathinfo($abs, PATHINFO_EXTENSION));
+        if ($ext === 'svg') {
+            return ['path' => $abs, 'kind' => 'svg'];
+        }
+        if (in_array($ext, ['png', 'jpg', 'jpeg', 'webp', 'gif'], true)) {
+            return ['path' => $abs, 'kind' => 'raster'];
+        }
+        return null;
+    }
+
+    /**
+     * 🪧 لوگوی نمایندگی برای واترمارک گوشه تصویر (v2.7)
+     */
+    private function agencyLogoAsset(): ?array
+    {
+        try {
+            $rel = trim((string)(Config::get(Config::KEY_AGENCY_LOGO) ?: ''));
+        } catch (Throwable $e) {
+            $rel = '';
+        }
+        if ($rel === '') {
+            return null;
+        }
+        $abs = ROOT_PATH . '/' . ltrim($rel, '/');
+        if (!is_file($abs) || !is_readable($abs) || filesize($abs) > 3 * 1024 * 1024) {
+            return null;
+        }
+        $ext = strtolower(pathinfo($abs, PATHINFO_EXTENSION));
+        if ($ext === 'svg') {
+            return ['path' => $abs, 'kind' => 'svg'];
+        }
+        if (in_array($ext, ['png', 'jpg', 'jpeg', 'webp', 'gif'], true)) {
+            return ['path' => $abs, 'kind' => 'raster'];
+        }
+        return null;
+    }
+
+    /**
+     * 🪧 رسم واترمارک نیمه‌شفاف در گوشه (GD) — ادغام دستی برای حفظ شفافیت PNG
+     */
+    private function drawWatermark($img, string $logoPath, int $max = 110, int $opacity = 58): void
+    {
+        $data = @file_get_contents($logoPath);
+        if ($data === false) {
+            return;
+        }
+        $wm = @imagecreatefromstring($data);
+        if (!$wm) {
+            return;
+        }
+        $sw = imagesx($wm);
+        $sh = imagesy($wm);
+        $scale = min($max / $sw, $max / $sh, 1);
+        $dw = max(1, (int)round($sw * $scale));
+        $dh = max(1, (int)round($sh * $scale));
+
+        $tmp = imagecreatetruecolor($dw, $dh);
+        imagealphablending($tmp, false);
+        imagesavealpha($tmp, true);
+        $transparent = imagecolorallocatealpha($tmp, 0, 0, 0, 127);
+        imagefill($tmp, 0, 0, $transparent);
+        imagealphablending($tmp, true);
+        imagecopyresampled($tmp, $wm, 0, 0, 0, 0, $dw, $dh, $sw, $sh);
+
+        $w = imagesx($img);
+        $h = imagesy($img);
+        $margin = 26;
+        $x = $margin;               // گوشه چپ‌پایین (برای RTL خوان‌تر است)
+        $y = $h - $dh - $margin;
+
+        /* ادغام با آلفا — روش cut برای حفظ شفافیت PNG */
+        imagealphablending($img, true);
+        imagesavealpha($img, true);
+        $cut = imagecreatetruecolor($dw, $dh);
+        imagealphablending($cut, false);
+        imagesavealpha($cut, true);
+        imagefill($cut, 0, 0, $transparent);
+        imagecopy($cut, $img, 0, 0, $x, $y, $dw, $dh);
+        imagecopy($cut, $tmp, 0, 0, 0, 0, $dw, $dh);
+        imagecopymerge($img, $cut, $x, $y, 0, 0, $dw, $dh, $opacity);
+        imagedestroy($cut);
+        imagedestroy($tmp);
+        imagedestroy($wm);
+    }
+
+    /**
+     * 🖼 رسم لوگوی برند در بالای تصویر (GD — فقط رستر؛ SVG در مسیر SVG می‌آید)
+     */
+    private function drawBrandLogo($img, string $logoPath, int $maxH = 96): void
+    {
+        $data = @file_get_contents($logoPath);
+        if ($data === false) {
+            return;
+        }
+        $logo = @imagecreatefromstring($data);
+        if (!$logo) {
+            return;
+        }
+        $sw = imagesx($logo);
+        $sh = imagesy($logo);
+        $scale = min($maxH / $sh, 300 / $sw, 1);
+        $dw = max(1, (int)round($sw * $scale));
+        $dh = max(1, (int)round($sh * $scale));
+        $w = imagesx($img);
+        imagealphablending($img, true);
+        imagesavealpha($img, true);
+        imagecopyresampled($img, $logo, (int)(($w - $dw) / 2), 42, 0, 0, $dw, $dh, $sw, $sh);
+        imagedestroy($logo);
     }
 
     /** 🧵 شکستن عنوان فارسی به خطوط (تقریبی بر اساس عرض نویسه) */
