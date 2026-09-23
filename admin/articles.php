@@ -59,9 +59,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'generate') {
     try {
         $ai = new SahandAI();
         $article = $ai->generateArticle([
-            'brand_id'   => (int)post('brand_id'),
-            'topic_type' => post('topic_type') ?: 'troubleshooting',
-            'device_key' => post('device_key') ?: null,
+            'brand_id'     => (int)post('brand_id'),
+            'topic_type'   => post('topic_type') ?: 'troubleshooting',
+            'device_key'   => post('device_key') ?: null,
+            'custom_title' => trim((string)post('custom_title')) ?: null, // 🆕 فاز Q.5
         ]);
         $id = $ai->saveArticle((int)post('brand_id'), $article, post('topic_type') ?: 'troubleshooting');
         flash('success', '🤖 مقاله تولید شد: «' . $article['title'] . '» (' . $article['word_count'] . ' کلمه)');
@@ -69,6 +70,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'generate') {
     } catch (Exception $e) {
         flash('danger', 'خطای تولید: ' . $e->getMessage());
         redirect('articles.php?generate=1');
+    }
+}
+
+/* 🎯 پیشنهاد بهترین عنوان سئو برای عنوان دلخواه (فاز Q.5 — AJAX) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'suggest_titles') {
+    Auth::enforceCsrf();
+    header('Content-Type: application/json; charset=utf-8');
+    try {
+        $customTitle = trim((string)post('custom_title'));
+        if (mb_strlen($customTitle) < 5) {
+            json_response(['success' => false, 'error' => 'عنوان دلخواه بسیار کوتاه است (حداقل ۵ نویسه).']);
+        }
+        $context = [];
+        $brandId = (int)post('brand_id');
+        if ($brandId > 0) {
+            $brand = $db->fetch('SELECT name_fa FROM brands WHERE id = ?', [$brandId]);
+            if ($brand) {
+                $context['brand_fa'] = $brand['name_fa'];
+            }
+        }
+        $deviceKey = trim((string)post('device_key'));
+        if ($deviceKey !== '') {
+            $device = $db->fetch('SELECT name_fa FROM brand_devices WHERE device_key = ? LIMIT 1', [$deviceKey]);
+            if ($device) {
+                $context['device_fa'] = $device['name_fa'];
+            }
+        }
+        $titleGen = new TitleGenerator();
+        json_response(['success' => true, 'data' => $titleGen->suggestForCustom($customTitle, $context, 8)]);
+    } catch (Exception $e) {
+        json_response(['success' => false, 'error' => $e->getMessage()], 400);
     }
 }
 
@@ -176,7 +208,7 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
             <div class="form-row-3">
                 <div class="form-group">
                     <label>برند</label>
-                    <select name="brand_id" class="form-control" required>
+                    <select name="brand_id" id="gen-brand" class="form-control" required>
                         <?php foreach ($brands as $brand): ?>
                             <option value="<?= (int)$brand['id'] ?>"><?= e($brand['name_fa']) ?></option>
                         <?php endforeach; ?>
@@ -224,7 +256,7 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
                 </div>
                 <div class="form-group">
                     <label>دستگاه (خالی = تصادفی)</label>
-                    <select name="device_key" class="form-control">
+                    <select name="device_key" class="form-control" id="gen-device">
                         <option value="">— تصادفی —</option>
                         <?php foreach ($db->fetchAll('SELECT DISTINCT device_key, name_fa FROM brand_devices ORDER BY name_fa') as $device): ?>
                             <option value="<?= e($device['device_key']) ?>"><?= e($device['name_fa']) ?></option>
@@ -232,8 +264,17 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
                     </select>
                 </div>
             </div>
+            <div class="form-group">
+                <label>عنوان دلخواه (اختیاری — فاز Q.5)</label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <input type="text" name="custom_title" id="gen-custom-title" class="form-control" style="flex:1;min-width:220px" placeholder="مثلاً: چرا یخچال سامسونگ من سرد نمی‌کند؟" maxlength="120">
+                    <button type="button" id="btn-suggest-titles" class="btn btn-outline" style="white-space:nowrap">🎯 پیشنهاد بهترین عنوان سئو</button>
+                </div>
+                <div class="hint" style="margin-top:6px">اگر خالی بگذارید، عنوان از قالب‌های نوع مقاله انتخاب می‌شود. با وارد کردن عنوان دلخواه، مقاله حول همان عنوان نوشته می‌شود.</div>
+                <div id="title-suggestions" style="display:none;margin-top:12px" class="seo-stats"></div>
+            </div>
             <button type="submit" class="btn btn-success btn-lg">🚀 تولید مقاله یکتا</button>
-            <div class="hint" style="margin-top:8px">موتور AI محتوای ۸۰۰-۱۵۰۰ کلمه‌ای یکتا با لینک داخلی و سئو تولید می‌کند.</div>
+            <div class="hint" style="margin-top:8px">موتور AI محتوای ۸۰۰-۱۵۰۰ کلمه‌ای یکتا با لینک داخلی، سئو و اصلاح خودکار نگارش فارسی تولید می‌کند.</div>
         </form>
     </div>
 </div>
@@ -317,4 +358,90 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
     <?php endif; ?>
 </div>
 <?php endif; ?>
+
+<!-- 🎯 فاز Q.5: پیشنهاد بهترین عنوان سئو -->
+<script>
+(function () {
+    'use strict';
+    var btn = document.getElementById('btn-suggest-titles');
+    var input = document.getElementById('gen-custom-title');
+    var box = document.getElementById('title-suggestions');
+    if (!btn || !input || !box) { return; }
+
+    function faNum(n) { return String(n).replace(/[0-9]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[+d]; }); }
+    function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function scoreBadge(s) {
+        var cls = s >= 75 ? 'badge-success' : (s >= 55 ? 'badge-warning' : 'badge-secondary');
+        return '<span class="badge ' + cls + '">' + faNum(s) + '/۱۰۰</span>';
+    }
+
+    btn.addEventListener('click', function () {
+        var title = input.value.trim();
+        if (title.length < 5) {
+            alert('لطفاً عنوان دلخواه را وارد کنید (حداقل ۵ نویسه).');
+            input.focus();
+            return;
+        }
+        var csrf = document.querySelector('input[name="csrf_token"]');
+        var brandSel = document.getElementById('gen-brand');
+        var deviceSel = document.getElementById('gen-device');
+        btn.disabled = true;
+        btn.textContent = '⏳ در حال تحلیل عنوان...';
+        box.style.display = 'block';
+        box.innerHTML = '<div style="padding:12px;color:var(--text-light)">در حال تحلیل عنوان و ساخت پیشنهادهای سئو...</div>';
+
+        var body = new URLSearchParams();
+        body.append('action', 'suggest_titles');
+        body.append('custom_title', title);
+        body.append('brand_id', brandSel ? brandSel.value : '0');
+        body.append('device_key', deviceSel ? deviceSel.value : '');
+        if (csrf) { body.append('csrf_token', csrf.value); }
+
+        fetch('articles.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrf ? csrf.value : '' },
+            body: body.toString(),
+            credentials: 'same-origin'
+        }).then(function (r) { return r.json(); }).then(function (res) {
+            btn.disabled = false;
+            btn.textContent = '🎯 پیشنهاد بهترین عنوان سئو';
+            if (!res.success) {
+                box.innerHTML = '<div style="padding:12px;color:#e74c3c">خطا: ' + esc(res.error || 'نامشخص') + '</div>';
+                return;
+            }
+            var d = res.data;
+            var html = '<div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:rgba(0,0,0,0.02)">';
+            html += '<div style="font-weight:700;margin-bottom:6px">📊 تحلیل عنوان شما: ' + scoreBadge(d.original_score) + '</div>';
+            html += '<div style="font-size:12px;color:var(--text-light);margin-bottom:4px">' + faNum(d.original_analysis.char_count) + ' کاراکتر — ' + esc(d.original_analysis.char_verdict) + '</div>';
+            if (d.best_gain > 0) {
+                html += '<div style="font-size:12.5px;margin:8px 0;color:#27ae60">🏆 بهترین پیشنهاد (+' + faNum(d.best_gain) + ' امتیاز): <b>' + esc(d.best) + '</b></div>';
+            } else {
+                html += '<div style="font-size:12.5px;margin:8px 0;color:#27ae60">✅ عنوان شما از نظر سئو وضعیت خوبی دارد؛ این گزینه‌ها نیز قابل بررسی‌اند:</div>';
+            }
+            html += '<div style="max-height:320px;overflow:auto;margin-top:8px">';
+            (d.suggestions || []).forEach(function (s, i) {
+                html += '<div class="title-suggest-item" data-title="' + esc(s.title).replace(/"/g, '&quot;') + '" style="display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;background:#fff">'
+                    + '<span style="min-width:26px;text-align:center;color:var(--text-light)">' + faNum(i + 1) + '.</span>'
+                    + '<div style="flex:1"><div style="font-size:13px;font-weight:600">' + esc(s.title) + (s.is_original ? ' <span class="badge badge-info">عنوان شما</span>' : '') + '</div>'
+                    + '<div style="font-size:11px;color:var(--text-light);margin-top:3px">' + faNum(s.char_count) + ' کاراکتر' + (s.has_number ? ' · 🔢 عدد' : '') + (s.is_question ? ' · ❓ پرسشی' : '') + (s.power_words && s.power_words.length ? ' · ⚡ ' + esc(s.power_words.join('، ')) : '') + (s.gain > 0 ? ' · <b style="color:#27ae60">+' + faNum(s.gain) + '</b>' : '') + '</div></div>'
+                    + '<span>' + scoreBadge(s.score) + '</span></div>';
+            });
+            html += '</div><div class="hint" style="margin-top:8px">💡 روی هر پیشنهاد کلیک کنید تا جایگزین عنوان دلخواه شما شود — سپس «تولید مقاله» را بزنید.</div></div>';
+            box.innerHTML = html;
+            Array.prototype.forEach.call(box.querySelectorAll('.title-suggest-item'), function (item) {
+                item.addEventListener('click', function () {
+                    input.value = item.getAttribute('data-title');
+                    input.focus();
+                    box.querySelectorAll('.title-suggest-item').forEach(function (el) { el.style.outline = 'none'; });
+                    item.style.outline = '2px solid var(--primary)';
+                });
+            });
+        }).catch(function (err) {
+            btn.disabled = false;
+            btn.textContent = '🎯 پیشنهاد بهترین عنوان سئو';
+            box.innerHTML = '<div style="padding:12px;color:#e74c3c">خطای ارتباط با سرور: ' + esc(err.message) + '</div>';
+        });
+    });
+})();
+</script>
 <?php require __DIR__ . '/includes/footer.php'; ?>

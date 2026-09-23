@@ -94,6 +94,147 @@ class TitleGenerator
     }
 
     /* ==================================================
+     * 🆕 فاز Q.5 — پیشنهاد بهترین عنوان سئو برای عنوان دلخواه
+     * ================================================== */
+
+    /**
+     * 🎯 پیشنهاد بهترین عنوان سئو برای عنوان دلخواه کاربر
+     *
+     * عنوان اصلی کاربر را تحلیل کرده، واریانت‌های سئو-بهینه می‌سازد
+     * (عدد، پرسش، واژه قدرت، سال، براکت) و همه را امتیازدهی و رتبه‌بندی می‌کند.
+     *
+     * @param string $customTitle عنوان دلخواه کاربر
+     * @param array  $context    [brand_fa, device_fa, city]
+     * @param int    $count      تعداد پیشنهاد خروجی
+     * @return array تحلیل + پیشنهادهای رتبه‌بندی‌شده
+     */
+    public function suggestForCustom(string $customTitle, array $context = [], int $count = 8): array
+    {
+        $customTitle = trim(preg_replace('/\s+/u', ' ', $customTitle) ?? $customTitle);
+        if (mb_strlen($customTitle) < 5) {
+            throw new RuntimeException('عنوان دلخواه بسیار کوتاه است (حداقل ۵ نویسه).');
+        }
+        if (mb_strlen($customTitle) > 120) {
+            $customTitle = mb_substr($customTitle, 0, 120);
+        }
+
+        $brand = (string)($context['brand_fa'] ?? '');
+        $device = (string)($context['device_fa'] ?? '');
+
+        // امتیاز عنوان اصلی کاربر
+        $originalScore = $this->score($customTitle, $this->focusOf($customTitle, $device));
+
+        // 🧹 هسته عنوان: حذف حشوهای رایج برای استخراج موضوع
+        $core = $customTitle;
+        $fillers = ['چگونه', 'چطور', 'راهنمای کامل', 'آموزش کامل', 'همه چیز درباره', 'همه آنچه درباره'];
+        foreach ($fillers as $f) {
+            $core = preg_replace('/(?<![\p{L}])' . preg_quote($f, '/') . ' (?=[\p{L}])/u', '', $core) ?? $core;
+        }
+        $core = trim(preg_replace('/\s+/u', ' ', $core) ?? $core, ' ؛،.:-');
+        $core = trim($core) !== '' ? trim($core) : $customTitle;
+
+        $focus = $this->focusOf($core, $device);
+        $num = $this->faNum(self::CATCHY_NUMBERS[array_rand(self::CATCHY_NUMBERS)]);
+        $num2 = $this->faNum(self::CATCHY_NUMBERS[array_rand(self::CATCHY_NUMBERS)]);
+        $year = '۱۴۰۴';
+
+        // 🧵 ساخت واریانت‌های سئو — قصد کاربر حفظ می‌شود، فقط جذابیت و سئو اضافه می‌شود
+        $variants = [
+            $customTitle, // عنوان اصلی (پایه مقایسه)
+            "{$core}؛ راهنمای کامل {$year}",
+            "{$num} نکته طلایی درباره {$core}",
+            "آیا {$core}؟ همه آنچه باید بدانید",
+            "{$core} را در {$num2} مرحله ساده انجام دهید",
+            "{$core}؛ علل، تشخیص و راه‌حل قطعی",
+            "{$num} اشتباه رایج در {$core} که پرهزینه است",
+            "{$core} — راهنمای جامع و کاربردی",
+            "چرا {$core} اهمیت دارد و چه باید کرد؟",
+            "{$num} راهکار اثبات‌شده برای {$core}",
+            "راهنمای صفر تا صد {$core} [{$year}]",
+            "{$core}؛ تجربه متخصصان و توصیه‌های عملی",
+        ];
+        if ($brand !== '' && mb_strpos($core, $brand) === false) {
+            $variants[] = "{$core} در {$brand}؛ چک‌لیست و راهنما";
+            $variants[] = "راهنمای جامع {$core} با خدمات {$brand}";
+        }
+
+        // 🏆 امتیازدهی و رتبه‌بندی همه واریانت‌ها
+        $scored = [];
+        foreach (array_unique($variants) as $i => $title) {
+            $s = $this->score($title, $focus);
+            $scored[] = [
+                'title'       => $title,
+                'is_original' => $i === 0,
+                'char_count'  => mb_strlen($title),
+                'score'       => $s,
+                'gain'        => $s - $originalScore,
+                'has_number'  => (bool)preg_match('/[0-9۰-۹]/', $title),
+                'is_question' => str_contains($title, '؟') || str_contains($title, '?'),
+                'power_words' => $this->powerWordsIn($title),
+            ];
+        }
+        usort($scored, fn($a, $b) => $b['score'] <=> $a['score']);
+
+        $top = array_slice($scored, 0, max(3, min(15, $count)));
+        $best = $top[0];
+
+        return [
+            'original'      => $customTitle,
+            'original_score'=> $originalScore,
+            'original_analysis' => [
+                'char_count'  => mb_strlen($customTitle),
+                'char_verdict'=> $this->charVerdict(mb_strlen($customTitle)),
+                'has_number'  => (bool)preg_match('/[0-9۰-۹]/', $customTitle),
+                'is_question' => str_contains($customTitle, '؟') || str_contains($customTitle, '?'),
+                'power_words' => $this->powerWordsIn($customTitle),
+                'keyword_position' => $this->keywordPosition($customTitle, $focus),
+            ],
+            'best'          => $best['title'],
+            'best_score'    => $best['score'],
+            'best_gain'     => $best['score'] - $originalScore,
+            'suggestions'   => $top,
+            'tips'          => [
+                'عنوان ۴۵ تا ۶۰ کاراکتری در نتایج گوگل کامل نمایش داده می‌شود.',
+                'وجود عدد در عنوان نرخ کلیک را تا ۱۵٪ افزایش می‌دهد.',
+                'کلیدواژه کانونی را در ۳ کلمه اول عنوان بیاورید.',
+                'فرم پرسشی یا براکت‌دار (مثل «راهنمای کامل») توجه جلب می‌کند.',
+            ],
+        ];
+    }
+
+    /**
+     * 🔎 استخراج کلیدواژه کانونی از عنوان/موضوع
+     */
+    private function focusOf(string $title, string $device): string
+    {
+        // اگر نام دستگاه در عنوان هست، همان محور است
+        $clean = trim(preg_replace('/[؟?!؛،.]+/u', '', $title) ?? $title);
+        if ($device !== '' && mb_strpos($clean, $device) !== false) {
+            return $device;
+        }
+        // ۴ واژه نخست به عنوان کلیدواژه کانونی
+        $words = array_slice(preg_split('/\s+/u', $clean, -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 4);
+        return implode(' ', $words);
+    }
+
+    /**
+     * 📏 حکم طول عنوان
+     */
+    private function charVerdict(int $len): string
+    {
+        if ($len < 35) {
+            return 'کوتاه — می‌توانید واژه‌های کلیدی بیشتری اضافه کنید';
+        }
+        if ($len >= 45 && $len <= 60) {
+            return 'ایده‌آل — در SERP گوگل کامل نمایش داده می‌شود';
+        }
+        if ($len <= 70) {
+            return 'قابل قبول — کمی طولانی است';
+        }
+        return 'بلند — در نتایج گوگل بریده می‌شود؛ کوتاه‌سازی کنید';
+    }
+
+    /* ==================================================
      * 🛠️ متدهای داخلی
      * ================================================== */
 

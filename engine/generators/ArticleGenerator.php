@@ -31,19 +31,20 @@ class ArticleGenerator
      * 📰 تولید یک مقاله کامل یکتا برای برند — نسخه ۲
      *
      * @param array  $brand اطلاعات برند (id, name_fa, name_en, ...)
-     * @param string $topicType نوع مقاله (troubleshooting|user_guide|maintenance|comparison|error_codes|buying_guide|energy_saving|seasonal_care|cost_guide)
+     * @param string $topicType نوع مقاله (۲۵ نوع فاز Q.4)
      * @param string|null $deviceKey کلید دستگاه هدف (اختیاری — تصادفی انتخاب می‌شود)
      * @param int   $variants تعداد واریانت تولیدی برای انتخاب بهترین (۱ تا ۴ — نسخه ۲)
+     * @param string|null $customTitle عنوان دلخواه کاربر (فاز Q.5 — مقاله حول همین عنوان نوشته می‌شود)
      * @return array مقاله کامل ['title','slug','content','excerpt','seo','quality',...]
      */
-    public function generate(array $brand, string $topicType, ?string $deviceKey = null, int $variants = 2): array
+    public function generate(array $brand, string $topicType, ?string $deviceKey = null, int $variants = 2, ?string $customTitle = null): array
     {
         $variants = max(1, min(4, $variants));
         $best = null;
 
         // 🎰 تولید N واریانت با seed های متفاوت و انتخاب بهترین امتیاز کیفیت
         for ($v = 0; $v < $variants; $v++) {
-            $candidate = $this->generateSingle($brand, $topicType, $deviceKey, $v);
+            $candidate = $this->generateSingle($brand, $topicType, $deviceKey, $v, $customTitle);
             if ($best === null || $candidate['quality']['score'] > $best['quality']['score']) {
                 $best = $candidate;
             }
@@ -56,7 +57,7 @@ class ArticleGenerator
     /**
      * 🎲 تولید یک واریانت مقاله (هسته تولید نسخه ۱ + قابلیت‌های جدید)
      */
-    private function generateSingle(array $brand, string $topicType, ?string $deviceKey, int $variantIndex): array
+    private function generateSingle(array $brand, string $topicType, ?string $deviceKey, int $variantIndex, ?string $customTitle = null): array
     {
         $devices = $this->db->fetchAll(
             'SELECT * FROM brand_devices WHERE brand_id = ? AND is_active = 1',
@@ -104,11 +105,15 @@ class ArticleGenerator
             'agency'    => Config::get(Config::KEY_AGENCY_NAME_FA) ?: 'سهند سرویس',
         ];
 
-        /* ---------- ۱️⃣ انتخاب عنوان از قالب‌های موضوع ---------- */
-        $title = TextProcessor::fillTemplate(
-            TextProcessor::seededPick($topicTemplates, $seed . '|title'),
-            $vars
-        );
+        /* ---------- ۱️⃣ انتخاب عنوان: دلخواه کاربر یا قالب‌های موضوع (فاز Q.5) ---------- */
+        if ($customTitle !== null && trim($customTitle) !== '') {
+            $title = trim($customTitle);
+        } else {
+            $title = TextProcessor::fillTemplate(
+                TextProcessor::seededPick($topicTemplates, $seed . '|title'),
+                $vars
+            );
+        }
 
         /* ---------- ۲️⃣ ساخت Outline مقاله ---------- */
         $sections = $this->buildOutline($topicType, $device, $deviceKnowledge, $vars, $seed);
@@ -193,7 +198,12 @@ class ArticleGenerator
 
         /* ---------- ۶️⃣ سئو ---------- */
         $seoGenerator = new SeoGenerator();
-        $focusKeyword = 'تعمیر ' . $device['name_fa'] . ' ' . $brand['name_fa'];
+        // 🎯 کلیدواژه کانونی: از عنوان دلخواه استخراج می‌شود (فاز Q.5)
+        if ($customTitle !== null && trim($customTitle) !== '') {
+            $focusKeyword = $this->focusFromTitle($title, $device['name_fa']);
+        } else {
+            $focusKeyword = 'تعمیر ' . $device['name_fa'] . ' ' . $brand['name_fa'];
+        }
         $seo = $seoGenerator->generateForArticle($title, $content, $focusKeyword, $vars);
 
         /* ---------- ۶.۵) 🆕 افزودن FAQ Schema به سئو ---------- */
@@ -750,6 +760,28 @@ class ArticleGenerator
             }
         }
         return $content;
+    }
+
+    /**
+     * 🎯 استخراج کلیدواژه کانونی از عنوان دلخواه کاربر (فاز Q.5)
+     */
+    private function focusFromTitle(string $title, string $deviceName): string
+    {
+        // حذف علائم و حشوها
+        $clean = trim(preg_replace('/[؟?!؛،.:\[\]()«»-]+/u', ' ', $title) ?? $title);
+        $fillers = ['چگونه', 'چطور', 'راهنمای کامل', 'آموزش کامل', 'راهنمای جامع', 'همه آنچه', 'همه چیز'];
+        foreach ($fillers as $f) {
+            $clean = preg_replace('/(?<![\p{L}])' . preg_quote($f, '/') . '(?![\p{L}])/u', ' ', $clean) ?? $clean;
+        }
+        $clean = trim(preg_replace('/\s+/u', ' ', $clean) ?? $clean);
+
+        // اگر نام دستگاه در عنوان است، محور ترکیبی دستگاه + واژه‌های کلیدی
+        $words = array_slice(preg_split('/\s+/u', $clean, -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 4);
+        $focus = implode(' ', $words);
+        if ($focus === '') {
+            return 'تعمیر ' . $deviceName;
+        }
+        return $focus;
     }
 
     /**

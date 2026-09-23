@@ -189,6 +189,7 @@ $router->add('POST', 'ai/analyze-keywords',     $aiHandler('analyzeKeywords'));
 $router->add('POST', 'ai/check-uniqueness',     $aiHandler('checkUniqueness'));
 $router->add('POST', 'ai/suggest-improvements', $aiHandler('suggestImprovements'));
 $router->add('POST', 'ai/suggest-topics',       $aiHandler('suggestArticleTopics'));
+$router->add('POST', 'ai/suggest-article-titles', $aiHandler('suggestArticleTitles')); // 🆕 فاز Q.5
 
 $router->add('GET', 'ai/templates', function () {
     json_response(['success' => true, 'data' => (new SahandAI())->templates()]);

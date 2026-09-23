@@ -136,7 +136,7 @@ class SahandAI
     /**
      * 📰 تولید مقاله کامل — POST /api/ai/generate-article
      *
-     * @param array $params [brand_id, topic_type, device_key, auto_save, variants]
+     * @param array $params [brand_id, topic_type, device_key, auto_save, variants, custom_title]
      */
     public function generateArticle(array $params): array
     {
@@ -150,13 +150,50 @@ class SahandAI
         $deviceKey = $params['device_key'] ?? null;
         // 🆕 نسخه ۲: تولید چند واریانت و انتخاب بهترین (پیش‌فرض ۲)
         $variants = (int)($params['variants'] ?? 2);
-        $article = $this->articleGen->generate($brand, $topicType, $deviceKey, $variants);
+        // 🆕 فاز Q.5: عنوان دلخواه کاربر — مقاله حول همین عنوان نوشته می‌شود
+        $customTitle = isset($params['custom_title']) ? trim((string)$params['custom_title']) : null;
+        if ($customTitle === '') {
+            $customTitle = null;
+        }
+        $article = $this->articleGen->generate($brand, $topicType, $deviceKey, $variants, $customTitle);
 
         // 💾 ذخیره خودکار در صورت درخواست
         if (!empty($params['auto_save'])) {
             $article['id'] = $this->saveArticle($brandId, $article, $topicType);
         }
         return $article;
+    }
+
+    /**
+     * 🎯 پیشنهاد بهترین عنوان سئو برای عنوان دلخواه — POST /api/ai/suggest-article-titles (فاز Q.5)
+     *
+     * @param array $params [custom_title, brand_id, device_key, count]
+     */
+    public function suggestArticleTitles(array $params): array
+    {
+        $customTitle = trim((string)($params['custom_title'] ?? ''));
+        if ($customTitle === '') {
+            throw new RuntimeException('پارامتر custom_title الزامی است.');
+        }
+
+        $context = [];
+        $brandId = (int)($params['brand_id'] ?? 0);
+        if ($brandId > 0) {
+            $brand = $this->db->fetch('SELECT name_fa FROM brands WHERE id = ?', [$brandId]);
+            if ($brand) {
+                $context['brand_fa'] = $brand['name_fa'];
+            }
+        }
+        $deviceKey = (string)($params['device_key'] ?? '');
+        if ($deviceKey !== '') {
+            $device = $this->db->fetch('SELECT name_fa FROM brand_devices WHERE device_key = ? LIMIT 1', [$deviceKey]);
+            if ($device) {
+                $context['device_fa'] = $device['name_fa'];
+            }
+        }
+
+        $titleGen = new TitleGenerator();
+        return $titleGen->suggestForCustom($customTitle, $context, (int)($params['count'] ?? 8));
     }
 
     /**
