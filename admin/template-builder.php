@@ -523,13 +523,21 @@ async function uiuxDesign() {
     btn.innerHTML = '<span class="spinner"></span> در حال طراحی...';
     try {
         const json = await uiuxRequest('uiux_design');
-        if (!json.success) { alert('خطا: ' + (json.error || 'نامشخص')); return; }
+        if (!json.success) { sahandError('خطا: ' + (json.error || 'نامشخص')); return; }
         const d = json.data;
-        if (!layout.length || confirm('چیدمان حرفه‌ای «' + (d.page_name_fa || '') + '» جایگزین چیدمان فعلی شود؟')) {
+        const applyLayout = function () {
             layout = d.layout;
             selectedIdx = -1;
             syncAndRender();
             renderProps();
+        };
+        if (!layout.length) {
+            applyLayout();
+        } else if (window.sahandConfirm) {
+            const ok = await sahandConfirm({ title: 'جایگزینی چیدمان', message: 'چیدمان حرفه‌ای «' + (d.page_name_fa || '') + '» جایگزین چیدمان فعلی شود؟', type: 'question', confirmText: 'بله، جایگزین کن', confirmIcon: '🪄' });
+            if (ok) { applyLayout(); }
+        } else if (window.confirm('چیدمان حرفه‌ای «' + (d.page_name_fa || '') + '» جایگزین چیدمان فعلی شود؟')) {
+            applyLayout();
         }
         let html = '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px">' +
             uiuxScoreBadge(d.ux_score) +
@@ -540,7 +548,7 @@ async function uiuxDesign() {
         html += '</ul><div class="alert alert-info" style="margin:10px 0 0">💾 برای ذخیره، دکمه «ذخیره قالب» را بزنید. با «🔍 بررسی UX» می‌توانید چیدمان را ممیزی کنید.</div>';
         showUiuxPanel('✨ طراحی UI/UX Pro — ' + (d.page_name_fa || ''), html);
     } catch (err) {
-        alert('خطای ارتباط با سرور');
+        sahandError('خطای ارتباط با سرور — دوباره تلاش کنید');
     } finally {
         btn.disabled = false;
         btn.innerHTML = old;
@@ -549,14 +557,14 @@ async function uiuxDesign() {
 
 /* 🔍 ممیزی UX چیدمان فعلی */
 async function uiuxReview() {
-    if (!layout.length) { alert('اول حداقل یک بلوک به صفحه اضافه کنید یا از «✨ طراحی با UI/UX Pro» استفاده کنید.'); return; }
+    if (!layout.length) { sahandError('اول حداقل یک بلوک به صفحه اضافه کنید یا از «✨ طراحی با UI/UX Pro» استفاده کنید.'); return; }
     const btn = document.getElementById('btn-uiux-review');
     const old = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> در حال بررسی...';
     try {
         const json = await uiuxRequest('uiux_review');
-        if (!json.success) { alert('خطا: ' + (json.error || 'نامشخص')); return; }
+        if (!json.success) { sahandError('خطا: ' + (json.error || 'نامشخص')); return; }
         const d = json.data;
         let html = '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px">' +
             uiuxScoreBadge(d.score) + '<b>' + (d.grade_fa || '') + '</b>' +
@@ -576,7 +584,7 @@ async function uiuxReview() {
         html += '<div style="text-align:center;margin-top:10px"><button type="button" class="btn btn-primary" onclick="uiuxImprove()">🛠️ اصلاح خودکار مشکلات</button></div>';
         showUiuxPanel('🔍 ممیزی UX — ' + (d.skill || ''), html);
     } catch (err) {
-        alert('خطای ارتباط با سرور');
+        sahandError('خطای ارتباط با سرور — دوباره تلاش کنید');
     } finally {
         btn.disabled = false;
         btn.innerHTML = old;
@@ -587,7 +595,7 @@ async function uiuxReview() {
 async function uiuxImprove() {
     try {
         const json = await uiuxRequest('uiux_improve');
-        if (!json.success) { alert('خطا: ' + (json.error || 'نامشخص')); return; }
+        if (!json.success) { sahandError('خطا: ' + (json.error || 'نامشخص')); return; }
         const d = json.data;
         layout = d.layout;
         selectedIdx = -1;
@@ -600,7 +608,7 @@ async function uiuxImprove() {
         html += '</ul><div class="alert alert-info" style="margin:8px 0 0">💾 برای ذخیره، دکمه «ذخیره قالب» را بزنید.</div>';
         showUiuxPanel('🛠️ اصلاح خودکار UI/UX Pro', html);
     } catch (err) {
-        alert('خطای ارتباط با سرور');
+        sahandError('خطای ارتباط با سرور — دوباره تلاش کنید');
     }
 }
 

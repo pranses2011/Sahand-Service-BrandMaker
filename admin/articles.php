@@ -451,52 +451,56 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
     var reportBox = document.getElementById('seo-improve-report');
     if (improveBtn && reportBox) {
         improveBtn.addEventListener('click', function () {
-            if (!confirm('همه اصلاحات سئو به‌صورت خودکار روی این مقاله اعمال و ذخیره شود؟')) {
-                return;
-            }
-            var csrf = document.querySelector('input[name="csrf_token"]');
-            var articleId = document.querySelector('input[name="article_id"]');
-            improveBtn.disabled = true;
-            improveBtn.textContent = '⏳ در حال اعمال اصلاحات سئو...';
-            reportBox.style.display = 'block';
-            reportBox.innerHTML = '<div style="padding:12px;color:var(--text-light)">در حال تحلیل و اصلاح مقاله... (نگارش، کلیدواژه، متا، لینک‌ها، FAQ و TOC)</div>';
+            var run = function () {
+                var csrf = document.querySelector('input[name="csrf_token"]');
+                var articleId = document.querySelector('input[name="article_id"]');
+                improveBtn.disabled = true;
+                improveBtn.textContent = '⏳ در حال اعمال اصلاحات سئو...';
+                reportBox.style.display = 'block';
+                reportBox.innerHTML = '<div style="padding:12px;color:var(--text-light)">در حال تحلیل و اصلاح مقاله... (نگارش، کلیدواژه، متا، لینک‌ها، FAQ و TOC)</div>';
 
-            var body = new URLSearchParams();
-            body.append('action', 'improve_seo');
-            body.append('article_id', articleId ? articleId.value : '0');
-            if (csrf) { body.append('csrf_token', csrf.value); }
+                var body = new URLSearchParams();
+                body.append('action', 'improve_seo');
+                body.append('article_id', articleId ? articleId.value : '0');
+                if (csrf) { body.append('csrf_token', csrf.value); }
 
-            fetch('articles.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrf ? csrf.value : '', 'X-Requested-With': 'XMLHttpRequest' },
-                body: body.toString(),
-                credentials: 'same-origin'
-            }).then(function (r) { return r.json(); }).then(function (res) {
-                improveBtn.disabled = false;
-                improveBtn.textContent = '🎯 بهبود سئو (اجرای مجدد)';
-                if (!res.success) {
-                    reportBox.innerHTML = '<div style="padding:12px;color:#e74c3c">خطا: ' + (res.error || 'نامشخص') + '</div>';
-                    return;
-                }
-                var d = res.data;
-                var fa = function (n) { return String(n).replace(/[0-9]/g, function (x) { return '۰۱۲۳۴۵۶۷۸۹'[+x]; }); };
-                var gainColor = d.gain > 0 ? '#27ae60' : '#e67e22';
-                var html = '<div style="border:1px solid ' + gainColor + ';border-radius:10px;padding:14px;background:#fafefe">';
-                html += '<div style="font-weight:700;margin-bottom:8px">🎯 نتیجه بهبود سئو: ' + fa(d.before.score) + ' ← <span style="color:' + gainColor + ';font-size:16px">' + fa(d.after.score) + '</span> (' + (d.gain > 0 ? '+' + fa(d.gain) : 'بدون تغییر') + ' امتیاز) — ' + d.after.grade + '</div>';
-                if (d.applied && d.applied.length) {
-                    html += '<div style="font-weight:600;margin:8px 0 4px">✅ اصلاحات اعمال‌شده:</div><ul style="margin:0;padding-right:20px;font-size:12.5px">';
-                    d.applied.forEach(function (a) { html += '<li style="margin-bottom:3px">' + a + '</li>'; });
-                    html += '</ul>';
-                } else {
-                    html += '<div style="color:var(--text-light);font-size:12.5px">این مقاله از قبل بهینه است — مورد قابل اصلاح جدیدی یافت نشد.</div>';
-                }
-                html += '<div style="margin-top:10px;font-size:12px;color:var(--text-light)">🔄 برای دیدن محتوای بهبودیافته، صفحه را رفرش کنید.</div></div>';
-                reportBox.innerHTML = html;
-            }).catch(function (err) {
-                improveBtn.disabled = false;
-                improveBtn.textContent = '🎯 بهبود سئو';
-                reportBox.innerHTML = '<div style="padding:12px;color:#e74c3c">خطای ارتباط با سرور: ' + err.message + '</div>';
-            });
+                fetch('articles.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrf ? csrf.value : '', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: body.toString(),
+                    credentials: 'same-origin'
+                }).then(function (r) { return r.json(); }).then(function (res) {
+                    improveBtn.disabled = false;
+                    improveBtn.textContent = '🎯 بهبود سئو (اجرای مجدد)';
+                    if (!res.success) {
+                        reportBox.innerHTML = '<div style="padding:12px;color:#e74c3c">خطا: ' + (res.error || 'نامشخص') + '</div>';
+                        if (window.sahandToast) { sahandToast({ message: res.error || 'خطا در بهبود سئو', type: 'danger' }); }
+                        return;
+                    }
+                    var d = res.data;
+                    var fa = function (n) { return String(n).replace(/[0-9]/g, function (x) { return '۰۱۲۳۴۵۶۷۸۹'[+x]; }); };
+                    var gainColor = d.gain > 0 ? '#27ae60' : '#e67e22';
+                    var html = '<div style="border:1px solid ' + gainColor + ';border-radius:10px;padding:14px;background:#fafefe">';
+                    html += '<div style="font-weight:700;margin-bottom:8px">🎯 نتیجه بهبود سئو: ' + fa(d.before.score) + ' ← <span style="color:' + gainColor + ';font-size:16px">' + fa(d.after.score) + '</span> (' + (d.gain > 0 ? '+' + fa(d.gain) : 'بدون تغییر') + ' امتیاز) — ' + d.after.grade + '</div>';
+                    if (d.applied && d.applied.length) {
+                        html += '<div style="font-weight:600;margin:8px 0 4px">✅ اصلاحات اعمال‌شده:</div><ul style="margin:0;padding-right:20px;font-size:12.5px">';
+                        d.applied.forEach(function (a) { html += '<li style="margin-bottom:3px">' + a + '</li>'; });
+                        html += '</ul>';
+                    } else {
+                        html += '<div style="color:var(--text-light);font-size:12.5px">این مقاله از قبل بهینه است — مورد قابل اصلاح جدیدی یافت نشد.</div>';
+                    }
+                    html += '<div style="margin-top:10px;font-size:12px;color:var(--text-light)">🔄 برای دیدن محتوای بهبودیافته، صفحه را رفرش کنید.</div></div>';
+                    reportBox.innerHTML = html;
+                    if (window.sahandToast) { sahandToast({ message: d.gain > 0 ? 'سئو ' + fa(d.before.score) + ' → ' + fa(d.after.score) + ' (' + (d.gain > 0 ? '+' + fa(d.gain) : '') + ')' : 'امتیاز تغییری نکرد', type: d.gain > 0 ? 'success' : 'info' }); }
+                }).catch(function (err) {
+                    improveBtn.disabled = false;
+                    improveBtn.textContent = '🎯 بهبود سئو';
+                    reportBox.innerHTML = '<div style="padding:12px;color:#e74c3c">خطای ارتباط با سرور: ' + err.message + '</div>';
+                });
+            };
+            if (window.sahandConfirm) {
+                sahandConfirm({ title: 'بهبود خودکار سئو', message: 'همه اصلاحات سئو به‌صورت خودکار روی این مقاله اعمال و ذخیره شود؟', type: 'question', confirmText: 'بله، بهبود بده', confirmIcon: '🎯' }).then(function (ok) { if (ok) { run(); } });
+            } else { run(); }
         });
     }
 
@@ -516,7 +520,7 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
     btn.addEventListener('click', function () {
         var title = input.value.trim();
         if (title.length < 5) {
-            alert('لطفاً عنوان دلخواه را وارد کنید (حداقل ۵ نویسه).');
+            if (window.sahandWarning) { sahandWarning('لطفاً عنوان دلخواه را وارد کنید (حداقل ۵ نویسه).', 'عنوان کوتاه است'); } else { alert('لطفاً عنوان دلخواه را وارد کنید (حداقل ۵ نویسه).'); }
             input.focus();
             return;
         }

@@ -39,6 +39,8 @@ try {
     <!-- 🧠 اسکریپت پنل در هد بارگذاری می‌شود تا حتی اگر رندر صفحه وسط کار قطع شود،
          منو و تعاملات پایه (toggleSidebar و ...) همچنان کار کنند -->
     <script src="<?= asset_ver('assets/js/admin.js') ?>" defer></script>
+    <!-- 💬 کادرهای تعاملی زیبا (جایگزین alert/confirm) — قبل از admin.js تا همیشه در دسترس باشد -->
+    <script src="<?= asset_ver('assets/js/sahand-dialog.js') ?>" defer></script>
 </head>
 <body>
 <div class="layout">

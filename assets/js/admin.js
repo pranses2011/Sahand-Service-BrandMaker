@@ -60,23 +60,40 @@ document.addEventListener('keydown', function (e) {
     }
 });
 
-/* 🗑️ حذف با تأیید — برای همه فرم‌های دارای data-confirm */
+/* 🗑️ حذف با تأیید — برای همه فرم‌های دارای data-confirm (کادر زیبای SahandDialog) */
 document.addEventListener('submit', function (e) {
     var form = e.target;
-    if (form.hasAttribute('data-confirm')) {
+    if (form.hasAttribute('data-confirm') && !form.hasAttribute('data-confirmed')) {
+        e.preventDefault();
         var message = form.getAttribute('data-confirm') || 'آیا از انجام این عملیات مطمئن هستید؟';
-        if (!window.confirm(message)) {
-            e.preventDefault();
+        if (window.sahandConfirm) {
+            sahandConfirm({ message: message, title: 'تأیید عملیات', type: 'warning', danger: true, confirmText: 'بله، انجام بده', confirmIcon: '🗑️' })
+                .then(function (ok) {
+                    if (ok) {
+                        form.setAttribute('data-confirmed', '1');
+                        form.submit();
+                    }
+                });
+        } else if (!window.confirm(message)) {
+            return;
+        } else {
+            form.setAttribute('data-confirmed', '1');
+            form.submit();
         }
     }
 });
 
-/* 🔗 لینک‌های حذف با تأیید */
+/* 🔗 لینک‌های حذف با تأیید (کادر زیبا) */
 document.addEventListener('click', function (e) {
     var el = e.target.closest('[data-confirm-link]');
-    if (el) {
-        if (!window.confirm(el.getAttribute('data-confirm-link') || 'آیا مطمئن هستید؟')) {
-            e.preventDefault();
+    if (el && !el.hasAttribute('data-confirmed')) {
+        e.preventDefault();
+        var message = el.getAttribute('data-confirm-link') || 'آیا مطمئن هستید؟';
+        var go = function () { el.setAttribute('data-confirmed', '1'); window.location.href = el.getAttribute('href'); };
+        if (window.sahandConfirm) {
+            sahandConfirm({ message: message, title: 'تأیید عملیات', type: 'warning', danger: true, confirmText: 'بله، ادامه بده', confirmIcon: '✅' }).then(function (ok) { if (ok) { go(); } });
+        } else if (window.confirm(message)) {
+            go();
         }
     }
 });
