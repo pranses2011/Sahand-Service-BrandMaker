@@ -2,7 +2,7 @@
 
 > سیستم اختصاصی تولید خودکار سایت برای برندهای لوازم خانگی — **PHP خالص، بدون هیچ وابستگی خارجی، سازگار با هاست اشتراکی cPanel**
 
-[![نسخه](https://img.shields.io/badge/نسخه-2.6.0-blue)]() [![موتور AI](https://img.shields.io/badge/موتور_AI-v3.6.0_خطایاب+تصاویر_AI-ff69b4)]() [![PHP](https://img.shields.io/badge/PHP-7.4%2B_بهینه_برای_8.3-purple)]() [![MySQL](https://img.shields.io/badge/MySQL-5.7%2B-orange)]() [![بدون وابستگی](https://img.shields.io/badge/وابستگی-صفر-green)]() [![تست](https://img.shields.io/badge/تست-388_موفق-brightgreen)]()
+[![نسخه](https://img.shields.io/badge/نسخه-2.7.0-blue)]() [![موتور AI](https://img.shields.io/badge/موتور_AI-v3.7.0_سئو_موضوع‌محور+خطایاب_وب‌محور-ff69b4)]() [![PHP](https://img.shields.io/badge/PHP-7.4%2B_بهینه_برای_8.3-purple)]() [![MySQL](https://img.shields.io/badge/MySQL-5.7%2B-orange)]() [![بدون وابستگی](https://img.shields.io/badge/وابستگی-صفر-green)]() [![تست](https://img.shields.io/badge/تست-450_موفق-brightgreen)]()
 
 ## 🎯 سایت ساز چه می‌کند؟
 
@@ -106,7 +106,7 @@ https://brandmaker.your-domain.ir/install.php
 
 📥 **[صفحه دانلود نسخه‌ها (Releases)](https://github.com/pranses2011/Sahand-Service-BrandMaker/releases)** — شامل بسته نصب کامل + بسته بروزرسانی + فایل‌های راهنما + چک‌سام SHA256
 
-> 🆕 **آخرین نسخه: [v2.6.0](https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/tag/v2.6.0)** — 🚨 خطایاب AI ۱۴ فیلدی + 🧠 یادگیری AI + 🖼️ تصاویر AI + 💬 ربات بله | [بسته بروزرسانی](https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/download/v2.6.0/Sahand-Service-BrandMaker-v2.6.0-update.zip) | [بسته نصب کامل](https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/download/v2.6.0/Sahand-Service-BrandMaker-v2.6.0-install.zip)
+> 🆕 **آخرین نسخه: [v2.7.0](https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/tag/v2.7.0)** — 🎯 سئو موضوع‌محور صفحات + 🚨 خطایاب وب‌محور (۵ دلیل/۵ راه‌حل) + ✒️ نگارش فارسی v1.2 + 👁 پیش‌نمایش مقاله + 🖼️ OG برنددار | [بسته بروزرسانی](https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/download/v2.7.0/Sahand-Service-BrandMaker-v2.7.0-update.zip) | [بسته نصب کامل](https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/download/v2.7.0/Sahand-Service-BrandMaker-v2.7.0-install.zip)
 
 ## 📁 ساختار پروژه
 
