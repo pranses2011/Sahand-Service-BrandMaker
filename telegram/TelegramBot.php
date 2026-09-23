@@ -634,6 +634,112 @@ class TelegramBot
                 $this->sendMessage($chatId, $this->formatAssistantReply($result), ['disable_preview' => true]);
                 return true;
 
+            /* ---------- 🆕 فاز Q.9 ---------- */
+
+            case '/grammar':
+            case '/نگارش':
+                if ($args === '') {
+                    $this->sendMessage($chatId,
+                        "📝 <b>اصلاح نگارش فارسی</b> (موتور PersianGrammar — فاز Q)\n\n" .
+                        "متن را بعد از فرمان بفرستید:\n<code>/نگارش ما این کار را انجام می دهیم</code>\n\n" .
+                        "تحویل: امتیاز نگارش ۰-۱۰۰ + فهرست ایرادها (نیم‌فاصله، سجاوندی، املای رایج، هم‌خوانی فعل و فاعل) + متن اصلاح‌شده + راهکارهای روان‌نویسی");
+                    return true;
+                }
+                $this->sendChatAction($chatId, 'typing');
+                try {
+                    $analysis = PersianGrammar::analyze($args);
+                    $fixed = PersianGrammar::fixText($args);
+                    $fluency = PersianGrammar::fluency($args);
+
+                    $msg = "📝 <b>گزارش نگارش</b>\n";
+                    $msg .= '🏆 امتیاز: <b>' . $analysis['score'] . '/۱۰۰</b> (' . $analysis['grade'] . ")\n";
+                    $m = $analysis['metrics'];
+                    $msg .= "📏 کلمات: {$m['word_count']} · جملات: {$m['sentence_count']} · میانگین طول جمله: {$m['avg_sentence_words']}\n";
+                    $msg .= '✂️ نیم‌فاصله جاافتاده: ' . $m['missing_zwnj'] . ' · ایراد سجاوندی: ' . $m['punctuation_issues'] . ' · هم‌خوانی فعل/فاعل: ' . $m['agreement_issues'] . "\n";
+
+                    if (!empty($analysis['issues'])) {
+                        $msg .= "\n🔎 <b>نمونه ایرادها:</b>\n";
+                        foreach (array_slice($analysis['issues'], 0, 6) as $i => $issue) {
+                            $msg .= ($i + 1) . '. ' . htmlspecialchars((string)$issue['hint']) . "\n";
+                        }
+                    }
+                    if (!empty($fluency)) {
+                        $msg .= "\n🌊 <b>روان‌نویسی:</b>\n";
+                        foreach (array_slice($fluency, 0, 3) as $s) {
+                            $msg .= '• ' . htmlspecialchars((string)$s['text']) . "\n";
+                        }
+                    }
+                    if ($fixed !== $args) {
+                        $msg .= "\n✅ <b>نسخه اصلاح‌شده:</b>\n" . htmlspecialchars(mb_substr($fixed, 0, 2500));
+                    } else {
+                        $msg .= "\n✅ متن شما از نظر نگارشی سالم است.";
+                    }
+                    $this->sendMessage($chatId, $msg, ['disable_preview' => true]);
+                } catch (Throwable $e) {
+                    $this->sendMessage($chatId, '❌ خطا در تحلیل نگارش: ' . htmlspecialchars($e->getMessage()));
+                }
+                return true;
+
+            case '/suggest':
+            case '/پیشنهاد':
+                if ($args === '') {
+                    $this->sendMessage($chatId,
+                        "🎯 <b>پیشنهاد بهترین عنوان سئو</b> (فاز Q)\n\n" .
+                        "عنوان دلخواه خود را بفرستید تا بهترین نسخه سئو را بگیرید:\n" .
+                        "<code>/پیشنهاد یخچال سامسونگ سرد نمی‌کند</code>\n\n" .
+                        "تحویل: امتیاز عنوان شما + ۸ پیشنهاد رتبه‌بندی‌شده (عدد/پرسش/واژه قدرت/سال) با میزان بهبود");
+                    return true;
+                }
+                $this->sendChatAction($chatId, 'typing');
+                try {
+                    $result = (new TitleGenerator())->suggestForCustom($args, [], 8);
+                    $msg = "🎯 <b>تحلیل عنوان شما</b>\n";
+                    $msg .= '📏 ' . $result['original_analysis']['char_count'] . " کاراکتر — " . $result['original_analysis']['char_verdict'] . "\n";
+                    $msg .= '🏆 امتیاز فعلی: <b>' . $result['original_score'] . "/۱۰۰</b>\n\n";
+                    $msg .= "⭐ <b>بهترین پیشنهاد</b> (" . ($result['best_gain'] > 0 ? '+' . $result['best_gain'] : 'بدون تغییر') . " امتیاز):\n";
+                    $msg .= '📰 <b>' . htmlspecialchars($result['best']) . "</b>\n\n";
+                    $msg .= "📋 <b>سایر پیشنهادها:</b>\n";
+                    foreach (array_slice($result['suggestions'], 1, 6) as $i => $s) {
+                        $msg .= ($i + 2) . '. ' . htmlspecialchars($s['title']) . ' — ' . $s['score'] . "/۱۰۰";
+                        if ($s['gain'] > 0) { $msg .= ' (+' . $s['gain'] . ')'; }
+                        $msg .= "\n";
+                    }
+                    $this->sendMessage($chatId, $msg, ['disable_preview' => true]);
+                } catch (Throwable $e) {
+                    $this->sendMessage($chatId, '❌ خطا: ' . htmlspecialchars($e->getMessage()));
+                }
+                return true;
+
+            case '/types':
+            case '/انواع':
+                $templates = TextProcessor::loadKnowledge('templates');
+                $types = $templates['article_topics'] ?? [];
+                $labels = [
+                    'troubleshooting' => '🔧 رفع ایراد و مشکلات رایج', 'user_guide' => '📘 راهنمای استفاده',
+                    'maintenance' => '🛡️ نگهداری و سرویس دوره‌ای', 'comparison' => '⚖️ مقایسه مدل‌ها',
+                    'error_codes' => '🚨 کدهای خطا و ریست', 'buying_guide' => '💰 راهنمای خرید',
+                    'energy_saving' => '⚡ صرفه‌جویی انرژی', 'seasonal_care' => '🌸 مراقبت فصلی',
+                    'cost_guide' => '💵 راهنمای هزینه', 'safety_guide' => '⛑️ نکات ایمنی',
+                    'installation_guide' => '🔩 نصب و راه‌اندازی', 'diy_vs_pro' => '🤔 تعمیر شخصی یا تخصصی',
+                    'common_mistakes' => '❌ اشتباهات رایج', 'warranty_guide' => '📜 گارانتی و خدمات',
+                    'tech_explainer' => '🔬 فناوری‌ها به زبان ساده', 'myths_facts' => '🎭 باور غلط و واقعیت',
+                    'checklist' => '✅ چک‌لیست', 'case_study' => '📁 مطالعه موردی',
+                    'glossary' => '📖 واژه‌نامه تخصصی', 'history_evolution' => '🕰️ تاریخچه و تکامل',
+                    'expert_tips' => '🎓 نکات حرفه‌ای', 'symptom_focus' => '🩺 عیب‌یابی علامت‌محور',
+                    'statistics' => '📊 آمار و ارقام', 'environment' => '🌿 محیط زیست',
+                    'service_process' => '🏭 فرآیند تعمیر نمایندگی',
+                ];
+                $msg = "📰 <b>انواع مقاله — " . count($types) . " نوع</b> (فاز Q)\n\n";
+                $i = 0;
+                foreach (array_keys($types) as $key) {
+                    $i++;
+                    $msg .= $labels[$key] ?? htmlspecialchars($key);
+                    $msg .= ($i % 3 === 0) ? "\n" : ' | ';
+                }
+                $msg .= "\n\n💡 در پنل سایت‌ساز هنگام تولید مقاله انتخاب می‌شوند؛ در تلگرام هم می‌توانید بنویسید: «مقاله آموزشی درباره یخچال بنویس»";
+                $this->sendMessage($chatId, $msg, ['disable_preview' => true]);
+                return true;
+
             default:
                 $this->sendMessage($chatId, "🤔 فرمان ناشناخته: <code>" . htmlspecialchars($cmd) . "</code>\n\n📖 /help را ببینید.");
                 return true;
@@ -1265,8 +1371,9 @@ class TelegramBot
     {
         return [
             ['📰 مقاله بنویس', '🔑 کلمات کلیدی یخچال'],
+            ['📝 نگارش: متن خود را اینجا بنویسید', '🎯 پیشنهاد عنوان سئو:'],
             ['🌐 جستجوی وب:', '📰 اخبار: لوازم خانگی'],
-            ['راهنما', 'برندهای پایگاه دانش'],
+            ['📰 انواع مقاله', 'راهنما', 'برندهای پایگاه دانش'],
         ];
     }
 
@@ -1282,6 +1389,8 @@ class TelegramBot
             "🔑 «کلمات کلیدی یخچال»\n" .
             "🏆 «امتیاز این متن: ...»\n" .
             "🔧 «این متن را بهبود بده: ...»\n" .
+            "📝 «نگارش: متن شما» — اصلاح نیم‌فاصله/سجاوندی/املای رایج/هم‌خوانی فعل و فاعل (جدید)\n" .
+            "🎯 «پیشنهاد عنوان سئو: عنوان دلخواه» — بهترین نسخه سئو با امتیاز (جدید)\n" .
             "🏷️ «عنوان برای تعمیر ماشین ظرفشویی بده»\n" .
             "🧭 «نیت جستجوی خرید یخچال ساید بای ساید چیست؟»\n" .
             "🔍 «تشخیص عیب: یخچال سرد نمی‌کند»\n" .
@@ -1292,6 +1401,9 @@ class TelegramBot
             "⚙️ <b>فرمان‌ها:</b>\n" .
             "/article [موضوع] — مقاله کامل با فایل و عکس\n" .
             "/seo [موضوع/متن] — پکیج سئوی پیشرفته (جدید)\n" .
+            "/grammar [متن] — اصلاح نگارش فارسی + امتیاز (جدید)\n" .
+            "/suggest [عنوان] — پیشنهاد بهترین عنوان سئو (جدید)\n" .
+            "/types — انواع مقاله (۲۵ نوع) (جدید)\n" .
             "/eeat [متن] — چک‌لیست اعتماد E-E-A-T (جدید)\n" .
             "/plan [موضوع] — برنامه انتشار محتوا (جدید)\n" .
             "/faq [موضوع] — سوالات متداول پیشنهادی (جدید)\n" .

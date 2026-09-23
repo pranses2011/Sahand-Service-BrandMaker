@@ -85,6 +85,18 @@ class CommandAssistant
             return $this->score($text, $command);
         }
 
+        // 1.75️⃣ 📝 اصلاح نگارش فارسی — «نگارش: متن» / «غلط‌گیری: متن» / «اصلاح نگارش متن: ...» (فاز Q.9 — قبل از intent سئو و بهبود)
+        if (preg_match('/(نگارش|غلط[\s\x{200C}]?گیری|غلط[\s\x{200C}]?یاب|اصلاح[\s\x{200C}]?نگارش)/u', $norm) && preg_match('/[:：]/u', $command)) {
+            $text = trim(preg_split('/[:：]/u', $command, 2)[1] ?? '');
+            return $this->grammar($text, $command);
+        }
+
+        // 1.78️⃣ 🎯 پیشنهاد بهترین عنوان سئو — «پیشنهاد عنوان سئو: ...» / «عنوان سئو من: ...» (فاز Q.9 — قبل از intent سئو و عنوان عام)
+        if (preg_match('/(پیشنهاد ?(بهترین )?عنوان سئو|عنوان سئو|عنوان دلخواه)/u', $norm) && preg_match('/[:：]/u', $command)) {
+            $title = trim(preg_split('/[:：]/u', $command, 2)[1] ?? '');
+            return $this->suggestSeoTitle($title, $command);
+        }
+
         // 1.8️⃣ 🏅 پکیج سئو — «سئو: ...» / «سئو بررسی کن ...» / «تحلیل سئو ...» (v3.3)
         if (preg_match('/(سئو|seo)/u', $norm)
             && preg_match('/(بررسی|تحلیل|پکیج|چک|کن|بده|:)/u', $norm)) {
@@ -112,8 +124,14 @@ class CommandAssistant
             return $this->faq($command);
         }
 
+        // 1.99️⃣ 📰 انواع مقاله — «انواع مقاله» / «چند نوع مقاله» (فاز Q.9)
+        if (preg_match('/(انواع مقاله|نوع مقاله|چند نوع مقاله)/u', $norm)) {
+            return $this->articleTypes();
+        }
+
         // 3️⃣ بهبود متن — «این متن را بهبود بده: ...»
-        if (preg_match('/(بهبود|اصلاح|تقویت)/u', $norm) && preg_match('/[:：]/u', $command)) {
+        if (preg_match('/(بهبود|اصلاح|تقویت)/u', $norm) && preg_match('/[:：]/u', $command)
+            && !preg_match('/نگارش/u', $norm)) {
             $text = trim(preg_split('/[:：]/u', $command, 2)[1] ?? '');
             return $this->improve($text, $command);
         }
@@ -390,6 +408,85 @@ class CommandAssistant
     }
 
     /**
+     * 📰 فهرست انواع مقاله — فاز Q.9 (۲۵ نوع)
+     */
+    private function articleTypes(): array
+    {
+        $templates = TextProcessor::loadKnowledge('templates');
+        $types = array_keys($templates['article_topics'] ?? []);
+        $labels = [
+            'troubleshooting' => 'رفع ایراد', 'user_guide' => 'راهنمای استفاده', 'maintenance' => 'نگهداری',
+            'comparison' => 'مقایسه مدل‌ها', 'error_codes' => 'کدهای خطا', 'buying_guide' => 'راهنمای خرید',
+            'energy_saving' => 'صرفه‌جویی انرژی', 'seasonal_care' => 'مراقبت فصلی', 'cost_guide' => 'راهنمای هزینه',
+            'safety_guide' => 'نکات ایمنی', 'installation_guide' => 'نصب و راه‌اندازی', 'diy_vs_pro' => 'تعمیر شخصی یا تخصصی',
+            'common_mistakes' => 'اشتباهات رایج', 'warranty_guide' => 'گارانتی و خدمات', 'tech_explainer' => 'فناوری‌ها به زبان ساده',
+            'myths_facts' => 'باور غلط و واقعیت', 'checklist' => 'چک‌لیست', 'case_study' => 'مطالعه موردی',
+            'glossary' => 'واژه‌نامه تخصصی', 'history_evolution' => 'تاریخچه و تکامل', 'expert_tips' => 'نکات حرفه‌ای',
+            'symptom_focus' => 'عیب‌یابی علامت‌محور', 'statistics' => 'آمار و ارقام', 'environment' => 'محیط زیست',
+            'service_process' => 'فرآیند تعمیر نمایندگی',
+        ];
+        $list = [];
+        foreach ($types as $key) {
+            $list[] = $labels[$key] ?? $key;
+        }
+        return [
+            'action'  => 'article_types',
+            'success' => true,
+            'message' => count($types) . ' نوع مقاله: ' . implode('، ', $list),
+            'result'  => ['count' => count($types), 'types' => $list],
+            'suggestions' => ['مقاله آموزشی درباره یخچال بنویس'],
+        ];
+    }
+
+    /**
+     * 📝 اصلاح نگارش فارسی — فاز Q.9 (PersianGrammar)
+     */
+    private function grammar(string $text, string $command): array
+    {
+        if (mb_strlen(trim($text)) < 20) {
+            return ['action' => 'grammar', 'success' => false, 'message' => 'متن برای بررسی نگارشی خیلی کوتاه است (حداقل ۲۰ نویسه).'];
+        }
+        $analysis = PersianGrammar::analyze($text);
+        $fixed = PersianGrammar::fixText($text);
+        $fluency = PersianGrammar::fluency($text);
+        return [
+            'action'  => 'grammar',
+            'success' => true,
+            'message' => 'امتیاز نگارش: ' . $analysis['score'] . '/۱۰۰ (' . $analysis['grade'] . ') — ' . count($analysis['issues']) . ' ایراد',
+            'result'  => [
+                'analysis' => $analysis,
+                'fixed'    => $fixed,
+                'fluency'  => $fluency,
+                'changed'  => $fixed !== $text,
+            ],
+            'suggestions' => ['این متن را بهبود بده: ' . mb_substr($text, 0, 80) . '...'],
+        ];
+    }
+
+    /**
+     * 🎯 پیشنهاد بهترین عنوان سئو برای عنوان دلخواه — فاز Q.9 (TitleGenerator v3.1)
+     */
+    private function suggestSeoTitle(string $title, string $command): array
+    {
+        $title = trim($title);
+        if (mb_strlen($title) < 5) {
+            return ['action' => 'suggest_seo_title', 'success' => false, 'message' => 'عنوان دلخواه بسیار کوتاه است (حداقل ۵ نویسه).'];
+        }
+        try {
+            $result = (new TitleGenerator())->suggestForCustom($title, [], 8);
+            return [
+                'action'  => 'suggest_seo_title',
+                'success' => true,
+                'message' => 'بهترین عنوان سئو (+ ' . $result['best_gain'] . ' امتیاز): ' . $result['best'],
+                'result'  => $result,
+                'suggestions' => ['مقاله بنویس درباره ' . $result['best']],
+            ];
+        } catch (Exception $e) {
+            return ['action' => 'suggest_seo_title', 'success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
      * 🧭 نیت جستجو
      */
     private function intent(string $command): array
@@ -522,6 +619,8 @@ class CommandAssistant
                 'کلمات کلیدی ماشین ظرفشویی',
                 'امتیاز این متن: <متن شما>',
                 'این متن را بهبود بده: <متن شما>',
+                'نگارش: <متن شما>',
+                'پیشنهاد عنوان سئو: <عنوان دلخواه شما>',
                 'عنوان برای تعمیر جاروبرشی بده',
                 'نیت جستجوی خرید تلویزیون چیست؟',
                 'تشخیص عیب: یخچال سرد نمی‌کند',
@@ -545,6 +644,8 @@ class CommandAssistant
                 'eeat'        => 'اعتمادسنجی E-E-A-T — «اعتمادسنجی: <متن>» (v3.3)',
                 'content_plan'=> 'برنامه محتوا — «برنامه محتوا برای ...» (v3.3)',
                 'faq'         => 'سوالات متداول — «سوالات متداول درباره ...» (v3.3)',
+                'grammar'     => 'اصلاح نگارش فارسی — «نگارش: <متن>» (فاز Q)',
+                'seo_title'   => 'پیشنهاد بهترین عنوان سئو — «پیشنهاد عنوان سئو: <عنوان>» (فاز Q)',
             ],
             'suggestions' => $this->suggestions(),
         ];
