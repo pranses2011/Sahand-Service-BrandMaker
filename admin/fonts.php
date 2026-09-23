@@ -80,6 +80,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         redirect('fonts.php');
     }
+
+    /* 🗑️🗑️ لغو نصب کامل فونت — حذف همه وزن‌های نصب‌شده از سرور */
+    if ($action === 'uninstall_font') {
+        $slug = post('font_slug');
+        $type = post('font_type') === 'en' ? 'en' : 'fa';
+        if (!preg_match('/^[a-z0-9\-]+$/', (string)$slug)) {
+            flash('danger', 'اسلاگ فونت نامعتبر است.');
+            redirect('fonts.php');
+        }
+        $manifestRaw = json_decode((string)file_get_contents(ASSETS_PATH . '/fonts/manifest.json'), true) ?: [];
+        $fontDef = null;
+        foreach ($manifestRaw['fonts'][$type] ?? [] as $f) {
+            if ($f['slug'] === $slug) { $fontDef = $f; break; }
+        }
+        if (!$fontDef) {
+            flash('danger', 'فونت در مانیفست یافت نشد.');
+            redirect('fonts.php');
+        }
+        $fontDir = ASSETS_PATH . '/fonts/' . $type . '/' . $slug;
+        $deleted = 0;
+        foreach ($fontDef['weights'] as $weight) {
+            foreach (['woff2', 'ttf', 'woff', 'otf'] as $ext) {
+                $file = $fontDir . '/' . $slug . '-' . $weight . '.' . $ext;
+                if (file_exists($file)) {
+                    if (@unlink($file)) { $deleted++; }
+                }
+            }
+        }
+        // 🧹 اگر پوشه خالی شد، خودش هم حذف شود
+        $remaining = glob($fontDir . '/*');
+        if (is_dir($fontDir) && empty($remaining)) {
+            @rmdir($fontDir);
+        }
+        flash($deleted > 0 ? 'success' : 'warning', $deleted > 0
+            ? "🗑️ لغو نصب «{$fontDef['name']}» کامل شد — {$deleted} فایل از سرور حذف شد. هر زمان خواستید دوباره نصبش کنید."
+            : 'هیچ فایل نصب‌شده‌ای برای این فونت یافت نشد.');
+        redirect('fonts.php');
+    }
 }
 
 $pageTitle = 'مدیریت فونت‌ها';
@@ -177,7 +215,7 @@ function fontFilesStatus(string $type, string $slug, array $weights): array
     <div class="card-header"><h3><?= $title ?> <span class="badge badge-info"><?= en_to_fa_digits((string)count($fontsList[$type] ?? [])) ?> فونت</span></h3></div>
     <div class="table-wrap">
         <table class="table">
-            <thead><tr><th>فونت</th><th>کاربرد</th><th>وزن‌ها (وضعیت فایل)</th><th>دانلود مستقیم روی سرور</th><th>آپلود دستی</th></tr></thead>
+            <thead><tr><th>فونت</th><th>کاربرد</th><th>وزن‌ها (وضعیت فایل)</th><th>دانلود مستقیم روی سرور</th><th>آپلود دستی</th><th>پیش‌نمایش / حذف</th></tr></thead>
             <tbody>
             <?php foreach ($fontsList[$type] ?? [] as $font): ?>
                 <?php
@@ -187,6 +225,11 @@ function fontFilesStatus(string $type, string $slug, array $weights): array
                 $totalWeights = count($font['weights']);
                 $allInstalled = $installedCount === $totalWeights && $totalWeights > 0;
                 $sourceInfo = $fontSources[$type][$font['slug']] ?? [];
+                /* اولین وزن نصب‌شده برای پیش‌نمایش */
+                $previewWeight = null;
+                $previewExt = null;
+                foreach ($status as $w => $ext) { if ($ext) { $previewWeight = $w; $previewExt = $ext; break; } }
+                $previewUrl = $previewWeight ? BASE_URL . '/assets/fonts/' . $type . '/' . $font['slug'] . '/' . $font['slug'] . '-' . $previewWeight . '.' . $previewExt : null;
                 ?>
                 <tr>
                     <td style="font-weight:700"><?= e($font['name']) ?><br><small style="color:var(--text-light);direction:ltr"><?= e($font['slug']) ?></small></td>
@@ -233,6 +276,27 @@ function fontFilesStatus(string $type, string $slug, array $weights): array
                             <button type="submit" class="btn btn-outline btn-sm">📤</button>
                         </form>
                     </td>
+                    <td style="white-space:nowrap">
+                        <?php if ($previewUrl): ?>
+                            <button type="button" class="btn btn-primary btn-sm btn-font-preview"
+                                    data-name="<?= e($font['name']) ?>"
+                                    data-url="<?= e($previewUrl) ?>"
+                                    data-format="<?= e(strtoupper($previewExt)) ?>"
+                                    data-weight="<?= e($previewWeight) ?>"
+                                    title="پیش‌نمایش ظاهر فونت">👁️ پیش‌نمایش</button>
+                        <?php else: ?>
+                            <span class="badge badge-secondary" title="ابتدا فونت را نصب کنید">نصب نشده</span>
+                        <?php endif; ?>
+                        <?php if ($installedCount > 0): ?>
+                            <form method="post" style="display:inline" data-confirm="لغو نصب «<?= e($font['name']) ?>»: همه <?= en_to_fa_digits((string)$installedCount) ?> فایل نصب‌شده از سرور حذف می‌شود. هر زمان خواستید می‌توانید دوباره نصبش کنید. ادامه؟">
+                                <?= Auth::csrfField() ?>
+                                <input type="hidden" name="action" value="uninstall_font">
+                                <input type="hidden" name="font_slug" value="<?= e($font['slug']) ?>">
+                                <input type="hidden" name="font_type" value="<?= $type ?>">
+                                <button type="submit" class="btn btn-danger btn-sm" title="لغو نصب و حذف فایل‌ها از سرور">🗑️</button>
+                            </form>
+                        <?php endif; ?>
+                    </td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
@@ -250,4 +314,66 @@ function fontFilesStatus(string $type, string $slug, array $weights): array
     تعریف <code>@font-face</code> همه ۳۰ فونت و ۱۳۴ وزن، از قبل در <code>assets/css/fonts.css</code> آماده است.
     منابع دانلود در فایل <code>assets/fonts/sources.json</code> قابل ویرایش‌اند.
 </div>
+
+<script>
+/* 👁️ پیش‌نمایش فونت — مودال با متن نمونه فارسی + اسلایدر اندازه
+   فایل فونت مستقیماً از سرور با @font-face موقتی بارگذاری می‌شود */
+(function () {
+    'use strict';
+    var seq = 0;
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.btn-font-preview');
+        if (!btn) { return; }
+        var name = btn.getAttribute('data-name') || 'فونت';
+        var url = btn.getAttribute('data-url');
+        var format = btn.getAttribute('data-format') || 'WOFF2';
+        var weight = btn.getAttribute('data-weight') || 'regular';
+
+        /* @font-face موقتی — بارگذاری مستقیم فایل نصب‌شده روی سرور */
+        var fam = 'FontPreview' + (++seq);
+        var st = document.createElement('style');
+        st.textContent = "@font-face{font-family:'" + fam + "';src:url('" + url + "') format('" +
+            (format === 'TTF' ? 'truetype' : 'woff2') + "');font-weight:400;font-display:swap}";
+        document.head.appendChild(st);
+
+        var sample = 'آب‌وفضا ۱۲۳۴۵۶۷۸۹۰ — تعمیر تخصصی لوازم خانگی\nبرند سهند سرویس؛ کیفیت، سرعت و ضمانت\nThe quick brown fox jumps over the lazy dog';
+        var wMap = { thin: 100, light: 300, regular: 400, medium: 500, demibold: 600, bold: 700, black: 900 };
+
+        if (window.SahandDialog) {
+            SahandDialog.dialog({
+                title: 'پیش‌نمایش فونت ' + name,
+                type: 'info',
+                icon: '🔤',
+                message: 'وزن فعال: ' + weight + ' · فرمت: ' + format + ' — اسلایدر را برای تغییر اندازه حرکت دهید:',
+                buttons: [{ text: 'بستن', btn: 'primary', icon: '✖️', value: false }],
+            }).onClose(function () { st.remove(); });
+            /* تزریق نمونه پس از باز شدن مودال */
+            setTimeout(function () {
+                var box = document.querySelector('.sd-backdrop:last-of-type .sd-body');
+                if (!box) { return; }
+                var wrap = document.createElement('div');
+                wrap.innerHTML =
+                    '<div style="border:1.5px dashed var(--border);border-radius:12px;padding:18px;margin-top:10px;background:#fafbfe">' +
+                    '<div id="fp-sample" style="font-family:\'' + fam + '\',Vazirmatn,Tahoma,sans-serif;font-size:26px;line-height:2.1;white-space:pre-line">' +
+                    sample.replace(/</g, '&lt;') + '</div></div>' +
+                    '<div style="display:flex;align-items:center;gap:10px;margin-top:12px">' +
+                    '<span style="font-size:12px;font-weight:700">اندازه:</span>' +
+                    '<input type="range" id="fp-size" min="14" max="52" value="26" style="flex:1;accent-color:var(--primary)">' +
+                    '<b id="fp-val" style="min-width:38px;text-align:center;font-size:12px">۲۶px</b></div>';
+                box.appendChild(wrap);
+                var slider = document.getElementById('fp-size');
+                var val = document.getElementById('fp-val');
+                var fa = function (n) { return String(n).replace(/[0-9]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[+d]; }); };
+                slider.addEventListener('input', function () {
+                    document.getElementById('fp-sample').style.fontSize = slider.value + 'px';
+                    val.textContent = fa(slider.value) + 'px';
+                });
+            }, 80);
+        } else {
+            window.open(url, '_blank');
+        }
+    });
+})();
+</script>
 <?php require __DIR__ . '/includes/footer.php'; ?>
