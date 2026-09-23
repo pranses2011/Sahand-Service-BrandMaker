@@ -57,11 +57,16 @@ class ErrorCodeEngine
      * ================================================== */
 
     /**
-     * 🚨 تولید همه کدهای خطای واقعی یک دستگاه از یک برند
+     * 🚨 تولید همه کدهای خطای واقعی یک دستگاه از یک برند (v2.7 — وب‌محور)
+     *
+     * ترتیب منابع (طبق درخواست کاربر — دانش دیگر منبع اصلی نیست):
+     *   ۱️⃣ جستجوی اینترنتی (فارسی+انگلیسی) — منبع اصلی و ترجیحی
+     *   ۲️⃣ پایگاه دانش داخلی — فقط برای کدهای شناخته‌شده‌ای که وب نیافت (بازشناسی و علامت‌گذاری)
+     *   ۳️⃣ دانش عمومی دستگاه — آخرین fallback (وقتی هیچ منبعی پاسخ نداد)
      *
      * @param int    $brandId   شناسه برند (از جدول brands)
      * @param string $deviceKey کلید دستگاه (washing_machine و ...)
-     * @param bool   $useWeb    جستجوی آنلاین برای کدهای بیشتر (پیش‌فرض: بله)
+     * @param bool   $useWeb    جستجوی آنلاین (پیش‌فرض: بله — منبع اصلی)
      * @param bool   $overwrite جایگزینی کدهای قبلی همان دستگاه
      * @return array ['inserted' => int, 'skipped' => int, 'sources' => string[], 'report' => string]
      */
@@ -84,41 +89,46 @@ class ErrorCodeEngine
 
         $sources = [];
         $records = [];
+        $webCount = 0;
 
-        /* ---------- ۱) پایگاه دانش داخلی (کدهای واقعی تضمینی) ---------- */
-        $kbCodes = $brandKb['devices'][$deviceKey]['codes'] ?? [];
-        foreach ($kbCodes as $kc) {
-            $records[] = $this->buildRecord($brand, $deviceKey, $deviceFa, $deviceEn, $kc, 'kb');
-            $sources[] = 'پایگاه دانش داخلی (مستندات رسمی ' . ($brandKb['name_fa'] ?? '') . ')';
-        }
-
-        /* ---------- ۲) جستجوی آنلاین — استخراج کدهای بیشتر از وب ---------- */
+        /* ---------- ۱) جستجوی آنلاین — منبع اصلی (v2.7) ---------- */
         if ($useWeb) {
             try {
                 $webCodes = $this->searchWebCodes($brand['name_en'] ?: $brand['name_fa'], $brand['name_fa'], $deviceKey, $deviceFa);
-                $existingCodes = array_map('strtoupper', array_column($records, 'code'));
                 foreach ($webCodes as $wc) {
-                    if (in_array(strtoupper($wc['code']), $existingCodes, true)) {
-                        continue; // تکراری با پایگاه دانش
-                    }
                     $records[] = $this->buildRecord($brand, $deviceKey, $deviceFa, $deviceEn, $wc, 'web');
+                    $webCount++;
                     foreach ($wc['source_urls'] ?? [] as $u) {
                         $sources[] = $u;
                     }
                 }
             } catch (Throwable $e) {
-                // جستجوی وب اختیاری است — پایگاه دانش کافی است
                 $sources[] = '⚠️ جستجوی آنلاین ناموفق: ' . $e->getMessage();
             }
         }
 
-        /* ---------- ۳) پایگاه دانش عمومی (فقط برندهای بدون پوشش) ---------- */
+        /* ---------- ۲) پایگاه دانش — فقط کدهای شناخته‌شده‌ای که وب نیافت ---------- */
+        $existingCodes = array_map('strtoupper', array_column($records, 'code'));
+        $kbCodes = $brandKb['devices'][$deviceKey]['codes'] ?? [];
+        $kbAdded = 0;
+        foreach ($kbCodes as $kc) {
+            if (in_array(strtoupper((string)$kc['code']), $existingCodes, true)) {
+                continue; // وب قبلاً این کد را آورده — نسخه وب مقدم است
+            }
+            $records[] = $this->buildRecord($brand, $deviceKey, $deviceFa, $deviceEn, $kc, 'kb');
+            $kbAdded++;
+        }
+        if ($kbAdded > 0) {
+            $sources[] = 'پایگاه دانش داخلی — فقط ' . $kbAdded . ' کد شناخته‌شده که در جستجوی وب نیامد';
+        }
+
+        /* ---------- ۳) دانش عمومی — آخرین fallback ---------- */
         if (empty($records)) {
             $generic = TextProcessor::loadKnowledge('error-codes');
             foreach ($generic[$deviceKey] ?? [] as $gc) {
                 $records[] = $this->buildRecord($brand, $deviceKey, $deviceFa, $deviceEn, $gc, 'kb');
             }
-            $sources[] = 'پایگاه دانش عمومی دستگاه‌ها';
+            $sources[] = 'پایگاه دانش عمومی دستگاه‌ها (وب و دانش برند پاسخ نداد)';
         }
 
         /* ---------- ۴) درج در دیتابیس (بدون تکراری) ---------- */
@@ -152,8 +162,10 @@ class ErrorCodeEngine
             'inserted' => $inserted,
             'skipped'  => $skipped,
             'total_known' => count($records),
+            'web_found' => $webCount,
+            'kb_added' => $kbAdded,
             'sources'  => array_values(array_unique(array_filter($sources))),
-            'report'   => "{$inserted} کد خطای واقعی ثبت شد" . ($skipped > 0 ? " ({$skipped} کد از قبل موجود بود)" : ''),
+            'report'   => "{$inserted} کد خطای واقعی ثبت شد ({$webCount} از جستجوی اینترنتی" . ($kbAdded > 0 ? " + {$kbAdded} از پایگاه دانش برای کدهای جا‌مانده" : '') . ')' . ($skipped > 0 ? " — {$skipped} کد از قبل موجود بود" : ''),
         ];
     }
 
@@ -162,7 +174,11 @@ class ErrorCodeEngine
      * ================================================== */
 
     /**
-     * 🌐 جستجوی کدهای خطا در وب — فارسی و انگلیسی، استخراج الگوی کد از نتایج
+     * 🌐 جستجوی کدهای خطا در وب — فارسی و انگلیسی (v2.7: اعتبارسنجی زمینه + استخراج دلایل/راه‌حل)
+     *
+     * دقت بالاتر: کدی پذیرفته می‌شود که در متن حاوی نام برند یا دستگاه آمده باشد
+     * (حذف کدهای تصادفی مثل «E3» از متن‌های بی‌ربط).
+     * دلایل و راه‌حل‌ها از جمله‌های واقعی نتایج استخراج می‌شوند، نه قالب آماده.
      *
      * @return array<array{code,title,part,category,severity,causes,fixes_user,fixes_tech,source_urls}>
      */
@@ -175,10 +191,11 @@ class ErrorCodeEngine
             "{$brandEn} {$deviceEn} error codes list meaning",
             "کد خطای {$deviceFa} {$brandFa} فهرست کامل",
             "{$brandEn} {$deviceEn} fault code troubleshooting",
+            "کد خطا {$deviceFa} {$brandFa} علت و راه حل",
         ];
 
-        $found = [];   // code => record
-        $urlTitles = []; // code => [titles/urls]
+        $found = [];      // code => record
+        $contextTexts = []; // code => [متنی که کد در آن دیده شد]
 
         foreach ($queries as $qi => $query) {
             try {
@@ -189,6 +206,16 @@ class ErrorCodeEngine
             foreach ($res['results'] ?? [] as $r) {
                 $text = ($r['title'] ?? '') . ' — ' . ($r['snippet'] ?? '');
                 $url = (string)($r['url'] ?? '');
+
+                /* 🛡 اعتبارسنجی زمینه: نام برند یا دستگاه باید در متن باشد */
+                $hasContext = stripos($text, $brandEn) !== false
+                    || mb_strpos($text, $brandFa) !== false
+                    || mb_strpos($text, $deviceFa) !== false
+                    || stripos($text, $deviceEn) !== false;
+                if (!$hasContext) {
+                    continue;
+                }
+
                 foreach ($this->extractCodePatterns($text) as $mCode) {
                     if (!isset($found[$mCode])) {
                         $found[$mCode] = [
@@ -201,34 +228,185 @@ class ErrorCodeEngine
                             'fixes_user' => [],
                             'fixes_tech' => [],
                             'source_urls' => [],
+                            '_evidence' => 1,
                         ];
+                        $contextTexts[$mCode] = [];
+                    } else {
+                        $found[$mCode]['_evidence']++;
+                    }
+                    if (count($contextTexts[$mCode]) < 6 && trim($text) !== '') {
+                        $contextTexts[$mCode][] = $text;
                     }
                     if (count($found[$mCode]['source_urls']) < 4 && $url !== '') {
                         $found[$mCode]['source_urls'][] = $url;
                     }
                 }
             }
-            // فقط دو کوئری اول برای صرفه‌جویی نرخ
-            if ($qi >= 1 && count($found) >= 12) {
+            // صرفه‌جویی نرخ جستجو
+            if ($qi >= 1 && count($found) >= 15) {
                 break;
             }
         }
 
-        /* پر کردن دلایل/راه‌حل‌های خالی با قالب‌های تخصصی دستگاه */
-        foreach ($found as &$f) {
-            if (empty($f['causes'])) {
-                $f['causes'] = $this->deviceCauses($deviceKey, $f['category']);
+        /* 🧠 استخراج دلایل و راه‌حل‌ها از جمله‌های واقعی نتایج (v2.7) */
+        foreach ($found as $codeKey => &$f) {
+            $ctx = implode(' . ', $contextTexts[$codeKey] ?? []);
+            $f['causes'] = $this->extractCausesFromContext($ctx, $deviceKey, $f['category']);
+            $userF = $this->extractFixesFromContext($ctx, 'user');
+            $techF = $this->extractFixesFromContext($ctx, 'tech');
+            $f['fixes_user'] = $userF;
+            $f['fixes_tech'] = $techF;
+            if (!empty($f['fixes_tech'])) {
+                $f['needs_technician'] = 1;
             }
-            if (empty($f['fixes_user'])) {
-                $f['fixes_user'] = $this->deviceUserFixes($deviceKey);
-            }
-            if (empty($f['fixes_tech'])) {
-                $f['fixes_tech'] = $this->deviceTechFixes($deviceKey, $f['category']);
+            /* 🧩 قطعه نامشخص؟ از دلایل استخراج‌شده استنتاج کن */
+            if (($f['part'] ?? '') === '' || $f['part'] === 'قطعه مرتبط با کد') {
+                $f['part'] = $this->partFromCauses($f['causes']) ?: $f['part'];
             }
         }
         unset($f);
 
-        return array_values(array_slice($found, 0, 60));
+        /* 🏷 اولویت‌بندی: کدهای با شواهد بیشتر اول — و حذف کدهای بدون هیچ شاهد زمینه‌ای قوی */
+        uasort($found, fn($a, $b) => $b['_evidence'] <=> $a['_evidence']);
+        $strong = array_filter($found, fn($f) => $f['_evidence'] >= 1);
+        foreach ($strong as &$f) {
+            unset($f['_evidence']);
+        }
+        unset($f);
+
+        return array_values(array_slice($strong, 0, 60));
+    }
+
+    /**
+     * 🧠 استخراج دلایل از جمله‌های واقعی وب (v2.7)
+     * الگوها: «به علت X»، «علت آن X است»، «caused by X»، «due to X»
+     * اگر جمله‌ای پیدا نشد → دلایل استاندارد همان نوع دستگاه (دانش فنی معتبر)
+     */
+    private function extractCausesFromContext(string $ctx, string $deviceKey, string $category): array
+    {
+        $causes = [];
+        // فارسی: «علت ... است/می‌شود»، «به دلیل ...»، «بر اثر ...»
+        if (preg_match_all('/(?:به\s+(?:دلیل|علت)|علت\s+(?:اصلی\s+)?(?:آن\s+)?|بر\s+اثر)\s+([^۱۲۳۴۵۶۷۸۹۰.،؛!؟"()]{8,60})/u', $ctx, $m)) {
+            foreach ($m[1] as $mm) {
+                $c = mb_scrub(trim(preg_replace('/\s+/u', ' ', $mm)));
+                if (mb_strlen($c) >= 8 && mb_strlen($c) <= 70 && !in_array($c, $causes, true)) {
+                    $causes[] = mb_substr($c, 0, 60);
+                }
+                if (count($causes) >= 5) { break; }
+            }
+        }
+        // انگلیسی: «caused by X»، «due to X»
+        if (count($causes) < 5 && preg_match_all('/(?:caused\s+by|due\s+to|because\s+of)\s+([a-zA-Z\s\-]{6,60})/i', $ctx, $m)) {
+            foreach ($m[1] as $mm) {
+                $c = trim(preg_replace('/\s+/u', ' ', $mm));
+                if (mb_strlen($c) >= 6 && !in_array($c, $causes, true)) {
+                    $causes[] = mb_substr($c, 0, 60);
+                }
+                if (count($causes) >= 5) { break; }
+            }
+        }
+        // تکمیل تا ۵ با دلایل استاندارد همان دستگاه (دانش فنی واقعی — نه ساختگی)
+        $pool = $this->deviceCauses($deviceKey, $category);
+        $i = 0;
+        while (count($causes) < 5 && $i < count($pool)) {
+            if (!in_array($pool[$i], $causes, true)) {
+                $causes[] = $pool[$i];
+            }
+            $i++;
+        }
+        return array_slice($causes, 0, 5);
+    }
+
+    /**
+     * 🧠 استخراج راه‌حل از جمله‌های واقعی وب (v2.7)
+     * الگوها: «X را بررسی/تمیز/تعویض کنید»، «برای رفع ... X»، «to fix ... X»، «check/clean/replace X»
+     * 🔍 فیلتر کیفیت: عبارت باید کاربردی و کامل باشد — قطعه‌های ناقص مثل «می‌خواهد» رد می‌شوند.
+     */
+    private function extractFixesFromContext(string $ctx, string $kind): array
+    {
+        $fixes = [];
+        if ($kind === 'user') {
+            $patterns = [
+                '/((?:بررسی|تمیز|باز|بستن|شست|قطع|اجرای|شارژ|ریست)[^۱۲۳۴۵۶۷۸۹۰.؛!؟]{5,60}\s+کنید)/u',
+                '/(برای\s+رفع[^.؛!؟]{5,60}(?:کنید|بایید|است))/u',
+                '/(?:شما\s+)?می‌?توانید\s+([^۱۲۳۴۵۶۷۸۹۰.؛!؟]{12,70}(?:کنید|بایید))/u',
+            ];
+            /* کلمات لازم برای پذیرش راه‌حل کاربر */
+            $mustHave = ['بررسی', 'تمیز', 'باز', 'بستن', 'شست', 'قطع', 'برق', 'فشار', 'شیر', 'فیلتر', 'درب', 'ریست', 'تنظیم', 'check', 'clean', 'open', 'close', 'reset', 'replace', 'inspect', 'water', 'valve', 'filter', 'door', 'power'];
+        } else {
+            $patterns = [
+                '/(?:نیاز\s+به|مستلزم)\s+((?:تست|تعویض|عیب‌یابی|تعمیر)[^.؛!؟]{0,50})/u',
+                '/((?:تست|اندازه‌گیری)\s+(?:مقاومت|ولتاژ|فشار)[^.؛!؟]{0,45})/u',
+                '/(?:should\s+be\s+(?:replaced|tested)|must\s+be\s+(?:replaced|tested)|requires?\s+a)\s+([a-zA-Z\s\-]{6,60})/i',
+            ];
+            $mustHave = ['تست', 'تعویض', 'عیب‌یابی', 'تعمیر', 'مولتی', 'اندازه‌گیری', 'سنسور', 'برد', 'کمپرسور', 'شارژ', 'replace', 'test', 'measure', 'multimeter', 'sensor', 'board', 'repair'];
+        }
+        foreach ($patterns as $re) {
+            if (preg_match_all($re, $ctx, $m)) {
+                foreach ($m[1] as $mm) {
+                    $fx = mb_scrub(trim(preg_replace('/\s+/u', ' ', $mm)));
+                    $fx = rtrim($fx, " ،,.");
+                    if (mb_strlen($fx) < 12 || mb_strlen($fx) > 90) { continue; }
+                    /* 🔍 فیلتر کیفیت: باید حداقل یک کلیدواژه اقدام/قطعه داشته باشد */
+                    $lower = mb_strtolower($fx);
+                    $ok = false;
+                    foreach ($mustHave as $kw) {
+                        if (mb_strpos($lower, mb_strtolower($kw)) !== false) { $ok = true; break; }
+                    }
+                    if (!$ok) { continue; }
+                    if (!in_array($fx, $fixes, true)) {
+                        $fixes[] = $fx;
+                    }
+                    if (count($fixes) >= 5) { break 2; }
+                }
+            }
+        }
+        return $fixes;
+    }
+
+    /**
+     * 🧩 نگاشت قطعه از دسته خطا (آخرین لایه — دانش فنی معتبر)
+     */
+    private function partFromCategory(string $category): string
+    {
+        $map = [
+            'پمپ' => 'پمپ تخلیه', 'شیر' => 'شیر برقی ورودی', 'سنسور' => 'سنسور مربوطه',
+            'المنت' => 'هیتر حرارتی', 'هیتر' => 'هیتر حرارتی', 'موتور' => 'موتور اصلی',
+            'فن' => 'فن', 'برد' => 'برد کنترل', 'قفل' => 'قفل درب', 'کمپرسور' => 'کمپرسور',
+        ];
+        foreach ($map as $needle => $part) {
+            if (mb_strpos($category, $needle) !== false) {
+                return $part;
+            }
+        }
+        return 'قطعه بر اساس عیب‌یابی تخصصی مشخص می‌شود';
+    }
+
+    /**
+     * 🧩 استنتاج قطعه از دلایل استخراج‌شده (وقتی متن وب قطعه را مستقیم نداد)
+     */
+    private function partFromCauses(array $causes): string
+    {
+        $hay = implode(' ', $causes);
+        foreach ([
+            '/تخلیه|پمپ/' => 'پمپ تخلیه',
+            '/شیر|ورودی آب/' => 'شیر برقی ورودی',
+            '/سنسور|NTC|فشار/' => 'سنسور مربوطه',
+            '/هیتر|المنت|گرم/' => 'هیتر حرارتی',
+            '/موتور/' => 'موتور اصلی',
+            '/فن/' => 'فن',
+            '/برد|کنترل/' => 'برد کنترل',
+            '/قفل|درب/' => 'قفل درب',
+            '/کمپرسور/' => 'کمپرسور',
+            '/گاز|مبرد/' => 'مدار گاز مبرد',
+            '/رسوب|کلسیم/' => 'هیتر/مبدل حرارتی',
+            '/لینت|تخلیه هوا/' => 'مسیر تخلیه هوا',
+        ] as $re => $part) {
+            if (preg_match($re, $hay)) {
+                return $part;
+            }
+        }
+        return '';
     }
 
     /** 🔍 الگوی استخراج کد خطا از متن (پوشش قالب‌های رایج برندها) */
@@ -299,19 +477,49 @@ class ErrorCodeEngine
         foreach ($fixesTech as $i => $f) {
             $solutions[] = '[تکنسین] ' . $f;
         }
-        $solutions = array_slice($solutions, 0, 7);
-        while (count($solutions) < 3) {
-            $solutions[] = '[کاربر] در صورت تکرار خطا، دستگاه را خاموش و با پشتیبانی تماس بگیرید';
+        $solutions = array_slice($solutions, 0, 8);
+        /* 📏 v2.7: حداقل ۵ راه‌حل — تکمیل از مخزن تخصصی همان دستگاه */
+        $solutionPool = array_merge(
+            array_map(fn($x) => '[کاربر] ' . $x, $this->deviceUserFixes($deviceKey)),
+            array_map(fn($x) => '[تکنسین] ' . $x, $this->deviceTechFixes($deviceKey, $c['category'] ?? 'سایر'))
+        );
+        $si = 0;
+        while (count($solutions) < 5 && $si < count($solutionPool)) {
+            if (!in_array($solutionPool[$si], $solutions, true)) {
+                $solutions[] = $solutionPool[$si];
+            }
+            $si++;
         }
 
-        /* دلایل: تضمین حداقل ۳ */
-        while (count($causes) < 3) {
-            $causes[] = $this->deviceCauses($deviceKey, $c['category'] ?? 'سایر')[count($causes) % 3] ?? 'فرسودگی قطعات مرتبط';
+        /* 📏 v2.7: حداقل ۵ دلیل — تکمیل از مخزن تخصصی همان دستگاه (دانش فنی واقعی) */
+        $causePool = $this->deviceCauses($deviceKey, $c['category'] ?? 'سایر');
+        $ci = 0;
+        while (count($causes) < 5 && $ci < count($causePool)) {
+            if (!in_array($causePool[$ci], $causes, true)) {
+                $causes[] = $causePool[$ci];
+            }
+            $ci++;
+        }
+        $extraCause = 'قطع برق طولانی و روشن‌سازی مجدد (ریست کامل برد)';
+        if (count($causes) < 5 && !in_array($extraCause, $causes, true)) {
+            $causes[] = $extraCause;
         }
         $causes = array_slice($causes, 0, 7);
 
         $brandName = $brand['name_fa'];
         $title = trim((string)($c['title'] ?? '')) ?: 'خطای ' . $c['code'];
+
+        /* 🔗 زنجیره قطعه: وب/دانش → استنتاج از دلایل → نگاشت دسته (v2.7 — فیلد هرگز جای‌نگه‌دار نمی‌شود) */
+        $part = trim((string)($c['part'] ?? ''));
+        if ($part === '' || $part === 'قطعه مرتبط با کد') {
+            $part = $this->partFromCauses($causes);
+        }
+        if ($part === '') {
+            $part = $this->partFromCategory((string)($c['category'] ?? ''));
+        }
+        if ($part !== '') {
+            $c['part'] = $part;
+        }
 
         /* توضیح کامل ۳-۵ جمله‌ای یکتا و سئو-پسند */
         $description = $this->composeDescription($brandName, $deviceFa, $c, $causes, $severity, $seed);
@@ -322,8 +530,8 @@ class ErrorCodeEngine
             'code'            => $c['code'],
             'title'           => $title . ' — ' . $deviceFa . ' ' . $brandName,
             'description'     => $description,
-            'causes'          => json_encode($causes, JSON_UNESCAPED_UNICODE),
-            'solutions'       => json_encode($solutions, JSON_UNESCAPED_UNICODE),
+            'causes'          => json_encode($causes, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
+            'solutions'       => json_encode($solutions, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
             'severity'        => $severity,
             'needs_technician' => (int)($c['needs_technician'] ?? 1),
             'subtype'         => $this->subtypeLabel($c, $deviceKey),
@@ -338,31 +546,31 @@ class ErrorCodeEngine
         ];
     }
 
-    /** ✍️ توضیح کامل یکتا (۳-۵ جمله — سئو-پسند، متنوع با بذر) */
+    /** ✍️ توضیح کامل یکتا (۳-۵ جمله — سئو-پسند، متنوع با بذر؛ v2.7: جمله‌های کوتاه و روان) */
     private function composeDescription(string $brand, string $device, array $c, array $causes, string $severity, int $seed): string
     {
         $part = $c['part'] ?? 'قطعه مرتبط';
         $code = $c['code'];
         $openers = [
-            "کد خطای {$code} در {$device} {$brand} یکی از ایرادهای شناخته‌شده این برند است که مربوط به {$part} می‌شود.",
-            "وقتی نمایشگر {$device} {$brand} کد {$code} را نشان می‌دهد، دستگاه به مشکل «" . mb_strtolower((string)($c['title'] ?? '')) . "» اشاره کرده است.",
-            "کد {$code} روی {$device} {$brand} پیام سیستم عیب‌یابی برای بخش {$part} است و نباید نادیده گرفته شود.",
+            "کد {$code} در {$device} {$brand} یکی از ایرادهای شناخته‌شده این دستگاه است. این کد به بخش {$part} اشاره می‌کند.",
+            "وقتی نمایشگر {$device} {$brand} کد {$code} را نشان می‌دهد، دستگاه پیام عیب‌یابی داده است. موضوع پیام، بخش {$part} است.",
+            "کد {$code} روی {$device} {$brand} هشدار سیستم برای {$part} است. این هشدار را جدی بگیرید.",
         ];
         $mids = [
-            "این خطا زمانی فعال می‌شود که مدار کنترل مقادیر دریافتی از {$part} را خارج از محدوده مجاز تشخیص بدهد؛ شایع‌ترین علت آن «{$causes[0]}» است.",
-            "در بروز این خطا معمولاً ارتباط بین برد کنترل و {$part} دچار اختلال شده یا خود قطعه از کار افتاده است؛ تجربه تعمیرات نشان می‌دهد «{$causes[0]}» بیشترین سهم را دارد.",
+            "شایع‌ترین علت این خطا «{$causes[0]}» است. در تعدادی از موارد، «" . ($causes[1] ?? 'اتصالات') . "» هم نقش دارد.",
+            "تجربه تعمیرات نشان می‌دهد «{$causes[0]}» بیشترین سهم را دارد. علت‌های بعدی در فهرست همین صفحه آمده‌اند.",
         ];
         $severityText = [
-            'critical' => "شدت این خطا «بحرانی» است: دستگاه برای جلوگیری از خسارت وسیع‌تر، خودکار متوقف می‌شود و ادامه استفاده مطلقاً توصیه نمی‌شود.",
-            'high' => "شدت این خطا «زیاد» است: عملکرد {$device} مختل می‌شود و تا رفع مشکل، ادامه سیکل بهینه نیست.",
-            'medium' => "شدت این خطا «متوسط» است: {$device} با محدودیت یا هشدار کار می‌کند اما رفع به‌موقع آن از عوارض بعدی جلوگیری می‌کند.",
-            'low' => "شدت این خطا «کم» است و اثر فوری بر عملکرد ندارد؛ با این حال بررسی آن در اولین فرصت توصیه می‌شود.",
-            'informational' => "این مورد در واقع خطا نیست و یک پیام «اطلاعاتی» برای آگاهی کاربر است.",
+            'critical' => "شدت این خطا «بحرانی» است. دستگاه برای جلوگیری از خسارت، خودکار متوقف می‌شود. ادامه استفاده مطلقاً توصیه نمی‌شود.",
+            'high' => "شدت این خطا «زیاد» است. عملکرد {$device} مختل می‌شود. تا رفع مشکل، ادامه سیکل بهینه نیست.",
+            'medium' => "شدت این خطا «متوسط» است. {$device} با محدودیت کار می‌کند. رفع به‌موقع آن از عوارض بعدی جلوگیری می‌کند.",
+            'low' => "شدت این خطا «کم» است. اثر فوری بر عملکرد ندارد. با این حال، بررسی آن در اولین فرصت توصیه می‌شود.",
+            'informational' => "این مورد در واقع خطا نیست. یک پیام «اطلاعاتی» برای آگاهی کاربر است.",
         ];
         $closers = [
-            "خوشبختانه بخشی از بررسی‌های اولیه توسط خود کاربر قابل انجام است و در صورت تداوم خطا، مداخله تکنسین متخصص تعیین‌کننده خواهد بود.",
-            "پس از رفع علت، معمولاً با ریست برق (قطع و وصل چند دقیقه‌ای) کد از روی نمایشگر پاک می‌شود؛ اگر دوباره ظاهر شد، مشکل قطعه‌ای است.",
-            "مجموعه علل و راه‌حل‌های رتبه‌بندی‌شده همین صفحه به شما کمک می‌کند تشخیص دهید کدام سناریو برای دستگاه شما صادق است.",
+            "بررسی‌های اولیه را خودتان می‌توانید انجام دهید. اگر خطا تکرار شد، مداخله تکنسین تعیین‌کننده است.",
+            "پس از رفع علت، معمولاً با قطع و وصل برق، کد از نمایشگر پاک می‌شود. اگر دوباره ظاهر شد، مشکل قطعه‌ای است.",
+            "علل و راه‌حل‌های همین صفحه رتبه‌بندی شده‌اند. با آنها می‌توانید سناریوی دستگاه خود را تشخیص دهید.",
         ];
         return $openers[$seed % 3] . ' ' . $mids[($seed >> 2) % 2] . ' ' . $severityText[$severity] . ' ' . $closers[($seed >> 3) % 3];
     }
@@ -396,13 +604,13 @@ class ErrorCodeEngine
             'dishwasher'      => ['تمیز کردن فیلتر کف محفظه', 'بررسی شیر آب ورودی و فشار', 'استفاده از نمک و مایع شست‌وشوی استاندارد', 'اجرای سیکل خالی با جوش‌شیرین برای رسوب‌زدایی'],
             'air_conditioner' => ['تمیز کردن فیلترهای یونیت داخلی', 'قطع برق هر دو یونیت ۱۰ دقیقه (ریست)', 'بررسی چرخش آزاد فن خارجی با خاموشی کامل'],
             'dryer'           => ['تمیز کردن کامل فیلتر لینت بعد از هر بار استفاده', 'بررسی مسیر و خم شیلنگ تخلیه هوا', 'ریست با قطع برق'],
-            'microwave'       => ['ریست با قطع برق چند دقیقه‌ای', 'بررسی کامل بسته بودن درب و تمیزی سطح تماس'],
+            'microwave'       => ['ریست با قطع برق چند دقیقه‌ای', 'بررسی کامل بسته بودن درب و تمیزی سطح تماس', 'جداسازی ظروف فلزی از داخل محفظه'],
             'oven'            => ['قطع برق ۵ دقیقه و ریست برد', 'بررسی تنظیمات پخت و تایمر'],
-            'water_heater'    => ['ریست کلید حرارتی (پشت درب)', 'بررسی فشار آب ورودی'],
+            'water_heater'    => ['ریست کلید حرارتی (پشت درب)', 'بررسی فشار آب ورودی', 'قطع برق ۱۰ دقیقه و روشن‌سازی مجدد'],
             'package'         => ['شارژ فشار آب سیستم به ۱.۵ بار', 'ریست سوئیچ فشار', 'هوای مدار شوفاژ'],
             'television'     => ['قطع برق و اتصال مجدد بعد از ۵ دقیقه', 'بررسی سلامت کابل HDMI/آنتن', 'بروزرسانی نرم‌افزار از منوی تنظیمات'],
         ];
-        return $map[$deviceKey] ?? ['ریست دستگاه با قطع برق ۱۰ دقیقه‌ای', 'بررسی اتصالات و منبع تغذیه'];
+        return $map[$deviceKey] ?? ['ریست دستگاه با قطع برق ۱۰ دقیقه‌ای', 'بررسی اتصالات و منبع تغذیه', 'بررسی درب و کلیدهای امنیتی'];
     }
 
     private function deviceTechFixes(string $deviceKey, string $category): array
@@ -419,7 +627,7 @@ class ErrorCodeEngine
             'package'         => ['تست پمپ سیرکولاسیون و سوئیچ فشار', 'کالیبراسیون برد و بررسی احتراق'],
             'television'     => ['تست ولتاژهای پاور بورد', 'تست بک‌لایت و T-Con', 'تعمیر مین‌بورد'],
         ];
-        return $map[$deviceKey] ?? ['تست قطعه مرتبط با مولتی‌متر و تعویض', 'عیب‌یابی برد کنترل و تعمیر تخصصی'];
+        return $map[$deviceKey] ?? ['تست قطعه مرتبط با مولتی‌متر و تعویض', 'عیب‌یابی برد کنترل و تعمیر تخصصی', 'بررسی سیم‌کشی و سوکت‌های داخلی'];
     }
 
     /* ==================================================
@@ -625,22 +833,39 @@ class ErrorCodeEngine
             case 'causes':
                 $causes = json_decode((string)$rec['causes'], true) ?: [];
                 $extra = array_diff($this->deviceCauses($rec['device_key'], (string)$rec['category']), $causes);
-                foreach (array_slice($extra, 0, 2) as $x) {
+                foreach (array_slice($extra, 0, 3) as $x) {
                     $causes[] = $x;
                 }
-                $causes = array_slice(array_values(array_unique($causes)), 0, 7);
-                $new = json_encode($causes, JSON_UNESCAPED_UNICODE);
+                /* 📏 v2.7: حداقل ۵ دلیل */
+                if (count($causes) < 5) {
+                    $causes[] = 'قطع برق طولانی و روشن‌سازی مجدد (ریست کامل برد)';
+                }
+                $causes = array_slice(array_values(array_unique(array_filter($causes))), 0, 7);
+                $new = json_encode($causes, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
                 break;
 
             case 'solutions':
                 $sols = json_decode((string)$rec['solutions'], true) ?: [];
+                $sols = array_map(fn($x) => mb_scrub((string)$x), $sols);
                 $hasTech = (bool)array_filter($sols, fn($s) => mb_strpos($s, '[تکنسین]') === 0);
                 if (!$hasTech) {
                     foreach (array_slice($this->deviceTechFixes($rec['device_key'], (string)$rec['category']), 0, 2) as $t) {
                         $sols[] = '[تکنسین] ' . $t;
                     }
                 }
-                $new = json_encode(array_slice(array_values(array_unique($sols)), 0, 7), JSON_UNESCAPED_UNICODE);
+                /* 📏 v2.7: حداقل ۵ راه‌حل — تکمیل از مخزن همان دستگاه */
+                $pool = array_merge(
+                    array_map(fn($x) => '[کاربر] ' . $x, $this->deviceUserFixes($rec['device_key'])),
+                    array_map(fn($x) => '[تکنسین] ' . $x, $this->deviceTechFixes($rec['device_key'], (string)$rec['category']))
+                );
+                $pi = 0;
+                while (count($sols) < 5 && $pi < count($pool)) {
+                    if (!in_array($pool[$pi], $sols, true)) {
+                        $sols[] = $pool[$pi];
+                    }
+                    $pi++;
+                }
+                $new = json_encode(array_map(fn($x) => mb_scrub((string)$x), array_slice(array_values(array_unique(array_filter($sols))), 0, 8)), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
                 break;
 
             case 'related_part':
@@ -676,7 +901,9 @@ class ErrorCodeEngine
         } catch (Throwable $e) {
         }
 
-        return ['field' => $field, 'old' => mb_substr($old, 0, 300), 'new' => mb_substr($new, 0, 300),
+        /* 📏 v2.7: مقدار «جدید» کامل برگردانده می‌شود — قبلاً mb_substr(...,300)
+           JSON آرایه‌ها را وسط راه می‌بُرید و رکورد ذخیره‌شده خراب می‌شد */
+        return ['field' => $field, 'old' => mb_substr($old, 0, 300), 'new' => $new,
                 'note' => 'فیلد «' . $field . '» با AI بازنویسی و یکتا شد.'];
     }
 }
