@@ -600,3 +600,26 @@
 
 ### 📦 کامیت
 - `docs-v2.1-websearch-telegram` — راهنمای API ۱۵۶۵ خطی + README + CHANGELOG + UPGRADE
+
+## 🎉 بخش ۶ فاز N (نهایی): رلیز v2.1.0
+
+- تگ `v2.1.0` ساخته و پوش شد
+- پاکسازی: `cache/websearch-rate.json` از گیت حذف + قانون `cache/*.json` در .gitignore
+- بسته‌های رلیز:
+  - `Sahand-Service-BrandMaker-v2.1.0-install.zip` — بسته نصب کامل از تگ (git archive تمیز)
+  - `Sahand-Service-BrandMaker-v2.1.0-update.zip` — فقط فایل‌های تغییرکرده از v2.0.0 (بدون CHECKLIST/WORKLOG/runtime) + UPGRADE.md
+  - `AI-API-GUIDE-v2.1.0-fa.md` — راهنمای ۱۵۶۵ خطی مستقل
+  - `UPGRADE-v2.1.0-fa.md` — راهنمای بروزرسانی مستقل
+  - `SHA256SUMS-v2.1.0.txt` — چک‌سام همه بسته‌ها
+- رلیز گیت‌هاب v2.1.0 + آپلود ۵ پیوست به uploads.github.com
+
+### 🏁 جمع‌بندی فاز N
+| شاخص | مقدار |
+|------|-------|
+| باگ بحرانی رفع‌شده | ۱ (نصب‌کننده دیتابیس — ۳۱ جدول مفقود) |
+| کلاس‌های جدید | ۲ (WebSearchService، TelegramBot) |
+| اندپوینت API جدید | ۳ AI + ۱ وب‌هوک تلگرام (مجموع ۳۷) |
+| فرمان‌های جدید دستیار | ۲ (جستجوی وب، تحقیق درباره) |
+| صفحات پنل جدید | ۱ (admin/telegram.php) |
+| تست موفق | ۳۷۸ (۱۰۵ جدید شامل ۳ زنده اینترنت) |
+| مستندات | راهنمای API ۱۵۶۵ خط + CHANGELOG + UPGRADE بازنویسی |

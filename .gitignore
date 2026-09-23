@@ -11,3 +11,4 @@ uploads/temp/*
 !uploads/temp/.gitkeep
 *.zip
 cache/engine/*.json
+cache/*.json
