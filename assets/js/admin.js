@@ -117,13 +117,46 @@ function sahandFetch(url, options) {
     return fetch(url, options).then(function (res) { return res.json(); });
 }
 
-/* ➕ افزودن ردیف تکرارشونده (برای فرم‌های چندتایی مثل تلفن‌ها) */
-function addRepeatRow(containerId, template) {
+/* ➕ افزودن ردیف تکرارشونده (برای فرم‌های چندتایی مثل تلفن‌ها)
+   v2.7: کلون تمیز از آخرین ردیف — دیگر هیچ رشته HTML تو-در-تویی داخل onclick
+   گذاشته نمی‌شود (کوتیشن‌های تودرتو HTML را می‌شکستند و صفحه بهم‌ریخته می‌شد). */
+var __repeatRowTemplates = {};
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[id^="rows-"]').forEach(function (container) {
+        var first = container.querySelector('.repeat-row');
+        if (first && !__repeatRowTemplates[container.id]) {
+            __repeatRowTemplates[container.id] = first.outerHTML;
+        }
+    });
+});
+function addRepeatRow(containerId) {
     var container = document.getElementById(containerId);
-    var index = container.querySelectorAll('.repeat-row').length;
-    var html = template.replaceAll('{i}', index);
-    container.insertAdjacentHTML('beforeend', html);
+    if (!container) { return; }
+    var rows = container.querySelectorAll('.repeat-row');
+    var clone;
+    if (rows.length > 0) {
+        clone = rows[rows.length - 1].cloneNode(true);
+    } else if (__repeatRowTemplates[containerId]) {
+        container.insertAdjacentHTML('beforeend', __repeatRowTemplates[containerId]);
+        clone = container.querySelector('.repeat-row:last-child');
+    } else {
+        return;
+    }
+    clone.querySelectorAll('input, textarea').forEach(function (el) {
+        if (el.type === 'checkbox' || el.type === 'radio') { el.checked = false; }
+        else { el.value = ''; }
+    });
+    clone.querySelectorAll('select').forEach(function (el) { el.selectedIndex = 0; });
+    container.appendChild(clone);
+    var focusEl = clone.querySelector('input, textarea, select');
+    if (focusEl) { try { focusEl.focus(); } catch (e) {} }
 }
+
+/* 🏢 افزودن شعبه جدید — نام مستعار سازگار با نسخه‌های قبلی */
+function duplicateAddress() { addRepeatRow('rows-addresses'); }
+
+/* 🌐 افزودن شبکه اجتماعی — نام مستعار سازگار با نسخه‌های قبلی */
+function duplicateSocial() { addRepeatRow('rows-socials'); }
 
 /* 🗑️ حذف ردیف تکرارشونده */
 function removeRepeatRow(btn) {

@@ -227,6 +227,29 @@ class Auth
     }
 
     /**
+     * 🖼️ کپچای درون‌خطی — رفع قطعی ۴۰۴/بلاک در لپ‌تاپ (v2.7)
+     * =====================================================
+     * کد را تولید و در سشن ذخیره می‌کند و data-URI را «برمی‌گرداند» (خروجی نمی‌دهد).
+     * صفحه لاگین آن را مستقیماً داخل src تگ img می‌گذارد →
+     * صفر درخواست HTTP → دیگر نه ۴۰۴ ممکن است، نه بلاک ادبلاکر، نه کش منسوخ.
+     */
+    public static function captchaInlineDataUri(): string
+    {
+        $code = self::generateCaptchaCode(5);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $_SESSION['captcha_code'] = $code;
+        }
+        try {
+            $svg = self::buildCaptchaSvg($code, 220, 72);
+            return 'data:image/svg+xml;base64,' . base64_encode($svg);
+        } catch (Throwable $e) {
+            // 🛟 هرگز نباید رخ دهد (SVG خالص PHP است) — ولی تضمین: کد متنی
+            @error_log('[CAPTCHA] inline build failed: ' . $e->getMessage());
+            return '';
+        }
+    }
+
+    /**
      * 🖼️ رندر CAPTCHA با GD — فونت TTF در صورت وجود، وگرنه فونت داخلی بزرگ‌نمایی‌شده
      */
     private static function renderCaptchaGd(string $code, int $width, int $height): void

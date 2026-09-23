@@ -273,6 +273,8 @@ $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنب�
             <div class="card-header"><h3>📞 شماره‌های تماس (چندتایی — نامحدود)</h3></div>
             <div class="card-body">
                 <?php
+                /* 🧩 v2.7: دکمه افزودن تمیز — فقط شناسه کانتینر پاس داده می‌شود؛
+                   HTML داخل onclick ممنوع (کوتیشن تودرتو = شکستن پارس صفحه) */
                 $repeatTemplate = function (string $name, string $label, array $values, string $placeholder = '', string $dir = 'ltr') {
                     echo '<div class="form-group"><label>' . $label . '</label><div id="rows-' . $name . '">';
                     $values = $values ?: [''];
@@ -282,7 +284,7 @@ $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنب�
                         echo '<button type="button" class="btn btn-outline btn-sm" onclick="removeRepeatRow(this)">🗑️</button></div>';
                     }
                     echo '</div>';
-                    echo '<button type="button" class="btn btn-outline btn-sm" onclick=\'addRepeatRow("rows-' . $name . '", "<div class=\\\'repeat-row\\\' style=\\\'display:flex;gap:8px;margin-bottom:8px\\\'><input type=\\\'text\\\' name=\\\'' . $name . '[]\\\' class=\\\'form-control\\\' placeholder=\\\'' . e($placeholder) . '\\\' style=\\\'direction:' . $dir . ';text-align:' . ($dir === 'ltr' ? 'left' : 'right') . '\\\'><button type=\\\'button\\\' class=\\\'btn btn-outline btn-sm\\\' onclick=\\\'removeRepeatRow(this)\\\'>🗑️</button></div>")\'>➕ افزودن</button></div>';
+                    echo '<button type="button" class="btn btn-outline btn-sm" onclick="addRepeatRow(\'rows-' . $name . '\')">➕ افزودن</button></div>';
                 };
                 $repeatTemplate('phones', '☎️ شماره تلفن ثابت', (array)($contacts['phone'] ?? []), '021XXXXXXXX');
                 $repeatTemplate('mobiles', '📱 شماره موبایل', (array)($contacts['mobile'] ?? []), '0912XXXXXXX');
@@ -408,7 +410,7 @@ $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنب�
                             </div>
                         <?php endforeach; ?>
                     </div>
-                    <button type="button" class="btn btn-outline btn-sm" onclick='addRepeatRow("rows-warranty-void", "<div class=\\\'repeat-row\\\' style=\\\'display:flex;gap:8px;margin-bottom:8px\\\'><input type=\\\'text\\\' name=\\\'warranty_void[]\\\' class=\\\'form-control\\\'><button type=\\\'button\\\' class=\\\'btn btn-outline btn-sm\\\' onclick=\\\'removeRepeatRow(this)\\\'>🗑️</button></div>")'>➕ افزودن شرط</button>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="addRepeatRow('rows-warranty-void')">➕ افزودن شرط</button>
                 </div>
                 <div class="form-group">
                     <label>توضیحات اضافی</label>
@@ -609,24 +611,7 @@ $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنب�
 </script>
 
 <script>
-/* 📍 افزودن شعبه جدید — کپی آخرین بلوک آدرس */
-function duplicateAddress() {
-    var container = document.getElementById('rows-addresses');
-    var blocks = container.querySelectorAll('.repeat-row');
-    var last = blocks[blocks.length - 1];
-    var clone = last.cloneNode(true);
-    clone.querySelectorAll('input, textarea').forEach(function (el) { el.value = ''; });
-    last.parentNode.insertBefore(clone, container.querySelector('button'));
-}
-
-/* 🌐 افزودن شبکه اجتماعی */
-function duplicateSocial() {
-    var container = document.getElementById('rows-socials');
-    var rows = container.querySelectorAll('.repeat-row');
-    var clone = rows[rows.length - 1].cloneNode(true);
-    clone.querySelector('input').value = '';
-    container.insertBefore(clone, container.querySelector('button'));
-}
+/* 🧩 v2.7: توابع افزودن شعبه/شبکه اجتماعی به admin.js منتقل شدند (addRepeatRow یکپارچه) */
 </script>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>
