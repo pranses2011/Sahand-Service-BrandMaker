@@ -3,10 +3,34 @@
  * تعاملات: تب‌ها، مودال، حذف با تأیید، AJAX، سایدبار موبایل
  */
 
-/* 📱 باز/بسته کردن سایدبار در موبایل */
-function toggleSidebar() {
-    document.querySelector('.sidebar').classList.toggle('open');
+/* 📱 باز/بسته کردن سایدبار در موبایل — همراه با پس‌زمینه و قفل اسکرول */
+function toggleSidebar(force) {
+    var sidebar = document.querySelector('.sidebar');
+    var backdrop = document.getElementById('sidebarBackdrop');
+    var btn = document.getElementById('menuToggleBtn');
+    if (!sidebar) { return; }
+    var willOpen = typeof force === 'boolean' ? force : !sidebar.classList.contains('open');
+    sidebar.classList.toggle('open', willOpen);
+    if (backdrop) { backdrop.classList.toggle('show', willOpen); }
+    document.body.classList.toggle('no-scroll', willOpen);
+    if (btn) { btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false'); }
 }
+
+/* 📱 بستن خودکار سایدبار با کلیک روی لینک‌های منو (فقط موبایل) */
+document.addEventListener('click', function (e) {
+    var link = e.target.closest('.sidebar .nav-link');
+    if (link && window.matchMedia('(max-width: 992px)').matches) {
+        toggleSidebar(false);
+    }
+});
+
+/* ⌨️ بستن سایدبار و مودال‌ها با Escape */
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        var sidebar = document.querySelector('.sidebar.open');
+        if (sidebar) { toggleSidebar(false); }
+    }
+});
 
 /* 🗂️ سیستم تب‌ها */
 function switchTab(btn, paneId) {

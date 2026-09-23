@@ -40,6 +40,9 @@ try {
 <body>
 <div class="layout">
 
+    <!-- 🌒 پس‌زمینه تیره پشت سایدبار (موبایل) -->
+    <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar(false)"></div>
+
     <!-- 🧭 سایدبار -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
@@ -136,8 +139,8 @@ try {
     <!-- 📄 بدنه اصلی -->
     <div class="main">
         <header class="topbar">
-            <button class="menu-toggle" onclick="toggleSidebar()" aria-label="منو">☰</button>
-            <div>
+            <button class="menu-toggle" onclick="toggleSidebar()" aria-label="باز و بسته کردن منو" aria-controls="sidebar" aria-expanded="false" id="menuToggleBtn">☰</button>
+            <div class="topbar-titles">
                 <h2><?= e($pageTitle) ?></h2>
                 <div class="breadcrumb">پنل مدیریت سایت ساز — <?= jdate(date('Y-m-d'), true) ?></div>
             </div>

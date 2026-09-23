@@ -96,8 +96,8 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
             </a>
         </div>
         <nav class="main-nav" aria-label="منوی اصلی">
-            <button class="nav-toggle" onclick="document.querySelector('.main-nav ul').classList.toggle('open')" aria-label="منو">☰</button>
-            <ul>
+            <button class="nav-toggle" onclick="toggleNav(this)" aria-label="باز و بسته کردن منو" aria-controls="mainNavList" aria-expanded="false">☰</button>
+            <ul id="mainNavList">
                 <?php foreach ($menuData as $item): ?>
                     <?php $href = !empty($item['url']) ? $item['url'] : '/' . ($item['page_type'] === 'home' ? '' : $item['page_type']); ?>
                     <li>

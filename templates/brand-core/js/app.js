@@ -37,9 +37,42 @@ document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('click', function (e) {
         var nav = document.querySelector('.main-nav ul');
         if (nav && nav.classList.contains('open') && !e.target.closest('.main-nav')) {
-            nav.classList.remove('open');
+            closeNav();
         }
     });
+
+    /* ☰ بستن منوی موبایل بعد از کلیک روی هر لینک */
+    var navList = document.getElementById('mainNavList');
+    if (navList) {
+        navList.addEventListener('click', function (e) {
+            if (e.target.closest('a')) { closeNav(); }
+        });
+    }
+});
+
+/* ☰ باز/بسته کردن منوی موبایل */
+function toggleNav(btn) {
+    var nav = document.getElementById('mainNavList');
+    if (!nav) { return; }
+    if (nav.classList.contains('open')) {
+        closeNav();
+    } else {
+        nav.classList.add('open');
+        if (btn) { btn.setAttribute('aria-expanded', 'true'); }
+    }
+}
+
+/* ✖ بستن منوی موبایل */
+function closeNav() {
+    var nav = document.getElementById('mainNavList');
+    var btn = document.querySelector('.nav-toggle');
+    if (nav) { nav.classList.remove('open'); }
+    if (btn) { btn.setAttribute('aria-expanded', 'false'); }
+}
+
+/* ⌨️ بستن منو با Escape */
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { closeNav(); }
 });
 
 /* 🔄 نمایش وضعیت آفلاین */

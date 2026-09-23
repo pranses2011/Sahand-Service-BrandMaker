@@ -264,6 +264,18 @@ $allPassed = !in_array(false, array_column($requirements, 1), true);
     .actions { text-align:center; margin-top:20px; }
     .locked { text-align:center; padding:50px 20px; }
     code { background:#f1f5f9; padding:2px 8px; border-radius:5px; font-size:12px; direction:ltr; display:inline-block; }
+    /* 📱 ریسپانسیو موبایل */
+    @media (max-width: 600px) {
+        body { padding: 18px 10px; }
+        .header .logo { font-size: 42px; }
+        .header h1 { font-size: 18px; }
+        .card { padding: 17px 14px; }
+        .steps { flex-wrap: wrap; gap: 6px; }
+        .step { flex: 1 1 45%; font-size: 11px; padding: 8px 4px; }
+        table.req { font-size: 12px; }
+        table.req td, table.req th { padding: 7px 8px; }
+        .btn { width: 100%; padding: 12px 20px; }
+    }
 </style>
 </head>
 <body>
