@@ -44,10 +44,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('danger', 'خطای آپلود لوگو: ' . $upload['error']);
             }
         }
+        /* 🔖 v2.12: فاوآیکون اختصاصی برند — اگر فایل جدید آپلود شود */
+        if (!empty($_FILES['favicon']['name'])) {
+            $favUpload = $fm->uploadImage($_FILES['favicon'], 'logos');
+            if ($favUpload['success']) {
+                $update['favicon'] = $favUpload['path'];
+            } else {
+                flash('danger', 'خطای آپلود فاوآیکون: ' . $favUpload['error']);
+            }
+        }
         $db->update('brands', $update, 'id = ?', [$brandId]);
         Logger::activity((int)$_SESSION['user_id'], 'ویرایش برند', $brand['name_fa']);
         flash('success', '✅ اطلاعات برند بروزرسانی شد.');
         redirect('brand-edit.php?id=' . $brandId);
+    }
+
+    /* ---------- 🔖 v2.12: بازگردانی فاوآیکون به لوگوی برند ---------- */
+    if ($action === 'reset_favicon') {
+        $db->update('brands', ['favicon' => null], 'id = ?', [$brandId]);
+        (new Cache())->delete('brand_' . $brandId . '_pages');
+        flash('success', '♻️ فاوآیکون حذف شد — از این پس لوگوی برند به‌عنوان فاوآیکون استفاده می‌شود.');
+        redirect('brand-edit.php?id=' . $brandId . '&tab=info');
     }
 
     /* ---------- مدیریت دستگاه‌ها ---------- */
@@ -433,25 +450,30 @@ foreach ($pages as $p) {
 }
 ?>
 
-<form method="post" enctype="multipart/form-data" id="main-form">
-    <?= Auth::csrfField() ?>
+<!-- 🐛 v2.12: ساختار فرم‌ها اصلاح شد — قبلاً همه تب‌ها داخل یک فرم غول‌پیکر بودند و
+     فرم پاک‌سازی داخل آن تودرتو می‌شد؛ مرورگر تگ فرم تودرتو را حذف می‌کند و
+     «آخرین input با نام action» همیشه برنده می‌شد → کلیک روی «حذف دستگاه‌های تکراری"
+     عملاً هندلر update_devices را اجرا می‌کرد و پاک‌سازی هرگز اجرا نمی‌شد.
+     حالا: هر تب فرم مستقل خودش را دارد. -->
+<div class="tabs">
+    <button type="button" class="tab-btn <?= $currentTab === 'info' ? 'active' : '' ?>" onclick="switchTab(this,'tab-info')">📇 اطلاعات</button>
+    <button type="button" class="tab-btn <?= $currentTab === 'devices' ? 'active' : '' ?>" onclick="switchTab(this,'tab-devices')">🔧 دستگاه‌ها (<?= en_to_fa_digits((string)count($devices)) ?>)</button>
+    <button type="button" class="tab-btn <?= $currentTab === 'pages' ? 'active' : '' ?>" onclick="switchTab(this,'tab-pages')">📄 صفحات</button>
+    <button type="button" class="tab-btn <?= $currentTab === 'palette' ? 'active' : '' ?>" onclick="switchTab(this,'tab-palette')">🎨 پالت رنگ</button>
+    <button type="button" class="tab-btn <?= $currentTab === 'seo' ? 'active' : '' ?>" onclick="switchTab(this,'tab-seo')">🔍 سئو</button>
+    <button type="button" class="tab-btn <?= $currentTab === 'api' ? 'active' : '' ?>" onclick="switchTab(this,'tab-api')">🔌 API</button>
+    <button type="button" class="tab-btn <?= $currentTab === 'deploy' ? 'active' : '' ?>" onclick="switchTab(this,'tab-deploy')">🚀 استقرار</button>
+</div>
 
-    <div class="tabs">
-        <button type="button" class="tab-btn <?= $currentTab === 'info' ? 'active' : '' ?>" onclick="switchTab(this,'tab-info')">📇 اطلاعات</button>
-        <button type="button" class="tab-btn <?= $currentTab === 'devices' ? 'active' : '' ?>" onclick="switchTab(this,'tab-devices')">🔧 دستگاه‌ها (<?= en_to_fa_digits((string)count($devices)) ?>)</button>
-        <button type="button" class="tab-btn <?= $currentTab === 'pages' ? 'active' : '' ?>" onclick="switchTab(this,'tab-pages')">📄 صفحات</button>
-        <button type="button" class="tab-btn <?= $currentTab === 'palette' ? 'active' : '' ?>" onclick="switchTab(this,'tab-palette')">🎨 پالت رنگ</button>
-        <button type="button" class="tab-btn <?= $currentTab === 'seo' ? 'active' : '' ?>" onclick="switchTab(this,'tab-seo')">🔍 سئو</button>
-        <button type="button" class="tab-btn <?= $currentTab === 'api' ? 'active' : '' ?>" onclick="switchTab(this,'tab-api')">🔌 API</button>
-        <button type="button" class="tab-btn <?= $currentTab === 'deploy' ? 'active' : '' ?>" onclick="switchTab(this,'tab-deploy')">🚀 استقرار</button>
-    </div>
+<form method="post" enctype="multipart/form-data" id="info-form">
+    <?= Auth::csrfField() ?>
+    <input type="hidden" name="action" value="update_info">
 
     <!-- 📇 تب اطلاعات -->
     <div id="tab-info" class="tab-pane <?= $currentTab === 'info' ? 'active' : '' ?>">
         <div class="card">
             <div class="card-header"><h3>📇 اطلاعات برند</h3></div>
             <div class="card-body">
-                <input type="hidden" name="action" value="update_info">
                 <div class="form-row">
                     <div class="form-group">
                         <label>نام فارسی</label>
@@ -473,14 +495,39 @@ foreach ($pages as $p) {
                         <input type="file" name="logo" class="form-control" accept="image/*">
                     </div>
                     <div class="form-group" style="display:flex;flex-direction:column;justify-content:center;gap:12px">
-                        <label class="form-check"><input type="checkbox" name="is_active" <?= $brand['is_active'] ? 'checked' : '' ?>> برند فعال باشد</label>
-                        <label class="form-check"><input type="checkbox" name="error_codes_enabled" <?= $brand['error_codes_enabled'] ? 'checked' : '' ?>> صفحه کدهای خطا فعال باشد</label>
+                        <label class="form-check"><input type="checkbox" name="is_active" value="1" <?= $brand['is_active'] ? 'checked' : '' ?>> برند فعال باشد</label>
+                        <label class="form-check"><input type="checkbox" name="error_codes_enabled" value="1" <?= $brand['error_codes_enabled'] ? 'checked' : '' ?>> صفحه کدهای خطا فعال باشد</label>
                     </div>
+                </div>
+                <!-- 🔖 v2.12: فاوآیکون اختصاصی برند (پیش‌فرض = لوگو) -->
+                <div class="form-group">
+                    <label>🔖 فاوآیکون سایت برند</label>
+                    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+                        <?php $favSrc = $brand['favicon'] ?: $brand['logo']; ?>
+                        <?php if ($favSrc): ?>
+                            <img src="<?= asset_url($favSrc) ?>" alt="فاوآیکون" style="width:42px;height:42px;border-radius:9px;object-fit:contain;border:1px solid var(--border);padding:3px;background:#fff">
+                            <small style="color:var(--text-light)"><?= $brand['favicon'] ? 'فاوآیکون اختصاصی' : 'در حال استفاده از لوگوی برند (پیش‌فرض)' ?></small>
+                        <?php else: ?>
+                            <small style="color:var(--text-light)">فاوآیکونی ثبت نشده — پس از آپلود لوگو، همان لوگو استفاده می‌شود</small>
+                        <?php endif; ?>
+                        <?php if ($brand['favicon']): ?>
+                            <button type="submit" form="favicon-reset-form" class="btn btn-outline btn-sm" title="فاوآیکون حذف و به لوگوی برند برمی‌گردد">♻️ بازگشت به لوگو</button>
+                        <?php endif; ?>
+                    </div>
+                    <input type="file" name="favicon" class="form-control" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/x-icon">
+                    <div class="hint">اگر خالی بماند، لوگوی برند به‌عنوان فاوآیکون سایت استفاده می‌شود (پیش‌فرض). فایل مربعی ۵۱۲×۵۱۲ توصیه می‌شود.</div>
                 </div>
                 <button type="submit" class="btn btn-primary">💾 ذخیره اطلاعات</button>
             </div>
         </div>
     </div>
+</form>
+
+<!-- 🧹 فرم مستقل بازگردانی فاوآیکون به لوگو (خارج از فرم اطلاعات) -->
+<form method="post" id="favicon-reset-form" <?= $brand['favicon'] ? '' : 'style="display:none"' ?>>
+    <?= Auth::csrfField() ?>
+    <input type="hidden" name="action" value="reset_favicon">
+</form>
 
     <!-- 🔧 تب دستگاه‌ها -->
     <div id="tab-devices" class="tab-pane <?= $currentTab === 'devices' ? 'active' : '' ?>">
@@ -501,6 +548,8 @@ foreach ($pages as $p) {
                     <span class="badge badge-info">انتخاب موارد نمایش در سایت</span>
                 </div>
             </div>
+            <form method="post" id="devices-form">
+            <?= Auth::csrfField() ?>
             <div class="card-body">
                 <input type="hidden" name="action" value="update_devices">
                 <?php if (empty($devices)): ?>
@@ -531,6 +580,7 @@ foreach ($pages as $p) {
                 <?php endif; ?>
                 <button type="submit" class="btn btn-primary" <?= empty($devices) ? 'disabled' : '' ?>>💾 ذخیره دستگاه‌ها</button>
             </div>
+            </form>
         </div>
     </div>
 
@@ -950,7 +1000,6 @@ foreach ($pages as $p) {
             </div>
         </div>
     </div>
-</form>
 
 <script>
 /* 🚀 بهبود خودکار سئو تا ۱۰۰ (v2.6) */

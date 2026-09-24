@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS `brands` (
   `logo` VARCHAR(500) NULL COMMENT 'مسیر لوگوی برند',
   `favicon` VARCHAR(500) NULL COMMENT 'فاویکون برند',
   `domain` VARCHAR(255) NULL COMMENT 'آدرس دامنه سایت برند',
-  `domain_type` ENUM('subdomain','custom') NOT NULL DEFAULT 'subdomain' COMMENT 'نوع دامنه',
+  `domain_type` ENUM('subdomain','custom','addon') NOT NULL DEFAULT 'subdomain' COMMENT 'نوع دامنه (addon = دامنه الحاقی)',
   `theme_id` INT UNSIGNED NULL COMMENT 'شناسه تم اختصاصی',
   `palette_id` INT UNSIGNED NULL COMMENT 'شناسه پالت رنگ',
   `status` ENUM('draft','building','published','suspended') NOT NULL DEFAULT 'draft' COMMENT 'وضعیت سایت برند',
@@ -276,6 +276,19 @@ CREATE TABLE IF NOT EXISTS `templates` (
   PRIMARY KEY (`id`),
   KEY `idx_tpl_page` (`page_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='قالب‌های صفحات';
+
+-- 1️⃣2️⃣-ب builder_blocks — بلوک‌های ترکیبی ذخیره‌شده قالب‌ساز (v2.12)
+CREATE TABLE IF NOT EXISTS `builder_blocks` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(191) NOT NULL COMMENT 'نام بلوک ترکیبی',
+  `category` VARCHAR(100) NOT NULL DEFAULT 'سفارشی' COMMENT 'دسته نمایش در کتابخانه',
+  `block_json` LONGTEXT NOT NULL COMMENT 'JSON کامل بلوک با ستون‌های تودرتو',
+  `usage_count` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'دفعات استفاده',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_bblock_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='بلوک‌های ترکیبی ذخیره‌شده قالب‌ساز';
 
 -- 1️⃣3️⃣ themes — تم‌ها (ترکیب قالب‌ها)
 CREATE TABLE IF NOT EXISTS `themes` (
