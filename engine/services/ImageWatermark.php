@@ -41,7 +41,7 @@ class ImageWatermark
         $margin    = (int)($opts['margin'] ?? 22);
 
         if ($brandLogo !== null && is_file($brandLogo)) {
-            $wm = self::loadResampled($brandLogo, $brandMax);
+            $wm = self::loadResampledClean($brandLogo, $brandMax);
             if ($wm !== null) {
                 $w = imagesx($dst); $h = imagesy($dst);
                 $dw = imagesx($wm); $dh = imagesy($wm);
@@ -50,7 +50,7 @@ class ImageWatermark
             }
         }
         if ($agencyLogo !== null && is_file($agencyLogo)) {
-            $wm = self::loadResampled($agencyLogo, $agencyMax);
+            $wm = self::loadResampledClean($agencyLogo, $agencyMax);
             if ($wm !== null) {
                 $h = imagesy($dst);
                 $dw = imagesx($wm); $dh = imagesy($wm);
@@ -103,6 +103,209 @@ class ImageWatermark
         imagecopyresampled($tmp, $src, 0, 0, 0, 0, $dw, $dh, $sw, $sh);
         imagedestroy($src);
         return $tmp;
+    }
+
+    /* ==================================================
+     * 🧽 v3.2: حذف هوشمند پس‌زمینه لوگوهای بدون شفافیت (JPG و...)
+     * ================================================== */
+
+    /** @var array کش درون-درخواست نسخه‌های پاک‌شده */
+    private static $cleanCache = [];
+
+    /**
+     * 🧽 بارگذاری لوگو با پس‌زمینه پاک‌شده — نسخه «تمیز» loadResampled
+     *
+     * اگر تصویر آلفای واقعی دارد (PNG/WebP شفاف) دست‌نخورده برمی‌گردد؛
+     * در غیر این صورت (JPG یا PNG مات) پس‌زمینه یکدستِ لبه‌ها (معمولاً سفید)
+     * با flood-fill از مرزها حذف می‌شود — سفیدهای داخل لوگو (مثل متن سفید
+     * داخل نشان) دست‌نخورده می‌مانند چون فقط نواحی متصل به مرز پاک می‌شوند.
+     *
+     * @return resource|GdImage|null
+     */
+    public static function loadResampledClean(string $path, int $max)
+    {
+        $res = self::loadResampled($path, $max);
+        if ($res === null) {
+            return null;
+        }
+        if (!self::hasRealAlpha($res)) {
+            self::removeEdgeBackground($res);
+        }
+        return $res;
+    }
+
+    /**
+     * 🔎 آیا تصویر پیکسل‌های شفاف/نیمه‌شفاف واقعی دارد؟
+     * (نمونه‌گیری هر ۴ پیکسل برای سرعت)
+     */
+    public static function hasRealAlpha($img): bool
+    {
+        $w = imagesx($img);
+        $h = imagesy($img);
+        imagealphablending($img, false);
+        imagesavealpha($img, true);
+        for ($y = 0; $y < $h; $y += 2) {
+            for ($x = 0; $x < $w; $x += 2) {
+                $c = imagecolorat($img, $x, $y);
+                if ((($c >> 24) & 0x7F) > 8) {
+                    imagealphablending($img, true);
+                    return true;
+                }
+            }
+        }
+        imagealphablending($img, true);
+        return false;
+    }
+
+    /**
+     * 🧽 حذف پس‌زمینه لبه‌ها — flood-fill چهارهمبستگی از تمام پیکسل‌های مرزی
+     * رنگ مرجع = میانگین گوشه‌ها؛ تلورانس رنگی فاصله اقلیدسی RGB
+     */
+    public static function removeEdgeBackground($img, int $tolerance = 34): void
+    {
+        $w = imagesx($img);
+        $h = imagesy($img);
+        if ($w < 2 || $h < 2) {
+            return;
+        }
+
+        /* 🎯 رنگ مرجع از گوشه‌ها (میانگین) — اگر لبه‌ها یکدست نباشند، رها کن */
+        $corners = [[0, 0], [$w - 1, 0], [0, $h - 1], [$w - 1, $h - 1], [(int)($w / 2), 0], [(int)($w / 2), $h - 1], [0, (int)($h / 2)], [$w - 1, (int)($h / 2)]];
+        $br = $bg = $bb = 0;
+        foreach ($corners as [$cx, $cy]) {
+            $c = imagecolorat($img, $cx, $cy);
+            $br += ($c >> 16) & 0xFF;
+            $bg += ($c >> 8) & 0xFF;
+            $bb += $c & 0xFF;
+        }
+        $br = (int)round($br / count($corners));
+        $bg = (int)round($bg / count($corners));
+        $bb = (int)round($bb / count($corners));
+
+        /* فقط پس‌زمینه‌های روشن (سفید/کرم/خاکستری روشن) پاک می‌شوند —
+           پس‌زمینه تیره یا رنگی دست‌نخورده می‌ماند (لوگوی تیره روی تیره منطقی نیست حذف شود) */
+        if ($br < 205 || $bg < 205 || $bb < 205) {
+            return;
+        }
+
+        $tol2 = $tolerance * $tolerance;
+        imagealphablending($img, false);
+        imagesavealpha($img, true);
+
+        $transparent = 0x7F000000; // آلفای کامل
+        $visited = [];
+        $stack = [];
+        /* همه پیکسل‌های مرزی همرنگ پس‌زمینه → نقطه شروع */
+        for ($x = 0; $x < $w; $x++) {
+            $stack[] = [$x, 0];
+            $stack[] = [$x, $h - 1];
+        }
+        for ($y = 0; $y < $h; $y++) {
+            $stack[] = [0, $y];
+            $stack[] = [$w - 1, $y];
+        }
+
+        $toClear = [];
+        while ($stack) {
+            [$x, $y] = array_pop($stack);
+            if ($x < 0 || $y < 0 || $x >= $w || $y >= $h) {
+                continue;
+            }
+            $idx = $y * $w + $x;
+            if (isset($visited[$idx])) {
+                continue;
+            }
+            $c = imagecolorat($img, $x, $y);
+            if ((($c >> 24) & 0x7F) > 60) {
+                $visited[$idx] = 1; // از قبل شفاف
+                continue;
+            }
+            $dr = ((($c >> 16) & 0xFF) - $br);
+            $dg = ((($c >> 8) & 0xFF) - $bg);
+            $db = (($c & 0xFF) - $bb);
+            if ($dr * $dr + $dg * $dg + $db * $db > $tol2) {
+                $visited[$idx] = 1; // همرنگ نیست — مرز لوگو
+                continue;
+            }
+            $visited[$idx] = 1;
+            $toClear[] = $idx;
+            $stack[] = [$x + 1, $y];
+            $stack[] = [$x - 1, $y];
+            $stack[] = [$x, $y + 1];
+            $stack[] = [$x, $y - 1];
+        }
+
+        /* پاک‌سازی + لبه‌ی نرم (feather): همسایه‌های نیمه‌روشن پاک‌شده، نیمه‌شفاف */
+        foreach ($toClear as $idx) {
+            $x = $idx % $w;
+            $y = (int)($idx / $w);
+            imagesetpixel($img, $x, $y, $transparent | (imagecolorat($img, $x, $y) & 0xFFFFFF));
+        }
+        /* پرکردن حفره‌های antialias: پیکسل‌های همسایه پاک‌شده که هنوز مات و روشن‌اند → نیمه‌شفاف */
+        $feather = [];
+        foreach ($toClear as $idx) {
+            $x = $idx % $w;
+            $y = (int)($idx / $w);
+            foreach ([[$x + 1, $y], [$x - 1, $y], [$x, $y + 1], [$x, $y - 1]] as [$nx, $ny]) {
+                if ($nx < 0 || $ny < 0 || $nx >= $w || $ny >= $h) {
+                    continue;
+                }
+                $nidx = $ny * $w + $nx;
+                if (isset($visited[$nidx])) {
+                    continue;
+                }
+                $c = imagecolorat($img, $nx, $ny);
+                if ((($c >> 24) & 0x7F) > 60) {
+                    continue;
+                }
+                $lum = ((( $c >> 16) & 0xFF) + (($c >> 8) & 0xFF) + ($c & 0xFF)) / 3;
+                if ($lum > 215) {
+                    $feather[$nidx] = 1;
+                }
+            }
+        }
+        foreach ($feather as $nidx => $_) {
+            $x = $nidx % $w;
+            $y = (int)($nidx / $w);
+            $c = imagecolorat($img, $x, $y);
+            imagesetpixel($img, $x, $y, 0x5F000000 | ($c & 0xFFFFFF)); // ~۵۰٪ شفاف
+        }
+        imagealphablending($img, true);
+    }
+
+    /**
+     * 💾 مسیر PNG پاک‌شدهٔ کش‌شده — برای جاسازی در SVG/خروجی
+     * نسخه شفاف‌شده لوگو در cache/ ذخیره و مسیرش برگردانده می‌شود.
+     * @return string|null مسیر مطلق PNG تمیز یا null
+     */
+    public static function cleanedPngPath(string $absPath): ?string
+    {
+        if (!is_file($absPath) || !is_readable($absPath) || filesize($absPath) > 4 * 1024 * 1024) {
+            return null;
+        }
+        $key = md5($absPath . '|' . filesize($absPath) . '|' . filemtime($absPath));
+        if (isset(self::$cleanCache[$key])) {
+            return self::$cleanCache[$key];
+        }
+        $res = self::loadResampledClean($absPath, 900);
+        if ($res === null) {
+            return null;
+        }
+        $cacheDir = defined('CACHE_PATH') ? CACHE_PATH : (dirname($absPath, 3) . '/cache');
+        if (!is_dir($cacheDir) && !@mkdir($cacheDir, 0755, true)) {
+            imagedestroy($res);
+            return null;
+        }
+        $out = $cacheDir . '/logo-clean-' . $key . '.png';
+        imagealphablending($res, false);
+        imagesavealpha($res, true);
+        $ok = imagepng($res, $out, 6);
+        imagedestroy($res);
+        if (!$ok) {
+            return null;
+        }
+        self::$cleanCache[$key] = $out;
+        return $out;
     }
 
     /**
@@ -203,9 +406,9 @@ class ImageWatermark
         }
 
         /* 🗃 کش: کلید = منبع + برند + زمان تغییر لوگوها + نسخه چیدمان واترمارک
-           (v3.1: نسخه «wm2» — واترمارک‌های بزرگ‌تر مجدداً تولید شوند) */
+           (v3.2: نسخه «wm3» — واترمارک‌های بزرگ‌تر + پس‌زمینه پاک‌شده JPG مجدداً تولید شوند) */
         $sig = md5($srcRel . '|' . ($brand['id'] ?? 0) . '|' . filemtime($srcAbs) . '|' .
-            ($brandLogo ? filemtime($brandLogo) : '-') . '|' . ($agencyLogo ? filemtime($agencyLogo) : '-') . '|wm2');
+            ($brandLogo ? filemtime($brandLogo) : '-') . '|' . ($agencyLogo ? filemtime($agencyLogo) : '-') . '|wm3');
         $outRel = 'uploads/articles/wm/' . pathinfo($srcRel, PATHINFO_FILENAME) . '-' . $sig . '.' . $ext;
         $outAbs = ROOT_PATH . '/' . $outRel;
         if (is_file($outAbs) && filesize($outAbs) > 1024) {
@@ -222,13 +425,13 @@ class ImageWatermark
             return null;
         }
         /* نسبت تصویر مقاله — واترمارک متناسب با ابعاد واقعی
-           (v3.1: بزرگ‌تر و پررنگ‌تر طبق درخواست کاربر — لوگوی برند ≈۲۲٪ و نمایندگی ≈۱۸٪ ضلع کوتاه) */
+           (v3.2: بسیار بزرگ‌تر و پررنگ‌تر طبق درخواست مجدد کاربر — لوگوی برند ≈۳۰٪ و نمایندگی ≈۲۵٪ ضلع کوتاه) */
         $shortSide = min(imagesx($img), imagesy($img));
-        $max = max(96, (int)round($shortSide * 0.22));
+        $max = max(120, (int)round($shortSide * 0.30));
         self::stampCorners($img, $brandLogo, $agencyLogo, [
             'brand_max'  => $max,
-            'agency_max' => (int)round($max * 0.82),
-            'opacity'    => 0.88,
+            'agency_max' => (int)round($max * 0.84),
+            'opacity'    => 0.92,
             'margin'     => max(14, (int)round($shortSide * 0.022)),
         ]);
         $ok = $ext === 'png' ? imagepng($img, $outAbs, 8) : imagejpeg($img, $outAbs, 88);

@@ -54,11 +54,11 @@ class AiImageGenerator
      * @param string $focusKw   کلیدواژه کانونی (برای alt)
      * @return array ['og' => ['path','url'], 'images' => [ ['path','url','alt','caption'] × ۲ ]]
      */
-    public function generateForArticle(int $articleId, string $title, string $deviceKey, string $topicType, array $brand, string $focusKw = ''): array
+    public function generateForArticle(int $articleId, string $title, string $deviceKey, string $topicType, array $brand, string $focusKw = '', string $content = ''): array
     {
         /* 🎯 v3.0: استنتاج مطمئن دستگاه — عنوان معتبرترین سیگنال است */
         if (!ArticleImageService::normalizeDeviceKey($deviceKey)) {
-            $deviceKey = (string)(ArticleImageService::inferDeviceKey($title) ?? $deviceKey);
+            $deviceKey = (string)(ArticleImageService::inferDeviceKey($title, $content) ?? $deviceKey);
         }
         $seed = crc32($articleId . '|' . $title . '|' . $deviceKey . '|' . $topicType);
         $palette = $this->brandPalette($brand, $seed);
@@ -78,7 +78,7 @@ class AiImageGenerator
         /* --- 🖼️ ۲ تصویر درون‌متن: عکس واقعی همان دستگاه (بدون متن) + واترمارک دوتایی --- */
         try {
             $picker = new ArticleImageService();
-            $photos = $picker->pick($deviceKey, $topicType, $title, $focusKw, $brand);
+            $photos = $picker->pick($deviceKey, $topicType, $title, $focusKw, $brand, $content);
         } catch (Throwable $e) {
             $photos = [];
         }
@@ -88,7 +88,7 @@ class AiImageGenerator
         if (!$inline) {
             /* 🛟 fallback: بسته عکس عمومی + واترمارک */
             try {
-                $generic = $picker->pick(null, $topicType, $title, $focusKw, $brand);
+                $generic = $picker->pick(null, $topicType, $title, $focusKw, $brand, $content);
                 $inline = array_slice($generic, 0, 2);
             } catch (Throwable $e) {
                 $inline = [];
@@ -225,11 +225,12 @@ class AiImageGenerator
         $white = imagecolorallocate($img, 255, 255, 255);
         $shadow = imagecolorallocate($img, 0, 0, 0);
 
-        /* --- 🖼 v3.1: لوگوی برند مستقیم روی پس‌زمینه — بدون هیچ کادر/نشان/سایه‌جعبه
-              (زمینه لوگو شفاف حفظ می‌شود؛ کنتراست را تنظیم پس‌زمینه تأمین می‌کند) --- */
+        /* --- 🖼 v3.2: لوگوی برند مستقیم روی پس‌زمینه — بدون هیچ کادر/نشان/سایه‌جعبه
+              (زمینه لوگو شفاف حفظ می‌شود؛ JPG های بدون آلفا هم با حذف هوشمند
+               پس‌زمینه سفید لبه‌ها شفاف می‌شوند — فیکس «کادر سفید زیر لوگو») --- */
         $logoBottom = 0; // انتهای عمودی لوگو — عنوان از اینجا شروع می‌شود
         if ($brandLogo !== null) {
-            $logoRes = $brandLogo['kind'] === 'svg' ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($brandLogo['path'], 560) ?? '', 440) : ImageWatermark::loadResampled($brandLogo['path'], 440);
+            $logoRes = $brandLogo['kind'] === 'svg' ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($brandLogo['path'], 560) ?? '', 440) : ImageWatermark::loadResampledClean($brandLogo['path'], 440);
             if ($logoRes !== null) {
                 $lw = imagesx($logoRes);
                 $lh = imagesy($logoRes);
@@ -304,21 +305,21 @@ class AiImageGenerator
         }
 
         /* --- 🪧 واترمارک‌ها: لوگوی برند پایین-راست + لوگوی نمایندگی پایین-چپ (شفاف)
-              (v3.1: بزرگ‌تر و پررنگ‌تر برای دیده‌شدن بهتر) --- */
+              (v3.2: بزرگ‌تر و پررنگ‌تر + پس‌زمینه JPG هم هوشمندانه پاک می‌شود) --- */
         if ($brandLogo !== null) {
-            $bwm = $brandLogo['kind'] === 'svg' ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($brandLogo['path']) ?? '', 200) : ImageWatermark::loadResampled($brandLogo['path'], 200);
+            $bwm = $brandLogo['kind'] === 'svg' ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($brandLogo['path'], 320) ?? '', 300) : ImageWatermark::loadResampledClean($brandLogo['path'], 300);
             if ($bwm !== null) {
-                ImageWatermark::drawAlpha($img, $bwm, $w - imagesx($bwm) - 26, $h - imagesy($bwm) - 22, 0.72);
+                ImageWatermark::drawAlpha($img, $bwm, $w - imagesx($bwm) - 26, $h - imagesy($bwm) - 22, 0.82);
                 imagedestroy($bwm);
             }
         }
         $agencyLogo = $this->agencyLogoAsset();
         if ($agencyLogo !== null) {
             $wmRes = $agencyLogo['kind'] === 'svg'
-                ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($agencyLogo['path']) ?? '', 220)
-                : ImageWatermark::loadResampled($agencyLogo['path'], 220);
+                ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($agencyLogo['path'], 340) ?? '', 320)
+                : ImageWatermark::loadResampledClean($agencyLogo['path'], 320);
             if ($wmRes !== null) {
-                ImageWatermark::drawAlpha($img, $wmRes, 26, $h - imagesy($wmRes) - 22, 0.74);
+                ImageWatermark::drawAlpha($img, $wmRes, 26, $h - imagesy($wmRes) - 22, 0.84);
                 imagedestroy($wmRes);
             }
         }
@@ -665,33 +666,48 @@ class AiImageGenerator
             }
         } else {
             $data = @file_get_contents($brandLogo['path']);
+            /* 🧽 v3.2: لوگوهای رستری بدون آلفا (JPG) → نسخه PNG با پس‌زمینه پاک‌شده */
+            $mime = $brandLogo['kind'] === 'svg' ? 'image/svg+xml' : 'image/' . strtolower(pathinfo($brandLogo['path'], PATHINFO_EXTENSION));
+            if ($brandLogo['kind'] === 'raster') {
+                $cleaned = ImageWatermark::cleanedPngPath($brandLogo['path']);
+                if ($cleaned !== null && is_readable($cleaned)) {
+                    $data = @file_get_contents($cleaned);
+                    $mime = 'image/png';
+                }
+            }
+            if ($mime === 'image/jpg') { $mime = 'image/jpeg'; }
             if (is_string($data) && $data !== '') {
-                $mime = $brandLogo['kind'] === 'svg' ? 'image/svg+xml' : 'image/' . strtolower(pathinfo($brandLogo['path'], PATHINFO_EXTENSION));
-                if ($mime === 'image/jpg') { $mime = 'image/jpeg'; }
                 if ($isOg) {
-                    /* OG (v3.1): لوگوی برند مستقیم روی پس‌زمینه — بدون کادر سفید
-                       (کنتراست را paletteAdjustedForLogo تأمین می‌کند) */
+                    /* OG (v3.2): لوگوی برند مستقیم روی پس‌زمینه — بدون کادر سفید
+                       (JPG ها هم با پس‌زمینه پاک‌شده جاسازی می‌شوند) */
                     $p[] = sprintf('<image x="%d" y="26" width="260" height="136" preserveAspectRatio="xMidYMid meet" href="data:%s;base64,%s"/>',
                         $w / 2 - 130, $mime, base64_encode($data));
                 } else {
                     /* تصویر مقاله: واترمارک لوگوی برند — گوشه پایین-راست، شفاف
-                       (v3.1: بزرگ‌تر برای دیده‌شدن بهتر طبق درخواست کاربر) */
-                    $sz = (int)round(min($w, $h) * 0.22);
-                    $p[] = sprintf('<image x="%d" y="%d" width="%d" height="%d" preserveAspectRatio="xMidYMax meet" opacity=".9" href="data:%s;base64,%s"/>',
+                       (v3.2: بسیار بزرگ‌تر برای دیده‌شدن بهتر طبق درخواست کاربر) */
+                    $sz = (int)round(min($w, $h) * 0.30);
+                    $p[] = sprintf('<image x="%d" y="%d" width="%d" height="%d" preserveAspectRatio="xMidYMax meet" opacity=".92" href="data:%s;base64,%s"/>',
                         $w - $sz - (int)round($w * 0.022), $h - $sz - (int)round($h * 0.03), $sz, $sz, $mime, base64_encode($data));
                 }
             }
         }
 
-        /* 🪧 واترمارک لوگوی نمایندگی — گوشه پایین-چپ، شفاف (v3.1: بزرگ‌تر) */
+        /* 🪧 واترمارک لوگوی نمایندگی — گوشه پایین-چپ، شفاف (v3.2: بزرگ‌تر + JPG پاک‌شده) */
         $agencyLogo = $this->agencyLogoAsset();
         if ($agencyLogo !== null) {
             $aData = @file_get_contents($agencyLogo['path']);
+            $aMime = $agencyLogo['kind'] === 'svg' ? 'image/svg+xml' : 'image/' . strtolower(pathinfo($agencyLogo['path'], PATHINFO_EXTENSION));
+            if ($agencyLogo['kind'] === 'raster') {
+                $aCleaned = ImageWatermark::cleanedPngPath($agencyLogo['path']);
+                if ($aCleaned !== null && is_readable($aCleaned)) {
+                    $aData = @file_get_contents($aCleaned);
+                    $aMime = 'image/png';
+                }
+            }
+            if ($aMime === 'image/jpg') { $aMime = 'image/jpeg'; }
             if (is_string($aData) && $aData !== '') {
-                $aMime = $agencyLogo['kind'] === 'svg' ? 'image/svg+xml' : 'image/' . strtolower(pathinfo($agencyLogo['path'], PATHINFO_EXTENSION));
-                if ($aMime === 'image/jpg') { $aMime = 'image/jpeg'; }
-                $aSz = $isOg ? 104 : (int)round(min($w, $h) * 0.17);
-                $p[] = sprintf('<image x="%d" y="%d" width="%d" height="%d" preserveAspectRatio="xMidYMax meet" opacity=".82" href="data:%s;base64,%s"/>',
+                $aSz = $isOg ? 130 : (int)round(min($w, $h) * 0.24);
+                $p[] = sprintf('<image x="%d" y="%d" width="%d" height="%d" preserveAspectRatio="xMidYMax meet" opacity=".86" href="data:%s;base64,%s"/>',
                     (int)round($w * 0.022), $h - $aSz - (int)round($h * 0.03), $aSz, $aSz, $aMime, base64_encode($aData));
             }
         }
@@ -837,7 +853,7 @@ class AiImageGenerator
         try {
             $res = $brandLogo['kind'] === 'svg'
                 ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($brandLogo['path'], 160) ?? '', 160)
-                : ImageWatermark::loadResampled($brandLogo['path'], 160);
+                : ImageWatermark::loadResampledClean($brandLogo['path'], 160);
             if ($res === null) {
                 return null;
             }

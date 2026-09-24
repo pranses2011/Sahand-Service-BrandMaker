@@ -153,6 +153,21 @@ class ArticleImageService
         'تصفیه هوا' => 'air_purifier', 'رطوبت گیر' => 'dehumidifier', 'رطوبت‌گیر' => 'dehumidifier',
         'پنکه' => 'fan', 'بخاری' => 'heater', 'هیتر' => 'heater',
         'خشک کن' => 'dryer', 'خشککن' => 'dryer', 'یخساز' => 'freezer', 'آوین' => 'wine_cooler',
+        /* 🆕 v3.2: مترادف‌های بیشتر برای استنتاج دقیق‌تر موضوع مقاله */
+        'تلوزیون' => 'tv', 'تلویزیون هوشمند' => 'tv', 'جعبه جادو' => 'tv',
+        'ماشین لباسشویی' => 'washing_machine', 'ماشین لباس شویی' => 'washing_machine', 'ماشین ظرفشویی' => 'dishwasher',
+        'جارو' => 'vacuum', 'جارو برقی خانگی' => 'vacuum',
+        'کولر آبی' => 'cooler', 'کولر گازی' => 'air_conditioner', 'آبگیر' => 'cooler',
+        'یخچال فریزر' => 'refrigerator', 'ساید بای ساید' => 'refrigerator', 'نویزفری' => 'freezer',
+        'پلوپز' => 'rice_cooker', 'پلو پز' => 'rice_cooker', 'سرخکن هوا' => 'air_fryer',
+        'چایساز' => 'tea_maker', 'سماور برقی' => 'tea_maker', 'کتری برقی' => 'kettle',
+        'غذا ساز' => 'food_processor', 'مخلوط‌کن' => 'blender', 'آبمیوه‌ساز' => 'juicer',
+        'سشوار مو' => 'hair_dryer', 'اصلاح‌کن' => 'hair_clipper',
+        'بخارشوی' => 'steam_cleaner', 'اتو بخار' => 'iron', 'اتوکاره' => 'iron',
+        'هواساز' => 'air_purifier', 'تصفیه‌کننده هوا' => 'air_purifier',
+        'آبگرمکن برقی' => 'water_heater', 'آب گرم کنی' => 'water_heater', 'بویلر' => 'package',
+        'هود آشپزخانه' => 'range_hood', 'هاب برقی' => 'cooktop',
+        'اجاق گاز' => 'stove', 'فر برقی' => 'oven', 'فر توکار' => 'oven', 'مایکروویو خانگی' => 'microwave',
     ];
 
     /**
@@ -232,7 +247,7 @@ class ArticleImageService
      * @param array|null  $brand     رکورد برند (برای واترمارک لوگو)
      * @return array<int, array{file:string, path:string, url:string, alt:string, caption:string, role:string, device_inferred?:string}>
      */
-    public function pick(?string $deviceKey, string $topicType, string $title, string $focusKw = '', ?array $brand = null): array
+    public function pick(?string $deviceKey, string $topicType, string $title, string $focusKw = '', ?array $brand = null, string $content = ''): array
     {
         $devices = [];
         try {
@@ -240,11 +255,12 @@ class ArticleImageService
         } catch (Throwable $e) {
         }
 
-        /* 🎯 v2: نرمال‌سازی + استنتاج از عنوان وقتی خالی/نامعتبر است */
+        /* 🎯 v2: نرمال‌سازی + استنتاج از عنوان/محتوا وقتی خالی/نامعتبر است
+           (v3.2: متن کامل مقاله هم بررسی می‌شود — دقت مرتبط‌بودن تصاویر بالاتر) */
         $inferred = null;
         $normKey = self::normalizeDeviceKey($deviceKey);
         if ($normKey === null) {
-            $inferred = self::inferDeviceKey($title);
+            $inferred = self::inferDeviceKey($title, $content);
             $normKey = self::normalizeDeviceKey($inferred);
         }
         $deviceFa = $devices[$normKey]['name_fa'] ?? '';
@@ -371,14 +387,38 @@ class ArticleImageService
 
     /**
      * 🏷️ HTML یک <figure> استاندارد سئو
+     *
+     * 🛡 v3.2: ضدکشیدگی — ابعاد واقعی فایل خوانده می‌شود (قبلاً ۱۳۴۴×۷۶۸
+     * هاردکد بود و برای تصاویر با نسبت دیگر باعث کشیدگی می‌شد) + استایل
+     * درون‌خطی محافظ (width:100% + height:auto) که روی هر CSS سایتی غلبه
+     * می‌کند — حتی سایت‌های مستقرشده با قالب قدیمی.
      */
     public function figure(array $img): string
     {
         $url = htmlspecialchars($img['url'], ENT_QUOTES, 'UTF-8');
         $alt = htmlspecialchars($img['alt'], ENT_QUOTES, 'UTF-8');
         $cap = htmlspecialchars($img['caption'], ENT_QUOTES, 'UTF-8');
+
+        /* 📐 ابعاد واقعی فایل (jpg/png/webp) — SVG از viewBox */
+        $w = 1344;
+        $h = 768;
+        $abs = ROOT_PATH . '/' . ltrim((string)($img['path'] ?? ''), '/');
+        if (is_file($abs)) {
+            $info = @getimagesize($abs);
+            if (is_array($info) && (int)($info[0] ?? 0) > 0 && (int)($info[1] ?? 0) > 0) {
+                $w = (int)$info[0];
+                $h = (int)$info[1];
+            } elseif (strtolower(pathinfo($abs, PATHINFO_EXTENSION)) === 'svg') {
+                $svg = (string)@file_get_contents($abs);
+                if (preg_match('/viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/', $svg, $m)) {
+                    $w = (int)round((float)$m[1]);
+                    $h = (int)round((float)$m[2]);
+                }
+            }
+        }
+
         return "\n<figure class=\"article-figure\">\n" .
-            "  <img src=\"{$url}\" alt=\"{$alt}\" loading=\"lazy\" width=\"1344\" height=\"768\">\n" .
+            "  <img src=\"{$url}\" alt=\"{$alt}\" loading=\"lazy\" width=\"{$w}\" height=\"{$h}\" style=\"width:100%;height:auto;object-fit:contain;display:block\">\n" .
             "  <figcaption>{$cap}</figcaption>\n" .
             "</figure>\n";
     }

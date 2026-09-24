@@ -92,7 +92,8 @@ if (get_param('regen_images') === '1' && ($regenId = (int)get_param('edit')) > 0
                 (string)($article['device_key'] ?? ''),
                 'troubleshooting',
                 $brand,
-                ''
+                '',
+                strip_tags((string)($article['content'] ?? ''))
             );
             /* درج ۲ تصویر تازه در انتهای محتوا (تصاویر قبلی حفظ می‌شوند) */
             $injector = new ArticleImageService();
@@ -254,7 +255,7 @@ body { font-family: Vazirmatn, Vazir, Tahoma, sans-serif; background: #f1f5f9; c
 .pv-meta span { background: rgba(255,255,255,.16); border-radius: 20px; padding: 4px 14px; }
 .pv-container { max-width: 780px; margin: -28px auto 48px; padding: 0 18px; }
 .pv-card { background: #fff; border-radius: 16px; box-shadow: 0 12px 40px rgba(2,8,23,.10); padding: 34px 32px; }
-.pv-featured { width: 100%; border-radius: 12px; margin-bottom: 22px; display: block; }
+.pv-featured { width: 100%; height: auto; object-fit: contain; border-radius: 12px; margin-bottom: 22px; display: block; }
 .pv-og { border-radius: 12px; margin-bottom: 22px; width: 100%; display: block; border: 1px solid #e2e8f0; }
 .pv-label { font-size: 12px; color: #64748b; margin: -14px 0 22px; text-align: center; }
 .pv-content h2 { font-size: 21px; margin: 30px 0 12px; color: #0f172a; border-inline-start: 4px solid <?= e($pColor) ?>; padding-inline-start: 12px; }
@@ -262,7 +263,7 @@ body { font-family: Vazirmatn, Vazir, Tahoma, sans-serif; background: #f1f5f9; c
 .pv-content p { margin-bottom: 16px; text-align: justify; }
 .pv-content ul, .pv-content ol { margin: 0 24px 16px 0; }
 .pv-content li { margin-bottom: 8px; }
-.pv-content img { max-width: 100%; border-radius: 10px; }
+.pv-content img { max-width: 100%; height: auto; object-fit: contain; border-radius: 10px; }
 .pv-content a { color: <?= e($pColor) ?>; }
 .pv-content blockquote { border-inline-start: 4px solid <?= e($pAccent) ?>; background: #f8fafc; padding: 14px 18px; border-radius: 10px; margin: 0 0 16px; }
 .pv-content table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 14.5px; }

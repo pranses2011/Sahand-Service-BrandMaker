@@ -486,7 +486,8 @@ class SahandAI
                     (string)($article['device_key'] ?? ''),
                     $topicType,
                     $this->db->fetch('SELECT * FROM brands WHERE id = ?', [$brandId]) ?: ['name_fa' => '', 'extra_settings' => ''],
-                    $article['focus_keyword'] ?? ''
+                    $article['focus_keyword'] ?? '',
+                    strip_tags((string)($article['content'] ?? ''))
                 );
                 $ogImage = $aiResult['og']['path'] ?? null;
                 if (!empty($aiResult['images'])) {

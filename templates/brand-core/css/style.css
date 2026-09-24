@@ -224,7 +224,7 @@ a { color: var(--color-primary); text-decoration: none; transition: var(--transi
 .article-figure { margin: 22px 0; }
 /* ✅ v2.12: تصاویر درون‌متن با نسبت اصلی — بدون کشیدگی */
 .article-figure img { width: 100%; height: auto; display: block; border-radius: 12px; box-shadow: var(--shadow); object-fit: contain; }
-.article-content img { border-radius: 11px; margin: 14px 0; height: auto; object-fit: contain; }
+.article-content img { border-radius: 11px; margin: 14px 0; max-width: 100%; height: auto; object-fit: contain; }
 .article-figure figcaption {
     text-align: center; font-size: 12px; color: var(--color-text-light);
     margin-top: 9px; padding: 0 14px;
