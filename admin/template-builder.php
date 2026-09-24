@@ -48,6 +48,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save_template')
     redirect('template-builder.php?id=' . $id);
 }
 
+/* 🧩 v2.12: ذخیره بلوک ترکیبی (بلوک انتخابی + ستون‌های تودرتو) برای استفاده مجدد */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save_builder_block') {
+    (new Auth())->requireLogin();
+    Auth::enforceCsrf();
+    $name = trim(post('block_name')) ?: 'بلوک بدون نام';
+    $blockJson = (string)($_POST['block_json'] ?? '');
+    if (!json_validate($blockJson)) {
+        flash('danger', 'ساختار بلوک ترکیبی نامعتبر است.');
+        redirect('template-builder.php' . ((int)post('template_id') > 0 ? '?id=' . (int)post('template_id') : ''));
+    }
+    $decoded = json_decode($blockJson, true);
+    if (!is_array($decoded) || empty($decoded)) {
+        flash('danger', 'بلوک ترکیبی نمی‌تواند خالی باشد.');
+        redirect('template-builder.php' . ((int)post('template_id') > 0 ? '?id=' . (int)post('template_id') : ''));
+    }
+    $db->insert('builder_blocks', [
+        'name'       => mb_substr($name, 0, 180),
+        'category'   => post('block_category') ?: 'سفارشی',
+        'block_json' => $blockJson,
+    ]);
+    Logger::activity((int)$_SESSION['user_id'], 'ذخیره بلوک ترکیبی', $name);
+    flash('success', '🧩 بلوک ترکیبی «' . $name . '» ذخیره شد — از کتابخانه بلوک‌ها قابل استفاده مجدد است.');
+    redirect('template-builder.php' . ((int)post('template_id') > 0 ? '?id=' . (int)post('template_id') : ''));
+}
+
+/* 🗑️ v2.12: حذف بلوک ترکیبی ذخیره‌شده */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'delete_builder_block') {
+    (new Auth())->requireLogin();
+    Auth::enforceCsrf();
+    $db->delete('builder_blocks', 'id = ?', [(int)post('block_id')]);
+    flash('success', '🗑️ بلوک ترکیبی حذف شد.');
+    redirect('template-builder.php' . ((int)post('template_id') > 0 ? '?id=' . (int)post('template_id') : ''));
+}
+
 /* 🎨 اسکیل UI/UX Pro — طراحی/ممیزی/اصلاح چیدمان (AJAX) */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array(post('action'), ['uiux_design', 'uiux_review', 'uiux_improve'], true)) {
     (new Auth())->requireLogin(); // 🛡️ احراز هویت پیش از هدر
@@ -106,13 +140,16 @@ $blockLibrary = [
         'header-v2' => ['📐', 'هدر با نوار تماس', []],
         'header-v3' => ['📐', 'هدر شیشه‌ای چسبان', ['sticky' => 1]],
         'top-bar' => ['📏', 'نوار بالایی (تلفن + ساعات)', []],
+        'notification-bar' => ['🔔', 'نوار اطلاعیه بالای صفحه', ['text' => '🎉 سرویس ویژه تعطیلات — ۱۵٪ تخفیف سرویس دوره‌ای']],
     ],
     'هیرو' => [
         'hero' => ['🦸', 'هیرو متن + دکمه', ['title' => 'تعمیرات تخصصی با قطعات اصلی', 'subtitle' => 'نمایندگی رسمی — پاسخگویی ۷ روز هفته']],
-        'hero-slider' => ['🦸', 'اسلایدر تصویری', ['slides' => 3]],
+        'hero-slider' => ['🦸', 'اسلایدر تصویری', ['slides' => 3, 'autoplay' => 1]],
         'hero-split' => ['🦸', 'هیرو دو بخشی', ['title' => 'تعمیر لوازم خانگی در محل']],
         'hero-video' => ['🦸', 'هیرو با پس‌زمینه تصویر', []],
         'hero-countdown' => ['⏱️', 'هیرو با شمارش معکوس', []],
+        'hero-form' => ['🦸', 'هیرو + فرم درخواست کنار هم', ['title' => 'درخواست تعمیر آنلاین']],
+        'hero-marquee' => ['🏃', 'نوار خبر متحرک', ['text' => '⚡ اعزام تکنسین در کمتر از ۲ ساعت — ⭐ بیش از ۵۰ هزار تعمیر موفق — 🛡️ ۶ ماه ضمانت کتبی']],
     ],
     'محتوا' => [
         'text' => ['📝', 'متن آزاد', ['title' => 'درباره ما', 'text' => 'متن خود را اینجا بنویسید — این بخش در سایت به همین شکل نمایش داده می‌شود.']],
@@ -122,6 +159,10 @@ $blockLibrary = [
         'intro' => ['📋', 'معرفی کوتاه برند', []],
         'two-col' => ['📋', 'مقایسه دو ستونه', []],
         'three-col' => ['📋', 'سه ستونه متنی', []],
+        'brand-story' => ['📖', 'داستان برند (خط زمانی متنی)', ['title' => 'داستان ما']],
+        'area-list' => ['📍', 'فهرست محدوده خدمات (چیپ‌های شهر)', ['title' => 'مناطق تحت پوشش']],
+        'checklist' => ['✅', 'چک‌لیست قبل از تماس', ['title' => 'قبل از تماس این‌ها را بررسی کنید']],
+        'search-bar' => ['🔎', 'نوار جستجوی بزرگ', ['placeholder' => 'جستجوی کد خطا، مقاله یا دستگاه...']],
     ],
     '🏛 ستون‌بندی' => [
         'section-columns' => ['🏛', 'بخش چندستونی (۲-۴ ستون)', ['columns' => 2]],
@@ -137,23 +178,29 @@ $blockLibrary = [
         'team' => ['🃏', 'کارت تیم', []],
         'pricing-table' => ['💰', 'جدول تعرفه خدمات', []],
         'brands-links' => ['🏷️', 'لوگوی برندها', []],
+        'certificates' => ['🎖️', 'کارت گواهینامه‌ها و افتخارات', ['title' => 'گواهینامه‌ها و افتخارات']],
+        'review-grid' => ['⭐', 'شبکه نظرات مشتریان', ['title' => 'مشتریان ما چه می‌گویند']],
+        'contact-cards' => ['📇', 'کارت‌های اطلاعات تماس', []],
     ],
     'فرم' => [
         'contact-form' => ['📝', 'فرم تماس', []],
         'request-form' => ['📝', 'فرم درخواست خدمات', []],
         'newsletter-form' => ['📧', 'فرم عضویت خبرنامه', []],
+        'appointment-form' => ['📅', 'فرم رزرو نوبت (تاریخ + ساعت)', []],
     ],
     'آمار' => [
         'counter-stats' => ['📊', 'شمارنده‌ها', []],
         'progress-bars' => ['📊', 'نوارهای پیشرفت', []],
         'skill-bars' => ['📊', 'مهارت‌های تخصصی', []],
+        'stats-grid' => ['🔢', 'شبکه اعداد کلیدی (۶ کارت)', []],
     ],
     'تعامل' => [
-        'testimonials' => ['💬', 'اسلایدر نظرات مشتریان', []],
+        'testimonials' => ['💬', 'اسلایدر نظرات مشتریان', ['autoplay' => 1]],
         'faq-accordion' => ['❓', 'آکاردئون سوالات', []],
         'tabs' => ['🗂️', 'تب‌بندی محتوا', []],
         'timeline' => ['🕐', 'خط زمانی پیشرفت کار', []],
         'steps-process' => ['👣', 'مراحل کار (فرآیند)', []],
+        'before-after' => ['🔀', 'مقایسه قبل/بعد تعمیر', []],
     ],
     'رسانه' => [
         'gallery' => ['🖼️', 'گالری تصاویر', []],
@@ -166,6 +213,8 @@ $blockLibrary = [
         'cta-request' => ['🔗', 'CTA ثبت درخواست', []],
         'cta-banner' => ['🔗', 'بنر فراخوان عریض', []],
         'sticky-mobile-cta' => ['📱', 'نوار فراخوان چسبان موبایل', []],
+        'cta-whatsapp' => ['💚', 'CTA واتساپ', []],
+        'warranty-banner' => ['🛡️', 'بنر ضمانت کتبی', []],
     ],
     'ساختار' => [
         'breadcrumb' => ['🧭', 'مسیر راهنما (Breadcrumb)', []],
@@ -174,13 +223,26 @@ $blockLibrary = [
         'icon-list' => ['📋', 'فهرست با آیکون', []],
         'separator' => ['⬜', 'جداکننده', []],
         'spacer' => ['⬜', 'فاصله', ['height' => 46]],
+        'working-hours' => ['🕐', 'کارت ساعات کاری', []],
+        'social-follow' => ['📣', 'دنبال‌کردن شبکه‌های اجتماعی', []],
+        'trust-badges' => ['🏅', 'نشان‌های اعتماد (ردیفی)', []],
     ],
     'فوتر' => [
         'footer-simple' => ['🦶', 'فوتر ساده', []],
         'footer-contact' => ['🦶', 'فوتر با اطلاعات تماس', []],
+        'footer-links' => ['🦶', 'فوتر چندستونه با لینک‌ها', []],
+        'payment-methods' => ['💳', 'روش‌های پرداخت', []],
         'copyright' => ['©️', 'نوار کپی‌رایت', []],
     ],
 ];
+
+/* 🧩 v2.12: بلوک‌های ترکیبی ذخیره‌شده کاربر (از جدول builder_blocks) */
+$savedBlocks = [];
+try {
+    $savedBlocks = $db->fetchAll('SELECT id, name, category, block_json FROM builder_blocks ORDER BY updated_at DESC, id DESC LIMIT 60');
+} catch (Throwable $sbE) {
+    $savedBlocks = [];
+}
 ?>
 <link rel="stylesheet" href="<?= asset_ver('assets/css/builder.css') ?>">
 <style>
@@ -255,6 +317,27 @@ $blockLibrary = [
         <!-- 📚 کتابخانه بلوک -->
         <aside class="block-library">
             <div class="block-lib-title">📚 بلوک‌ها را بکشید ↓ <small style="font-weight:400;color:var(--text-light)">(دابل‌کلیک = افزودن)</small></div>
+
+            <!-- 🧩 v2.12: بلوک‌های ترکیبی ذخیره‌شده کاربر -->
+            <div class="block-cat" style="background:rgba(37,99,235,.08);border-inline-start:3px solid var(--primary)">🧩 بلوک‌های ترکیبی من <span class="badge badge-info" style="font-size:9.5px"><?= count($savedBlocks) ?></span></div>
+            <?php if (empty($savedBlocks)): ?>
+                <div class="hint" style="padding:4px 12px 10px;font-size:10.5px;line-height:1.8">هنوز بلوک ترکیبی ذخیره نکرده‌اید — بلوکی را در بوم انتخاب و از پنل ویژگی‌ها «💾 ذخیره به‌عنوان بلوک ترکیبی» را بزنید.</div>
+            <?php else: ?>
+                <?php foreach ($savedBlocks as $sb): ?>
+                    <div class="block-item" draggable="true" data-block="saved:<?= (int)$sb['id'] ?>" style="border-inline-start:3px solid var(--primary)" title="بلوک ترکیبی — دابل‌کلیک یا درگ کنید">
+                        <span class="icon">🧩</span>
+                        <span><?= e($sb['name']) ?></span>
+                        <form method="post" style="display:inline" onsubmit="return confirm('بلوک ترکیبی «<?= e(addslashes((string)$sb['name'])) ?>» حذف شود؟')">
+                            <?= Auth::csrfField() ?>
+                            <input type="hidden" name="action" value="delete_builder_block">
+                            <input type="hidden" name="block_id" value="<?= (int)$sb['id'] ?>">
+                            <input type="hidden" name="template_id" value="<?= (int)($template['id'] ?? 0) ?>">
+                            <button type="submit" class="block-eye" style="color:#dc2626" title="حذف بلوک ترکیبی" onclick="event.stopPropagation()">🗑</button>
+                        </form>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+
             <?php foreach ($blockLibrary as $category => $blocks): ?>
                 <div class="block-cat"><?= e($category) ?> <span class="badge badge-secondary" style="font-size:9.5px"><?= count($blocks) ?></span></div>
                 <?php foreach ($blocks as $key => [$icon, $label, $defaults]): ?>
@@ -288,6 +371,15 @@ $blockLibrary = [
     </div>
 </form>
 
+<!-- 🧩 v2.12: فرم مستقل ذخیره بلوک ترکیبی (خارج از فرم قالب — ضد تودرتو) -->
+<form method="post" id="save-block-form" style="display:none">
+    <?= Auth::csrfField() ?>
+    <input type="hidden" name="action" value="save_builder_block">
+    <input type="hidden" name="template_id" value="<?= (int)($template['id'] ?? 0) ?>">
+    <input type="hidden" name="block_name" id="save-block-name" value="">
+    <input type="hidden" name="block_json" id="save-block-json" value="">
+</form>
+
 <!-- 👁️ مودال پیش‌نمایش زنده -->
 <div class="modal-backdrop" id="preview-backdrop">
     <div class="modal preview-modal">
@@ -307,7 +399,7 @@ $blockLibrary = [
 </div>
 
 <script>
-/* 🎭 موتور قالب‌ساز v3.0 — طراحی زنده + ستون‌بندی تودرتو */
+/* 🎭 موتور قالب‌ساز v3.1 — طراحی زنده + ستون‌بندی تودرتو + بلوک‌های ترکیبی */
 const BLOCK_META = <?= json_encode(array_map(function ($cats) {
     $flat = [];
     foreach ($cats as $key => $meta) { $flat[$key] = ['label' => $meta[1], 'defaults' => $meta[2]]; }
@@ -317,10 +409,20 @@ const BLOCK_META = <?= json_encode(array_map(function ($cats) {
 let layout = JSON.parse(document.getElementById('layout-json').value || '[]');
 let selected = null; // رشته مسیر مثل '3' یا '3.cols.1.0'
 
+/* 🧩 v2.12: بلوک‌های ترکیبی ذخیره‌شده — id → ساختار JSON کامل (با ستون‌های تودرتو)
+   (بازکدگذاری با JSON_HEX_TAG تا محتوای کاربر نتواند تگ <script> را بشکند) */
+const SAVED_BLOCKS = {};
+<?php foreach ($savedBlocks as $sb): ?>
+try { SAVED_BLOCKS[<?= (int)$sb['id'] ?>] = <?= json_encode(json_decode((string)$sb['block_json'], true), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>; } catch (e) {}
+<?php endforeach; ?>
+
 /* ==================================================
  * ⚡ رندر واقعی بلوک‌ها (طراحی زنده — همان HTML سایت)
  * ================================================== */
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* 🗂 v2.12: کلاس ستون شبکه‌های کارتی از تنظیمات بلوک (۲..۶ — پیش‌فرض درآوردنی) */
+function gridCols(props, def) { return Math.max(2, Math.min(6, parseInt(props.columns || def, 10) || def)); }
 
 function blockHtml(block, props) {
     const t = props.title || '';
@@ -353,10 +455,10 @@ function blockHtml(block, props) {
         }
         case 'section-split': return B(`${TITLE}<div class="tb-col-wrap" style="grid-template-columns:2fr 1fr"><div style="display:flex;flex-direction:column;gap:10px"></div><div style="display:flex;flex-direction:column;gap:10px"></div></div>`, 'section-cols-blk');
         case 'feature-list': return B(`${TITLE}<div class="feat-list"><div class="feat-row"><span class="feat-ico">⚡</span><div><b>سرعت عمل</b><div class="feat-d">اعزام تکنسین در کمتر از ۲ ساعت</div></div></div><div class="feat-row"><span class="feat-ico">🛡️</span><div><b>ضمانت کتبی</b><div class="feat-d">۶ ماه ضمانت روی قطعه و خدمات</div></div></div><div class="feat-row"><span class="feat-ico">💰</span><div><b>قیمت شفاف</b><div class="feat-d">پیش‌فاکتور قبل از شروع کار</div></div></div></div>`);
-        case 'services-grid': case 'features': return B(`<div class="blk-title">${esc(t || (block === 'features' ? 'چرا ما را انتخاب کنید؟' : 'خدمات ما'))}</div><div class="cols c3">${'<div class="fake-card"><div class="card-ico">🔧</div><div class="card-t">سرویس نمونه</div><div class="fl w80"></div></div>'.repeat(3)}</div>`);
-        case 'devices-grid': return B(`<div class="blk-title">${esc(t || 'دستگاه‌های تحت پوشش')}</div><div class="cols c4">${['🌀 لباسشویی', '🧊 یخچال', '🍽️ ظرفشویی', '❄️ کولر', '📺 تلویزیون', '♨️ پکیج', '📻 مایکروویو', '🔥 فر و اجاق'].map(d => `<div class="fake-card"><div class="card-ico">${d.split(' ')[0]}</div><div class="card-t">${d.split(' ')[1]}</div></div>`).join('')}</div>`);
-        case 'articles-recent': case 'articles-grid': return B(`<div class="blk-title">${esc(t || 'مقالات اخیر')}</div><div class="cols c3">${'<div class="fake-card"><div class="fake-img small">📰</div><div class="card-t">عنوان مقاله نمونه</div><div class="fl w100"></div></div>'.repeat(3)}</div>`);
-        case 'team': return B(`<div class="blk-title">${esc(t || 'تیم ما')}</div><div class="cols c4">${'<div class="fake-card"><div class="fake-ava">👤</div><div class="card-t">عضو تیم</div></div>'.repeat(4)}</div>`);
+        case 'services-grid': case 'features': return B(`<div class="blk-title">${esc(t || (block === 'features' ? 'چرا ما را انتخاب کنید؟' : 'خدمات ما'))}</div><div class="cols c${gridCols(props, 3)}">${'<div class="fake-card"><div class="card-ico">🔧</div><div class="card-t">سرویس نمونه</div><div class="fl w80"></div></div>'.repeat(3)}</div>`);
+        case 'devices-grid': return B(`<div class="blk-title">${esc(t || 'دستگاه‌های تحت پوشش')}</div><div class="cols c${gridCols(props, 4)}">${['🌀 لباسشویی', '🧊 یخچال', '🍽️ ظرفشویی', '❄️ کولر', '📺 تلویزیون', '♨️ پکیج', '📻 مایکروویو', '🔥 فر و اجاق'].map(d => `<div class="fake-card"><div class="card-ico">${d.split(' ')[0]}</div><div class="card-t">${d.split(' ')[1]}</div></div>`).join('')}</div>`);
+        case 'articles-recent': case 'articles-grid': return B(`<div class="blk-title">${esc(t || 'مقالات اخیر')}</div><div class="cols c${gridCols(props, 3)}">${'<div class="fake-card"><div class="fake-img small">📰</div><div class="card-t">عنوان مقاله نمونه</div><div class="fl w100"></div></div>'.repeat(3)}</div>`);
+        case 'team': return B(`<div class="blk-title">${esc(t || 'تیم ما')}</div><div class="cols c${gridCols(props, 4)}">${'<div class="fake-card"><div class="fake-ava">👤</div><div class="card-t">عضو تیم</div></div>'.repeat(4)}</div>`);
         case 'pricing-table': return B(`<div class="blk-title">${esc(t || 'تعرفه خدمات')}</div><div class="price-table"><div class="price-row"><span>دریافت و عیب‌یابی تخصصی</span><b>رایگان</b></div><div class="price-row"><span>سرویس دوره‌ای لباسشویی</span><b>از ۴۵۰ هزار تومان</b></div><div class="price-row"><span>شارژ گاز کولر گازی</span><b>از ۹۰۰ هزار تومان</b></div></div>`);
         case 'brands-links': return B(`<div class="blk-title">${esc(t || 'برندهای مورد خدمت')}</div><div class="cols c6">${'<div class="fake-logo-s">🏷️</div>'.repeat(6)}</div>`);
         case 'contact-form': case 'request-form': return B(`<div class="blk-title">${esc(t || (block === 'request-form' ? 'فرم درخواست خدمات' : 'فرم تماس'))}</div><div class="form-grid"><div class="fake-input">نام و نام خانوادگی</div><div class="fake-input">شماره تماس</div><div class="fake-input">شرح مشکل</div><div class="hero-btn full">ارسال درخواست</div></div>`);
@@ -369,7 +471,7 @@ function blockHtml(block, props) {
         case 'tabs': return B(`<div class="blk-title">${esc(t || 'تب‌بندی محتوا')}</div><div class="tabs-row"><span class="tab cur">تعمیر</span><span class="tab">سرویس</span><span class="tab">نصب</span></div><div class="fake-card" style="text-align:right"><div class="fl w100"></div><div class="fl w90"></div><div class="fl w60"></div></div>`);
         case 'timeline': return B(`<div class="blk-title">${esc(t || 'مراحل پیشرفت کار')}</div><div class="tl"><div class="tl-item done"><span class="tl-dot">✓</span><div>ثبت درخواست</div></div><div class="tl-item done"><span class="tl-dot">✓</span><div>عیب‌یابی و پیش‌فاکتور</div></div><div class="tl-item cur"><span class="tl-dot">۳</span><div>تعمیر در حال انجام</div></div><div class="tl-item"><span class="tl-dot">۴</span><div>تحویل و ضمانت</div></div></div>`);
         case 'steps-process': return B(`<div class="blk-title">${esc(t || 'فرآیند کار ما')}</div><div class="steps-row"><div class="step"><span class="step-n">۱</span><div class="step-t">تماس/ثبت درخواست</div></div><div class="step-arrow">←</div><div class="step"><span class="step-n">۲</span><div class="step-t">اعزام تکنسین</div></div><div class="step-arrow">←</div><div class="step"><span class="step-n">۳</span><div class="step-t">تعمیر و تست</div></div></div>`);
-        case 'gallery': return B(`<div class="blk-title">${esc(t || 'گالری')}</div><div class="cols c4">${'<div class="fake-img small">🖼️</div>'.repeat(4)}</div>`);
+        case 'gallery': return B(`<div class="blk-title">${esc(t || 'گالری')}</div><div class="cols c${gridCols(props, 4)}">${'<div class="fake-img small">🖼️</div>'.repeat(4)}</div>`);
         case 'image-carousel': return B(`<div class="blk-title">${esc(t || 'کاروسل تصاویر')}</div><div class="hero-img wide">🎠 ‹ ›</div><div class="slider-dots">● ○ ○</div>`);
         case 'video-embed': return B(`<div class="blk-title">${esc(t || 'ویدیوی آموزشی')}</div><div class="fake-img wide" style="height:190px">▶ ویدیوی آموزشی</div>`);
         case 'map': return B(`<div class="blk-title">${esc(t || 'محدوده خدمات')}</div><div class="fake-map">📍 نقشه محدوده خدمات</div>`);
@@ -385,6 +487,28 @@ function blockHtml(block, props) {
         case 'footer-simple': return `<div class="blk ${bgCls} ${padCls} footer-blk"><div class="fake-logo">🏗️</div><nav class="fake-nav" style="justify-content:center"><span>خدمات</span><span>مقالات</span><span>تماس</span></nav><div class="soc-row"><span> Telegram </span><span> Instagram </span><span> WhatsApp </span></div></div>`;
         case 'footer-contact': return `<div class="blk ${bgCls} ${padCls} footer-blk"><div class="tb-col-wrap" style="grid-template-columns:repeat(3,1fr)"><div><div class="fake-logo">🏗️</div><div class="fl w80"></div></div><div><div class="card-t">تماس</div><div class="feat-d">📞 ۰۲۱-۱۲۳۴۵۶۷۸<br>📍 تهران، خیابان نمونه</div></div><div><div class="card-t">ساعات کاری</div><div class="feat-d">شنبه تا پنجشنبه<br>۹ صبح تا ۸ شب</div></div></div></div>`;
         case 'copyright': return `<div class="blk ${bgCls} ${padCls} crump-blk">© تمامی حقوق برای نمایندگی محفوظ است — ساخته‌شده با ❤️</div>`;
+
+        /* ════════ 🆕 v2.12: عناصر جدید (طبق درخواست — کتابخانه کامل‌تر) ════════ */
+        case 'notification-bar': return `<div class="blk notif-bar ${props.notifColor || 'info'}" style="padding:8px 14px">${esc(props.text || '🎉 سرویس ویژه تعطیلات — ۱۵٪ تخفیف سرویس دوره‌ای')}</div>`;
+        case 'hero-form': return B(`<div class="hero-split"><div><div class="hero-title">${esc(t || 'درخواست تعمیر آنلاین')}</div><div class="hero-sub">فرم را پر کنید — کارشناسان ما تماس می‌گیرند</div><div class="hero-btns"><span class="hero-btn">📞 تماس فوری</span></div></div><div class="fake-card" style="text-align:right;background:rgba(255,255,255,.14);border:none"><div class="fake-input">نام و شماره تماس</div><div class="fake-input">نوع دستگاه</div><div class="hero-btn full" style="margin-top:8px">ثبت درخواست</div></div></div>`, 'hero-blk split-hero');
+        case 'hero-marquee': return `<div class="blk marquee-blk ${bgCls}"><div class="marquee-track"><span>${esc(props.text || '⚡ اعزام تکنسین در کمتر از ۲ ساعت — ⭐ بیش از ۵۰ هزار تعمیر موفق — 🛡️ ۶ ماه ضمانت کتبی')}</span></div></div>`;
+        case 'brand-story': return B(`${TITLE}<div class="story-wrap"><div class="story-sec"><span class="story-year">۱۳۸۵</span><div><b>شروع فعالیت</b><div class="feat-d">اولین مرکز تعمیرات با یک تعمیرکار</div></div></div><div class="story-sec"><span class="story-year">۱۳۹۲</span><div><b>گسترش خدمات</b><div class="feat-d">پوشش تمام لوازم خانگی</div></div></div><div class="story-sec"><span class="story-year">امروز</span><div><b>نمایندگی رسمی</b><div class="feat-d">تیم ۱۲ نفره و ۵۰ هزار تعمیر موفق</div></div></div></div>`);
+        case 'area-list': return B(`${TITLE}<div class="chip-row">${['سعادت‌آباد', 'پونک', 'ولنجک', 'تجریش', 'شهرک غرب', 'نیاوران', 'میرداماد', 'جردن'].map(a => `<span class="chip">📍 ${a}</span>`).join('')}</div>`);
+        case 'checklist': return B(`${TITLE}<div class="feat-list"><div class="feat-row"><span class="feat-ico">☑️</span><div>دستگاه را روشن و خاموش کنید و دوباره امتحان کنید</div></div><div class="feat-row"><span class="feat-ico">☑️</span><div>کد خطای نمایشگر را یادداشت کنید</div></div><div class="feat-row"><span class="feat-ico">☑️</span><div>صداهای غیرعادی و بوی سوختگی را بررسی کنید</div></div><div class="feat-row"><span class="feat-ico">☑️</span><div>فاکتور خرید و گارانتی را آماده داشته باشید</div></div></div>`);
+        case 'search-bar': return B(`<div class="search-wrap"><span class="search-ico">🔎</span><div class="fake-input" style="flex:1;border:none">${esc(props.placeholder || 'جستجوی کد خطا، مقاله یا دستگاه...')}</div><span class="hero-btn">جستجو</span></div>`);
+        case 'certificates': return B(`<div class="blk-title">${esc(t || 'گواهینامه‌ها و افتخارات')}</div><div class="cols c${gridCols(props, 3)}">${[['🎖️', 'نمایندگی رسمی'], ['📋', 'گواهی ایزو ۹۰۰۱'], ['🏆', 'برترین خدمات ۱۴۰۳']].map(([i, n]) => `<div class="fake-card"><div class="card-ico">${i}</div><div class="card-t">${n}</div><div class="fl w60"></div></div>`).join('')}</div>`);
+        case 'review-grid': return B(`<div class="blk-title">${esc(t || 'مشتریان ما چه می‌گویند')}</div><div class="cols c${gridCols(props, 3)}">${'<div class="fake-card"><div class="stars">⭐⭐⭐⭐⭐</div><div class="fl w90"></div><div class="fl w70"></div><div class="fake-ava" style="margin-top:8px">👤</div></div>'.repeat(3)}</div>`);
+        case 'contact-cards': return B(`<div class="blk-title">${esc(t || 'راه‌های ارتباطی')}</div><div class="cols c3"><div class="fake-card"><div class="card-ico">📞</div><div class="card-t">تلفن</div><div class="feat-d" dir="ltr">۰۲۱-۱۲۳۴۵۶۷۸</div></div><div class="fake-card"><div class="card-ico">💬</div><div class="card-t">واتساپ</div><div class="feat-d" dir="ltr">۰۹۱۲-۰۰۰-۰۰۰۰</div></div><div class="fake-card"><div class="card-ico">📍</div><div class="card-t">آدرس</div><div class="feat-d">تهران، خیابان نمونه</div></div></div>`);
+        case 'appointment-form': return B(`<div class="blk-title">${esc(t || 'رزرو نوبت سرویس')}</div><div class="form-grid"><div class="fake-input">نام و شماره تماس</div><div class="fake-input">📅 تاریخ مورد نظر</div><div class="fake-input">🕐 بازه ساعتی (۹-۱۲ / ۱۲-۱۵ / ۱۵-۱۸)</div><div class="fake-input">نوع دستگاه و شرح مشکل</div><div class="hero-btn full">رزرو نوبت</div></div>`);
+        case 'stats-grid': return B(`<div class="blk-title">${esc(t || 'سهند سرویس در یک نگاه')}</div><div class="cols c${gridCols(props, 3)}"><div class="fake-card"><div class="stat-n">۱۲+</div><div class="feat-d">سال تجربه</div></div><div class="fake-card"><div class="stat-n">۵۰k+</div><div class="feat-d">تعمیر موفق</div></div><div class="fake-card"><div class="stat-n">۹۸٪</div><div class="feat-d">رضایت مشتری</div></div><div class="fake-card"><div class="stat-n">۲h</div><div class="feat-d">اعزام تکنسین</div></div><div class="fake-card"><div class="stat-n">۴۲</div><div class="feat-d">نوع دستگاه</div></div><div class="fake-card"><div class="stat-n">۶ ماه</div><div class="feat-d">ضمانت کتبی</div></div></div>`);
+        case 'before-after': return B(`<div class="blk-title">${esc(t || 'نتیجه تعمیر حرفه‌ای')}</div><div class="ba-wrap"><div class="ba-side"><div class="ba-tag bad">قبل</div><div class="fake-img small" style="height:110px">🧺 فرسوده</div></div><div class="ba-arrow">⇐</div><div class="ba-side"><div class="ba-tag ok">بعد</div><div class="fake-img small" style="height:110px">✨ مثل روز اول</div></div></div>`);
+        case 'cta-whatsapp': return B(`<div class="hero-btns"><span class="hero-btn" style="background:#16a34a">💬 گفتگو در واتساپ</span><span class="hero-btn ghost">📞 تماس تلفنی</span></div>`, 'cta-blk');
+        case 'warranty-banner': return B(`<div class="feat-row" style="align-items:center"><span class="feat-ico" style="font-size:30px">🛡️</span><div><b style="font-size:15px">ضمانت کتبی ۶ ماهه روی قطعه و خدمات</b><div class="feat-d">در صورت ایراد مجدد، تعمیر اصلاحی رایگان — بدون بهانه و کاغذبازی</div></div><span class="hero-btn" style="margin-inline-start:auto">مشاهده شرایط</span></div>`, '');
+        case 'working-hours': return B(`<div class="blk-title">${esc(t || 'ساعات کاری')}</div><div class="price-table"><div class="price-row"><span>شنبه تا چهارشنبه</span><b>۹ صبح تا ۸ شب</b></div><div class="price-row"><span>پنجشنبه</span><b>۹ صبح تا ۲ ظهر</b></div><div class="price-row"><span>جمعه</span><b>⚠️ فقط امداد فوری</b></div></div>`);
+        case 'social-follow': return B(`<div class="blk-title">${esc(t || 'ما را دنبال کنید')}</div><div class="hero-btns"><span class="hero-btn" style="background:#229ED9"> Telegram</span><span class="hero-btn" style="background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)"> Instagram</span><span class="hero-btn" style="background:#25D366"> WhatsApp</span><span class="hero-btn" style="background:#e11d48"> Aparat</span></div>`);
+        case 'trust-badges': return B(`<div class="chip-row" style="justify-content:space-around">${[['🛡️', 'ضمانت کتبی'], ['💳', 'پرداخت اقساطی'], ['⚡', 'اعزام فوری'], ['🏆', 'نمایندگی رسمی'], ['🔧', 'قطعات اصلی']].map(([i, n]) => `<div style="text-align:center;min-width:86px"><div style="font-size:26px">${i}</div><div class="feat-d" style="font-size:11px">${n}</div></div>`).join('')}</div>`, '');
+        case 'footer-links': return `<div class="blk ${bgCls} ${padCls} footer-blk"><div class="tb-col-wrap" style="grid-template-columns:2fr 1fr 1fr 1fr"><div><div class="fake-logo">🏗️</div><div class="fl w90"></div><div class="fl w60"></div><div class="soc-row"><span>Telegram</span><span>Instagram</span></div></div><div><div class="card-t">خدمات</div><div class="feat-d">تعمیر لباسشویی<br>تعمیر یخچال<br>سرویس کولر</div></div><div><div class="card-t">لینک‌ها</div><div class="feat-d">مقالات<br>کدهای خطا<br>سوالات متداول</div></div><div><div class="card-t">تماس</div><div class="feat-d">📞 ۰۲۱-۱۲۳۴۵۶۷۸<br>📍 تهران</div></div></div></div>`;
+        case 'payment-methods': return B(`<div class="blk-title" style="margin-bottom:8px">شیوه‌های پرداخت</div><div class="chip-row" style="justify-content:center">${['💳 پرداخت کارتی', '💰 پرداخت نقدی', '🧾 کارت به کارت', '📟 درگاه آنلاین', '🤝 اقساطی'].map(p => `<span class="chip">${p}</span>`).join('')}</div>`, '');
         default: return B(`${TITLE}<div class="fake-lines"><div class="fl w90"></div><div class="fl w70"></div></div>`);
     }
 }
@@ -431,12 +555,32 @@ function blockHtml(block, props) {
 .fake-img { flex:1 1 170px; height:140px; background:#dbeafe; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:32px; }
 .fake-img.small { height:84px; font-size:24px; width:100%; flex:none; }
 .fake-img.wide { flex:none; }
-.cols { display:grid; gap:12px; } .c2{grid-template-columns:repeat(2,1fr)}.c3{grid-template-columns:repeat(3,1fr)}.c4{grid-template-columns:repeat(4,1fr)}.c6{grid-template-columns:repeat(6,1fr)}
+.cols { display:grid; gap:12px; } .c2{grid-template-columns:repeat(2,1fr)}.c3{grid-template-columns:repeat(3,1fr)}.c4{grid-template-columns:repeat(4,1fr)}.c5{grid-template-columns:repeat(5,1fr)}.c6{grid-template-columns:repeat(6,1fr)}
 .fake-card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:14px 12px; text-align:center; min-width:0; }
 .blk-bg-primary .fake-card, .blk-bg-dark .fake-card, .blk-bg-gradient .fake-card { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.25); }
 .card-ico { font-size:23px; margin-bottom:6px; } .card-t { font-size:12.5px; font-weight:700; margin-bottom:5px; }
 .fake-ava { font-size:28px; }
 .quote { background:#fff; border:1px solid #e2e8f0; border-inline-start:4px solid #1e40af; border-radius:10px; padding:15px 17px; font-size:13px; max-width:540px; margin:0 auto 8px; }
+/* 🆕 v2.12: استایل عناصر جدید */
+.notif-bar { text-align:center; font-size:12.5px; font-weight:700; }
+.notif-bar.info { background:#eff6ff; color:#1e40af; } .notif-bar.success { background:#f0fdf4; color:#15803d; }
+.notif-bar.warning { background:#fffbeb; color:#b45309; }
+.marquee-blk { overflow:hidden; padding:10px 0; }
+.marquee-track { white-space:nowrap; animation: tbmarquee 14s linear infinite; font-weight:700; font-size:12.5px; }
+@keyframes tbmarquee { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.story-wrap { display:flex; flex-direction:column; gap:12px; }
+.story-sec { display:flex; gap:14px; align-items:center; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:12px 16px; }
+.story-year { background:#1e40af; color:#fff; border-radius:9px; padding:5px 13px; font-weight:800; font-size:12.5px; white-space:nowrap; }
+.chip-row { display:flex; flex-wrap:wrap; gap:8px; }
+.chip { background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; border-radius:20px; padding:5px 13px; font-size:12px; font-weight:600; }
+.search-wrap { display:flex; gap:10px; align-items:center; background:#fff; border:1.5px solid #e2e8f0; border-radius:12px; padding:10px 14px; }
+.search-ico { font-size:17px; }
+.stars { font-size:13px; letter-spacing:1px; margin-bottom:6px; }
+.ba-wrap { display:flex; gap:14px; align-items:stretch; }
+.ba-side { flex:1; min-width:0; }
+.ba-tag { display:inline-block; border-radius:8px; padding:3px 12px; font-size:11px; font-weight:800; color:#fff; margin-bottom:6px; }
+.ba-tag.bad { background:#dc2626; } .ba-tag.ok { background:#16a34a; }
+.ba-arrow { font-size:26px; align-self:center; color:#64748b; }
 .quote-blk .quote { margin:0 auto; max-width:620px; font-size:16px; font-weight:700; text-align:center; }
 .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; max-width:600px; margin:0 auto; }
 .fake-input { background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:8px; padding:9px 12px; font-size:11.5px; color:#94a3b8; }
@@ -680,14 +824,42 @@ function movePathTo(fromPath, targetArr, targetIdx) {
     targetArr.splice(Math.min(targetIdx, targetArr.length), 0, moved);
 }
 
-/* ساخت بلوک جدید با پیش‌فرض‌های کتابخانه */
+/* ساخت بلوک جدید با پیش‌فرض‌های کتابخانه
+   🧩 v2.12: کلیدهای «saved:{id}» بلوک ترکیبی ذخیره‌شده را کپی عمیق می‌کنند */
 function makeBlock(key) {
+    if (String(key).indexOf('saved:') === 0) {
+        const savedId = parseInt(String(key).slice(6), 10);
+        const savedNode = SAVED_BLOCKS[savedId];
+        if (savedNode && typeof savedNode === 'object') {
+            /* کپی عمیق مستقل — تغییر در بوم، بلوک ذخیره‌شده را خراب نمی‌کند */
+            const copy = JSON.parse(JSON.stringify(savedNode));
+            copy.props = Object.assign({ padding: 'default', background: 'default', visible: true }, copy.props || {});
+            return copy;
+        }
+        return { block: 'text', props: { title: 'بلوک ترکیبی یافت نشد', text: 'این بلوک ترکیبی حذف شده است.' } };
+    }
     const meta = BLOCK_META[key] || {};
     const props = Object.assign({ padding: 'default', background: 'default', visible: true }, (meta.defaults && typeof meta.defaults === 'object') ? JSON.parse(JSON.stringify(meta.defaults)) : {});
     const blk = { block: key, props };
     if (key === 'section-columns') { blk.cols = [[], []]; }
     if (key === 'section-split') { blk.cols = [[], []]; }
     return blk;
+}
+
+/* 🧩 v2.12: ذخیره بلوک انتخابی به‌عنوان بلوک ترکیبی قابل استفاده مجدد */
+function saveCompositeBlock() {
+    const node = selected ? resolveNode(selected) : null;
+    if (!node || !node.block) {
+        alert('ابتدا یک بلوک را در بوم انتخاب کنید.');
+        return;
+    }
+    const meta = BLOCK_META[node.block] || { label: node.block };
+    const suggested = meta.label || '';
+    const name = prompt('نام بلوک ترکیبی (با ستون‌ها و تنظیمات فعلی ذخیره می‌شود):', suggested);
+    if (name === null) { return; }
+    document.getElementById('save-block-name').value = name.trim() || suggested;
+    document.getElementById('save-block-json').value = JSON.stringify(node);
+    document.getElementById('save-block-form').submit();
 }
 
 /* رها کردن بلوک جدید در سطح بوم */
@@ -733,6 +905,7 @@ function selectBlock(path) {
 const PROP_LABELS = {
     title: 'عنوان بخش', subtitle: 'زیرعنوان', text: 'متن', phone: 'شماره تماس',
     columns: 'تعداد ستون', height: 'ارتفاع فاصله (px)', alertType: 'نوع هشدار', sticky: 'چسبان',
+    placeholder: 'متن جایگزین جستجو', notifColor: 'رنگ نوار اطلاعیه', autoplay: 'پخش خودکار',
 };
 
 function renderProps() {
@@ -743,33 +916,48 @@ function renderProps() {
         return;
     }
     const item = node;
-    const meta = BLOCK_META[item.block] || { label: item.block };
+    const isSavedComposite = String(item.block).indexOf('saved:') === 0 || !(item.block in BLOCK_META);
+    const meta = BLOCK_META[item.block] || { label: isSavedComposite ? '🧩 بلوک ترکیبی' : item.block };
     const props = item.props || {};
-    let html = `<div style="font-weight:800;margin-bottom:12px;font-size:13px">📦 ${meta.label}</div>`;
+    let html = `<div style="font-weight:800;margin-bottom:12px;font-size:13px">${isSavedComposite ? '🧩' : '📦'} ${esc(meta.label)}</div>`;
 
-    /* فیلدهای متنی مخصوص بلوک (عنوان/متن/زیرعنوان/تلفن) */
-    const textFields = ['title', 'subtitle', 'phone'];
-    textFields.forEach(f => {
-        if (item.block === 'section-columns' && f === 'title') {
-            html += textField(f, props[f] || '');
-        } else if (['hero', 'hero-split', 'hero-slider', 'hero-video', 'hero-countdown', 'text', 'text-image', 'intro', 'rich-text', 'cta-request', 'cta-banner', 'alert-notice', 'quote', 'devices-grid', 'services-grid', 'features', 'articles-recent', 'articles-grid', 'team', 'pricing-table', 'faq-accordion', 'testimonials', 'counter-stats', 'gallery', 'map', 'tabs', 'timeline', 'steps-process', 'icon-list', 'cta-phone', 'video-embed', 'image-carousel', 'two-col', 'three-col', 'skill-bars', 'progress-bars'].includes(item.block)) {
-            if (f === 'title') { html += textField(f, props[f] || ''); }
-            if (f === 'subtitle' && ['hero'].includes(item.block)) { html += textField(f, props[f] || ''); }
-            if (f === 'phone' && item.block === 'cta-phone') { html += textField(f, props[f] || ''); }
-        }
-    });
-    /* متن بلوک متن/هشدار/نقل‌قول */
-    if (['text', 'rich-text', 'alert-notice', 'quote'].includes(item.block)) {
+    /* فیلدهای متنی مخصوص بلوک (عنوان/زیرعنوان/متن/تلفن) — v2.12: پوشش همه عناصر جدید */
+    const titleBlocks = ['hero', 'hero-split', 'hero-slider', 'hero-video', 'hero-countdown', 'hero-form', 'text', 'text-image', 'intro', 'rich-text', 'cta-request', 'cta-banner', 'alert-notice', 'quote', 'devices-grid', 'services-grid', 'features', 'articles-recent', 'articles-grid', 'team', 'pricing-table', 'faq-accordion', 'testimonials', 'counter-stats', 'gallery', 'map', 'tabs', 'timeline', 'steps-process', 'icon-list', 'cta-phone', 'video-embed', 'image-carousel', 'two-col', 'three-col', 'skill-bars', 'progress-bars', 'notification-bar', 'hero-marquee', 'brand-story', 'area-list', 'checklist', 'search-bar', 'certificates', 'review-grid', 'contact-cards', 'appointment-form', 'stats-grid', 'before-after', 'working-hours', 'cta-whatsapp', 'warranty-banner', 'social-follow', 'trust-badges', 'footer-links', 'payment-methods', 'counter-stats'];
+    if (item.block === 'section-columns') {
+        html += textField('title', props.title || '');
+    } else if (titleBlocks.includes(item.block)) {
+        html += textField('title', props.title || '');
+        if (['hero', 'hero-form'].includes(item.block)) { html += textField('subtitle', props.subtitle || ''); }
+        if (['cta-phone', 'sticky-mobile-cta'].includes(item.block)) { html += textField('phone', props.phone || ''); }
+    }
+    /* متن بلوک متن/هشدار/نقل‌قول/نوار اطلاعیه/مارکی */
+    if (['text', 'rich-text', 'alert-notice', 'quote', 'notification-bar', 'hero-marquee', 'warranty-banner'].includes(item.block)) {
         html += `<div class="form-group"><label>متن</label>
             <textarea class="form-control" rows="4" style="font-size:12px" oninput="setProp('${selected}','text',this.value)">${esc(props.text || '')}</textarea></div>`;
     }
+    /* متن جایگزین نوار جستجو */
+    if (item.block === 'search-bar') {
+        html += textField('placeholder', props.placeholder || '');
+    }
 
-    /* 🏛 تعداد ستون */
+    /* 🏛 تعداد ستون — بخش چندستونی */
     if (item.block === 'section-columns') {
         html += `<div class="form-group"><label>🏛 تعداد ستون‌ها</label>
             <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','columns',parseInt(this.value,10));rebuildCols('${selected}')">
                 ${[2, 3, 4].map(n => `<option value="${n}" ${parseInt(props.columns || 2, 10) === n ? 'selected' : ''}>${n} ستون</option>`).join('')}
             </select></div>`;
+    }
+    /* 🗂 v2.12: تعداد ستون کارت‌ها — شبکه‌های کارتی (۲ تا ۶) */
+    if (['services-grid', 'devices-grid', 'articles-grid', 'articles-recent', 'team', 'gallery', 'certificates', 'review-grid', 'stats-grid', 'features', 'brands-links'].includes(item.block)) {
+        const def = item.block === 'devices-grid' ? 4 : (item.block === 'services-grid' || item.block === 'features' ? 3 : 3);
+        html += `<div class="form-group"><label>🗂 تعداد ستون کارت‌ها</label>
+            <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','columns',parseInt(this.value,10))">
+                ${[2, 3, 4, 5, 6].map(n => `<option value="${n}" ${parseInt(props.columns || def, 10) === n ? 'selected' : ''}>${n} ستون</option>`).join('')}
+            </select></div>`;
+    }
+    /* ▶️ v2.12: پخش خودکار اسلایدرها */
+    if (['hero-slider', 'testimonials', 'image-carousel'].includes(item.block)) {
+        html += `<label class="form-check" style="font-size:12px"><input type="checkbox" ${props.autoplay !== false && props.autoplay !== 0 ? 'checked' : ''} onchange="setProp('${selected}','autoplay',this.checked ? 1 : 0)"> پخش خودکار اسلایدها</label>`;
     }
     if (item.block === 'spacer') {
         html += `<div class="form-group"><label>ارتفاع (px)</label>
@@ -779,6 +967,13 @@ function renderProps() {
         html += `<div class="form-group"><label>نوع هشدار</label>
             <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','alertType',this.value)">
                 ${[['info', 'اطلاعیه آبی'], ['warning', 'هشدار زرد'], ['success', 'موفقیت سبز']].map(([v, l]) => `<option value="${v}" ${(props.alertType || 'info') === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select></div>`;
+    }
+    /* 🔔 v2.12: رنگ نوار اطلاعیه */
+    if (item.block === 'notification-bar') {
+        html += `<div class="form-group"><label>رنگ نوار</label>
+            <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','notifColor',this.value)">
+                ${[['info', 'آبی اطلاعیه'], ['success', 'سبز موفقیت'], ['warning', 'زرد هشدار']].map(([v, l]) => `<option value="${v}" ${(props.notifColor || 'info') === v ? 'selected' : ''}>${l}</option>`).join('')}
             </select></div>`;
     }
 
@@ -795,6 +990,7 @@ function renderProps() {
         <label class="form-check" style="font-size:12px"><input type="checkbox" ${props.visible !== false ? 'checked' : ''} onchange="setProp('${selected}','visible',this.checked)"> نمایش داده شود</label>
         ${item.block === 'header-v3' || item.block === 'header-v1' ? `<label class="form-check" style="font-size:12px"><input type="checkbox" ${props.sticky ? 'checked' : ''} onchange="setProp('${selected}','sticky',this.checked)}"> چسبان (Sticky)</label>` : ''}
         <hr style="border:none;border-top:1px solid var(--border);margin:13px 0">
+        <button type="button" class="btn btn-info btn-sm btn-block" style="margin-bottom:7px" onclick="saveCompositeBlock()" title="این بلوک با ستون‌ها و تنظیمات فعلی ذخیره می‌شود تا در هر قالبی قابل استفاده مجدد باشد">🧩 ذخیره به‌عنوان بلوک ترکیبی</button>
         <button type="button" class="btn btn-danger btn-sm btn-block" onclick="removeBlock('${selected}')">🗑️ حذف بلوک</button>`;
     panel.innerHTML = html;
 }
