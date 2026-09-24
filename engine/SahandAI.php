@@ -159,6 +159,8 @@ class SahandAI
         $options = [
             'research'    => !empty($params['research']),
             'with_images' => array_key_exists('with_images', $params) ? !empty($params['with_images']) : true, // پیش‌فرض روشن
+            /* 🌐 v3.3: تحقیق وبِ از پیش انجام‌شده (از SmartPipeline) — بدون جستجوی تکراری */
+            'research_context' => is_array($params['research_context'] ?? null) ? $params['research_context'] : null,
         ];
         $article = $this->articleGen->generate($brand, $topicType, $deviceKey, $variants, $customTitle, $options);
 

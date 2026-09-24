@@ -108,7 +108,8 @@ class SmartPipeline
         $deviceKnowledge = TextProcessor::loadKnowledge('devices')[$deviceKey] ?? [];
         $deviceFa = $deviceKnowledge['name_fa'] ?? '';
         $seedTopic = $topic !== '' ? $topic : ($deviceFa !== '' ? $deviceFa : $brand['name_fa']);
-        $focusKeyword = $this->pickFocusKeyword($seedTopic, $brand, $deviceKey);
+        /* 🎯 v3.3: موضوع درخواستی کاربر خودش کلیدواژه کانونی است (تمرکز کامل روی عنوان) */
+        $focusKeyword = $topic !== '' ? $topic : $this->pickFocusKeyword($seedTopic, $brand, $deviceKey);
         $trace[] = $this->step('keywords', 'انتخاب کلیدواژه کانونی', $t, [
             'focus_keyword' => $focusKeyword,
         ]);
@@ -140,19 +141,28 @@ class SmartPipeline
             }
         }
 
-        /* ---------- ۴️⃣ تولید مقاله بهترین-از-N ---------- */
+        /* ---------- ۴️⃣ تولید مقاله بهترین-از-N (v3.3: حول موضوع درخواستی + تحقیق وب) ---------- */
         $t = microtime(true);
         $variants = (int)($params['variants'] ?? 3);
+        $customTitle = trim((string)($params['custom_title'] ?? ''));
         $article = $this->ai->generateArticle([
             'brand_id'   => $brandId,
             'topic_type' => $topicType,
             'device_key' => $deviceKey,
             'variants'   => $variants,
+            /* 🎯 v3.3: عنوان/موضوع درخواستی کاربر به ژنراتور می‌رسد — بدنه مقاله
+               دقیقاً حول همین موضوع نوشته می‌شود (نه قالب عمومی دستگاه) */
+            'custom_title' => $customTitle !== '' ? $customTitle : null,
+            /* 🌐 تحقیق وبِ همین خط تولید به ژنراتور پاس می‌شود تا فکت‌ها در خود
+               متن ادغام شوند و جستجوی تکراری هم انجام نشود */
+            'research'          => $webResearch !== null,
+            'research_context'  => $webResearch,
         ]);
         $scoreInitial = $article['quality']['score'] ?? 0;
-        $trace[] = $this->step('article', 'تولید مقاله (بهترین-از-' . $variants . ')', $t, [
+        $trace[] = $this->step('article', 'تولید مقاله (بهترین-از-' . $variants . ($customTitle !== '' ? ' — حول موضوع درخواستی' : '') . ')', $t, [
             'score' => $scoreInitial,
             'words' => $article['word_count'] ?? 0,
+            'topic_focused' => $customTitle !== '',
         ]);
 
         /* ---------- ۵️⃣ بهبود خودکار ---------- */
@@ -172,7 +182,7 @@ class SmartPipeline
             'rounds'       => count($improveReport['rounds']),
         ]);
 
-        /* ---------- ۶️⃣ غنی‌سازی ساختاری v3.2 ---------- */
+        /* ---------- ۶️⃣ غنی‌سازی ساختاری v3.2 (v3.3: برای مقاله موضوع‌محور، بخش‌های تکراری وب حذف می‌شوند) ---------- */
         $t = microtime(true);
         $enrichment = $this->enrichContent($improveReport['content'], [
             'focus'      => $focusKeyword,
@@ -180,6 +190,7 @@ class SmartPipeline
             'device_fa'  => $deviceFa,
             'research'   => $webResearch,
             'topic_type' => $topicType,
+            'topic_focused' => $customTitle !== '',
         ]);
         $finalContent = $enrichment['content'];
         $trace[] = $this->step('enrich', 'غنی‌سازی ساختاری (فهرست + PAA + آمار + E-E-A-T)', $t, $enrichment['trace']);
@@ -198,24 +209,32 @@ class SmartPipeline
             ]);
         }
 
-        /* ---------- ۸️⃣ عنوان بهینه ---------- */
+        /* ---------- ۸️⃣ عنوان بهینه (v3.3: با موضوع درخواستی، عنوان کاربر حفظ می‌شود) ---------- */
         $t = microtime(true);
-        $titleGen = new TitleGenerator();
-        // 🌐 اگر تحقیق وب کلیدواژه ترند دارد، در تولید عنوان لحاظ شود
-        $titleSeason = '';
-        if ($webResearch && !empty($webResearch['keywords'][0]['keyword'])) {
-            $titleSeason = $webResearch['keywords'][0]['keyword'];
+        $bestTitle = (string)($article['title'] ?? '');
+        if ($customTitle === '') {
+            $titleGen = new TitleGenerator();
+            // 🌐 اگر تحقیق وب کلیدواژه ترند دارد، در تولید عنوان لحاظ شود
+            $titleSeason = '';
+            if ($webResearch && !empty($webResearch['keywords'][0]['keyword'])) {
+                $titleSeason = $webResearch['keywords'][0]['keyword'];
+            }
+            $titles = $titleGen->generate($focusKeyword, [
+                'brand_fa'  => $brand['name_fa'],
+                'device_fa' => $deviceFa,
+                'season'    => $titleSeason,
+            ], 5);
+            $bestTitle = $titles['best'] !== '' ? $titles['best'] : ($article['title'] ?? '');
+            $trace[] = $this->step('title', 'انتخاب عنوان بهینه', $t, [
+                'best' => $bestTitle,
+                'score' => $titles['best_score'],
+            ]);
+        } else {
+            /* 🎯 عنوان از خود موضوع کاربر ساخته شده — فقط تضمین یکتایی/زیبایی */
+            $trace[] = $this->step('title', 'عنوان موضوعی کاربر حفظ شد', $t, [
+                'best' => $bestTitle,
+            ]);
         }
-        $titles = $titleGen->generate($focusKeyword, [
-            'brand_fa'  => $brand['name_fa'],
-            'device_fa' => $deviceFa,
-            'season'    => $titleSeason,
-        ], 5);
-        $bestTitle = $titles['best'] !== '' ? $titles['best'] : ($article['title'] ?? '');
-        $trace[] = $this->step('title', 'انتخاب عنوان بهینه', $t, [
-            'best' => $bestTitle,
-            'score' => $titles['best_score'],
-        ]);
 
         /* ---------- ۹️⃣ پکیج سئو ---------- */
         $t = microtime(true);
@@ -373,8 +392,9 @@ class SmartPipeline
             }
         }
 
-        /* ---------- 🌐 آمار و داده‌های تازه از وب (با ذکر منبع) ---------- */
-        if (!empty($ctx['research']['facts'])) {
+        /* ---------- 🌐 آمار و داده‌های تازه از وب (با ذکر منبع) —
+           v3.3: فقط برای مقالات قالبی؛ مقاله موضوع‌محور فکت‌ها را در نثر خودش دارد ---------- */
+        if (empty($ctx['topic_focused']) && !empty($ctx['research']['facts'])) {
             $facts = array_slice((array)$ctx['research']['facts'], 0, 3);
             $sourceHosts = array_map(static function ($s) {
                 return e($s['source'] ?? '');
@@ -396,8 +416,9 @@ class SmartPipeline
             $traceNotes['fresh_stats'] = count($facts);
         }
 
-        /* ---------- ❓ سایر پرسش‌های کاربران (People Also Ask) ---------- */
-        if (!empty($ctx['research']['questions'])) {
+        /* ---------- ❓ سایر پرسش‌های کاربران (People Also Ask) —
+           v3.3: فقط برای مقالات قالبی؛ مقاله موضوع‌محور پرسش‌ها را با پاسخ در بدنه دارد ---------- */
+        if (empty($ctx['topic_focused']) && !empty($ctx['research']['questions'])) {
             $questions = array_slice((array)$ctx['research']['questions'], 0, 4);
             $paaHtml = '<h2>❓ سایر پرسش‌های کاربران</h2><ul class="people-also-ask">';
             foreach ($questions as $q) {

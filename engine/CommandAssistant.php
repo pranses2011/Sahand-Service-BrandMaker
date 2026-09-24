@@ -310,6 +310,11 @@ class CommandAssistant
             'topic_type'=> $topicType,
             'device_key'=> $deviceKey,
             'topic'     => $hasCustomTopic ? $customTopic : null,
+            /* 🎯 v3.3: مقاله دقیقاً حول موضوع درخواستی کاربر نوشته می‌شود —
+               قبلاً موضوع فقط برای کلیدواژه استفاده می‌شد و بدنه مقاله
+               از قالب عمومی می‌آمد (ریشه «مقاله بی‌ربط» بودن) */
+            'custom_title' => $hasCustomTopic ? $this->topicToTitle($customTopic) : null,
+            'research'  => 'auto', // جستجوی وب برای محتوای واقعی و به‌روز
             'variants'  => 2,
             'no_cache'  => true, // هر درخواست مقاله = مقاله تازه و یکتا
         ]);
@@ -801,5 +806,23 @@ class CommandAssistant
         $topic = preg_replace('/(برای|درباره|از|را|بده|بساز|بنویس|چیست|چیه|لطففاً|لطفا|؟|\?|:|،)/u', ' ', $topic);
         $topic = trim(preg_replace('/\s+/u', ' ', $topic));
         return mb_strlen($topic) >= 3 ? $topic : '';
+    }
+
+    /**
+     * 🎯 تبدیل موضوع درخواستی به عنوان مقاله (v3.3)
+     * «تعمیر برد ماشین لباسشویی سامسونگ» → «تعمیر برد ماشین لباسشویی سامسونگ؛ راهنمای جامع»
+     */
+    private function topicToTitle(string $topic): string
+    {
+        $topic = trim(preg_replace('/\s+/u', ' ', $topic));
+        if ($topic === '') {
+            return '';
+        }
+        /* اگر خودش عنوان‌گون است (با «راهنما/چگونه/آموزش/بررسی» شروع می‌شود) دست نزن */
+        if (preg_match('/^(راهنمای|چگونه|چطور|آموزش|بررسی|مقایسه|بهترین|نکات)/u', $topic)) {
+            return $topic;
+        }
+        $suffixes = ['؛ راهنمای جامع و کاربردی', '؛ نکات مهم و راه‌حل‌های عملی', '؛ هر آنچه باید بدانید'];
+        return $topic . $suffixes[crc32($topic) % 3];
     }
 }

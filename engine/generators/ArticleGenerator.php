@@ -116,20 +116,43 @@ class ArticleGenerator
             );
         }
 
-        /* ---------- ۱.۵) 🔎 تحقیق آنلاین وب (فاز Q.7) ----------
+        /* ---------- ۱.۵) 🔎 تحقیق آنلاین وب (فاز Q.7 + v3.3: زمینه از پیش‌آماده) ----------
          * جستجوی اینترنت هنگام نوشتن: داده‌های واقعی + منابع معتبر
-         * به مقاله اضافه می‌شود تا محتوا و سئو هر دو کامل باشند */
+         * به مقاله اضافه می‌شود تا محتوا و سئو هر دو کامل باشند.
+         * v3.3: اگر تحقیق از قبل انجام شده باشد (از SmartPipeline) دوباره جستجو نمی‌شود. */
         $webResearch = null;
         $researchSections = [];
         $researchTags = [];
-        if (!empty($options['research'])) {
+        if (!empty($options['research_context'])) {
+            $webResearch = $options['research_context'];
+        } elseif (!empty($options['research'])) {
             try {
                 $researchTopic = $title;
                 $researchTopic = preg_replace('/[؟?!.:؛]+/u', ' ', $researchTopic) ?? $researchTopic;
                 $webResearch = (new WebSearchService())->research(trim($researchTopic), [
                     'limit' => 6,
                 ]);
-                // 📊 بخش داده‌های آنلاین — فکت‌های استخراج‌شده از نتایج واقعی
+            } catch (Throwable $e) {
+                // شکست تحقیق نباید تولید مقاله را متوقف کند
+                $webResearch = null;
+            }
+        }
+        if ($webResearch !== null) {
+            // 🏷️ کلیدواژه‌های ترند → تگ‌های مقاله
+            foreach (array_slice($webResearch['keywords'] ?? [], 0, 3) as $kw) {
+                if (is_string($kw) && mb_strlen($kw) >= 3) {
+                    $researchTags[] = $kw;
+                }
+            }
+        }
+
+        /* ---------- ۲️⃣ ساخت Outline مقاله (v3.3: موضوع‌محور برای عنوان دلخواه) ---------- */
+        $subject = $customTitle !== null ? $this->subjectFromTitle($title) : '';
+        if ($subject !== '') {
+            $sections = $this->buildTopicOutline($subject, $topicType, $device, $deviceKnowledge, $vars, $seed, $webResearch);
+        } else {
+            /* 🔎 مقاله قالبی: فکت‌ها و پرسش‌های وب به‌صورت بخش مستقل (فاز Q.7) */
+            if ($webResearch !== null) {
                 $facts = array_slice($webResearch['facts'] ?? [], 0, 5);
                 if (!empty($facts)) {
                     $factsHtml = '<p>بر اساس بررسی منابع آنلاین به‌روز، این داده‌ها به تأیید رسیده است:</p>' . "\n" . '<ul>' . "\n";
@@ -139,7 +162,6 @@ class ArticleGenerator
                     $factsHtml .= '</ul>';
                     $researchSections[] = $this->section('📊 داده‌های به‌روز از منابع آنلاین', $factsHtml);
                 }
-                // ❓ پرسش‌های واقعی کاربران از نتایج جستجو
                 $rQuestions = array_slice($webResearch['questions'] ?? [], 0, 4);
                 if (!empty($rQuestions)) {
                     $qHtml = '<p>کاربران واقعی در جستجوهای خود این پرسش‌ها را مطرح کرده‌اند:</p>' . "\n" . '<ul>' . "\n";
@@ -149,23 +171,12 @@ class ArticleGenerator
                     $qHtml .= '</ul>';
                     $researchSections[] = $this->section('🤔 پرسش‌های پرتکرار کاربران در وب', $qHtml);
                 }
-                // 🏷️ کلیدواژه‌های ترند → تگ‌های مقاله
-                foreach (array_slice($webResearch['keywords'] ?? [], 0, 3) as $kw) {
-                    if (is_string($kw) && mb_strlen($kw) >= 3) {
-                        $researchTags[] = $kw;
-                    }
-                }
-            } catch (Throwable $e) {
-                // شکست تحقیق نباید تولید مقاله را متوقف کند
-                $webResearch = null;
             }
-        }
-
-        /* ---------- ۲️⃣ ساخت Outline مقاله (+ بخش‌های تحقیق آنلاین) ---------- */
-        $sections = $this->buildOutline($topicType, $device, $deviceKnowledge, $vars, $seed);
-        // 🔎 درج بخش‌های تحقیق آنلاین قبل از بخش عمومی پایانی (فاز Q.7)
-        if (!empty($researchSections)) {
-            array_splice($sections, max(0, count($sections) - 1), 0, $researchSections);
+            $sections = $this->buildOutline($topicType, $device, $deviceKnowledge, $vars, $seed);
+            // 🔎 درج بخش‌های تحقیق آنلاین قبل از بخش عمومی پایانی (فاز Q.7)
+            if (!empty($researchSections)) {
+                array_splice($sections, max(0, count($sections) - 1), 0, $researchSections);
+            }
         }
         // 📚 بخش منابع و مطالعه بیشتر — لینک خروجی معتبر (E-E-A-T)
         if ($webResearch !== null && !empty($webResearch['sources'])) {
@@ -189,13 +200,21 @@ class ArticleGenerator
             $bodyParts[] = $section['content'];
         }
 
-        // مقدمه
-        $introTemplate = TextProcessor::seededPick($templates['article_intro'] ?? [''], $seed . '|intro');
-        $intro = TextProcessor::applySynonyms(TextProcessor::fillTemplate($introTemplate, $vars), $seed . '|isyn');
+        // مقدمه (v3.3: برای مقاله موضوع‌محور، مقدمه دقیقاً درباره همان موضوع)
+        if ($subject !== '') {
+            $intro = $this->topicIntro($subject, $vars, $webResearch, $seed);
+        } else {
+            $introTemplate = TextProcessor::seededPick($templates['article_intro'] ?? [''], $seed . '|intro');
+            $intro = TextProcessor::applySynonyms(TextProcessor::fillTemplate($introTemplate, $vars), $seed . '|isyn');
+        }
 
         // نتیجه‌گیری + CTA
-        $conclusionTemplate = TextProcessor::seededPick($templates['article_conclusion'] ?? [''], $seed . '|concl');
-        $conclusion = TextProcessor::fillTemplate($conclusionTemplate, $vars);
+        if ($subject !== '') {
+            $conclusion = $this->topicConclusion($subject, $vars, $seed);
+        } else {
+            $conclusionTemplate = TextProcessor::seededPick($templates['article_conclusion'] ?? [''], $seed . '|concl');
+            $conclusion = TextProcessor::fillTemplate($conclusionTemplate, $vars);
+        }
 
         $content = '<p>' . $intro . '</p>' . "\n" . implode("\n", $bodyParts)
             . "\n" . '<h2>جمع‌بندی</h2>' . "\n" . '<p>' . $conclusion . '</p>';
@@ -212,8 +231,8 @@ class ArticleGenerator
         $toc = $structure['toc'];
         $readingTime = $structure['reading_time'];
 
-        /* ---------- ۳.۶) 🆕 بخش سوالات متداول مقاله ---------- */
-        $faqs = $this->articleFaq($vars, $topicType, $seed);
+        /* ---------- ۳.۶) 🆕 بخش سوالات متداول مقاله (v3.3: موضوع‌محور) ---------- */
+        $faqs = $this->articleFaq($vars, $topicType, $seed, $subject, $webResearch);
         if (!empty($faqs)) {
             $faqHtml = '<h2>سوالات متداول</h2>' . "\n";
             foreach ($faqs as $faq) {
@@ -674,6 +693,203 @@ class ArticleGenerator
     }
 
     /**
+     * ✂️ استخراج عبارت موضوع از عنوان دلخواه (v3.3)
+     * «تعمیر برد ماشین لباسشویی سامسونگ؛ راهنمای جامع» → «تعمیر برد ماشین لباسشویی سامسونگ»
+     */
+    private function subjectFromTitle(string $title): string
+    {
+        $s = trim(preg_replace('/[؛;].*$/u', '', $title)); // حذف زیرعنوان بعد از «؛»
+        $s = trim(preg_replace('/\s*(?:؛|—|–|\|)\s*.*$/u', '', $s));
+        foreach (['؛ راهنمای جامع و کاربردی', '؛ نکات مهم و راه‌حل‌های عملی', '؛ هر آنچه باید بدانید'] as $suf) {
+            $s = str_replace($suf, '', $s);
+        }
+        $s = trim(preg_replace('/\s+/u', ' ', $s));
+        if (mb_strlen($s) >= 6 && mb_strlen($s) <= 90) {
+            return $s;
+        }
+        return mb_strlen($title) >= 6 && mb_strlen($title) <= 90 ? trim($title) : '';
+    }
+
+    /**
+     * 🎯 ساخت Outline موضوع‌محور (v3.3) — بدنه مقاله دقیقاً حول موضوع درخواستی
+     *
+     * تفاوت با buildOutline قالبی:
+     *   - سرفصل‌ها حول خود موضوع (نه دستگاه عمومی)
+     *   - فکت‌های تحقیق وب داخل نثر بخش‌ها ادغام می‌شوند (نه لیست خام)
+     *   - پرسش‌های واقعی کاربران به زیربخش‌های H3 با پاسخ تبدیل می‌شوند
+     *   - دانش دستگاه فقط نقش پشتیبان دارد
+     */
+    private function buildTopicOutline(string $subject, string $topicType, array $device, array $deviceKnowledge, array $vars, string $seed, ?array $webResearch): array
+    {
+        $d = $vars['device_fa'];
+        $b = $vars['brand_fa'];
+        $issues = (array)($deviceKnowledge['common_issues'] ?? []);
+        $maintenance = (array)($deviceKnowledge['maintenance_tips'] ?? []);
+        $usage = (array)($deviceKnowledge['usage_tips'] ?? []);
+        $facts = array_slice((array)($webResearch['facts'] ?? []), 0, 6);
+        $questions = array_slice((array)($webResearch['questions'] ?? []), 0, 4);
+        $sections = [];
+
+        /* ۱) تعریف و اهمیت موضوع — با فکت‌های واقعی وب در نثر */
+        $def = [];
+        $def[] = $subject . ' یکی از موضوع‌های پرتکرار برای کاربران ' . ($d !== '' ? $d : 'لوازم خانگی') . ' است و شناخت دقیق آن، هم از هزینه‌های غیرضروری جلوگیری می‌کند و هم عمر مفید دستگاه را بالا می‌برد.';
+        if ($facts) {
+            $def[] = 'بر اساس بررسی منابع آنلاین به‌روز، ' . $this->weaveFactsIntoProse($facts, 2);
+        }
+        $def[] = 'در این راهنما، همه ابعاد ' . $subject . ' را از علت‌شناسی تا راه‌حل‌های عملی و هزینه‌ها مرور می‌کنیم تا با خیال راحت تصمیم بگیرید.';
+        $sections[] = $this->section($subject . ' چیست و چرا اهمیت دارد؟', '<p>' . implode('</p>' . "\n" . '<p>', $def) . '</p>');
+
+        /* ۲) علت‌شناسی — سه سطح: از وب، از دانش فنی، از تجربه میدانی */
+        $causeParts = [];
+        if ($facts) {
+            $rest = array_slice($facts, 2, 2);
+            if ($rest) {
+                $causeParts[] = '<p>آنچه منابع تخصصی جدیدتر نشان می‌دهند:' . "\n" . '<ul>' . "\n";
+                foreach ($rest as $f) {
+                    $causeParts[] = '<li>' . e((string)$f) . '</li>' . "\n";
+                }
+                $causeParts[] = '</ul></p>';
+            }
+        }
+        $causeParts[] = $this->paragraphsFrom(array_merge($issues, $maintenance), 3, $seed . '|tcause');
+        $sections[] = $this->section('علت‌های اصلی و زمینه‌ساز ' . $subject, implode("\n", $causeParts));
+
+        /* ۳) راه‌حل‌های عملی گام‌به‌گام — مراحل شماره‌دار */
+        $steps = array_merge(
+            array_slice($usage, 0, 3),
+            array_slice($maintenance, 0, 2)
+        );
+        $sol = '<p>برای رسیدن به نتیجه مطمئن در ' . $subject . '، این مسیر پیشنهاد می‌شود:</p>' . "\n";
+        $sol .= $this->numberedSteps($steps ?: $issues, $seed . '|tsteps');
+        $sol .= $this->paragraphsFrom($maintenance, 2, $seed . '|tsol');
+        $sections[] = $this->section('راه‌حل‌های عملی ' . $subject . '؛ گام‌به‌گام', $sol);
+
+        /* ۴) پرسش‌های واقعی کاربران وب → زیربخش H3 با پاسخ تحلیلی */
+        if ($questions) {
+            $qHtml = '<p>پرسش‌هایی که کاربران واقعی در جستجوهای خود مطرح کرده‌اند و پاسخ تحلیلی هر یک:</p>' . "\n";
+            foreach ($questions as $q) {
+                $q = trim((string)$q);
+                if ($q === '' || mb_strlen($q) > 120) { continue; }
+                $qHtml .= '<h3>' . e($q) . '</h3>' . "\n" . '<p>' . $this->answerQuestionFromContext($q, $facts, $subject, $d, $b) . '</p>' . "\n";
+            }
+            $sections[] = $this->section('پرسش‌های واقعی کاربران درباره ' . $subject, $qHtml);
+        }
+
+        /* ۵) هزینه، زمان و ملاحظات تصمیم‌گیری */
+        $cost = (string)($deviceKnowledge['avg_repair_cost_range'] ?? '');
+        $costHtml = '<p>';
+        if ($cost !== '') {
+            $costHtml .= 'بازه معمول هزینه در خدمات تخصصی مرتبط با ' . $subject . ' حدود ' . e($cost) . ' است؛ ';
+        }
+        $costHtml .= 'قیمت نهایی به مدل دستگاه، میزان خرابی و قیمت قطعه بستگی دارد و پیش از شروع کار باید به‌صورت شفاف اعلام شود. ';
+        $costHtml .= 'معیار درست تصمیم‌گیری، مقایسه هزینه تعمیر با ارزش فعلی دستگاه و احتمال خرابی‌های ثانویه است، نه فقط رقم اولیه.</p>';
+        $costHtml .= $this->paragraphsFrom($issues, 2, $seed . '|tcost');
+        $sections[] = $this->section('هزینه و زمان ' . $subject . '؛ چه انتظاری داشته باشید؟', $costHtml);
+
+        /* ۶) پیشگیری و نگهداری */
+        $sections[] = $this->section('پیشگیری؛ چطور دوباره به این وضعیت برنگردید؟', $this->bullets($maintenance, 5, $seed . '|tprev', 'اقدام پیشگیرانه') . $this->paragraphsFrom($maintenance, 2, $seed . '|tprevb'));
+
+        /* ۷) بخش عمومی مشترک */
+        $sections[] = $this->section('چرا انتخاب نمایندگی معتبر مهم است؟', $this->paragraphsFrom($usage, 3, $seed . '|tz1'));
+
+        return array_filter($sections);
+    }
+
+    /**
+     * 🧵 بافتن فکت‌های وب در نثر (v3.3) — به‌جای لیست خام، جمله‌های روان
+     */
+    private function weaveFactsIntoProse(array $facts, int $max = 2): string
+    {
+        $parts = [];
+        foreach (array_slice($facts, 0, $max) as $i => $f) {
+            $f = trim((string)$f);
+            if ($f === '' || mb_strlen($f) < 10) { continue; }
+            $f = rtrim($f, '.؛،');
+            if ($i === 0) {
+                $parts[] = 'بر این اساس، ' . $f . ' است.';
+            } else {
+                $parts[] = 'همچنین ' . $f . ' گزارش شده است.';
+            }
+        }
+        if ($parts) {
+            return implode(' ', $parts);
+        }
+        return isset($facts[0]) ? e(trim((string)$facts[0])) : '';
+    }
+
+    /**
+     * 💬 پاسخ تحلیلی به پرسش واقعی کاربر — از فکت‌های وب + دانش زمینه (v3.3)
+     */
+    private function answerQuestionFromContext(string $question, array $facts, string $subject, string $deviceFa, string $brandFa): string
+    {
+        $qNorm = TextProcessor::normalize(mb_strtolower($question));
+        $best = '';
+        $bestScore = 0;
+        foreach ($facts as $f) {
+            $fNorm = TextProcessor::normalize(mb_strtolower((string)$f));
+            if ($fNorm === '') { continue; }
+            $score = 0;
+            foreach (preg_split('/\s+/u', $qNorm) ?: [] as $w) {
+                if (mb_strlen($w) >= 4 && mb_strpos($fNorm, $w) !== false) {
+                    $score++;
+                }
+            }
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $best = trim((string)$f);
+            }
+        }
+        $parts = [];
+        if ($bestScore > 0 && $best !== '') {
+            $parts[] = 'بر اساس داده‌های آنلاین مرتبط، ' . rtrim($best, '.؛،') . '.';
+        } else {
+            $parts[] = 'پاسخ کوتاه: بله، این مورد با ' . $subject . ' ارتباط مستقیم دارد و باید در کنار سایر نشانه‌ها ارزیابی شود.';
+        }
+        $parts[] = 'برای بررسی دقیق' . ($deviceFa !== '' ? ' روی ' . $deviceFa : '') . '، توصیه می‌کنیم ابتدا راه‌حل‌های بخش قبل را انجام دهید و در صورت تکرار مشکل، از مشاوره کارشناس استفاده کنید.';
+        return implode(' ', $parts);
+    }
+
+    /**
+     * ✍️ مقدمه موضوع‌محور (v3.3) — روان و مستقیم، بدون قالب کلیشه‌ای
+     */
+    private function topicIntro(string $subject, array $vars, ?array $webResearch, string $seed): string
+    {
+        $d = $vars['device_fa'];
+        $b = $vars['brand_fa'];
+        $openers = [
+            'اگر با موضوع «' . $subject . '» مواجه شده‌اید، احتمالاً همین حالا دنبال پاسخی روشن و قابل اتکا هستید.',
+            '«' . $subject . '» دقیقاً همان موضوعی است که این راهنما برای آن نوشته شده است.',
+            'در این مقاله، ' . $subject . ' را از زبان تیم فنی و بر اساس داده‌های به‌روز بررسی می‌کنیم.',
+        ];
+        $mids = [];
+        if ($webResearch && !empty($webResearch['facts'])) {
+            $mids[] = 'برای تهیه این محتوا، منابع آنلاین معتبر نیز بررسی شده تا داده‌های تازه لحاظ شود.';
+        }
+        $mids[] = 'آنچه در ادامه می‌خوانید' . ($d !== '' ? ' با تمرکز روی ' . $d : '') . '، از علت‌شناسی شروع می‌شود و تا راه‌حل، هزینه و پیشگیری ادامه می‌یابد.';
+        $closers = [
+            'تا انتها همراه بمانید؛ چند نکته کلیدی هست که اگر همین حالا بدانید، از هزینه‌های بزرگ‌تر جلوگیری می‌کند.',
+            'اگر عجله دارید، فهرست مطالب ابتدای مقاله مسیر سریعی به بخش موردنظرتان می‌دهد.',
+        ];
+        return $openers[crc32($seed) % 3] . ' ' . implode(' ', $mids) . ' ' . $closers[(crc32($seed) >> 3) % 2];
+    }
+
+    /**
+     * ✍️ جمع‌بندی موضوع‌محور (v3.3)
+     */
+    private function topicConclusion(string $subject, array $vars, string $seed): string
+    {
+        $b = $vars['brand_fa'];
+        $agency = $vars['agency'] ?? 'سهند سرویس';
+        $parts = [
+            $subject . ' زمانی به نتیجه مطمئن می‌رسد که علت واقعی شناسایی شود، نه فقط نشانه‌ها.',
+            'در این راهنما دیدیم که ترکیب بررسی‌های اولیه کاربر با تشخیص تخصصی، هم زمان را کوتاه می‌کند و هم از خرابی‌های ثانویه جلوگیری می‌کند.',
+            'اگر پس از اجرای راه‌حل‌های مطرح‌شده مشکل ادامه داشت، ادامه استفاده از دستگاه توصیه نمی‌شود؛',
+            'تیم فنی ' . ($b !== '' ? $b . ' و ' : '') . $agency . ' با بازدید و تشخیص دقیق، مسیر درست را مشخص می‌کند.',
+        ];
+        return implode(' ', $parts);
+    }
+
+    /**
      * 📄 ساخت یک بخش مقاله
      */
     private function section(string $title, string $content): ?array
@@ -1050,15 +1266,28 @@ class ArticleGenerator
      * ❓ تولید ۲-۳ پرسش و پاسخ متداول اختصاصی مقاله
      * از قالب‌های FAQ پایگاه دانش + متغیرهای برند
      */
-    private function articleFaq(array $vars, string $topicType, string $seed): array
+    private function articleFaq(array $vars, string $topicType, string $seed, string $subject = '', ?array $webResearch = null): array
     {
+        $faqs = [];
+
+        /* 🎯 v3.3: پرسش‌های واقعی وب درباره همین موضوع — دقیق‌ترین FAQ ممکن */
+        if ($subject !== '' && $webResearch !== null) {
+            foreach (array_slice((array)($webResearch['questions'] ?? []), 0, 2) as $wq) {
+                $wq = trim((string)$wq);
+                if ($wq === '' || mb_strlen($wq) > 120) { continue; }
+                $faqs[] = [
+                    'question' => TextProcessor::normalize($wq),
+                    'answer'   => $this->answerQuestionFromContext($wq, (array)($webResearch['facts'] ?? []), $subject, (string)$vars['device_fa'], (string)$vars['brand_fa']),
+                ];
+            }
+        }
+
         $templates = TextProcessor::loadKnowledge('templates');
         $faqTemplates = $templates['faq'] ?? [];
         if (empty($faqTemplates)) {
-            return [];
+            return $faqs;
         }
         $picks = TextProcessor::seededPickMany($faqTemplates, 3, $seed . '|faq');
-        $faqs = [];
         foreach ($picks as $faq) {
             // ساختار دانش: ['q' => سوال, 'a' => پاسخ] (سازگار با question/answer هم هست)
             $questionRaw = is_array($faq) ? ($faq['q'] ?? $faq['question'] ?? '') : '';
@@ -1074,7 +1303,7 @@ class ArticleGenerator
                 'answer'   => TextProcessor::normalize($answer),
             ];
         }
-        return $faqs;
+        return array_slice($faqs, 0, 5);
     }
 
     /**
