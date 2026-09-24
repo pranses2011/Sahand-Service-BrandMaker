@@ -436,5 +436,33 @@ $router->add('POST', 'telegram/webhook', function () {
  * ================================================== */
 $router->add('POST', 'seo/generate', $aiHandler('generateSeo'));
 
+/* ==================================================
+ * 🚀 افزونه استقرار خودکار (v2.11)
+ * 🔒 همه مسیرها نیازمند X-API-Key با مجوز can_deploy
+ *    (به‌جز health که کلید معمولی کافی است)
+ * ================================================== */
+require_once __DIR__ . '/endpoints/deploy.php';
+require_once __DIR__ . '/endpoints/health.php';
+require_once __DIR__ . '/endpoints/backup.php';
+
+// 🚀 استقرار: شروع / بروزرسانی / وضعیت / لاگ / گام بعدی / لیست
+$router->add('POST', 'deploy/{brandId}', function ($p) { api_deploy_start((int)$p['brandId']); });
+$router->add('POST', 'deploy/{brandId}/update', function ($p) { api_deploy_update((int)$p['brandId']); });
+$router->add('GET', 'deploy/{brandId}/status', function ($p) { api_deploy_status((int)$p['brandId']); });
+$router->add('GET', 'deploy/{deploymentId}/logs', function ($p) { api_deploy_logs((int)$p['deploymentId']); });
+$router->add('POST', 'deploy/step/{deploymentId}', function ($p) { api_deploy_step((int)$p['deploymentId']); });
+$router->add('GET', 'deploy/list', function () { api_deploy_list(); });
+
+// 📊 سلامت: وضعیت برند / بررسی فوری / همه سایت‌ها
+$router->add('GET', 'health/{brandId}', function ($p) { api_health_brand((int)$p['brandId']); });
+$router->add('POST', 'health/{brandId}/check', function ($p) { api_health_check_now((int)$p['brandId']); });
+$router->add('GET', 'health/all', function () { api_health_all(); });
+
+// 💾 بکاپ: لیست / ساخت / بازیابی / حذف
+$router->add('GET', 'backup/{brandId}', function ($p) { api_backup_list((int)$p['brandId']); });
+$router->add('POST', 'backup/{brandId}/create', function ($p) { api_backup_create((int)$p['brandId']); });
+$router->add('POST', 'backup/{backupId}/restore', function ($p) { api_backup_restore((int)$p['backupId']); });
+$router->add('POST', 'backup/{backupId}/delete', function ($p) { api_backup_delete((int)$p['backupId']); });
+
 /* 🚀 اجرا */
 $router->dispatch();

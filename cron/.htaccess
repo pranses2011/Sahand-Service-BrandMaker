@@ -1,0 +1,13 @@
+# ⏰ محافظت پوشه Cron — فقط اجرای CLI مجاز است
+# ==================================================
+
+# 🚫 مسدودسازی تمام درخواست‌های وب (cron فقط از خط فرمان اجرا می‌شود)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^ - [F,L]
+</IfModule>
+
+# 🔒 روش جایگزین (اگر mod_rewrite نبود)
+<FilesMatch "\.php$">
+    Require all denied
+</FilesMatch>
