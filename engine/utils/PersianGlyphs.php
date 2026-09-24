@@ -109,7 +109,7 @@ class PersianGlyphs
             $shaped[] = ['glyph' => self::cp((int)hexdec($forms[$form] ?? $forms[0])), 'rtl' => true, 'joinBreak' => false];
         }
 
-        /* ---------- مرحله ۲: ترتیب بصری (bidi ساده‌شده) ---------- */
+        /* ---------- مرحله ۲: ترتیب بصری (bidi ساده‌شده برای پاراگراف RTL) ---------- */
         return self::visualOrder($shaped);
     }
 
@@ -120,7 +120,16 @@ class PersianGlyphs
             $el = $shaped[$j];
             if ($el['joinBreak']) { return false; } // نیم‌فاصله اتصال را می‌شکند
             if ($el['rtl'] === false) { return false; } // لاتین/عدد
-            if ($el['rtl'] === null) { continue; }     // فاصله/نشانه — از قبل ادامه بده
+            if ($el['rtl'] === null) {
+                /* 🐛 v2.8: فقط اعراب/combined marks اتصال را نمی‌شکنند —
+                   فاصله و نشانه‌ها (پرانتز، ویرگول و...) می‌شکنند!
+                   (قبلاً همه خنثی‌ها رد می‌شدند → حروف دو کلمه مجزا به‌هم می‌چسبیدند:
+                   «سلام علی» → ع به‌اشتباه فرم میانی می‌گرفت و dangling connector می‌شد) */
+                if (preg_match('/^[\x{064B}-\x{065F}\x{0670}\x{06D6}-\x{06ED}]$/u', $el['glyph'])) {
+                    continue;
+                }
+                return false;
+            }
             /* حروفی که فقط فرم مجزا/نهایی دارند از «چپ» متصل نمی‌شوند */
             return self::joinsFromLeft($chars[$i - (count($shaped) - $j)] ?? '');
         }
@@ -134,12 +143,15 @@ class PersianGlyphs
         while ($i < $n) {
             $ch = $chars[$i];
             if (in_array($ch, self::JOIN_BREAKERS, true)) { return false; }
+            /* اعراب/combined marks اتصال را نمی‌شکنند (v2.8) */
+            if (preg_match('/^[\x{064B}-\x{065F}\x{0670}\x{06D6}-\x{06ED}]$/u', $ch)) {
+                $i++;
+                continue;
+            }
             if (isset(self::TABLE[$ch])) {
                 return self::joinsFromRight($ch);
             }
-            if (preg_match('/[\p{Arabic}]/u', $ch)) { return false; }
-            if ($ch === ' ') { return false; } // فاصله اتصال را قطع می‌کند
-            return false; // لاتین/عدد
+            return false; // فاصله، لاتین/عدد و سایر نشانه‌ها
         }
         return false;
     }
@@ -162,48 +174,84 @@ class PersianGlyphs
         return $ch === ' ' || preg_match('/[\p{P}\p{S}]/u', $ch);
     }
 
-    /** ↔ ترتیب بصری: توالی‌های RTL معکوس، LTR دست‌نخورده، ترتیب توالی‌ها معکوس */
+    /** 🔁 آینه جف پرانتزها — در توالی RTL باز/بسته جابه‌جا می‌شوند تا درست دیده شوند */
+    private const MIRROR = [
+        '(' => ')', ')' => '(', '[' => ']', ']' => '[',
+        '{' => '}', '}' => '{', '<' => '>', '>' => '<',
+    ];
+
+    /**
+     * ↔ ترتیب بصری (v2.8 — بازنویسی کامل):
+     *
+     * الگوریتم قبلی فقط «حروف داخل هر توالی RTL» را معکوس می‌کرد اما «ترتیب خود
+     * توالی‌ها» را نگه می‌داشت — برای متن کاملاً فارسی درست بود ولی به‌محض ورود
+     * عدد یا حرف انگلیسی، چیدمان به‌هم می‌ریخت («کد 4E خطا» به‌صورت «کد…خطا 4E»).
+     *
+     * الگوریتم استاندارد ساده‌شده برای پاراگراف RTL:
+     *   ۱) متن به توالی‌های جهت‌دار شکسته می‌شود؛ خنثی (فاصله/نشانه) فقط وقتی
+     *      «همسایه چپ و راستش» هر دو LTR باشند به توالی LTR می‌پیوندد، وگرنه
+     *      جزو جهت پاراگراف (RTL) است.
+     *   ۲) «ترتیب توالی‌ها» معکوس می‌شود (کلمه اول منطقی = راست‌ترین توالی بصری)
+     *   ۳) داخل توالی RTL حروف معکوس + آینه پرانتزها؛ داخل توالی LTR دست‌نخورده
+     */
     private static function visualOrder(array $shaped): string
     {
-        $out = [];
+        /* ---------- ۱) ساخت توالی‌ها ---------- */
+        $runs = []; // هر عنصر: ['rtl' => bool, 'els' => [...]]
         $i = 0;
         $n = count($shaped);
         while ($i < $n) {
-            /* توالی جاری را تا تغییر جهت جمع کن (خنثی‌ها به توالی قبلی RTL می‌پیوندند اگر بعدش RTL است) */
-            $isRtl = $shaped[$i]['rtl'] === true || $shaped[$i]['rtl'] === null;
-            $run = [];
-            while ($i < $n) {
-                $el = $shaped[$i];
-                $elIsRtl = $el['rtl'] === true;
-                $elIsLtr = $el['rtl'] === false;
-                if ($elIsLtr && $isRtl) { break; }
-                if ($elIsRtl && !$isRtl) { break; }
-                if ($el['rtl'] === null && $isRtl) {
-                    /* خنثی: فقط اگر بعد از آن RTL بیاید جزو توالی RTL بماند */
-                    $k = $i + 1;
-                    $nextRtl = false;
-                    while ($k < $n && $shaped[$k]['rtl'] === null) { $k++; }
-                    if ($k < $n && $shaped[$k]['rtl'] === true) { $nextRtl = true; }
-                    if (!$nextRtl) { break; }
+            $el = $shaped[$i];
+            if ($el['rtl'] === false) {
+                /* توالی LTR: حروف/اعداد لاتین متوالی + خنثی‌هایی که دو طرفشان LTR است */
+                $els = [];
+                while ($i < $n) {
+                    $cur = $shaped[$i];
+                    if ($cur['rtl'] === true) { break; }
+                    if ($cur['rtl'] === null) {
+                        /* خنثی فقط با همسایه چپِ LTR و همسایه راستِ LTR به این توالی می‌پیوندد */
+                        $nextStrong = null;
+                        for ($k = $i + 1; $k < $n; $k++) {
+                            if ($shaped[$k]['rtl'] !== null) { $nextStrong = $shaped[$k]['rtl']; break; }
+                        }
+                        if ($nextStrong !== false) { break; } // ادامه LTR نیست → خنثی به توالی RTL بعدی می‌پیوندد
+                    }
+                    $els[] = $cur;
+                    $i++;
                 }
-                $run[] = $el;
-                $i++;
-            }
-            if (empty($run)) {
-                /* 🛡️ پیشروی تضمینی — نویسه خنثیِ مرزی به‌عنوان توالی تک‌عضوی مصرف می‌شود
-                   (نبود این شاخه = حلقه بی‌نهایت روی «متن + فاصله + عدد/لاتین») */
-                $el = $shaped[$i];
-                if (!$el['joinBreak']) { $out[] = $el['glyph']; }
-                $i++;
+                if ($els) {
+                    $runs[] = ['rtl' => false, 'els' => $els];
+                }
                 continue;
             }
-            if ($isRtl) {
-                /* معکوس کردن توالی RTL (نیم‌فاصله‌ها حذف) */
-                for ($j = count($run) - 1; $j >= 0; $j--) {
-                    if (!$run[$j]['joinBreak']) { $out[] = $run[$j]['glyph']; }
+            /* توالی RTL: حروف فارسی + خنثی‌هایی که پیش/پس زمینه RTL دارند */
+            $els = [];
+            while ($i < $n) {
+                $cur = $shaped[$i];
+                if ($cur['rtl'] === false) { break; }
+                $els[] = $cur;
+                $i++;
+            }
+            if ($els) {
+                $runs[] = ['rtl' => true, 'els' => $els];
+            }
+        }
+
+        /* ---------- ۲+۳) خروجی: ترتیب توالی‌ها معکوس + داخل RTL معکوس ---------- */
+        $out = [];
+        for ($r = count($runs) - 1; $r >= 0; $r--) {
+            $run = $runs[$r];
+            if ($run['rtl']) {
+                for ($j = count($run['els']) - 1; $j >= 0; $j--) {
+                    $el = $run['els'][$j];
+                    if ($el['joinBreak']) { continue; } // نیم‌فاصله در خروجی حذف
+                    $g = $el['glyph'];
+                    $out[] = self::MIRROR[$g] ?? $g; // آینه پرانتزها
                 }
             } else {
-                foreach ($run as $el) { $out[] = $el['glyph']; }
+                foreach ($run['els'] as $el) {
+                    $out[] = $el['glyph'];
+                }
             }
         }
         return implode('', $out);
@@ -213,5 +261,25 @@ class PersianGlyphs
     private static function cp(int $code): string
     {
         return mb_chr($code, 'UTF-8') ?: '';
+    }
+
+    /**
+     * 📋 فهرست همه کدپوینت‌های فرم نمایشی که این کلاس تولید می‌کند (v2.8)
+     * برای اعتبارسنجی فونت: فونتی که حتی یکی از این گلیف‌ها را نداشته باشد،
+     * متن شکل‌یافته را مربع/مستطیل خالی نشان می‌دهد و نباید انتخاب شود.
+     *
+     * @return int[] کدپوینت‌های لازم (منحصربه‌فرد)
+     */
+    public static function requiredCodepoints(): array
+    {
+        $cps = [];
+        foreach (self::TABLE as $forms) {
+            foreach ($forms as $hex) {
+                if ($hex !== null) {
+                    $cps[(int)hexdec($hex)] = true;
+                }
+            }
+        }
+        return array_keys($cps);
     }
 }

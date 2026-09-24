@@ -213,44 +213,90 @@ class AiImageGenerator
         $white = imagecolorallocate($img, 255, 255, 255);
         $shadow = imagecolorallocate($img, 0, 0, 0);
 
-        /* --- 🖼 v2.7.2: لوگوی برند در بالای تصویر (شفاف) + مونوگرام در نبود لوگو --- */
+        /* --- 🖼 v2.8: لوگوی برند روی «نشان سفید گردگوشه» — زیبا و خوانا برای
+               هر لوگویی (تیره/روشن/JPG). JPGها زمینه خود را دارند که در نشان سفید
+               محو می‌شود؛ PNG/SVG شفاف دقیقاً روی نشان می‌نشینند (شفافیت حفظ می‌شود). --- */
         $brandLogo = $this->brandLogoAsset($brand);
-        $logoBottom = 120; // محل شروع محدوده عنوان بعد از لوگو
         $brandDrawn = false;
         if ($brandLogo !== null) {
             $logoRes = $brandLogo['kind'] === 'svg' ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($brandLogo['path']) ?? '', 320) : ImageWatermark::loadResampled($brandLogo['path'], 320);
             if ($logoRes !== null) {
                 $lw = imagesx($logoRes);
                 $lh = imagesy($logoRes);
-                $scale = min(92 / $lh, 300 / $lw, 1);
+                $scale = min(78 / $lh, 240 / $lw, 1);
                 $dw = max(1, (int)round($lw * $scale));
                 $dh = max(1, (int)round($lh * $scale));
-                $tmp = imagecreatetruecolor($dw, $dh);
-                imagealphablending($tmp, false);
-                imagesavealpha($tmp, true);
-                $tr = imagecolorallocatealpha($tmp, 0, 0, 0, 127);
-                imagefill($tmp, 0, 0, $tr);
-                imagealphablending($tmp, true);
-                imagecopyresampled($tmp, $logoRes, 0, 0, 0, 0, $dw, $dh, $lw, $lh);
+
+                /* نشان سفید: حاشیه ۲۲px + ارتفاع ۱۲۲px + گوشه گرد ۲۴px + سایه نرم */
+                $pad = 22;
+                $badgeW = $dw + $pad * 2;
+                $badgeH = 122;
+                $logoY = (int)(($badgeH - $dh) / 2);
+                $bx = (int)(($w - $badgeW) / 2);
+                $by = 34;
+
+                /* سایه نرم زیر نشان */
                 imagealphablending($img, true);
-                imagesavealpha($img, true);
-                imagecopy($img, $tmp, (int)(($w - $dw) / 2), 42, 0, 0, $dw, $dh);
-                imagedestroy($tmp);
+                $shCanvas = imagecreatetruecolor($badgeW + 40, $badgeH + 40);
+                imagealphablending($shCanvas, false);
+                imagesavealpha($shCanvas, true);
+                $shTr = imagecolorallocatealpha($shCanvas, 0, 0, 0, 127);
+                imagefill($shCanvas, 0, 0, $shTr);
+                imagealphablending($shCanvas, true);
+                $shCol = imagecolorallocatealpha($shCanvas, 0, 0, 0, 58);
+                imagefilledrectangle($shCanvas, 20, 22, 20 + $badgeW, 22 + $badgeH, $shCol);
+                imagefilter($shCanvas, IMG_FILTER_GAUSSIAN_BLUR);
+                imagefilter($shCanvas, IMG_FILTER_GAUSSIAN_BLUR);
+                ImageWatermark::compositeAlpha($img, $shCanvas, $bx - 20, $by - 12);
+                imagedestroy($shCanvas);
+
+                /* خود نشان — گردگوشه با آلفا */
+                $badge = imagecreatetruecolor($badgeW, $badgeH);
+                imagealphablending($badge, false);
+                imagesavealpha($badge, true);
+                $badgeTr = imagecolorallocatealpha($badge, 0, 0, 0, 127);
+                imagefill($badge, 0, 0, $badgeTr);
+                $whiteOpaque = imagecolorallocate($badge, 255, 255, 255);
+                $r = 24;
+                imagefilledrectangle($badge, $r, 0, $badgeW - $r, $badgeH, $whiteOpaque);
+                imagefilledrectangle($badge, 0, $r, $badgeW, $badgeH - $r, $whiteOpaque);
+                imagefilledellipse($badge, $r, $r, $r * 2, $r * 2, $whiteOpaque);
+                imagefilledellipse($badge, $badgeW - $r, $r, $r * 2, $r * 2, $whiteOpaque);
+                imagefilledellipse($badge, $r, $badgeH - $r, $r * 2, $r * 2, $whiteOpaque);
+                imagefilledellipse($badge, $badgeW - $r, $badgeH - $r, $r * 2, $r * 2, $whiteOpaque);
+                /* لوگو با مقیاس و آلفای حفظ‌شده، سپس ترکیب قطعی روی نشان */
+                $scaled = imagecreatetruecolor($dw, $dh);
+                imagealphablending($scaled, false);
+                imagesavealpha($scaled, true);
+                $sTr = imagecolorallocatealpha($scaled, 0, 0, 0, 127);
+                imagefill($scaled, 0, 0, $sTr);
+                imagecopyresampled($scaled, $logoRes, 0, 0, 0, 0, $dw, $dh, $lw, $lh);
+                ImageWatermark::compositeAlpha($badge, $scaled, (int)(($badgeW - $dw) / 2), $logoY);
+                imagedestroy($scaled);
+                ImageWatermark::compositeAlpha($img, $badge, $bx, $by);
+                imagedestroy($badge);
                 imagedestroy($logoRes);
                 $brandDrawn = true;
             }
         }
         if (!$brandDrawn && $font !== null) {
-            /* مونوگرام دایره‌ای با حرف اول برند — جایگزین زیبا وقتی لوگو نیست */
+            /* مونوگرام دایره‌ای با حرف اول برند — جایگزین زیبا وقتی لوگو نیست
+               (v2.8: دایره روی بوم جداگانه + ترکیب قطعی — مستقل از رفتار آلفای بیلد GD) */
             $brandName0 = trim((string)($brand['name_fa'] ?? ''));
             if ($brandName0 !== '') {
                 $first = mb_substr($brandName0, 0, 1);
                 $cx = (int)($w / 2);
                 $cy = 96;
                 $r = 46;
-                imagealphablending($img, true);
-                $circ = imagecolorallocatealpha($img, 255, 255, 255, 96);
-                imagefilledellipse($img, $cx, $cy, $r * 2, $r * 2, $circ);
+                $mono = imagecreatetruecolor($r * 2 + 8, $r * 2 + 8);
+                imagealphablending($mono, false);
+                imagesavealpha($mono, true);
+                $mTr = imagecolorallocatealpha($mono, 0, 0, 0, 127);
+                imagefill($mono, 0, 0, $mTr);
+                $circ = imagecolorallocate($mono, 255, 255, 255);
+                imagefilledellipse($mono, $r + 4, $r + 4, $r * 2, $r * 2, $circ);
+                ImageWatermark::compositeAlpha($img, $mono, $cx - $r - 4, $cy - $r - 4, 0.24);
+                imagedestroy($mono);
                 imagesetthickness($img, 2);
                 imagearc($img, $cx, $cy, $r * 2, $r * 2, 0, 360, $bar);
                 $shapedM = PersianGlyphs::shapeForImage($first);
@@ -405,9 +451,12 @@ class AiImageGenerator
                 $mime = $brandLogo['kind'] === 'svg' ? 'image/svg+xml' : 'image/' . strtolower(pathinfo($brandLogo['path'], PATHINFO_EXTENSION));
                 if ($mime === 'image/jpg') { $mime = 'image/jpeg'; }
                 if ($isOg) {
-                    /* OG: لوگوی برند (رستر یا SVG) به‌صورت data-URI — وسط‌چین بالای عنوان */
-                    $p[] = sprintf('<image x="%d" y="44" width="128" height="128" preserveAspectRatio="xMidYMid meet" opacity=".98" href="data:%s;base64,%s"/>',
-                        $w / 2 - 64, $mime, base64_encode($data));
+                    /* OG: لوگوی برند روی نشان سفید گردگوشه (v2.8 — هماهنگ با مسیر GD)
+                       تا لوگوهای JPG/کم‌کنتراست هم زیبا دیده شوند */
+                    $p[] = sprintf('<rect x="%d" y="30" rx="24" width="%d" height="122" fill="#ffffff" opacity=".96"/>',
+                        $w / 2 - 142, 284);
+                    $p[] = sprintf('<image x="%d" y="30" width="240" height="122" preserveAspectRatio="xMidYMid meet" href="data:%s;base64,%s"/>',
+                        $w / 2 - 120, $mime, base64_encode($data));
                 } else {
                     /* تصویر مقاله: واترمارک لوگوی برند — گوشه پایین-راست، شفاف */
                     $sz = (int)round(min($w, $h) * 0.15);
@@ -607,9 +656,14 @@ class AiImageGenerator
     }
 
     /**
-     * 🛡 آیا فونت فرم‌های نمایشی فارسی/عربی (U+FB50–U+FEFF) را دارد؟
-     * بدون این گلیف‌ها، متن پیش‌شکل‌دهی‌شده به مربع خالی تبدیل می‌شود.
-     * جدول cmap فونت به‌صورت خالص PHP خوانده می‌شود (کش در جلسه).
+     * 🛡 آیا فونت «همه» فرم‌های نمایشی فارسی/عربی لازم را دارد؟ (v2.8 — دقیق‌شده)
+     *
+     * قبلاً فقط «تعداد» پوشش بازه U+FB50–U+FEFF شمرده می‌شد (سقف ≥۶۰) — فونت‌های
+     * «عربیِ بدون حروف فارسی» (بدون پ چ ژ ک گ ی) هم ۱۴۰+ فرم پایه دارند و از این
+     * فیلتر رد می‌شدند؛ نتیجه: مربع/مستطیل به‌جای دقیقاً حروف فارسی!
+     *
+     * حالا فهرست «دقیق» کدپوینت‌های تولیدی PersianGlyphs بررسی می‌شود؛ نبود حتی
+     * یکی = رد فونت (وزیرمتن بسته‌بندی‌شده جانشین می‌شود).
      */
     private function fontCoversPersianForms(string $ttfPath): bool
     {
@@ -618,6 +672,7 @@ class AiImageGenerator
         if (isset($cache[$key])) {
             return $cache[$key];
         }
+        $required = PersianGlyphs::requiredCodepoints();
         $data = @file_get_contents($ttfPath);
         if (!is_string($data) || strlen($data) < 64) {
             return $cache[$key] = false;
@@ -630,11 +685,11 @@ class AiImageGenerator
         } else {
             return $cache[$key] = false;
         }
+        /* یافتن جدول cmap */
         $numTables = unpack('n', substr($data, 4, 2))[1] ?? 0;
         if ($numTables < 1 || $numTables > 128) {
             return $cache[$key] = false;
         }
-        /* یافتن جدول cmap */
         $cmapOff = 0;
         $cmapLen = 0;
         for ($i = 0; $i < $numTables; $i++) {
@@ -651,7 +706,7 @@ class AiImageGenerator
         if ($cmapOff <= 0 || $cmapLen < 4 || $cmapOff + $cmapLen > strlen($data)) {
             return $cache[$key] = false;
         }
-        /* خواندن زیرجدول‌ها — بهترین: format 4 */
+        /* خواندن زیرجدول‌ها — بهترین: format 4 (BMP) یا 12 (UCS-4) */
         $subtablesCount = unpack('n', substr($data, $cmapOff + 2, 2))[1] ?? 0;
         $best = null; // [offset, format]
         for ($i = 0; $i < $subtablesCount && $i < 32; $i++) {
@@ -681,18 +736,22 @@ class AiImageGenerator
             return $cache[$key] = false;
         }
         [$subOff, $format] = $best;
-        $coverage = 0;
+
+        /* مجموعه کدپوینت‌های مپ‌شده فونت (فقط بازه‌های مرتبط برای سرعت) */
+        $mapped = [];
         if ($format === 4) {
             $segCount = unpack('n', substr($data, $subOff + 6, 2))[1] / 2;
             $endCodesStart = $subOff + 14;
             for ($s = 0; $s < $segCount; $s++) {
                 $end = unpack('n', substr($data, $endCodesStart + $s * 2, 2))[1] ?? 0;
                 $start = unpack('n', substr($data, $endCodesStart + $segCount * 2 + 2 + $s * 2, 2))[1] ?? 0;
-                /* تقاطع بازه سگمنت با فرم‌های نمایشی (A: FB50–FDFF + B: FE70–FEFF) */
-                $lo = max($start, 0xFB50);
+                if ($end === 0xFFFF || $start > $end) {
+                    continue;
+                }
+                $lo = max($start, 0x0600); // از بلوک عربی/فارسی تا فرم‌های نمایشی
                 $hi = min($end, 0xFEFF);
-                if ($lo <= $hi && $end !== 0xFFFF) { // سگمنت نگه‌دارنده 0xFFFF معمولاً sentinel است
-                    $coverage += $hi - $lo + 1;
+                for ($cp = $lo; $cp <= $hi; $cp++) {
+                    $mapped[$cp] = true;
                 }
             }
         } elseif ($format === 12) {
@@ -704,15 +763,24 @@ class AiImageGenerator
                 }
                 $start = unpack('N', substr($rec, 0, 4))[1];
                 $end = unpack('N', substr($rec, 4, 4))[1];
-                $lo = max($start, 0xFB50);
+                $lo = max($start, 0x0600);
                 $hi = min($end, 0xFEFF);
-                if ($lo <= $hi) {
-                    $coverage += $hi - $lo + 1;
+                for ($cp = $lo; $cp <= $hi; $cp++) {
+                    $mapped[$cp] = true;
                 }
             }
+        } else {
+            return $cache[$key] = false;
         }
-        /* فونت‌های دارای فرم‌های نمایشی معمولاً ۱۰۰+ نقطه دارند؛ بدون آن ۰ */
-        return $cache[$key] = ($coverage >= 60);
+
+        /* ✅ همه فرم‌های لازم باید موجود باشند — نبود حتی یکی = مستطیل خالی */
+        foreach ($required as $cp) {
+            if (empty($mapped[$cp])) {
+                return $cache[$key] = false;
+            }
+        }
+        /* ZWNJ هم برای شکستن اتصال لازم است (خروجی آن حذف می‌شود اما فونت سالم باشد) */
+        return $cache[$key] = true;
     }
 
     /**

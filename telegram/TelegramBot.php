@@ -203,32 +203,7 @@ class TelegramBot
             return $this->apiUploadViaRelay($method, $params, $files);
         }
 
-        $post = $params;
-        foreach ($files as $field => $path) {
-            $post[$field] = $path instanceof CURLFile ? $path : new CURLFile((string)$path);
-        }
-        $ch = curl_init($this->apiBaseUrl() . $this->token . '/' . $method);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $post,
-            CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_TIMEOUT        => 120,
-            CURLOPT_SSL_VERIFYPEER => true,
-        ]);
-        $body = curl_exec($ch);
-        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $err  = curl_error($ch);
-        curl_close($ch);
-
-        if (!is_string($body) || $body === '') {
-            throw new RuntimeException('خطای شبکه تلگرام (آپلود): ' . ($err ?: "HTTP {$http}"));
-        }
-        $data = json_decode($body, true);
-        if (!is_array($data) || empty($data['ok'])) {
-            throw new RuntimeException('خطای تلگرام (آپلود): ' . (string)($data['description'] ?? 'نامشخص'));
-        }
-        return $this->normalizeResult($data['result'] ?? []);
+        return $this->apiUploadDirect($method, $params, $files);
     }
 
     /**
@@ -294,7 +269,60 @@ class TelegramBot
             throw new RuntimeException('خطای واسط گوگل → تلگرام (آپلود): ' . $data['relay_error']);
         }
         if (empty($data['ok'])) {
-            throw new RuntimeException('خطای تلگرام (آپلود از واسط): ' . (string)($data['description'] ?? 'نامشخص'));
+            $desc = (string)($data['description'] ?? 'نامشخص');
+            /* 🩹 v2.8: «there is no document/photo/file in the request» یعنی اسکریپت
+               واسط گوگلِ مستقرشده قدیمی است و بخش فایل (files_b64) را به تلگرام پاس
+               نمی‌دهد — به‌جای شکست کامل، یک‌بار آپلود «مستقیم» امتحان می‌شود
+               (اگر سرور در آن لحظه به تلگرام دسترسی داشته باشد) و اگر نشد،
+               پیام راهنمای دقیق برای بروزرسانی اسکریپت نمایش داده می‌شود. */
+            if (preg_match('/there is no (document|photo|file|sticker|video|audio)/i', $desc)) {
+                try {
+                    $direct = $this->apiUploadDirect($method, $params, $files);
+                    $this->lastError = '';
+                    return $direct;
+                } catch (Throwable $e) {
+                    throw new RuntimeException(
+                        'آپلود از واسط گوگل انجام نشد (فایل به تلگرام نرسید: ' . $desc . '). ' .
+                        '⬅️ راه‌حل: «اسکریپت واسط گوگل» را از پنل مدیریت → تلگرام → کارت واسط، ' .
+                        'کپی کنید و در script.google.com دوباره Deploy کنید (نسخه جدید پشتیبانی فایل دارد)، ' .
+                        'یا واسط را موقتاً غیرفعال کنید. (تلاش مستقیم هم ناموفق بود: ' . $e->getMessage() . ')'
+                    );
+                }
+            }
+            throw new RuntimeException('خطای تلگرام (آپلود از واسط): ' . $desc);
+        }
+        return $this->normalizeResult($data['result'] ?? []);
+    }
+
+    /**
+     * 🔗 آپلود مستقیم به تلگرام — بدون واسط (v2.8: از مسیر واسط هم قابل فراخوانی
+     * است تا اگر واسط فایل را گم کرد، تحویل با یک تلاش مستقیم نجات یابد)
+     */
+    private function apiUploadDirect(string $method, array $params, array $files): array
+    {
+        $post = $params;
+        foreach ($files as $field => $path) {
+            $post[$field] = $path instanceof CURLFile ? $path : new CURLFile((string)$path);
+        }
+        $ch = curl_init($this->apiBaseUrl() . $this->token . '/' . $method);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $post,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+        $body = curl_exec($ch);
+        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err  = curl_error($ch);
+        curl_close($ch);
+        if (!is_string($body) || $body === '') {
+            throw new RuntimeException('خطای شبکه تلگرام (آپلود مستقیم): ' . ($err ?: "HTTP {$http}"));
+        }
+        $data = json_decode($body, true);
+        if (!is_array($data) || empty($data['ok'])) {
+            throw new RuntimeException((string)($data['description'] ?? 'خطای تلگرام (آپلود مستقیم)'));
         }
         return $this->normalizeResult($data['result'] ?? []);
     }
@@ -426,6 +454,25 @@ class TelegramBot
         foreach (array_values($items) as $i => $item) {
             $path = (string)$item['path'];
             if (!is_file($path)) { continue; }
+            /* 🖼 v2.8: تلگرام SVG را به‌عنوان photo قبول نمی‌کند — تصاویر یکتای AI
+               که SVG هستند ابتدا با Imagick به PNG رستر می‌شوند (کش‌شده) و اگر
+               رستر ممکن نبود، همان آیتم به‌جای حذف کامل، به‌صورت سند ارسال می‌شود. */
+            $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            if ($ext === 'svg') {
+                $png = $this->rasterizeForSend($path);
+                if ($png !== null) {
+                    $path = $png;
+                    $ext = 'png';
+                } else {
+                    try {
+                        $this->sendDocumentFromString($chatId, basename($path), (string)@file_get_contents($path),
+                            '🖼️ ' . (string)($item['caption'] ?? 'تصویر مقاله') . ' — فرمت SVG');
+                    } catch (Throwable $e) {
+                        // بدون شکستن بقیه آلبوم
+                    }
+                    continue;
+                }
+            }
             $ref = 'file' . $i;
             $entry = ['type' => 'photo', 'media' => 'attach://' . $ref];
             if (!empty($item['caption'])) {
@@ -433,7 +480,8 @@ class TelegramBot
                 $entry['parse_mode'] = 'HTML';
             }
             $media[] = $entry;
-            $files[$ref] = new CURLFile($path, 'image/jpeg');
+            $mime = $ext === 'png' ? 'image/png' : 'image/jpeg';
+            $files[$ref] = new CURLFile($path, $mime, 'image-' . ($i + 1) . '.' . $ext);
         }
         if (count($media) < 1) { return false; }
         $this->apiUpload('sendMediaGroup', [
@@ -441,6 +489,45 @@ class TelegramBot
             'media'   => json_encode($media, JSON_UNESCAPED_UNICODE),
         ], $files);
         return true;
+    }
+
+    /**
+     * 🔄 رستر کردن SVG به PNG برای ارسال در تلگرام (کش‌شده — v2.8)
+     * @return string|null مسیر PNG یا null
+     */
+    private function rasterizeForSend(string $svgPath): ?string
+    {
+        if (!class_exists('Imagick')) {
+            return null;
+        }
+        $cacheDir = sys_get_temp_dir() . '/sahand-tg-raster';
+        if (!is_dir($cacheDir)) {
+            @mkdir($cacheDir, 0755, true);
+        }
+        $out = $cacheDir . '/tg-' . md5($svgPath . '|' . @filemtime($svgPath)) . '.png';
+        if (is_file($out) && filesize($out) > 100) {
+            return $out;
+        }
+        try {
+            $im = new Imagick();
+            $im->setBackgroundColor(new ImagickPixel('transparent'));
+            $im->readImageBlob((string)@file_get_contents($svgPath));
+            $im->setImageFormat('png');
+            $w = $im->getImageWidth();
+            $h = $im->getImageHeight();
+            if ($w > 0 && $h > 0) {
+                $scale = min(1280 / $w, 1280 / $h, 2);
+                $im->resizeImage((int)round($w * $scale), (int)round($h * $scale), Imagick::FILTER_LANCZOS, 1);
+            }
+            if (@file_put_contents($out, $im->getImageBlob()) === false) {
+                $im->clear();
+                return null;
+            }
+            $im->clear();
+            return $out;
+        } catch (Throwable $e) {
+            return null;
+        }
     }
 
     /** ✂️ تقسیم متن به قطعات <= ۴۰۰۰ کاراکتر (مرز خط) */
@@ -964,33 +1051,75 @@ class TelegramBot
             }
             $this->sendMessage($chatId, $summary);
 
-            /* ---------- ۲) فایل HTML مستقل ---------- */
-            $this->sendChatAction($chatId, 'upload_document');
-            $html = $this->buildStandaloneHtml($pkg);
+            $warnings = [];
+
+            /* ---------- ۲) فایل HTML مستقل (v2.8: شکست یک مرحله، بقیه تحویل را متوقف نمی‌کند) ---------- */
             $slug = SlugGenerator::generate((string)($art['title'] ?? 'article'));
-            $this->sendDocumentFromString($chatId, $slug . '.html', $html,
-                '📰 <b>نسخه HTML</b> — آماده انتشار برای هر سایت' .
-                "\nشامل: استایل داخلی + متا سئو + اسکیمای Article/FAQ + تصاویر با لینک مطلق"
-            );
+            $htmlSent = false;
+            try {
+                $this->sendChatAction($chatId, 'upload_document');
+                $html = $this->buildStandaloneHtml($pkg);
+                $this->sendDocumentFromString($chatId, $slug . '.html', $html,
+                    '📰 <b>نسخه HTML</b> — آماده انتشار برای هر سایت' .
+                    "\nشامل: استایل داخلی + متا سئو + اسکیمای Article/FAQ + تصاویر با لینک مطلق"
+                );
+                $htmlSent = true;
+            } catch (Throwable $e) {
+                $warnings[] = 'فایل HTML: ' . $e->getMessage();
+                @error_log('[TelegramBot] deliver article HTML: ' . $e->getMessage());
+            }
 
             /* ---------- ۳) نسخه Markdown ---------- */
-            $md = $this->buildMarkdown($pkg);
-            $this->sendDocumentFromString($chatId, $slug . '.md', $md,
-                '📝 <b>نسخه Markdown</b> — مناسب وردپرس/انجمن/ابزارهای محتوا'
-            );
+            $mdSent = false;
+            try {
+                $this->sendChatAction($chatId, 'upload_document');
+                $md = $this->buildMarkdown($pkg);
+                $this->sendDocumentFromString($chatId, $slug . '.md', $md,
+                    '📝 <b>نسخه Markdown</b> — مناسب وردپرس/انجمن/ابزارهای محتوا'
+                );
+                $mdSent = true;
+            } catch (Throwable $e) {
+                $warnings[] = 'فایل Markdown: ' . $e->getMessage();
+                @error_log('[TelegramBot] deliver article MD: ' . $e->getMessage());
+            }
+
+            /* ---------- ۳.۵) 🛟 نجات کامل: اگر هیچ فایلی نرسید، خود مقاله به‌صورت
+                   پیام‌های متنی بخش‌بندی‌شده ارسال می‌شود تا محتوا هرگز از دست نرود ---------- */
+            if (!$htmlSent && !$mdSent) {
+                try {
+                    $plain = "📄 <b>" . htmlspecialchars((string)($art['title'] ?? '')) . "</b>\n\n" .
+                        strip_tags(preg_replace('#<br\s*/?>#i', "\n", (string)($art['content'] ?? '')));
+                    foreach ($this->chunk($plain) as $partMsg) {
+                        $this->sendMessage($chatId, $partMsg);
+                    }
+                    $warnings[] = 'فایل‌ها ارسال نشد — متن کامل مقاله به‌صورت پیام ارسال شد.';
+                } catch (Throwable $e) {
+                    $warnings[] = 'ارسال متنی جانشین هم ناموفق: ' . $e->getMessage();
+                }
+            }
 
             /* ---------- ۴) آلبوم ۳ تصویر ---------- */
             $images = (array)($pkg['images'] ?? []);
             if ($images) {
-                $this->sendChatAction($chatId, 'upload_photo');
-                $album = [];
-                foreach ($images as $img) {
-                    $album[] = [
-                        'path'    => dirname(__DIR__, 2) . '/' . ltrim((string)($img['path'] ?? ''), '/'),
-                        'caption' => '🖼️ ' . htmlspecialchars((string)($img['alt'] ?? '')),
-                    ];
+                try {
+                    $this->sendChatAction($chatId, 'upload_photo');
+                    $album = [];
+                    foreach ($images as $img) {
+                        $album[] = [
+                            'path'    => dirname(__DIR__, 2) . '/' . ltrim((string)($img['path'] ?? ''), '/'),
+                            'caption' => '🖼️ ' . htmlspecialchars((string)($img['alt'] ?? '')),
+                        ];
+                    }
+                    $this->sendImageAlbum($chatId, $album);
+                } catch (Throwable $e) {
+                    $warnings[] = 'آلبوم تصاویر: ' . $e->getMessage();
+                    @error_log('[TelegramBot] deliver album: ' . $e->getMessage());
                 }
-                $this->sendImageAlbum($chatId, $album);
+            }
+
+            /* ---------- ۴.۵) هشدارهای تحویل (شفاف اما بدون قطع جریان) ---------- */
+            if ($warnings) {
+                $this->sendMessage($chatId, '⚠️ <b>نکته تحویل:</b>' . "\n" . '• ' . implode("\n• ", array_map('htmlspecialchars', $warnings)));
             }
 
             /* ---------- ۵) دکمه‌های اقدام بعدی ---------- */

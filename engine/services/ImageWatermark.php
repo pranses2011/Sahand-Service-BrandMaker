@@ -109,36 +109,68 @@ class ImageWatermark
      * ✏️ رسم با حفظ آلفا — ضریب شفافیت روی آلفای تک‌پیکسل اعمال می‌شود
      * (جایگزین imagecopymerge که جعبه مشکی می‌سازد)
      *
+     * 🧪 v2.8: ترکیب نهایی به‌جای imagecopy (که رفتار آلفایش بین بیلدهای GD
+     * متفاوت است) به‌صورت «پیکسل‌به‌پیکسل دستی» انجام می‌شود — خروجی در همه
+     * محیط‌ها (هست‌های مختلف) یکسان و قطعی است.
+     *
      * @param resource|GdImage $dst
      * @param resource|GdImage $src بوم truecolor با آلفا
      */
     public static function drawAlpha($dst, $src, int $x, int $y, float $opacity = 1.0): void
     {
         $opacity = max(0.05, min(1.0, $opacity));
+        self::compositeAlpha($dst, $src, $x, $y, $opacity);
+    }
+
+    /**
+     * 🧬 ترکیب آلفای پیکسل‌به‌پیکسل — قطعی و مستقل از بیلد GD (v2.8)
+     *
+     * فرمول استاندارد: out = src×(آلفای‌مؤثر) + dst×(۱−آلفای‌مؤثر)
+     * آلفای مؤثر = آلفای پیکسل منبع × ضریب شفافیت کلی
+     * نوشتن با imagesetpixel روی مقصدی که بلندینگ آن خاموش است = بدون ابهام.
+     */
+    public static function compositeAlpha($dst, $src, int $x, int $y, float $opacity = 1.0): void
+    {
         $sw = imagesx($src);
         $sh = imagesy($src);
-
-        /* نسخه با آلفای تعدیل‌شده — بدون دست‌زدن به RGB */
-        $tmp = imagecreatetruecolor($sw, $sh);
-        imagealphablending($tmp, false);
-        imagesavealpha($tmp, true);
-        imagecopy($tmp, $src, 0, 0, 0, 0, $sw, $sh);
-        if ($opacity < 0.999) {
-            for ($yy = 0; $yy < $sh; $yy++) {
-                for ($xx = 0; $xx < $sw; $xx++) {
-                    $c = imagecolorat($tmp, $xx, $yy);
-                    $a = ($c >> 24) & 0x7F; // 0=مات .. 127=کاملاً شفاف
-                    $na = (int)round(127 - (127 - $a) * $opacity);
-                    if ($na !== $a) {
-                        imagesetpixel($tmp, $xx, $yy, ($na << 24) | ($c & 0xFFFFFF));
-                    }
+        $dw = imagesx($dst);
+        $dh = imagesy($dst);
+        if ($sw < 1 || $sh < 1) {
+            return;
+        }
+        /* محدوده برشخورده با مرزهای مقصد */
+        $x0 = max(0, $x);
+        $y0 = max(0, $y);
+        $x1 = min($dw, $x + $sw);
+        $y1 = min($dh, $y + $sh);
+        if ($x1 <= $x0 || $y1 <= $y0) {
+            return;
+        }
+        /* بلندینگ مقصد را خاموش می‌کنیم تا setpixel «دقیقاً» مقدار ما را بنویسد */
+        $prevBlend = imagealphablending($dst, false);
+        for ($yy = $y0; $yy < $y1; $yy++) {
+            $sy = $yy - $y;
+            for ($xx = $x0; $xx < $x1; $xx++) {
+                $sx = $xx - $x;
+                $sc = imagecolorat($src, $sx, $sy);
+                $sa = (($sc >> 24) & 0x7F) / 127.0;      // 0=مات .. 1=کاملاً شفاف
+                $eff = (1.0 - $sa) * $opacity;             // سهم رنگ منبع
+                if ($eff <= 0.001) {
+                    continue;                               // پیکسل کاملاً شفاف — دست نزن
                 }
+                if ($eff >= 0.999) {
+                    /* منبع کاملاً مات — جایگزینی مستقیم */
+                    imagesetpixel($dst, $xx, $yy, $sc & 0xFFFFFF);
+                    continue;
+                }
+                $dc = imagecolorat($dst, $xx, $yy);
+                $r = (int)round(((($sc >> 16) & 0xFF) * $eff) + ((($dc >> 16) & 0xFF) * (1 - $eff)));
+                $g = (int)round(((($sc >> 8) & 0xFF) * $eff) + ((($dc >> 8) & 0xFF) * (1 - $eff)));
+                $b = (int)round((($sc & 0xFF) * $eff) + (($dc & 0xFF) * (1 - $eff)));
+                imagesetpixel($dst, $xx, $yy, ($r << 16) | ($g << 8) | $b);
             }
         }
-        imagealphablending($dst, true);
-        imagesavealpha($dst, true);
-        imagecopy($dst, $tmp, $x, $y, 0, 0, $sw, $sh);
-        imagedestroy($tmp);
+        imagealphablending($dst, $prevBlend);
     }
 
     /**

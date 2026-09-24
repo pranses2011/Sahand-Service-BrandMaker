@@ -138,6 +138,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $me = $data['result'] ?? [];
                 $flashType = 'success';
                 $flashMsg = '🌉 واسط گوگل سالم است — ربات شناسایی شد: @' . ($me['username'] ?? '?');
+
+                /* 🔎 v2.8: پروب پشتیبانی فایل — اگر اسکریپت قدیمی باشد، ارسال سند
+                   مقاله با خطای «there is no document» شکست می‌خورد؛ همین‌جا به‌موقع
+                   هشدار می‌دهیم تا کاربر اسکریپت را بروزرسانی کند. */
+                try {
+                    $ch2 = curl_init($relayUrl);
+                    curl_setopt_array($ch2, [
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_POST => true,
+                        CURLOPT_POSTFIELDS => json_encode([
+                            'secret' => (string)($cfg['relay_secret'] ?? ''),
+                            'method' => 'getRelayCapabilities',
+                            'token'  => (string)($cfg['bot_token'] ?? ''),
+                            'params' => new stdClass(),
+                        ]),
+                        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_TIMEOUT => 20,
+                    ]);
+                    $body2 = curl_exec($ch2);
+                    curl_close($ch2);
+                    $cap = is_string($body2) ? json_decode($body2, true) : null;
+                    if (is_array($cap) && empty($cap['result']['supports_files'])) {
+                        $flashType = 'warning';
+                        $flashMsg .= ' — ⚠️ نسخه اسکریپت واسط «قدیمی» است و ارسال فایل (سند مقاله) را پشتیبانی نمی‌کند! کد جدید را از کادر زیر کپی و مجدداً Deploy کنید.';
+                    } elseif (is_array($cap) && !empty($cap['result']['supports_files'])) {
+                        $flashMsg .= ' — ✅ ارسال فایل پشتیبانی می‌شود (نسخه ' . (int)($cap['result']['relay_version'] ?? 2) . ').';
+                    }
+                } catch (Throwable $capE) {
+                    // پروب اختیاری است — تست اصلی موفق بوده
+                }
                 break;
 
             /* 🧹 حذف وب‌هوک */
@@ -394,6 +425,7 @@ $gsScript = <<<GAS
  */
 var SECRET = '{$relaySecret}';          // 🔐 راز مشترک با سایت‌ساز
 var SITE_WEBHOOK = '{$siteWebhook}';    // 📮 وب‌هوک سایت‌ساز برای آپدیت‌های ورودی
+var RELAY_VERSION = 2;                  // 🆕 v2: پشتیبانی آپلود فایل (files_b64) + گزارش نسخه
 
 function doPost(e) {
   try {
@@ -404,6 +436,10 @@ function doPost(e) {
       if (SECRET !== '' && body.secret !== SECRET) {
         return out({ ok: false, description: 'bad secret' });
       }
+      /* 🔎 پروب نسخه/توانایی — پنل سایت‌ساز با این می‌فهمد اسکریپت به‌روز است یا قدیمی */
+      if (body.method === 'getRelayCapabilities') {
+        return out({ ok: true, result: { relay_version: RELAY_VERSION, supports_files: true } });
+      }
       /* 📎 v2.7: آپلود فایل — فایل‌ها base64 می‌آیند و به Blob تبدیل می‌شوند */
       if (body.files_b64) {
         var params = body.params || {};
@@ -411,7 +447,13 @@ function doPost(e) {
           var bytes = Utilities.base64Decode(body.files_b64[field]);
           var name = (body.files_name && body.files_name[field]) ? body.files_name[field] : field;
           var mime = (body.files_mime && body.files_mime[field]) ? body.files_mime[field] : 'application/octet-stream';
-          params[field] = Utilities.newBlob(bytes, mime, name);
+          /* نام فایل باید پسوند داشته باشد تا تلگرام سند را درست بپذیرد */
+          if (name.indexOf('.') === -1) {
+            name = name + '.' + (mime === 'image/png' ? 'png' : mime === 'image/jpeg' ? 'jpg' : 'bin');
+          }
+          var blob = Utilities.newBlob(bytes, mime, name);
+          /* Blob با نام معتبر → به‌صورت فایل multipart ارسال می‌شود */
+          params[field] = blob;
         }
         var tgU = UrlFetchApp.fetch('https://api.telegram.org/bot' + body.token + '/' + body.method, {
           method: 'post',
@@ -451,7 +493,7 @@ function doPost(e) {
 }
 
 function doGet() {
-  return out({ ok: true, service: 'Sahand Telegram Relay', version: 1 });
+  return out({ ok: true, service: 'Sahand Telegram Relay', version: RELAY_VERSION, supports_files: true });
 }
 
 function out(obj) {
