@@ -1196,6 +1196,25 @@ docs-plugin-prompt → feat-deploy-core → feat-deploy-admin → feat-deploy-ap
 - نکته: تگ v2.10.0 به کامیت درست (ed6b76f) بازتنظیم شد — قبلاً روی کامیت مستندات بود
 
 
+## مرحله ۳۶ — نسخه ۲.۱۳.۰: خطایاب دو-منظوره + OG شفاف واقعی + قالب‌ساز ۷۴ عنصر + ۱۱ رفع باگ — ۲۰۲۶/۰۹/۲۵
+
+- ✅ تست اتصال cPanel: زنجیره fallback چهار ماژول (Version/Variables/Quota/Branding) + گزارش چندخطی + white-space:pre-line
+- ✅ متدهای Cron در CpanelAPI (addCronJob با confirm=overwrite و گارد امنیتی + listCronJobs + removeCronJob) + دکمه «افزودن به cPanel» روبه‌روی هر دستور + افزودن همه یکجا + تشخیص خودکار مسیر واقعی نصب
+- ✅ آیکون‌ها: مودال پیش‌نمایش بزرگ با اسلایدر اندازه ۲۴-۳۲۰px + زمینه شطرنجی + دانلود SVG + کپی مسیر + Esc
+- ✅ فونت‌ها: حذف ۱۱ فونت تجاری + افزودن ۱۴ فونت آزاد تست‌شده (۹ فانتزی) + بازتولید fonts.css (۱۱۹ @font-face) + اعتبارسنجی همه ۱۱۸ URL (همه 200)
+- ✅ ریشه‌یابی «ذخیره نشدن اطلاعات پایه»: هدر قبل از POST در settings.php/webmaster.php (از فاز ۳) → جابجایی به الگوی PRG + redirect() ضدگلوله با fallback JS
+- ✅ ریشه‌یابی «❌ undefined استقرار»: Deployer با message برمی‌گرداند، فرانت error می‌خواند → نرمال‌سازی + errText + api() مقاوم + قانون کادر زیبا: override سراسری window.alert به SahandDialog + ثبت قانون در BrandMaker.md بخش ۲۲
+- ✅ ریشه‌یابی «کادر سفید زیر لوگوی OG»: لوگوهای JPG ذاتاً شفافیت ندارند → ImageWatermark::loadResampledClean + removeEdgeBackground (flood-fill از مرزها + feather) + cleanedPngPath کش‌شده + اعمال در GD/Imagick/SVG و واترمارک‌ها
+- ✅ تصاویر مقاله: figure() با ابعاد واقعی + استایل درون‌خطی ضدکشیدگی + استنتاج دستگاه از متن کامل + ۴۰+ مترادف + واترمارک ۳۰٪/۲۵٪ + کش wm3
+- ✅ قالب‌ساز: کشف باگ بزرگ — template-preview.php ۳۴ عنصر v2.12 را نداشت (fallback عمومی!) → افزودن همه + ۱۳ عنصر جدید (۷۴ مجموع) + نمایش کارتی با پیش‌نمایش واقعی + سبد 🧺 بلوک ترکیبی گروهی (makeBlocks) + تنظیمات پیشرفته (اندازه عنوان/تراز/عرض/کلاس سفارشی)
+- ✅ خطایاب AI v3.10: KB-fallback (کدهای معتبر پایگاه دانش حتی با قطعی وب ثبت می‌شوند) + اولویت curated KB بر استخراج متنی + گسترش KB ظرفشویی ال‌جی ۸→۱۴ کد + الگوی 1E/PE/CE/AE/bE + گزارش تفکیکی
+- ✅ مستندات: AI-API-GUIDE v3.9.3 (موتور 3.10.0) + README + CHANGELOG + UPGRADE + CHECKLIST
+- 🔧 تصمیم فنی: سبد ترکیب گروهی فقط بلوک‌های سطح بالا را ذخیره می‌کند (بلوک‌های تودرتو با «ذخیره تک‌بلوک با ستون‌ها» پوشش داده می‌شوند)؛ در آینده می‌توان nested basket اضافه کرد
+- 🔧 تصمیم فنی: حذف پس‌زمینه فقط لبه‌های روشن (>205) را پاک می‌کند — پس‌زمینه تیره/رنگی دست‌نخورده می‌ماند تا لوگوی تیره روی تیره حذف نشود
+- 📦 کامیت‌ها: fix-cpanel-cron → feat-fonts-v2 → fix-settings-save → fix-deploy-undefined-and-dialog-law → fix-images-og-article-v3.2 → feat-builder-v3.3 → feat-error-finder-v3.10 → docs-api-guide-v3.9.3 → release-v2.13.0
+
+---
+
 ## مرحله ۳۵ — نسخه ۲.۱۲.۰: رفع دو باگ + فاوآیکون + OG شفاف + قالب‌ساز حرفه‌ای — ۲۰۲۶/۰۹/۲۵
 
 ### 🐛 دو باگ ریشه‌یابی‌شده (با مرورگر Headless اثبات شد)

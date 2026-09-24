@@ -25,7 +25,7 @@
 class SahandAI
 {
     /** 🔖 نسخه موتور */
-    public const ENGINE_VERSION = '3.9.0'; // ۳.۹.۰: PersianGlyphs v2 (رفع ریشه‌ای اتصال حروف) + OG پویا + تصاویر مقاله واقعی + خطایاب کامل‌فیلد
+    public const ENGINE_VERSION = '3.10.0'; // ۳.۱۰.۰: خطایاب دو-منظوره (وب + پایگاه دانش رسمی با اولویت curated) + پس‌زمینه شفاف JPG + تصاویر ضدکشیدگی
 
     /** @var Database دیتابیس */
     private $db;
