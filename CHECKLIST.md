@@ -807,3 +807,4 @@
 - [x] نسخه سیستم 2.7.2 → 2.8.0 + موتور 3.7.2 → 3.8.0
 - [x] CHANGELOG [2.8.0] + WORKLOG مرحله ۳۱ + همین بخش + UPGRADE + README
 - [x] رلیز v2.8.0: install.zip + update.zip + UPGRADE + AI-API-GUIDE + SHA256SUMS
+- [x] 📦 رلیز v2.8.0 منتشر شد: تگ + ۵ پیوست (install 2.2MB/389f + update 97KB/8f + ۲ راهنما + SHA256SUMS) — تست سلامت ZIP ✓
