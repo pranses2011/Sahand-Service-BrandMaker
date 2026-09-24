@@ -81,6 +81,20 @@ class TelegramBot
     }
 
     /**
+     * 🔢 نرمال‌سازی نتیجه Bot API — تلگرام برای برخی متدها
+     * (sendChatAction، setWebhook، answerCallbackQuery و ...) به‌جای آبجکت،
+     * true برمی‌گرداند؛ چون نوع بازگشتی متدها array است، این مقدار باید
+     * به آرایه تبدیل شود وگرنه TypeError رخ می‌دهد (باگ v2.7).
+     */
+    private function normalizeResult($result): array
+    {
+        if (is_array($result)) {
+            return $result;
+        }
+        return ['success' => $result === true];
+    }
+
+    /**
      * 🌉 ارسال از طریق واسط Google Apps Script (عبور از تحریم با سرورهای گوگل)
      */
     private function apiViaRelay(string $method, array $params): array
@@ -124,7 +138,7 @@ class TelegramBot
             $this->lastError = (string)($data['description'] ?? 'نامشخص');
             throw new RuntimeException('خطای تلگرام (از واسط): ' . $this->lastError);
         }
-        return $data['result'] ?? [];
+        return $this->normalizeResult($data['result'] ?? []);
     }
 
     /**
@@ -158,7 +172,7 @@ class TelegramBot
             $this->lastError = (string)($data['description'] ?? 'نامشخص');
             throw new RuntimeException('خطای تلگرام: ' . $this->lastError);
         }
-        return $data['result'] ?? [];
+        return $this->normalizeResult($data['result'] ?? []);
     }
 
     /**
@@ -214,7 +228,7 @@ class TelegramBot
         if (!is_array($data) || empty($data['ok'])) {
             throw new RuntimeException('خطای تلگرام (آپلود): ' . (string)($data['description'] ?? 'نامشخص'));
         }
-        return $data['result'] ?? [];
+        return $this->normalizeResult($data['result'] ?? []);
     }
 
     /**
@@ -282,7 +296,7 @@ class TelegramBot
         if (empty($data['ok'])) {
             throw new RuntimeException('خطای تلگرام (آپلود از واسط): ' . (string)($data['description'] ?? 'نامشخص'));
         }
-        return $data['result'] ?? [];
+        return $this->normalizeResult($data['result'] ?? []);
     }
 
     /** 🤖 اطلاعات ربات — تست اتصال */
