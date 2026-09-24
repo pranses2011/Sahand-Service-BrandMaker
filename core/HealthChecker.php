@@ -178,8 +178,13 @@ class HealthChecker
             return ['valid' => false, 'expiry' => null];
         }
 
-        $expiry = date('Y-m-d', $cert->validTo_time_t);
-        return ['valid' => $cert->validTo_time_t > time(), 'expiry' => $expiry];
+        // 📅 استخراج تاریخ انقضا — openssl_x509_parse (سازگار با PHP 8.3+)
+        $parsed = @openssl_x509_parse($cert);
+        $expiry = null;
+        if (is_array($parsed) && !empty($parsed['validTo_time_t'])) {
+            $expiry = date('Y-m-d', $parsed['validTo_time_t']);
+        }
+        return ['valid' => is_array($parsed) && !empty($parsed['validTo_time_t']) && $parsed['validTo_time_t'] > time(), 'expiry' => $expiry];
     }
 
     /**
@@ -231,11 +236,11 @@ class HealthChecker
         try {
             $this->db->insert('site_health', [
                 'brand_id'       => (int)$brand['id'],
-                'http_status'    => $result['http_status'],
-                'response_time_ms' => $result['response_time'],
-                'ssl_valid'      => $result['ssl_valid'],
+                'http_status'    => $result['http_status'] !== null ? (int)$result['http_status'] : null,
+                'response_time_ms' => $result['response_time'] !== null ? (int)$result['response_time'] : null,
+                'ssl_valid'      => $result['ssl_valid'] === null ? null : (int)(bool)$result['ssl_valid'],
                 'ssl_expiry'     => $result['ssl_expiry'] ?? null,
-                'api_ok'         => $result['api_ok'],
+                'api_ok'         => $result['api_ok'] === null ? null : (int)(bool)$result['api_ok'],
                 'status'         => $result['status'],
                 'error_message'  => mb_substr((string)($result['error'] ?? ''), 0, 500) ?: null,
                 'checked_at'     => $now,

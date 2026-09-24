@@ -421,18 +421,23 @@ class Deployer
         $serverPath = (string)$deployment['server_path'];
 
         // 📂 ساختار پوشه‌های هسته سایت برند (طبق سند)
-        $dirs = ['', '/css', '/js', '/pages', '/includes', '/cache'];
+        // پوشه ریشه توسط SubDomain::addsubdomain ساخته شده — نیازی به ساخت مجدد نیست
+        $dirs = ['css', 'js', 'pages', 'includes', 'cache'];
         $created = 0;
+        $failed = [];
         foreach ($dirs as $dir) {
-            if ($this->api->createDirectory($serverPath . $dir)) {
+            if ($this->api->createDirectory($serverPath . '/' . $dir)) {
                 $created++;
+            } else {
+                $failed[] = $dir;
             }
         }
-        if ($created === 0) {
-            return ['ok' => false, 'error' => 'ساخت پوشه‌ها ناموفق: ' . $this->api->getLastError()];
+        // ⚠️ پوشه‌های حیاتی: pages و includes (هسته سایت از آن‌ها فایل می‌خواند)
+        if (in_array('pages', $failed, true) || in_array('includes', $failed, true)) {
+            return ['ok' => false, 'error' => 'ساخت پوشه‌های حیاتی ناموفق: ' . implode(', ', $failed) . ' — ' . $this->api->getLastError()];
         }
 
-        return ['ok' => true, 'message' => 'ساختار پوشه‌ها آماده شد (' . $created . ' پوشه)'];
+        return ['ok' => true, 'message' => 'ساختار پوشه‌ها آماده شد (' . $created . ' از ' . count($dirs) . ')'];
     }
 
     /**

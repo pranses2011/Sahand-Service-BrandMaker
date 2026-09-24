@@ -75,24 +75,43 @@ class CpanelAPI
 
         $url = sprintf('%s://%s:%d/execute/%s/%s', $proto, $host, $port, $module, $function);
 
-        // 📦 ساخت بدنه multipart
+        // 🧹 نرمال‌سازی مرکزی مسیرها — پارامترهای مسیر شناخته‌شده UAPI
+        // (تضمین می‌کند همه فراخوانی‌ها حتی مستقوی، مسیر کامل /home/user داشته باشند)
+        foreach (['path', 'dir', 'file', 'destfiles'] as $pk) {
+            if (isset($params[$pk]) && is_string($params[$pk])) {
+                $params[$pk] = $this->normalizePath($params[$pk]);
+            }
+        }
+        if (isset($params['sourcefiles']) && is_string($params['sourcefiles'])) {
+            $decoded = json_decode($params['sourcefiles'], true);
+            if (is_array($decoded)) {
+                $params['sourcefiles'] = json_encode(array_map(function ($p) {
+                    return $this->normalizePath((string)$p);
+                }, $decoded));
+            } else {
+                $params['sourcefiles'] = $this->normalizePath($params['sourcefiles']);
+            }
+        }
+
+        // 📦 ساخت بدنه — قرارداد PHP cURL:
+        //    فیلدهای معمولی: آرایه ساده key => value (خودکار multipart می‌شود)
+        //    فایل‌ها: CURLFile (آپلود واقعی multipart)
         $postFields = [];
         foreach ($params as $key => $value) {
-            // آرایه‌ها به صورت کلید[] ارسال می‌شوند (قرارداد UAPI)
+            // آرایه‌ها به صورت key[] (قرارداد UAPI) — با شماره‌گذاری یکتا
             if (is_array($value)) {
+                $idx = 0;
                 foreach ($value as $item) {
-                    $postFields[] = ['name' => $key . '[]', 'contents' => (string)$item];
+                    $postFields[$key . '[' . $idx++ . ']'] = (string)$item;
                 }
             } else {
-                $postFields[] = ['name' => $key, 'contents' => (string)$value];
+                $postFields[$key] = (string)$value;
             }
         }
         foreach ($files as $fieldName => $filePath) {
-            $postFields[] = [
-                'name'     => $fieldName,
-                'contents' => fopen($filePath, 'rb'),
-                'filename' => basename($filePath),
-            ];
+            if (file_exists((string)$filePath)) {
+                $postFields[$fieldName] = new CURLFile($filePath, 'application/octet-stream', basename($filePath));
+            }
         }
 
         $ch = curl_init($url);
@@ -121,13 +140,6 @@ class CpanelAPI
             $this->lastError = 'خطای شبکه در ارتباط با cPanel: ' . ($curlError ?: 'پاسخی دریافت نشد');
             $this->logDebug('CALL-FAIL', $module . '/' . $function, ['curl_error' => $curlError]);
             return false;
-        }
-
-        // 🔓 بستن هندل فایل‌های باز (جلوگیری از نشت منبع)
-        foreach ($postFields as $field) {
-            if (isset($field['contents']) && is_resource($field['contents'])) {
-                fclose($field['contents']);
-            }
         }
 
         $json = json_decode((string)$body, true);

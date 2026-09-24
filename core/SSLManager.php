@@ -204,16 +204,19 @@ class SSLManager
         if (!empty($certInfo[0]['Subject'])) {
             // جستجوی خط issuer
         }
-        // تلاش با openssl برای دقت بیشتر
-        $remote = @stream_context_create(['ssl' => ['capture_peer_cert' => true, 'verify_peer' => false, 'verify_peer_name' => false]]);
+        // تلاش با openssl برای دقت بیشتر — سازگار با PHP 8.3+
+        $remote = @stream_context_create(['ssl' => ['capture_peer_cert' => true, 'verify_peer' => false, 'verify_peer_name' => false, 'peer_name' => $domain]]);
         $client = @stream_socket_client('ssl://' . $domain . ':443', $errno, $errstr, 10, STREAM_CLIENT_CONNECT, $remote);
         if ($client) {
             $params = stream_context_get_params($client);
             $cert = $params['options']['ssl']['peer_certificate'] ?? null;
             if ($cert) {
-                $expiry = date('Y-m-d H:i:s', $cert->validTo_time_t);
-                $issuerName = $cert->getIssuer();
-                $issuer = $issuerName['organizationName'] ?? $issuerName['commonName'] ?? null;
+                $parsed = @openssl_x509_parse($cert);
+                if (is_array($parsed)) {
+                    $expiry = !empty($parsed['validTo_time_t']) ? date('Y-m-d H:i:s', $parsed['validTo_time_t']) : null;
+                    $issuerName = $parsed['issuer'] ?? [];
+                    $issuer = $issuerName['organizationName'] ?? $issuerName['commonName'] ?? null;
+                }
             }
             fclose($client);
         }
@@ -264,7 +267,7 @@ class SSLManager
                 $brand = $this->db->fetch('SELECT id FROM brands WHERE full_domain = ? LIMIT 1', [$domain]);
                 $data['brand_id'] = (int)($brand['id'] ?? 0);
                 $data['domain'] = $domain;
-                $data['created_at'] = date('Y-m-d H:i:s');
+                // 🔑 ستون created_at وجود ندارد — updated_at مقدار پیش‌فرض دارد
                 $this->db->insert('ssl_certificates', $data);
             }
         } catch (Throwable $e) {
