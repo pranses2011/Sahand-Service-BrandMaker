@@ -87,16 +87,28 @@ class ErrorCodeEngine
             $this->db->delete('error_codes', 'brand_id = ? AND device_key = ?', [$brandId, $deviceKey]);
         }
 
+        /* ⏱️ v3.1: بودجه زمانی — ریشه‌یابی «هیچ کد خطایی اضافه نمی‌شود»:
+           جستجوی عمیق قبلی تا ۸۰+ ثانیه طول می‌کشید؛ روی هاست اشتراکی با
+           max_execution_time=30 کل درخواست قبل از رسیدن به مرحله «درج» می‌مُرد
+           و هیچ رکوردی ثبت نمی‌شد. حالا: تلاش برای افزایش محدودیت + سقف
+           ۲۴ ثانیه برای فاز تحقیق — درج‌ها هم بلافاصله پس از آن اجرا می‌شوند. */
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(180);
+        }
+        $deadline = microtime(true) + 24.0;
+
         $sources = [];
         $records = [];
         $webCount = 0;
 
-        /* ---------- ۱) جستجوی آنلاین — منبع اصلی (v3.0: دو فازی + تعمیق تک‌کد) ---------- */
+        /* ---------- ۱) جستجوی آنلاین — منبع اصلی (v3.1: دو فازی + تعمیق تک‌کد + بودجه زمانی) ---------- */
         if ($useWeb) {
             try {
-                $webCodes = $this->searchWebCodes($brand['name_en'] ?: $brand['name_fa'], $brand['name_fa'], $deviceKey, $deviceFa, $brandKey);
+                $webCodes = $this->searchWebCodes($brand['name_en'] ?: $brand['name_fa'], $brand['name_fa'], $deviceKey, $deviceFa, $brandKey, $deadline);
                 foreach ($webCodes as $wc) {
-                    /* 🔀 ادغام دانش curated وقتی همین کد را می‌شناسد — وب مقدم، دانش فاصله‌ها را پر می‌کند (v3.0) */
+                    /* 🔀 ادغام دانش curated وقتی همین کد را می‌شناسد —
+                       v3.1: KB برای عنوان/قطعه/دسته/شدت «مقدم» است (داده دقیق سازنده)؛
+                       وب فقط دلایل/راه‌حل تازه و منبع می‌آورد */
                     $wc = $this->mergeKbIntoWebRecord($brandKb, $deviceKey, $wc);
                     $records[] = $this->buildRecord($brand, $deviceKey, $deviceFa, $deviceEn, $wc, 'web');
                     $webCount++;
@@ -185,10 +197,11 @@ class ErrorCodeEngine
      *
      * @return array<array{code,title,part,category,severity,causes,fixes_user,fixes_tech,source_urls}>
      */
-    private function searchWebCodes(string $brandEn, string $brandFa, string $deviceKey, string $deviceFa, ?string $brandKey = null): array
+    private function searchWebCodes(string $brandEn, string $brandFa, string $deviceKey, string $deviceFa, ?string $brandKey = null, ?float $deadline = null): array
     {
         $searcher = new WebSearchService();
         $deviceEn = self::DEVICE_FA[$deviceKey][1] ?? ucfirst($deviceKey);
+        $deadline = $deadline ?? (microtime(true) + 24.0);
 
         $queries = [
             "{$brandEn} {$deviceEn} error codes list meaning",
@@ -201,6 +214,10 @@ class ErrorCodeEngine
         $contextTexts = []; // code => [متنی که کد در آن دیده شد]
 
         foreach ($queries as $qi => $query) {
+            /* ⏱️ v3.1: احترام به بودجه زمانی — بقیه کوئری‌ها حذف می‌شوند */
+            if (microtime(true) > $deadline - 2.0) {
+                break;
+            }
             try {
                 $res = $searcher->search($query, 10);
             } catch (Throwable $e) {
@@ -252,16 +269,29 @@ class ErrorCodeEngine
             }
         }
 
-        /* ---------- 🎯 فاز ۲ (v3.0): راستی‌آزمایی و تعمیق تک‌کد ----------
+        /* ---------- 🎯 فاز ۲ (v3.1): راستی‌آزمایی و تعمیق تک‌کد + بودجه زمانی ----------
          * کدهای پرشاهد (مرتب نزولی) تک‌تک با جستجوی اختصاصی و خواندن صفحه،
-         * عمیق می‌شوند — دقت فیلدها از این مسیر چند برابر می‌شود. */
+         * عمیق می‌شوند — دقت فیلدها از این مسیر چند برابر می‌شود.
+         * ⏱️ بودجه: حداکثر ۸ کد یا تا سقف زمان — کدهای هرگز بررسی‌نشده فقط با
+         * شناخت KB یا شاهد بالا نگه داشته می‌شوند. */
         uasort($found, fn($a, $b) => $b['_evidence'] <=> $a['_evidence']);
-        $deepBudget = 10; // سقف کدهایی که عمیق بررسی می‌شوند (نرخ جستجو محدود است)
+        $deepBudget = 8;
         $i = 0;
         foreach ($found as $codeKey => &$f) {
             if ($i++ >= $deepBudget) { break; }
+            if (microtime(true) > $deadline - 1.5) {
+                /* ⏱️ زمان تمام شد — کدهای باقی‌مانده فقط با شاهد بالا یا KB می‌مانند */
+                $idx = 0;
+                foreach ($found as $ck2 => $f2info) {
+                    if ($idx++ < $i) { continue; } // کدهای بررسی‌شده
+                    if (($f2info['_evidence'] ?? 0) < 2 && !$this->kbKnowsCode($brandKey, $deviceKey, $ck2)) {
+                        $found[$ck2]['_reject'] = true;
+                    }
+                }
+                break;
+            }
             try {
-                $deep = $this->deepResearchCode($searcher, $brandEn, $brandFa, $deviceEn, $deviceFa, $codeKey);
+                $deep = $this->deepResearchCode($searcher, $brandEn, $brandFa, $deviceEn, $deviceFa, $codeKey, $deadline);
             } catch (Throwable $e) {
                 $deep = null;
             }
@@ -332,8 +362,9 @@ class ErrorCodeEngine
      *
      * @return array|null null = کد در وب تأیید نشد
      */
-    private function deepResearchCode(WebSearchService $searcher, string $brandEn, string $brandFa, string $deviceEn, string $deviceFa, string $code): ?array
+    private function deepResearchCode(WebSearchService $searcher, string $brandEn, string $brandFa, string $deviceEn, string $deviceFa, string $code, ?float $deadline = null): ?array
     {
+        $deadline = $deadline ?? (microtime(true) + 20.0);
         $contexts = [];
         $urls = [];
         $evidence = 0;
@@ -346,6 +377,7 @@ class ErrorCodeEngine
             "کد خطا {$code} {$deviceFa} {$brandFa} علت راه حل",
         ];
         foreach ($queries as $q) {
+            if (microtime(true) > $deadline - 1.0) { break; }
             try {
                 $res = $searcher->search($q, 6);
             } catch (Throwable $e) {
@@ -378,9 +410,10 @@ class ErrorCodeEngine
             }
         }
 
-        /* 📖 متن کامل بهترین صفحه — منبع اصلی دلایل/راه‌حل/مشخصات */
+        /* 📖 متن کامل بهترین صفحه — منبع اصلی دلایل/راه‌حل/مشخصات (v3.1: فقط ۱ صفحه، سریع‌تر) */
         $pageText = '';
-        foreach (array_slice($urls, 0, 2) as $u) {
+        foreach (array_slice($urls, 0, 1) as $u) {
+            if (microtime(true) > $deadline - 0.5) { break; }
             try {
                 $page = $searcher->fetchPageText($u, 7000);
             } catch (Throwable $e) {
@@ -407,14 +440,25 @@ class ErrorCodeEngine
             return null;
         }
 
-        /* استخراج تکمیلی از متن غنی */
-        $richCtx = $pageText !== '' ? $pageText : implode(' . ', $contexts);
+        /* 🎯 v3.1: استخراج «زمینه کد-محور» — پنجره ±۳۵۰ کاراکتر دور خود کد.
+           ریشه قطعه‌های اشتباه (مثلاً «پمپ تخلیه» برای IE آبرسانی): متن کامل صفحه
+           شرح همه کدها را دارد و partFromContext روی کل متن، قطعه کد دیگر را می‌گرفت. */
+        $codeCtx = $pageText !== '' ? $this->codeCentricContext($pageText, $code, 350) : '';
+        $richCtx = $codeCtx !== '' ? $codeCtx : ($pageText !== '' ? $pageText : implode(' . ', $contexts));
         if ($bestPart === '') {
             $bestPart = $this->partFromContext($richCtx);
             if ($bestPart === 'قطعه مرتبط با کد') { $bestPart = ''; }
         }
         if ($bestSeverity === '') {
             $bestSeverity = $this->severityFromContext($richCtx);
+        }
+        /* 🧭 v3.1: نقشه کدهای شناخته‌شده — معنای استاندارد کدهای پرتکرار برندهای اصلی
+           (IE=آبرسانی، OE=تخلیه، UE=عدم توازن و...) — دقیق‌تر از استخراج زمینه‌ای */
+        $known = self::knownCodeMeaning($code, $deviceEn);
+        if ($known !== null) {
+            if ($bestTitle === '' || mb_strlen($bestTitle) < 10) { $bestTitle = $known['title']; }
+            if ($bestPart === '') { $bestPart = $known['part']; }
+            if ($bestSeverity === 'medium') { $bestSeverity = $known['severity']; }
         }
 
         return [
@@ -430,6 +474,113 @@ class ErrorCodeEngine
     }
 
     /**
+     * 🎯 پنجره متن دور خود کد (v3.1) — برای استخراج قطعه/شدت اختصاصی همین کد
+     * صفحه فهرست کدها، شرح همه کدها را دارد؛ این متد فقط متن «همان کد» را برمی‌دارد.
+     */
+    private function codeCentricContext(string $text, string $code, int $radius = 350): string
+    {
+        if ($text === '' || $code === '') {
+            return '';
+        }
+        $variants = array_unique([$code, str_replace(' ', '', $code), str_replace(' ', '-', $code)]);
+        foreach ($variants as $cv) {
+            /* کدها ASCII هستند — stripos بایتی امن است */
+            $pos = stripos($text, $cv);
+            if ($pos === false) {
+                continue;
+            }
+            $start = max(0, $pos - (int)round($radius * 0.35));
+            $chunk = substr($text, $start, $radius * 3);
+            return mb_substr($chunk, 0, $radius);
+        }
+        return '';
+    }
+
+    /**
+     * 🧭 نقشه کدهای شناخته‌شده (v3.1) — معنای استاندارد پرتکرارترین کدهای
+     * برندهای اصلی (LG/Samsung/Beko/Electrolux/Ariston...) بر اساس نوع دستگاه.
+     * این کدها بین برندها تقریباً مشترک‌اند و خطای زمینه‌ای در آن‌ها شایع بود.
+     * @return array{title:string,part:string,severity:string}|null
+     */
+    public static function knownCodeMeaning(string $code, string $deviceEn): ?array
+    {
+        $code = strtoupper(str_replace([' ', '-'], '', trim($code)));
+        $norm = [
+            '1E' => 'IE', '0E' => 'OE', 'UB' => 'UE', 'DE1' => 'DE', 'DE2' => 'DE',
+            '4E' => 'PE', '3E' => 'TE', '11E' => 'LE', 'AE' => 'UE',
+        ];
+        $code = $norm[$code] ?? $code;
+
+        $maps = [
+            'washing machine' => [
+                'IE' => ['title' => 'خطای ورود آب (آبرسانی)', 'part' => 'شیر برقی ورودی', 'severity' => 'high'],
+                'OE' => ['title' => 'خطای تخلیه آب', 'part' => 'پمپ تخلیه', 'severity' => 'high'],
+                'UE' => ['title' => 'خطای عدم توازن بار', 'part' => 'سنسور توازن و سیستم تعلیق', 'severity' => 'medium'],
+                'DE' => ['title' => 'خطای قفل درب', 'part' => 'قفل درب', 'severity' => 'high'],
+                'TE' => ['title' => 'خطای سنسور دما', 'part' => 'سنسور دما NTC', 'severity' => 'high'],
+                'PE' => ['title' => 'خطای سنسور فشار آب', 'part' => 'سنسور فشار آب', 'severity' => 'high'],
+                'LE' => ['title' => 'خطای اضافه‌بار موتور', 'part' => 'موتور اصلی', 'severity' => 'critical'],
+                'CE' => ['title' => 'خطای جریان نشتی (اتصالی)', 'part' => 'موتور و سیم‌کشی', 'severity' => 'critical'],
+                'FE' => ['title' => 'خطای سرریز آب', 'part' => 'شیر برقی ورودی و سنسور سرریز', 'severity' => 'high'],
+                'PF' => ['title' => 'خطای تغذیه برق', 'part' => 'برد کنترل و منبع تغذیه', 'severity' => 'medium'],
+                'CL' => ['title' => 'قفل کودک فعال است', 'part' => 'پنل و برد کنترل', 'severity' => 'low'],
+                'SU' => ['title' => 'خطای سنسور عدم تعادل', 'part' => 'سنسور تعادل', 'severity' => 'medium'],
+            ],
+            'dishwasher' => [
+                'IE' => ['title' => 'خطای آبرسانی/ورود آب', 'part' => 'شیر برقی ورودی', 'severity' => 'high'],
+                'OE' => ['title' => 'خطای تخلیه آب', 'part' => 'پمپ تخلیه', 'severity' => 'high'],
+                'E1' => ['title' => 'خطای ورود آب', 'part' => 'شیر برقی ورودی', 'severity' => 'high'],
+                'E4' => ['title' => 'خطای تخلیه آب', 'part' => 'پمپ تخلیه', 'severity' => 'high'],
+                'E3' => ['title' => 'خطای گرمایش آب', 'part' => 'هیتر و سنسور دما', 'severity' => 'high'],
+                'E8' => ['title' => 'خطای ماکرو سوییچ درب', 'part' => 'میکروسوئیچ درب', 'severity' => 'high'],
+                'E9' => ['title' => 'خطای نشت آب (کف‌ساز)', 'part' => 'سیستم ضد نشت', 'severity' => 'critical'],
+                'UE' => ['title' => 'خطای تخلیه/آب اضافه', 'part' => 'پمپ تخلیه', 'severity' => 'medium'],
+                'LE' => ['title' => 'خطای نشت آب', 'part' => 'سیستم ضد نشت', 'severity' => 'critical'],
+                'HE' => ['title' => 'خطای گرمایش', 'part' => 'هیتر حرارتی', 'severity' => 'high'],
+                'TE' => ['title' => 'خطای سنسور دما', 'part' => 'سنسور دما NTC', 'severity' => 'high'],
+                'FE' => ['title' => 'خطای فن/تبخیر', 'part' => 'فن تبخیر', 'severity' => 'medium'],
+            ],
+            'refrigerator' => [
+                'E1' => ['title' => 'خطای سنسور دمای یخچال', 'part' => 'سنسور دما ناحیه یخچال', 'severity' => 'high'],
+                'E2' => ['title' => 'خطای سنسور دمای فریزر', 'part' => 'سنسور دما ناحیه فریزر', 'severity' => 'high'],
+                'E3' => ['title' => 'خطای سنسور دیفراست', 'part' => 'سنسور دیفراست', 'severity' => 'medium'],
+                'E4' => ['title' => 'خطای فن اواپراتور', 'part' => 'فن اواپراتور', 'severity' => 'high'],
+                'E5' => ['title' => 'خطای برد کنترل/ارتباطی', 'part' => 'برد کنترل', 'severity' => 'high'],
+                'E6' => ['title' => 'خطای ارتباط برد و نمایشگر', 'part' => 'برد کنترل و سیم‌کشی', 'severity' => 'medium'],
+                'E7' => ['title' => 'خطای سنسور دمای محیط', 'part' => 'سنسور دمای محیط', 'severity' => 'medium'],
+                'ER' => ['title' => 'خطای نمایشگر/برد', 'part' => 'برد نمایشگر', 'severity' => 'medium'],
+                'DH' => ['title' => 'خطای سیستم دیفراست', 'part' => 'تایمر دیفراست و هیتر', 'severity' => 'high'],
+                'SB' => ['title' => 'حالت تعطیلات/Super Freeze فعال است', 'part' => 'برد کنترل', 'severity' => 'low'],
+            ],
+            'air conditioner' => [
+                'E1' => ['title' => 'خطای سنسور دمای اتاق', 'part' => 'سنسور دمای اتاق', 'severity' => 'medium'],
+                'E2' => ['title' => 'خطای سنسور کویل داخلی', 'part' => 'سنسور کویل', 'severity' => 'medium'],
+                'E3' => ['title' => 'خطای کمپرسور/اینورتر', 'part' => 'ماژول اینورتر', 'severity' => 'critical'],
+                'E4' => ['title' => 'خطای حفاظت فشار کمپرسور', 'part' => 'سنسور فشار', 'severity' => 'critical'],
+                'E5' => ['title' => 'خطای ارتباط واحد داخلی و خارجی', 'part' => 'برد ارتباطی', 'severity' => 'high'],
+                'P1' => ['title' => 'خطای فشار/حفاظت مبرد', 'part' => 'سیستم مبرد', 'severity' => 'critical'],
+                'P2' => ['title' => 'خطای دمای کمپرسور', 'part' => 'کمپرسور', 'severity' => 'high'],
+                'H1' => ['title' => 'دیفراست در حال اجراست', 'part' => 'سیستم دیفراست', 'severity' => 'low'],
+            ],
+        ];
+        foreach ($maps as $devKey => $codeMap) {
+            /* نام دستگاه انگلیسی به نوع نقشه تطبیق می‌یابد */
+            if (stripos($deviceEn, $devKey) !== false || stripos($devKey, $deviceEn) !== false) {
+                return $codeMap[$code] ?? null;
+            }
+        }
+        /* نقشه عمومی: در همه دستگاه‌ها معنای مشترک دارند */
+        $universal = [
+            'DE' => ['title' => 'خطای قفل درب', 'part' => 'قفل درب', 'severity' => 'high'],
+            'TE' => ['title' => 'خطای سنسور دما', 'part' => 'سنسور دما NTC', 'severity' => 'high'],
+            'EE' => ['title' => 'خطای حافظه/EEPROM برد', 'part' => 'برد کنترل', 'severity' => 'high'],
+            'PF' => ['title' => 'خطای تغذیه برق', 'part' => 'منبع تغذیه', 'severity' => 'medium'],
+            'CL' => ['title' => 'قفل کودک فعال است', 'part' => 'پنل کنترل', 'severity' => 'low'],
+        ];
+        return $universal[$code] ?? null;
+    }
+
+    /**
      * 💎 استخراج معنای کد از تیتر صفحه (v3.0)
      * الگوهای رایج: «E4 Error = Water Drainage Problem»، «کد 4E (خطای آبرسانی)»،
      * «What Does Error E18 Mean? Drainage Issue»
@@ -439,12 +590,23 @@ class ErrorCodeEngine
         $title = trim($title);
         if ($title === '' || mb_strlen($title) < 8) { return null; }
 
-        /* انگلیسی: بعد از «=» یا «:» یا «Mean?» معمولاً معنا می‌آید */
+        /* انگلیسی: بعد از «=» یا «:» یا «Mean?» معمولاً معنا می‌آید
+           🛡 v3.1: فقط اگر ترجمه فارسی معتبر شد پذیرفته می‌شود — قبلاً عبارت
+           انگلیسی خام («What Does It Mean...») به عنوان فارسی نشت می‌کرد! */
         if (preg_match('/error\s+code\s+' . preg_quote($code, '/') . '\s*(?:=|:|–|—|-)\s*([a-zA-Z0-9\s&\'\-]{6,60})/iu', $title, $m)
             || preg_match('/' . preg_quote($code, '/') . '\s*(?:=|:|–|—)\s*(?:means?\s*)?([a-zA-Z0-9\s&\'\-]{6,60})/iu', $title, $m)) {
             $en = trim($m[1]);
-            $fa = $this->translateErrorPhrase($en);
-            return $fa ?? 'خطای ' . $en;
+            /* عبارت‌های بدون محتوا — هرگز معنا نیستند */
+            if (preg_match('/^(what|how|why|error|code|meaning|fix|guide|causes?|and|the|a)\b/i', $en)
+                || preg_match('/\b(mean|means|meaning|and how|to fix|it\?)\b/i', $en)) {
+                $en = '';
+            }
+            if ($en !== '') {
+                $fa = $this->translateErrorPhrase($en);
+                if ($fa !== null) {
+                    return $fa;
+                }
+            }
         }
         /* فارسی: داخل پرانتز یا بعد از «یعنی» */
         if (preg_match('/(?:کد|خطا)\s*' . preg_quote($code, '/') . '\s*[\(（]?([^\)）]{6,60})[\)）]?/u', $title, $m)) {
@@ -556,12 +718,19 @@ class ErrorCodeEngine
             if ($kNorm !== $webCodeNorm) {
                 continue;
             }
-            /* عنوان: اگر وب معنای دقیق نیافته و KB عنوان دارد */
-            if ((!isset($wc['title']) || trim((string)$wc['title']) === '' || $wc['title'] === 'خطای ' . $wc['code']) && !empty($kc['title'])) {
-                $wc['title'] = $kc['title'];
+            /* v3.1: KB برای عنوان/قطعه/دسته/شدت «مقدم» است — داده curated سازنده
+               دقیق‌تر از استخراج زمینه‌ای وب است (وب متن همه کدها را مخلوط می‌کند).
+               فقط وقتی KB مقدار ندارد، مقدار وب می‌ماند. */
+            if (!empty($kc['title'])) {
+                $wcTitle = trim((string)($wc['title'] ?? ''));
+                $generic = ($wcTitle === '' || $wcTitle === ('خطای ' . $wc['code'])
+                    || self::hasEnglishGarbage($wcTitle)
+                    || preg_match('/^[خطای\s]+[A-Za-z]/u', $wcTitle) === 1); // نشت انگلیسی
+                if ($generic || mb_strlen($wcTitle) < 10) {
+                    $wc['title'] = $kc['title'];
+                }
             }
-            /* قطعه/دسته/شدت: KB دقیق‌تر است اگر وب مقدار عمومی داد */
-            if (!empty($kc['part']) && (empty($wc['part']) || $wc['part'] === 'قطعه مرتبط با کد')) {
+            if (!empty($kc['part'])) {
                 $wc['part'] = $kc['part'];
             }
             if (!empty($kc['category'])) {
@@ -850,6 +1019,26 @@ class ErrorCodeEngine
         $brandName = $brand['name_fa'];
         $title = trim((string)($c['title'] ?? '')) ?: 'خطای ' . $c['code'];
 
+        /* 🧭 v3.1: نقشه کدهای شناخته‌شده — عنوان/قطعه/شدت استاندارد برای کدهای پرتکرار
+           (رفع عنوان‌های خراب مثل «خطای What Does It Mean...» و قطعه‌های زمینه‌ای غلط) */
+        $known = self::knownCodeMeaning((string)$c['code'], $deviceEn);
+        if ($known !== null) {
+            if ($title === ('خطای ' . $c['code']) || self::hasEnglishGarbage($title)) {
+                $title = $known['title'];
+            }
+            if (empty($c['part']) || $c['part'] === 'قطعه مرتبط با کد') {
+                $c['part'] = $known['part'];
+            }
+            if (($c['severity'] ?? '') === 'medium' || empty($c['severity'])) {
+                $c['severity'] = $known['severity'];
+            }
+        }
+        /* 🛡 v3.1: هیچ عنوان انگلیسی‌دار به دیتابیس نمی‌رود
+           (۳+ واژه انگلیسی پشت‌سرهم = جمله انگلیسی؛ یک واژه دوزبانه مثل Inverter مجاز است) */
+        if (self::hasEnglishGarbage($title)) {
+            $title = 'خطای ' . $c['code'] . ' در ' . $deviceFa;
+        }
+
         /* 🔗 زنجیره قطعه: وب/دانش → استنتاج از دلایل → نگاشت دسته (v2.7 — فیلد هرگز جای‌نگه‌دار نمی‌شود) */
         $part = trim((string)($c['part'] ?? ''));
         if ($part === '' || $part === 'قطعه مرتبط با کد') {
@@ -1086,6 +1275,12 @@ class ErrorCodeEngine
     /* ==================================================
      * 🛠️ ابزارهای کمکی
      * ================================================== */
+
+    /** 🛡 آیا متن «جمله انگلیسی» دارد؟ (۳+ واژه انگلیسی پشت‌سرهم — نه یک واژه دوزبانه) */
+    private static function hasEnglishGarbage(string $text): bool
+    {
+        return (bool)preg_match('/(?:^|[\s\-—:])(?:[A-Za-z]{3,})(?:\s+[A-Za-z]{3,}){2,}/', $text);
+    }
 
     /** 🔗 تطبیق برند پنل با کلید پایگاه دانش */
     public function matchBrandKey(string $nameFa, string $nameEn): ?string
