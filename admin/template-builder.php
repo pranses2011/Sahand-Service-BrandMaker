@@ -167,6 +167,8 @@ $blockLibrary = [
         'heading-center' => ['🎯', 'عنوان بزرگ وسط‌چین + زیرعنوان', ['title' => 'خدمات تخصصی ما', 'subtitle' => 'با بیش از یک دهه تجربه در تعمیر لوازم خانگی']],
         'numbered-list' => ['🔢', 'لیست شماره‌دار بزرگ', ['title' => 'مراحل سرویس دوره‌ای']],
         'info-box' => ['💡', 'جعبه اطلاعات مهم (آیکون + متن)', ['title' => 'نکته مهم', 'icon' => '💡', 'text' => 'قبل از تماس، مدل دستگاه و کد خطا را آماده کنید تا پاسخگویی سریع‌تر باشد.']],
+        'benefits-list' => ['💚', 'فهرست مزایا (تیک سبز)', ['title' => 'مزایای انتخاب ما']],
+        'author-box' => ['🧑‍🔧', 'جعبه کارشناس/نویسنده', ['title' => 'مهندس کریمی', 'icon' => '👨‍🔧']],
     ],
     '🏛 ستون‌بندی' => [
         'section-columns' => ['🏛', 'بخش چندستونی (۲-۴ ستون)', ['columns' => 2]],
@@ -189,18 +191,22 @@ $blockLibrary = [
         'location-cards' => ['🏬', 'کارت شعب و آدرس‌ها', ['title' => 'شعب ما']],
         'expert-cards' => ['👨‍🔧', 'کارت متخصصین (آواتار + تخصص)', ['title' => 'تیم متخصصین ما']],
         'logo-cloud' => ['☁️', 'ابر لوگوها و نمادها', ['title' => 'مجوزها و نمادهای ما']],
+        'brand-intro-card' => ['🏷️', 'کارت معرفی برند (لوگو + امتیاز)', ['title' => 'نمایندگی رسمی خدمات', 'subtitle' => 'بیش از یک دهه تجربه تخصصی']],
+        'price-highlight' => ['🔆', 'کارت قیمت برجسته (تک‌پلن)', ['title' => 'سرویس دوره‌ای کامل', 'price' => '۴۵۰ هزار تومان', 'badge' => 'پیشنهاد ویژه']],
     ],
     'فرم' => [
         'contact-form' => ['📝', 'فرم تماس', []],
         'request-form' => ['📝', 'فرم درخواست خدمات', []],
         'newsletter-form' => ['📧', 'فرم عضویت خبرنامه', []],
         'appointment-form' => ['📅', 'فرم رزرو نوبت (تاریخ + ساعت)', []],
+        'quick-contact-form' => ['⚡', 'فرم سریع تک‌خطی (تلفن + دکمه)', ['title' => 'در چند ثانیه درخواست دهید', 'btnText' => 'درخواست تماس']],
     ],
     'آمار' => [
         'counter-stats' => ['📊', 'شمارنده‌ها', []],
         'progress-bars' => ['📊', 'نوارهای پیشرفت', []],
         'skill-bars' => ['📊', 'مهارت‌های تخصصی', []],
         'stats-grid' => ['🔢', 'شبکه اعداد کلیدی (۶ کارت)', []],
+        'stats-strip' => ['📉', 'نوار آمار فشرده (۴ عدد در یک ردیف)', []],
     ],
     'تعامل' => [
         'testimonials' => ['💬', 'اسلایدر نظرات مشتریان', ['autoplay' => 1]],
@@ -210,6 +216,8 @@ $blockLibrary = [
         'steps-process' => ['👣', 'مراحل کار (فرآیند)', []],
         'before-after' => ['🔀', 'مقایسه قبل/بعد تعمیر', []],
         'social-proof' => ['🌟', 'اثبات اجتماعی (آواتار + امتیاز)', ['text' => 'بیش از ۵۰ هزار مشتری به ما اعتماد کرده‌اند']],
+        'warranty-steps' => ['🛡️', 'مراحل گارانتی (۳ گام)', ['title' => 'گارانتی ما چگونه کار می‌کند']],
+        'feature-table' => ['🧾', 'جدول مقایسه ویژگی‌ها', ['title' => 'مقایسه پلن‌های سرویس']],
     ],
     'رسانه' => [
         'gallery' => ['🖼️', 'گالری تصاویر', []],
@@ -226,6 +234,7 @@ $blockLibrary = [
         'warranty-banner' => ['🛡️', 'بنر ضمانت کتبی', []],
         'link-buttons' => ['🔗', 'دکمه‌های لینک (بروشور/پیگیری)', ['title' => 'دسترسی سریع']],
         'promo-card' => ['🎁', 'کارت کمپین و تخفیف ویژه', ['title' => 'کمپین سرویس بهاره', 'subtitle' => 'تا ۲۵٪ تخفیف سرویس دوره‌ای — تا پایان ماه']],
+        'download-card' => ['📥', 'کارت دانلود فایل/بروشور', ['title' => 'بروشور خدمات ما', 'subtitle' => 'فهرست کامل خدمات و تعرفه‌ها در یک فایل PDF', 'btnText' => '⬇ دانلود بروشور']],
     ],
     'ساختار' => [
         'breadcrumb' => ['🧭', 'مسیر راهنما (Breadcrumb)', []],
@@ -239,6 +248,9 @@ $blockLibrary = [
         'social-follow' => ['📣', 'دنبال‌کردن شبکه‌های اجتماعی', []],
         'trust-badges' => ['🏅', 'نشان‌های اعتماد (ردیفی)', []],
         'contact-info-bar' => ['📇', 'نوار فشرده اطلاعات تماس', ['phone' => '۰۲۱-۱۲۳۴۵۶۷۸']],
+        'warning-box' => ['🔴', 'جعبه هشدار فنی (قرمز)', ['title' => 'هشدار ایمنی مهم', 'icon' => '⚠️', 'text' => 'قبل از هرگونه باز کردن دستگاه، برق را کاملاً قطع کنید — تخلیه خازن‌ها توسط کارشناس انجام شود.']],
+        'related-links' => ['🔗', 'لینک‌های مرتبط / مطالب پیشنهادی', ['title' => 'مطالب مرتبط']],
+        'schedule-table' => ['🗓️', 'جدول ساعات کاری هفتگی', ['title' => 'ساعات کاری ما']],
     ],
     'فوتر' => [
         'footer-simple' => ['🦶', 'فوتر ساده', []],
@@ -313,16 +325,21 @@ $totalBlockCount = array_sum(array_map('count', $blockLibrary));
 .pvt-btn { flex: 1; border: 1.5px solid var(--border, #e2e8f0); background: #fff; border-radius: 8px; padding: 7px 4px; font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit; color: var(--text-light, #64748b); transition: all .15s; }
 .pvt-btn.active { border-color: #2563eb; color: #1e40af; background: #eff6ff; box-shadow: 0 2px 8px rgba(37,99,235,.15); }
 
-/* 🖼️ حالت کارتی — پیش‌نمایش واقعی هر عنصر */
-.block-library.view-cards { width: 330px; }
+/* 🖼️ حالت کارتی — پیش‌نمایش واقعی هر عنصر
+   🐛 v2.14: ریشه «دکمه‌های نوع نمایش فقط عرض را کمی تغییر می‌دادند»: ستون گرید
+   کتابخانه ۲۵۰px ثابت بود و .block-library با width:330px عملاً جا نمی‌شد —
+   حالا با کلاس has-cards روی .builder ستون اول واقعاً پهن می‌شود (۳۶۴px) */
+.builder.has-cards { grid-template-columns: 364px 1fr 260px; }
+@media (max-width: 1280px) { .builder.has-cards { grid-template-columns: 320px 1fr 240px; } }
+.block-library.view-cards { overflow-x: hidden; }
 .block-library.view-cards .block-cat { position: sticky; top: 0; z-index: 5; background: inherit; backdrop-filter: blur(3px); }
 .block-library.view-cards .block-item { flex-direction: column; align-items: stretch; gap: 6px; padding: 9px; position: relative; }
 .block-library.view-cards .block-item > .icon { position: absolute; top: 8px; right: 8px; z-index: 3; background: rgba(255,255,255,.92); border-radius: 7px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 13px; box-shadow: 0 1px 5px rgba(0,0,0,.12); }
 .block-library.view-cards .bi-label { font-size: 11px; font-weight: 800; padding-inline-start: 30px; min-height: 24px; display: flex; align-items: center; }
 .block-library.view-cards .block-eye { position: absolute; top: 8px; left: 8px; z-index: 3; }
-.el-thumb { position: relative; border-radius: 9px; overflow: hidden; border: 1px solid #e2e8f0; background: #fff; height: 118px; }
-.el-thumb-stage { width: 620px; transform: scale(0.46); transform-origin: top right; pointer-events: none; }
-.el-thumb .el-thumb-veil { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 78%, rgba(255,255,255,.9)); pointer-events: none; }
+.el-thumb { position: relative; border-radius: 9px; overflow: hidden; border: 1px solid #e2e8f0; background: #fff; height: 138px; }
+.el-thumb-stage { width: 700px; transform: scale(0.44); transform-origin: top right; pointer-events: none; }
+.el-thumb .el-thumb-veil { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 80%, rgba(255,255,255,.94)); pointer-events: none; }
 .el-thumb:hover { border-color: #2563eb; box-shadow: 0 6px 18px rgba(37,99,235,.14); }
 
 /* 🧺 سبد انتخاب چند بلوکی (ترکیب گروهی) */
@@ -514,7 +531,7 @@ function blockHtml(block, props) {
     const TITLE = t ? `<div class="blk-title">${esc(t)}</div>` : '';
 
     switch (block) {
-        case 'top-bar': return B(`<div class="tb-row"><span>📞 ۰۲۱-۱۲۳۴۵۶۷۸</span><span>🕐 شنبه تا پنجشنبه ۹ تا ۲۰</span></div>`, 'topbar-blk');
+        case 'top-bar': return B(`<div class="tb-row"><span>📞 ${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</span><span>🕐 ${esc(props.hours || 'شنبه تا پنجشنبه ۹ تا ۲۰')}</span></div>`, 'topbar-blk');
         case 'header-v1': case 'header-v2': case 'header-v3':
             return `<div class="blk ${bgCls} ${padCls} header-blk ${block === 'header-v3' ? 'glass' : ''} ${props.sticky ? 'sticky-demo' : ''}">${block === 'header-v2' ? '<div class="tb-row"><span>📞 ۰۲۱-۱۲۳۴۵۶۷۸</span><span>💬 پاسخگویی آنلاین</span></div>' : ''}<div class="h-row"><div class="fake-logo">🏗️</div><nav class="fake-nav"><span>خانه</span><span>خدمات</span><span>مقالات</span><span>تماس</span></nav><div class="fake-cta">ثبت درخواست</div></div></div>`;
         case 'hero': return B(`<div class="hero-title">${esc(t || 'تعمیرات تخصصی با قطعات اصلی')}</div><div class="hero-sub">${esc(props.subtitle || 'نمایندگی رسمی — پاسخگویی ۷ روز هفته')}</div><div class="hero-btns"><span class="hero-btn">📞 تماس فوری</span><span class="hero-btn ghost">ثبت درخواست آنلاین</span></div>`, 'hero-blk');
@@ -524,7 +541,13 @@ function blockHtml(block, props) {
         case 'hero-countdown': return B(`<div class="hero-title">${esc(t || 'کمپین سرویس دوره‌ای')}</div><div class="count-row"><span class="count-box"><b>۰۲</b>روز</span><span class="count-box"><b>۱۴</b>ساعت</span><span class="count-box"><b>۳۰</b>دقیقه</span></div>`, 'hero-blk');
         case 'text': return B(`${TITLE}<div class="pv-text">${esc(props.text || 'متن خود را اینجا بنویسید — این بخش در سایت به همین شکل نمایش داده می‌شود. می‌توانید از پنل ویژگی‌ها ویرایش کنید و نتیجه را همان لحظه ببینید.').replace(/\n/g, '<br>')}</div>`);
         case 'text-image': case 'intro': return B(`<div class="split">${TITLE ? '' : ''}<div><div class="blk-title">${esc(t || 'درباره برند')}</div><div class="fake-lines"><div class="fl w100"></div><div class="fl w90"></div><div class="fl w60"></div></div></div><div class="fake-img">🖼️</div></div>`);
-        case 'rich-text': return B(`${TITLE}<ul class="pv-list"><li>✅ نصب و راه‌اندازی تخصصی</li><li>✅ تعمیر با قطعات اصلی</li><li>✅ ۶ ماه ضمانت قطعه و خدمات</li></ul>`);
+        case 'rich-text': {
+            /* 🎛 v2.14: متن واردشده خط‌به‌خط آیتم لیست می‌شود (قبلاً فیلد متن
+               بود ولی رندر آن را نادیده می‌گرفت!) */
+            const lines = String(props.text || '').split('\n').map(s => s.trim()).filter(Boolean);
+            const items = lines.length ? lines : ['نصب و راه‌اندازی تخصصی', 'تعمیر با قطعات اصلی', '۶ ماه ضمانت قطعه و خدمات'];
+            return B(`${TITLE}<ul class="pv-list">${items.map(i => `<li>✅ ${esc(i)}</li>`).join('')}</ul>`);
+        }
         case 'quote': return B(`<div class="quote">«${esc(props.text || 'کیفیت تعمیر، اعتبار ماست')}»</div>`, 'quote-blk');
         case 'two-col': return B(`${TITLE}<div class="cols c2"><div class="fake-card"><div class="card-t">ستون اول</div><div class="fl w90"></div><div class="fl w70"></div></div><div class="fake-card"><div class="card-t">ستون دوم</div><div class="fl w90"></div><div class="fl w70"></div></div></div>`);
         case 'three-col': return B(`${TITLE}<div class="cols c3"><div class="fake-card"><div class="card-t">۱</div><div class="fl w80"></div></div><div class="fake-card"><div class="card-t">۲</div><div class="fl w80"></div></div><div class="fake-card"><div class="card-t">۳</div><div class="fl w80"></div></div></div>`);
@@ -557,9 +580,9 @@ function blockHtml(block, props) {
         case 'image-carousel': return B(`<div class="blk-title">${esc(t || 'کاروسل تصاویر')}</div><div class="hero-img wide">🎠 ‹ ›</div><div class="slider-dots">● ○ ○</div>`);
         case 'video-embed': return B(`<div class="blk-title">${esc(t || 'ویدیوی آموزشی')}</div><div class="fake-img wide" style="height:190px">▶ ویدیوی آموزشی</div>`);
         case 'map': return B(`<div class="blk-title">${esc(t || 'محدوده خدمات')}</div><div class="fake-map">📍 نقشه محدوده خدمات</div>`);
-        case 'cta-phone': return B(`<div class="hero-title">همین حالا تماس بگیرید</div><div class="cta-num" dir="ltr">${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</div>`, 'cta-blk');
-        case 'cta-request': case 'cta-banner': return B(`<div class="hero-title">${esc(t || 'درخواست تعمیر خود را ثبت کنید')}</div><span class="hero-btn">📝 ثبت درخواست</span>`, 'cta-blk');
-        case 'sticky-mobile-cta': return `<div class="blk ${bgCls} ${padCls} sticky-cta-demo"><span>📞 ۰۲۱-۱۲۳۴۵۶۷۸</span><span class="hero-btn">ثبت درخواست</span></div>`;
+        case 'cta-phone': return B(`<div class="hero-title">${esc(t || 'همین حالا تماس بگیرید')}</div><div class="cta-num" dir="ltr">${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</div>`, 'cta-blk');
+        case 'cta-request': case 'cta-banner': return B(`<div class="hero-title">${esc(t || 'درخواست تعمیر خود را ثبت کنید')}</div><span class="hero-btn">${esc(props.btnText || '📝 ثبت درخواست')}</span>`, 'cta-blk');
+        case 'sticky-mobile-cta': return `<div class="blk ${bgCls} ${padCls} sticky-cta-demo"><span>📞 ${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</span><span class="hero-btn">${esc(props.btnText || 'ثبت درخواست')}</span></div>`;
         case 'breadcrumb': return B(`خانه / خدمات / <b>صفحه فعلی</b>`, 'crumb');
         case 'alert-notice': return `<div class="blk ${bgCls} ${padCls}"><div class="alert-demo ${props.alertType || 'info'}">${props.alertType === 'warning' ? '⚠️' : props.alertType === 'success' ? '✅' : 'ℹ️'} ${esc(props.text || 'سرویس در تعطیلات نیز پاسخگوی شماست')}</div></div>`;
         case 'button-group': return B(`<div class="hero-btns" style="justify-content:flex-start"><span class="hero-btn">تماس فوری</span><span class="hero-btn ghost">مشاهده خدمات</span><span class="hero-btn ghost">مقالات</span></div>`);
@@ -568,7 +591,7 @@ function blockHtml(block, props) {
         case 'spacer': return `<div class="blk-spacer" style="height:${parseInt(props.height || 46, 10)}px" title="فاصله"></div>`;
         case 'footer-simple': return `<div class="blk ${bgCls} ${padCls} footer-blk"><div class="fake-logo">🏗️</div><nav class="fake-nav" style="justify-content:center"><span>خدمات</span><span>مقالات</span><span>تماس</span></nav><div class="soc-row"><span> Telegram </span><span> Instagram </span><span> WhatsApp </span></div></div>`;
         case 'footer-contact': return `<div class="blk ${bgCls} ${padCls} footer-blk"><div class="tb-col-wrap" style="grid-template-columns:repeat(3,1fr)"><div><div class="fake-logo">🏗️</div><div class="fl w80"></div></div><div><div class="card-t">تماس</div><div class="feat-d">📞 ۰۲۱-۱۲۳۴۵۶۷۸<br>📍 تهران، خیابان نمونه</div></div><div><div class="card-t">ساعات کاری</div><div class="feat-d">شنبه تا پنجشنبه<br>۹ صبح تا ۸ شب</div></div></div></div>`;
-        case 'copyright': return `<div class="blk ${bgCls} ${padCls} crump-blk">© تمامی حقوق برای نمایندگی محفوظ است — ساخته‌شده با ❤️</div>`;
+        case 'copyright': return `<div class="blk ${bgCls} ${padCls} crump-blk">${esc(props.text || '© تمامی حقوق برای نمایندگی محفوظ است — ساخته‌شده با ❤️')}</div>`;
 
         /* ════════ 🆕 v2.12: عناصر جدید (طبق درخواست — کتابخانه کامل‌تر) ════════ */
         case 'notification-bar': return `<div class="blk notif-bar ${props.notifColor || 'info'}" style="padding:8px 14px">${esc(props.text || '🎉 سرویس ویژه تعطیلات — ۱۵٪ تخفیف سرویس دوره‌ای')}</div>`;
@@ -601,6 +624,20 @@ function blockHtml(block, props) {
         case 'location-cards': return B(`<div class="blk-title">${esc(t || 'شعب ما')}</div><div class="cols c${gridCols(props, 3)}">${[['🏬', 'شعبه مرکزی', 'تهران، خیابان ولیعصر'], ['🏬', 'شعبه غرب', 'شهرک غرب، بلوار دریا'], ['🏬', 'شعبه شمال', 'نیاوران، میدان ازگیری']].map(([i, n, a]) => `<div class="fake-card"><div class="card-ico">${i}</div><div class="card-t">${n}</div><div class="feat-d">📍 ${a}</div></div>`).join('')}</div>`);
         case 'expert-cards': return B(`<div class="blk-title">${esc(t || 'متخصصین ما')}</div><div class="cols c${gridCols(props, 4)}">${[['🔧', 'مهندس کریمی', 'برد و الکترونیک'], ['❄️', 'مهندس رضایی', 'مدار برودت'], ['🌀', 'مهندس احمدی', 'سیستم شست‌وشو'], ['📺', 'مهندس موسوی', 'پنل و تاچ']].map(([i, n, s]) => `<div class="fake-card"><div class="fake-ava">${i}</div><div class="card-t">${n}</div><div class="feat-d">${s}</div><div class="stars" style="font-size:10px">⭐ ۴.۹</div></div>`).join('')}</div>`);
         case 'logo-cloud': return B(`${TITLE}<div class="chip-row" style="justify-content:center">${['🏅', '📋', '🎖️', '✅', '🏛️', '🛡️', '💳', '⭐'].map(i => `<div class="fake-logo-s" style="width:64px">${i}</div>`).join('')}</div>`, '');
+
+        /* ════════ 🆕 v2.14: ۱۲ عنصر جدید (کتابخانه کامل‌تر — ۸۶ عنصر) ════════ */
+        case 'stats-strip': return `<div class="blk ${bgCls} ${padCls} stats-strip"><span class="ss-item"><b>۱۲+</b> سال تجربه</span><span class="ss-sep"></span><span class="ss-item"><b>۵۰k</b> تعمیر موفق</span><span class="ss-sep"></span><span class="ss-item"><b>۹۸٪</b> رضایت</span><span class="ss-sep"></span><span class="ss-item"><b>۲h</b> اعزام</span></div>`;
+        case 'benefits-list': return B(`${TITLE}<div class="feat-list">${['اعزام تکنسین در کمتر از ۲ ساعت', 'قطعات فابریک با فاکتور معتبر', '۶ ماه ضمانت کتبی قطعه و خدمات', 'پیش‌فاکتور شفاف قبل از شروع کار', 'پیگیری وضعیت درخواست آنلاین'].map(b => `<div class="feat-row"><span class="feat-ico" style="background:#f0fdf4">✅</span><div><b>${esc(b)}</b></div></div>`).join('')}</div>`);
+        case 'warning-box': return `<div class="blk ${bgCls} ${padCls}"><div class="warning-box-demo"><span class="feat-ico" style="background:#fef2f2;font-size:22px">${esc(props.icon || '⚠️')}</span><div><b style="color:#b91c1c">${esc(t || 'هشدار ایمنی مهم')}</b><div class="feat-d">${esc(props.text || 'قبل از هرگونه باز کردن دستگاه، برق را کاملاً قطع کنید.')}</div></div></div></div>`;
+        case 'brand-intro-card': return B(`<div class="brand-intro-demo"><div class="fake-logo" style="font-size:34px">🏗️</div><div style="flex:1"><div class="blk-title" style="margin-bottom:4px">${esc(t || 'نمایندگی رسمی خدمات')}</div><div class="feat-d">${esc(props.subtitle || 'بیش از یک دهه تجربه تخصصی')}</div><div class="stars" style="font-size:11px;margin-top:5px">⭐⭐⭐⭐⭐ <b>۴.۹ از ۵</b></div></div><span class="hero-btn" style="align-self:center">مشاهده خدمات</span></div>`, '');
+        case 'author-box': return B(`<div class="author-box-demo"><div class="fake-ava" style="font-size:38px">${esc(props.icon || '👨‍🔧')}</div><div style="flex:1"><b style="font-size:14px">${esc(t || 'مهندس کریمی')}</b><div class="feat-d">کارشناس برد و الکترونیک — ۱۴ سال تجربه</div><div class="feat-d" style="margin-top:4px">${esc(props.text || 'متخصص تعمیر برد‌های اصلی لباسشویی، یخچال و کولر گازی با رویکرد تعمیر اصلاحی.')}</div></div></div>`, '');
+        case 'download-card': return B(`<div class="download-card-demo"><span class="feat-ico" style="font-size:30px;background:#eff6ff">📄</span><div style="flex:1"><div class="blk-title" style="margin-bottom:3px;text-align:right">${esc(t || 'بروشور خدمات ما')}</div><div class="feat-d">${esc(props.subtitle || 'فهرست کامل خدمات و تعرفه‌ها در یک فایل PDF')}</div></div><span class="hero-btn">${esc(props.btnText || '⬇ دانلود بروشور')}</span></div>`, '');
+        case 'schedule-table': return B(`<div class="blk-title">${esc(t || 'ساعات کاری ما')}</div><div class="price-table"><div class="price-row"><span>شنبه</span><b>۹ تا ۲۰</b></div><div class="price-row"><span>یکشنبه تا چهارشنبه</span><b>۹ تا ۲۰</b></div><div class="price-row"><span>پنجشنبه</span><b>۹ تا ۱۴</b></div><div class="price-row"><span>جمعه</span><b>فقط امداد فوری</b></div></div>`);
+        case 'price-highlight': return B(`<div class="fake-card price-highlight-demo" style="text-align:right">${props.badge ? `<span class="badge badge-warning" style="font-size:10px">${esc(props.badge)}</span>` : ''}<div class="blk-title" style="text-align:right;margin:8px 0 3px">${esc(t || 'سرویس دوره‌ای کامل')}</div><div class="stat-n" style="font-size:31px;text-align:right">${esc(props.price || '۴۵۰ هزار تومان')}</div><div class="feat-d" style="margin:7px 0 11px">شامل شست‌وشو، کالیبراسیون و تست ایمنی + ۶ ماه ضمانت</div><span class="hero-btn full">رزرو همین حالا</span></div>`, '');
+        case 'feature-table': return B(`<div class="blk-title">${esc(t || 'مقایسه پلن‌های سرویس')}</div><div class="feature-table-demo"><div class="ft-row ft-head"><span>ویژگی</span><b>اقتصادی</b><b class="ft-hl">استاندارد</b><b>ویژه</b></div><div class="ft-row"><span>عیب‌یابی تخصصی</span><b>✅</b><b class="ft-hl">✅</b><b>✅</b></div><div class="ft-row"><span>شست‌وشو کامل</span><b>—</b><b class="ft-hl">✅</b><b>✅</b></div><div class="ft-row"><span>ضمانت (ماه)</span><b>۳</b><b class="ft-hl">۶</b><b>۹</b></div><div class="ft-row"><span>اعزام فوری</span><b>—</b><b class="ft-hl">—</b><b>✅</b></div></div>`);
+        case 'quick-contact-form': return B(`<div class="quick-form-demo"><div class="fake-input" style="flex:1">📱 شماره تماس شما</div><span class="hero-btn">${esc(props.btnText || 'درخواست تماس')}</span></div><div class="feat-d" style="text-align:center;margin-top:7px">${esc(props.subtitle || t || 'کارشناسان ما در کمتر از ۱۵ دقیقه تماس می‌گیرند')}</div>`, '');
+        case 'related-links': return B(`${TITLE}<div class="feat-list">${['کد خطای LE لباسشویی ال‌جی — معنی و رفع', '۱۰ علامت خرابی کمپرسور یخچال', 'راهنمای نگهداری کولر گازی در تابستان', 'چرا ماشین لباسشویی لرزش دارد؟'].map(l => `<div class="feat-row"><span class="feat-ico">📄</span><div><b>${esc(l)}</b><div class="feat-d">مقاله راهنما — ۵ دقیقه مطالعه</div></div></div>`).join('')}</div>`);
+        case 'warranty-steps': return B(`<div class="blk-title">${esc(t || 'گارانتی ما چگونه کار می‌کند')}</div><div class="steps-row"><div class="step"><span class="step-n">۱</span><div class="step-t">صدور برگه ضمانت</div></div><div class="step-arrow">←</div><div class="step"><span class="step-n">۲</span><div class="step-t">ثبت سریال در سیستم</div></div><div class="step-arrow">←</div><div class="step"><span class="step-n">۳</span><div class="step-t">سرویس مجدد رایگان</div></div></div>`);
         case 'social-proof': return `<div class="blk ${bgCls} ${padCls}"><div class="soc-proof"><div class="ava-stack"><span class="fake-ava" style="width:34px;height:34px;font-size:13px">👩</span><span class="fake-ava" style="width:34px;height:34px;font-size:13px;margin-inline-start:-10px">🧑</span><span class="fake-ava" style="width:34px;height:34px;font-size:13px;margin-inline-start:-10px">👨</span><span class="fake-ava" style="width:34px;height:34px;font-size:11px;margin-inline-start:-10px">+۵۰k</span></div><div><div class="stars">⭐⭐⭐⭐⭐ <b>۴.۹ از ۵</b></div><div class="feat-d">${esc(props.text || 'بیش از ۵۰ هزار مشتری به ما اعتماد کرده‌اند')}</div></div></div></div>`;
         case 'link-buttons': return B(`${TITLE}<div class="hero-btns" style="justify-content:flex-start"><span class="hero-btn">📄 دانلود بروشور</span><span class="hero-btn ghost">🔎 پیگیری درخواست</span><span class="hero-btn ghost">🧾 فاکتور آنلاین</span></div>`, '');
         case 'promo-card': return B(`<div class="promo-card-demo"><div><span class="badge badge-warning" style="font-size:10.5px">🎁 پیشنهاد ویژه</span><div class="blk-title" style="font-size:19px;margin:9px 0 5px">${esc(t || 'کمپین سرویس بهاره')}</div><div class="feat-d">${esc(props.subtitle || 'تا ۲۵٪ تخفیف — تا پایان ماه')}</div></div><div style="text-align:center"><div class="stat-n" style="font-size:33px">۲۵٪</div><span class="hero-btn" style="margin-top:8px">همین حالا رزرو کنید</span></div></div>`, '');
@@ -743,13 +780,36 @@ function blockHtml(block, props) {
 .blk-ts-md .blk-title { font-size:17px; }
 .blk-ts-lg .blk-title { font-size:21px; }
 .blk-ts-xl .blk-title { font-size:26px; }
+/* 🎛 v2.14: اندازه عنوان روی تیترهای هیرو و کارت هم اثر بگذارد (قبلاً فقط blk-title
+   بود و برای هیروها «تنظیمات اثر نمی‌کرد») */
+.blk-ts-sm .hero-title { font-size:15px; } .blk-ts-md .hero-title { font-size:19px; }
+.blk-ts-lg .hero-title { font-size:24px; } .blk-ts-xl .hero-title { font-size:29px; }
 .blk-al-center { text-align:center; }
-.blk-al-center .feat-list, .blk-al-center .num-list, .blk-al-center .price-table { margin:0 auto; }
+.blk-al-center .feat-list, .blk-al-center .num-list, .blk-al-center .price-table, .blk-al-center .form-grid, .blk-al-center .story-wrap, .blk-al-center .author-box-demo, .blk-al-center .feature-table-demo, .blk-al-center .steps-row { margin:0 auto; }
+.blk-al-center .hero-btns, .blk-al-center .chip-row { justify-content:center; }
 .blk-al-end { text-align:left; }
 .blk-w-wide { max-width:1200px; margin-inline:auto; }
 .blk-w-boxed { max-width:960px; margin-inline:auto; }
 .blk-w-narrow { max-width:720px; margin-inline:auto; }
-@media (max-width:640px) { .c2,.c3,.c4,.c6,.form-grid { grid-template-columns:1fr 1fr; } .c6{grid-template-columns:repeat(3,1fr);} }
+
+/* ════════ 🆕 v2.14: استایل ۱۲ عنصر جدید ════════ */
+.stats-strip { display:flex; align-items:center; justify-content:space-around; flex-wrap:wrap; gap:12px; background:linear-gradient(135deg,#0f172a,#1e3a8a); color:#fff; }
+.stats-strip .ss-item { text-align:center; font-size:11.5px; opacity:.92; }
+.stats-strip .ss-item b { display:block; font-size:23px; font-weight:800; color:#93c5fd; }
+.stats-strip .ss-sep { width:1px; height:34px; background:rgba(255,255,255,.25); }
+.warning-box-demo { display:flex; gap:13px; align-items:flex-start; background:#fef2f2; border:1.5px solid #fecaca; border-radius:12px; padding:14px 16px; }
+.brand-intro-demo, .download-card-demo { display:flex; gap:16px; align-items:center; flex-wrap:wrap; background:#fff; border:1.5px solid var(--border,#e2e8f0); border-radius:14px; padding:18px 20px; box-shadow:0 4px 16px rgba(2,8,23,.06); }
+.author-box-demo { display:flex; gap:14px; align-items:flex-start; background:#f8fafc; border:1.5px solid var(--border,#e2e8f0); border-radius:13px; padding:16px 18px; }
+.price-highlight-demo { border:2px solid #2563eb; box-shadow:0 10px 28px rgba(37,99,235,.15); }
+.feature-table-demo { max-width:640px; margin:0 auto; border:1.5px solid var(--border,#e2e8f0); border-radius:12px; overflow:hidden; }
+.feature-table-demo .ft-row { display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; align-items:center; }
+.feature-table-demo .ft-row > * { padding:9px 10px; font-size:12px; text-align:center; border-bottom:1px solid var(--border,#e2e8f0); }
+.feature-table-demo .ft-row:last-child > * { border-bottom:none; }
+.feature-table-demo .ft-head { background:#0f172a; color:#fff; font-weight:800; }
+.feature-table-demo .ft-hl { background:#eff6ff; color:#1e40af; font-weight:800; }
+.feature-table-demo .ft-row span { text-align:right; font-weight:700; }
+.quick-form-demo { display:flex; gap:9px; align-items:center; flex-wrap:wrap; background:#fff; border:1.5px solid var(--border,#e2e8f0); border-radius:13px; padding:12px 14px; max-width:560px; margin:0 auto; }
+@media (max-width:640px) { .c2,.c3,.c4,.c6,.form-grid { grid-template-columns:1fr 1fr; } .c6{grid-template-columns:repeat(3,1fr);} .stats-strip .ss-sep{display:none} .feature-table-demo .ft-row{grid-template-columns:1.2fr 1fr 1fr 1fr;font-size:11px} }
 @media (max-width:420px) { .c2,.c3,.c4,.form-grid { grid-template-columns:1fr; } .fake-nav{display:none} }
 `;
     const st = document.createElement('style');
@@ -1105,10 +1165,15 @@ document.querySelectorAll('.block-item').forEach(item => {
  * ================================================== */
 function setPaletteView(view) {
     const lib = document.getElementById('block-library');
-    lib.classList.toggle('view-cards', view === 'cards');
+    const builder = document.querySelector('.builder');
+    const isCards = view === 'cards';
+    lib.classList.toggle('view-cards', isCards);
+    /* 🐛 v2.14: ستون گرید کتابخانه هم واقعاً پهن شود — قبلاً فقط width داخلی
+       عوض می‌شد و داخل ستون ۲۵۰px جا نمی‌شد (تنها تغییر ظاهری جزئی) */
+    if (builder) { builder.classList.toggle('has-cards', isCards); }
     document.querySelectorAll('.pvt-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
     try { localStorage.setItem('tb_palette_view', view); } catch (e) {}
-    if (view === 'cards') { renderThumbs(); }
+    if (isCards) { renderThumbs(); }
 }
 
 /* 🖼️ پیش‌نمایش واقعی هر عنصر — رندر زنده با همان موتور بوم، مقیاس‌شده */
@@ -1141,10 +1206,95 @@ function selectBlock(path) {
     renderProps();
 }
 
+/* ═══════════════════════════════════════════════════════════════
+ * 🎛 v2.14: سیستم تنظیمات حرفه‌ای اعلانی — هر عنصر فیلدهای دقیق خودش
+ * قبلاً فیلدها با if-chain های پراکنده تعیین می‌شدند: بعضی بلوک‌ها فیلد
+ * نداشتند، بعضی فیلد داشتند ولی رندر اثر نمی‌داد. حالا یک جدول اعلانی
+ * BLOCK_FIELDS منبع یکتای حقیقت است و هر فیلد مستقیماً در رندر مصرف می‌شود.
+ * ═══════════════════════════════════════════════════════════════ */
 const PROP_LABELS = {
     title: 'عنوان بخش', subtitle: 'زیرعنوان', text: 'متن', phone: 'شماره تماس',
     columns: 'تعداد ستون', height: 'ارتفاع فاصله (px)', alertType: 'نوع هشدار', sticky: 'چسبان',
     placeholder: 'متن جایگزین جستجو', notifColor: 'رنگ نوار اطلاعیه', autoplay: 'پخش خودکار',
+    btnText: 'متن دکمه', badge: 'برچسب کوچک', price: 'متن قیمت', icon: '🔣 آیکون (ایموجی)',
+    hours: 'ساعات کاری',
+};
+
+/* 🧩 تعریف فیلدها — نوع + پیش‌فرض + گزینه‌ها */
+const FIELD_DEFS = {
+    text:   { type: 'text' },
+    area:   { type: 'textarea', rows: 4 },
+    phone:  { type: 'text', ltr: true },
+    icon:   { type: 'text', ph: 'مثلاً 💡 یا 🔧', big: true },
+    hours:  { type: 'text' },
+    cols:   { type: 'select', num: true, options: [[2, '۲ ستون'], [3, '۳ ستون'], [4, '۴ ستون'], [5, '۵ ستون'], [6, '۶ ستون']] },
+    cols4:  { type: 'select', num: true, options: [[2, '۲ ستون'], [3, '۳ ستون'], [4, '۴ ستون']] },
+    auto:   { type: 'checkbox', label: 'پخش خودکار اسلایدها' },
+    height: { type: 'number', min: 8, max: 240 },
+    alertT: { type: 'select', options: [['info', 'اطلاعیه آبی'], ['warning', 'هشدار زرد'], ['success', 'موفقیت سبز']] },
+    notifC: { type: 'select', options: [['info', 'آبی اطلاعیه'], ['success', 'سبز موفقیت'], ['warning', 'زرد هشدار']] },
+};
+
+/* 🗺️ نقشه کامل فیلدهای هر بلوک — منبع یکتای حقیقت (v2.14)
+   T = عنوان | S = زیرعنوان | X = متن | P = تلفن | I = آیکون | C = ستون کارت
+   B = متن دکمه | G = برچسب | $ = قیمت | A = پخش خودکار | H = ارتفاع | W = ساعات */
+const BLOCK_FIELDS = {
+    /* هدر */
+    'header-v1': [], 'header-v2': [], 'header-v3': [],
+    'top-bar': ['P', 'W'],
+    'notification-bar': ['X', 'notifC'],
+    /* هیرو */
+    'hero': ['T', 'S'], 'hero-slider': ['T', 'A'], 'hero-split': ['T', 'S'],
+    'hero-video': ['T'], 'hero-countdown': ['T'], 'hero-form': ['T', 'S'],
+    'hero-marquee': ['X'], 'announcement-pill': ['T'],
+    /* محتوا */
+    'text': ['T', 'X'], 'text-image': ['T'], 'intro': ['T'], 'rich-text': ['T', 'X'],
+    'quote': ['X'], 'two-col': ['T'], 'three-col': ['T'], 'brand-story': ['T'],
+    'area-list': ['T'], 'checklist': ['T'], 'search-bar': ['placeholder'],
+    'heading-center': ['T', 'S'], 'numbered-list': ['T'], 'info-box': ['T', 'I', 'X'],
+    'benefits-list': ['T'], 'author-box': ['T', 'I', 'X'],
+    /* ستون‌بندی */
+    'section-columns': ['T', 'SC'], 'section-split': ['T'], 'feature-list': ['T'],
+    /* کارت‌ها */
+    'services-grid': ['T', 'C'], 'devices-grid': ['T', 'C'], 'articles-recent': ['T', 'C'],
+    'articles-grid': ['T', 'C'], 'features': ['T', 'C'], 'team': ['T', 'C'],
+    'pricing-table': ['T'], 'brands-links': ['T', 'C'], 'certificates': ['T', 'C'],
+    'review-grid': ['T', 'C'], 'contact-cards': ['T'], 'price-cards': ['T'],
+    'location-cards': ['T', 'C'], 'expert-cards': ['T', 'C'], 'logo-cloud': ['T', 'C'],
+    'brand-intro-card': ['T', 'S'], 'price-highlight': ['T', '$', 'G', 'B'],
+    /* فرم */
+    'contact-form': ['T', 'B'], 'request-form': ['T', 'B'], 'newsletter-form': ['T', 'B'],
+    'appointment-form': ['T', 'B'], 'quick-contact-form': ['T', 'B'],
+    /* آمار */
+    'counter-stats': [], 'progress-bars': ['T'], 'skill-bars': ['T'],
+    'stats-grid': ['T', 'C'], 'stats-strip': [],
+    /* تعامل */
+    'testimonials': ['T', 'A'], 'faq-accordion': ['T'], 'tabs': ['T'], 'timeline': ['T'],
+    'steps-process': ['T'], 'before-after': ['T'], 'social-proof': ['X'],
+    'warranty-steps': ['T'], 'feature-table': ['T'],
+    /* رسانه */
+    'gallery': ['T', 'C'], 'image-carousel': ['T', 'A'], 'video-embed': ['T'], 'map': ['T'],
+    /* فراخوان */
+    'cta-phone': ['T', 'P'], 'cta-request': ['T', 'B'], 'cta-banner': ['T', 'B'],
+    'sticky-mobile-cta': ['P', 'B'], 'cta-whatsapp': ['T'], 'warranty-banner': ['X'],
+    'link-buttons': ['T'], 'promo-card': ['T', 'S'], 'download-card': ['T', 'S', 'B'],
+    /* ساختار */
+    'breadcrumb': [], 'alert-notice': ['X', 'alertT'], 'button-group': ['B'],
+    'icon-list': ['T'], 'separator': [], 'divider-icon': ['I'], 'spacer': ['H'],
+    'working-hours': ['T'], 'social-follow': ['T'], 'trust-badges': ['T'],
+    'contact-info-bar': ['P'], 'warning-box': ['T', 'I', 'X'],
+    'related-links': ['T'], 'schedule-table': ['T'],
+    /* فوتر */
+    'footer-simple': [], 'footer-contact': ['P'], 'footer-links': ['T'],
+    'payment-methods': ['T'], 'copyright': ['X'],
+};
+
+/* 🔤 برچسب‌های فارسی کدهای فیلد */
+const CODE_MAP = {
+    'T': 'title', 'S': 'subtitle', 'X': 'text', 'P': 'phone', 'I': 'icon',
+    'C': 'columns', 'B': 'btnText', 'G': 'badge', '$': 'price', 'A': 'autoplay',
+    'H': 'height', 'SC': 'sectionCols', 'placeholder': 'placeholder',
+    'alertT': 'alertType', 'notifC': 'notifColor',
 };
 
 function renderProps() {
@@ -1160,66 +1310,55 @@ function renderProps() {
     const props = item.props || {};
     let html = `<div style="font-weight:800;margin-bottom:12px;font-size:13px">${isSavedComposite ? '🧩' : '📦'} ${esc(meta.label)}</div>`;
 
-    /* فیلدهای متنی مخصوص بلوک (عنوان/زیرعنوان/متن/تلفن) — v3.3: پوشش همه عناصر جدید */
-    const titleBlocks = ['hero', 'hero-split', 'hero-slider', 'hero-video', 'hero-countdown', 'hero-form', 'text', 'text-image', 'intro', 'rich-text', 'cta-request', 'cta-banner', 'alert-notice', 'quote', 'devices-grid', 'services-grid', 'features', 'articles-recent', 'articles-grid', 'team', 'pricing-table', 'faq-accordion', 'testimonials', 'counter-stats', 'gallery', 'map', 'tabs', 'timeline', 'steps-process', 'icon-list', 'cta-phone', 'video-embed', 'image-carousel', 'two-col', 'three-col', 'skill-bars', 'progress-bars', 'notification-bar', 'hero-marquee', 'brand-story', 'area-list', 'checklist', 'search-bar', 'certificates', 'review-grid', 'contact-cards', 'appointment-form', 'stats-grid', 'before-after', 'working-hours', 'cta-whatsapp', 'warranty-banner', 'social-follow', 'trust-badges', 'footer-links', 'payment-methods', 'announcement-pill', 'heading-center', 'numbered-list', 'info-box', 'price-cards', 'location-cards', 'expert-cards', 'logo-cloud', 'link-buttons', 'promo-card', 'contact-info-bar', 'counter-stats'];
-    if (item.block === 'section-columns') {
-        html += textField('title', props.title || '');
-    } else if (titleBlocks.includes(item.block)) {
-        html += textField('title', props.title || '');
-        if (['hero', 'hero-form', 'heading-center', 'promo-card'].includes(item.block)) { html += textField('subtitle', props.subtitle || ''); }
-        if (['cta-phone', 'sticky-mobile-cta', 'contact-info-bar'].includes(item.block)) { html += textField('phone', props.phone || ''); }
+    /* 🎯 فیلدهای اختصاصی این بلوک — از جدول اعلانی (v2.14: پوشش همه ۸۶ عنصر) */
+    const fieldCodes = isSavedComposite ? [] : (BLOCK_FIELDS[item.block] || ['T']);
+    if (!isSavedComposite && fieldCodes.length === 0) {
+        html += `<div class="hint" style="font-size:11px;margin-bottom:9px">این عنصر محتوای ثابت دارد — از تنظیمات پیشرفته پایین برای شخصی‌سازی چیدمان استفاده کنید.</div>`;
     }
-    /* متن بلوک متن/هشدار/نقل‌قول/نوار اطلاعیه/مارکی/جعبه اطلاعات */
-    if (['text', 'rich-text', 'alert-notice', 'quote', 'notification-bar', 'hero-marquee', 'warranty-banner', 'info-box', 'social-proof'].includes(item.block)) {
-        html += `<div class="form-group"><label>متن</label>
-            <textarea class="form-control" rows="4" style="font-size:12px" oninput="setProp('${selected}','text',this.value)">${esc(props.text || '')}</textarea></div>`;
-    }
-    /* متن جایگزین نوار جستجو */
-    if (item.block === 'search-bar') {
-        html += textField('placeholder', props.placeholder || '');
-    }
-    /* 🔣 آیکون عناصر (جعبه اطلاعات / جداکننده آیکون‌دار) */
-    if (['info-box', 'divider-icon'].includes(item.block)) {
-        html += `<div class="form-group"><label>🔣 آیکون (ایموجی)</label>
-            <input type="text" class="form-control" style="font-size:15px" value="${esc(props.icon || '')}" oninput="setProp('${selected}','icon',this.value)" placeholder="مثلاً 💡 یا 🔧"></div>`;
-    }
-
-    /* 🏛 تعداد ستون — بخش چندستونی */
-    if (item.block === 'section-columns') {
-        html += `<div class="form-group"><label>🏛 تعداد ستون‌ها</label>
-            <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','columns',parseInt(this.value,10));rebuildCols('${selected}')">
-                ${[2, 3, 4].map(n => `<option value="${n}" ${parseInt(props.columns || 2, 10) === n ? 'selected' : ''}>${n} ستون</option>`).join('')}
-            </select></div>`;
-    }
-    /* 🗂 v2.12: تعداد ستون کارت‌ها — شبکه‌های کارتی (۲ تا ۶) */
-    if (['services-grid', 'devices-grid', 'articles-grid', 'articles-recent', 'team', 'gallery', 'certificates', 'review-grid', 'stats-grid', 'features', 'brands-links', 'location-cards', 'expert-cards', 'logo-cloud'].includes(item.block)) {
-        const def = item.block === 'devices-grid' ? 4 : (item.block === 'services-grid' || item.block === 'features' ? 3 : 3);
-        html += `<div class="form-group"><label>🗂 تعداد ستون کارت‌ها</label>
-            <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','columns',parseInt(this.value,10))">
-                ${[2, 3, 4, 5, 6].map(n => `<option value="${n}" ${parseInt(props.columns || def, 10) === n ? 'selected' : ''}>${n} ستون</option>`).join('')}
-            </select></div>`;
-    }
-    /* ▶️ v2.12: پخش خودکار اسلایدرها */
-    if (['hero-slider', 'testimonials', 'image-carousel'].includes(item.block)) {
-        html += `<label class="form-check" style="font-size:12px"><input type="checkbox" ${props.autoplay !== false && props.autoplay !== 0 ? 'checked' : ''} onchange="setProp('${selected}','autoplay',this.checked ? 1 : 0)"> پخش خودکار اسلایدها</label>`;
-    }
-    if (item.block === 'spacer') {
-        html += `<div class="form-group"><label>ارتفاع (px)</label>
-            <input type="number" class="form-control" style="font-size:12px" value="${parseInt(props.height || 46, 10)}" min="8" max="240" onchange="setProp('${selected}','height',parseInt(this.value,10))"></div>`;
-    }
-    if (item.block === 'alert-notice') {
-        html += `<div class="form-group"><label>نوع هشدار</label>
-            <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','alertType',this.value)">
-                ${[['info', 'اطلاعیه آبی'], ['warning', 'هشدار زرد'], ['success', 'موفقیت سبز']].map(([v, l]) => `<option value="${v}" ${(props.alertType || 'info') === v ? 'selected' : ''}>${l}</option>`).join('')}
-            </select></div>`;
-    }
-    /* 🔔 v2.12: رنگ نوار اطلاعیه */
-    if (item.block === 'notification-bar') {
-        html += `<div class="form-group"><label>رنگ نوار</label>
-            <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','notifColor',this.value)">
-                ${[['info', 'آبی اطلاعیه'], ['success', 'سبز موفقیت'], ['warning', 'زرد هشدار']].map(([v, l]) => `<option value="${v}" ${(props.notifColor || 'info') === v ? 'selected' : ''}>${l}</option>`).join('')}
-            </select></div>`;
-    }
+    fieldCodes.forEach(code => {
+        const key = CODE_MAP[code];
+        if (!key) { return; }
+        const label = PROP_LABELS[key] || key;
+        if (code === 'SC') {
+            /* بخش چندستونی — با بازسازی ستون‌ها */
+            html += `<div class="form-group"><label>🏛 تعداد ستون‌ها</label>
+                <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','columns',parseInt(this.value,10));rebuildCols('${selected}')">
+                    ${FIELD_DEFS.cols4.options.map(([v, l]) => `<option value="${v}" ${parseInt(props.columns || 2, 10) === v ? 'selected' : ''}>${l}</option>`).join('')}
+                </select></div>`;
+        } else if (code === 'C') {
+            const def = (item.block === 'devices-grid' || item.block === 'gallery' || item.block === 'team' || item.block === 'expert-cards') ? 4 : 3;
+            html += `<div class="form-group"><label>🗂 تعداد ستون کارت‌ها</label>
+                <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','columns',parseInt(this.value,10))">
+                    ${FIELD_DEFS.cols.options.map(([v, l]) => `<option value="${v}" ${parseInt(props.columns || def, 10) === v ? 'selected' : ''}>${l}</option>`).join('')}
+                </select></div>`;
+        } else if (code === 'X') {
+            html += `<div class="form-group"><label>${esc(label)}${item.block === 'rich-text' ? ' <small style="color:#94a3b8">(هر خط = یک آیتم لیست)</small>' : ''}</label>
+                <textarea class="form-control" rows="4" style="font-size:12px" oninput="setProp('${selected}','text',this.value)">${esc(props.text || '')}</textarea></div>`;
+        } else if (code === 'A') {
+            html += `<label class="form-check" style="font-size:12px"><input type="checkbox" ${props.autoplay !== false && props.autoplay !== 0 ? 'checked' : ''} onchange="setProp('${selected}','autoplay',this.checked ? 1 : 0)"> پخش خودکار اسلایدها</label>`;
+        } else if (code === 'H') {
+            html += `<div class="form-group"><label>${esc(label)}</label>
+                <input type="number" class="form-control" style="font-size:12px" value="${parseInt(props.height || 46, 10)}" min="8" max="240" onchange="setProp('${selected}','height',parseInt(this.value,10))"></div>`;
+        } else if (code === 'alertT' || code === 'notifC') {
+            const def = code === 'notifC' ? 'info' : 'info';
+            html += `<div class="form-group"><label>${esc(label)}</label>
+                <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','${key}',this.value)">
+                    ${FIELD_DEFS[code].options.map(([v, l]) => `<option value="${v}" ${(props[key] || def) === v ? 'selected' : ''}>${l}</option>`).join('')}
+                </select></div>`;
+        } else if (code === 'I') {
+            html += `<div class="form-group"><label>${esc(label)}</label>
+                <input type="text" class="form-control" style="font-size:15px" value="${esc(props.icon || '')}" oninput="setProp('${selected}','icon',this.value)" placeholder="${FIELD_DEFS.icon.ph}"></div>`;
+        } else if (code === 'placeholder') {
+            html += `<div class="form-group"><label>${esc(label)}</label>
+                <input type="text" class="form-control" style="font-size:12px" value="${esc(props.placeholder || '')}" oninput="setProp('${selected}','placeholder',this.value)" placeholder="جستجوی کد خطا، مقاله یا دستگاه..."></div>`;
+        } else {
+            /* فیلدهای متنی ساده: عنوان/زیرعنوان/تلفن/دکمه/برچسب/قیمت/ساعات */
+            const isLtr = key === 'phone';
+            const ph = { title: 'عنوان این بخش...', subtitle: 'زیرعنوان توضیحی...', btnText: 'مثلاً ثبت درخواست', badge: 'مثلاً پیشنهاد ویژه', price: 'مثلاً ۴۵۰ هزار تومان', hours: 'مثلاً شنبه تا پنجشنبه ۹ تا ۲۰' }[key] || '';
+            html += `<div class="form-group"><label>${esc(label)}</label>
+                <input type="text" class="form-control" style="font-size:12px${isLtr ? ';direction:ltr;text-align:left' : ''}" value="${esc(props[key] || '')}" oninput="setProp('${selected}','${key}',this.value)" placeholder="${esc(ph)}"></div>`;
+        }
+    });
 
     /* 🎛 v3.3: تنظیمات حرفه‌ای عمومی — روی همه بلوک‌ها قابل تنظیم */
     html += `
@@ -1251,7 +1390,7 @@ function renderProps() {
                 ${['default', 'surface', 'primary', 'gradient', 'dark'].map(v => `<option value="${v}" ${props.background === v ? 'selected' : ''}>${{ default: 'معمولی', surface: 'کمرنگ', primary: 'رنگ اصلی', gradient: 'گرادیانت', dark: 'تیره' }[v]}</option>`).join('')}
             </select></div>
         <label class="form-check" style="font-size:12px"><input type="checkbox" ${props.visible !== false ? 'checked' : ''} onchange="setProp('${selected}','visible',this.checked)"> نمایش داده شود</label>
-        ${item.block === 'header-v3' || item.block === 'header-v1' ? `<label class="form-check" style="font-size:12px"><input type="checkbox" ${props.sticky ? 'checked' : ''} onchange="setProp('${selected}','sticky',this.checked)}"> چسبان (Sticky)</label>` : ''}
+        ${['header-v1', 'header-v2', 'header-v3'].includes(item.block) ? `<label class="form-check" style="font-size:12px"><input type="checkbox" ${props.sticky ? 'checked' : ''} onchange="setProp('${selected}','sticky',this.checked)}"> چسبان (Sticky)</label>` : ''}
         <hr style="border:none;border-top:1px solid var(--border);margin:13px 0">
         <button type="button" class="btn btn-info btn-sm btn-block" style="margin-bottom:7px" onclick="saveCompositeBlock()" title="این بلوک با ستون‌ها و تنظیمات فعلی ذخیره می‌شود تا در هر قالبی قابل استفاده مجدد باشد">🧩 ذخیره به‌عنوان بلوک ترکیبی</button>
         <button type="button" class="btn btn-danger btn-sm btn-block" onclick="removeBlock('${selected}')">🗑️ حذف بلوک</button>`;

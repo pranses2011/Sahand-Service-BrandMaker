@@ -78,8 +78,12 @@ function renderPreviewBlock(string $block, array $props = []): string
         case 'text-image':
         case 'intro':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . ' split"><div><div class="blk-title">' . ($title ?: 'درباره برند') . '</div><div class="fake-lines"><div class="fl w100"></div><div class="fl w90"></div><div class="fl w60"></div></div></div><div class="fake-img">🖼️</div></div>';
-        case 'rich-text':
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<ul class="pv-list"><li>✅ نصب و راه‌اندازی تخصصی</li><li>✅ تعمیر با قطعات اصلی</li><li>✅ ۶ ماه ضمانت قطعه و خدمات</li></ul></div>';
+        case 'rich-text': {
+            /* 🎛 v2.14: متن واردشده خط‌به‌خط آیتم لیست می‌شود */
+            $lines = array_values(array_filter(array_map('trim', explode("\n", (string)($props['text'] ?? ''))), static fn($l) => $l !== ''));
+            $items = $lines ?: ['نصب و راه‌اندازی تخصصی', 'تعمیر با قطعات اصلی', '۶ ماه ضمانت قطعه و خدمات'];
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<ul class="pv-list">' . implode('', array_map(static fn($i) => '<li>✅ ' . e($i) . '</li>', $items)) . '</ul></div>';
+        }
         case 'quote':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . ' quote-blk"><div class="quote">«' . e($props['text'] ?? 'کیفیت تعمیر، اعتبار ماست') . '»</div></div>';
         case 'two-col':
@@ -143,12 +147,12 @@ function renderPreviewBlock(string $block, array $props = []): string
         case 'map':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'محدوده خدمات') . '</div><div class="fake-map">📍 نقشه محدوده خدمات</div></div>';
         case 'cta-phone':
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' cta-blk"><div class="hero-title">همین حالا تماس بگیرید</div><div class="cta-num" dir="ltr">' . e($props['phone'] ?? '۰۲۱-۱۲۳۴۵۶۷۸') . '</div></div>';
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' cta-blk"><div class="hero-title">' . ($title ?: 'همین حالا تماس بگیرید') . '</div><div class="cta-num" dir="ltr">' . e($props['phone'] ?? '۰۲۱-۱۲۳۴۵۶۷۸') . '</div></div>';
         case 'cta-request':
         case 'cta-banner':
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' cta-blk"><div class="hero-title">' . ($title ?: 'درخواست تعمیر خود را ثبت کنید') . '</div><span class="hero-btn">📝 ثبت درخواست</span></div>';
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' cta-blk"><div class="hero-title">' . ($title ?: 'درخواست تعمیر خود را ثبت کنید') . '</div><span class="hero-btn">' . e($props['btnText'] ?? '📝 ثبت درخواست') . '</span></div>';
         case 'sticky-mobile-cta':
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' sticky-cta-demo"><span>📞 ۰۲۱-۱۲۳۴۵۶۷۸</span><span class="hero-btn">ثبت درخواست</span></div>';
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' sticky-cta-demo"><span>📞 ' . e($props['phone'] ?? '۰۲۱-۱۲۳۴۵۶۷۸') . '</span><span class="hero-btn">' . e($props['btnText'] ?? 'ثبت درخواست') . '</span></div>';
         case 'breadcrumb':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . ' crumb">خانه / خدمات / <b>صفحه فعلی</b></div>';
         case 'alert-notice': {
@@ -169,7 +173,7 @@ function renderPreviewBlock(string $block, array $props = []): string
         case 'footer-contact':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . ' footer-blk"><div class="cols c3"><div><div class="fake-logo">🏗️</div><div class="fl w80"></div></div><div><div class="card-t">تماس</div><div class="feat-d">📞 ۰۲۱-۱۲۳۴۵۶۷۸<br>📍 تهران، خیابان نمونه</div></div><div><div class="card-t">ساعات کاری</div><div class="feat-d">شنبه تا پنجشنبه<br>۹ صبح تا ۸ شب</div></div></div></div>';
         case 'copyright':
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' crump-blk">© تمامی حقوق برای نمایندگی محفوظ است</div>';
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' crump-blk">' . e($props['text'] ?? '© تمامی حقوق برای نمایندگی محفوظ است') . '</div>';
         /* ════════ 🆕 v2.12: عناصر — پیش‌نمایش واقعی (قبلاً fallback بودند!) ════════ */
         case 'notification-bar':
             return '<div class="blk notif-bar ' . e($props['notifColor'] ?? 'info') . '" style="padding:8px 14px">' . e($props['text'] ?? '🎉 سرویس ویژه تعطیلات — ۱۵٪ تخفیف سرویس دوره‌ای') . '</div>';
@@ -239,6 +243,34 @@ function renderPreviewBlock(string $block, array $props = []): string
             return '<div class="blk ' . $bgClass . '" style="padding:10px 16px"><div class="divider-ico"><span class="divider-line"></span><span style="font-size:17px">' . e($props['icon'] ?? '🔧') . '</span><span class="divider-line"></span></div></div>';
         case 'contact-info-bar':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="chip-row" style="justify-content:space-between"><span class="chip">📞 <b dir="ltr">' . e($props['phone'] ?? '۰۲۱-۱۲۳۴۵۶۷۸') . '</b></span><span class="chip">🕐 شنبه-پنجشنبه ۹-۲۰</span><span class="chip">📍 تهران</span><span class="chip">💬 واتساپ</span></div></div>';
+
+        /* ════════ 🆕 v2.14: ۱۲ عنصر جدید — پیش‌نمایش واقعی ════════ */
+        case 'stats-strip':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' stats-strip"><span class="ss-item"><b>۱۲+</b> سال تجربه</span><span class="ss-sep"></span><span class="ss-item"><b>۵۰k</b> تعمیر موفق</span><span class="ss-sep"></span><span class="ss-item"><b>۹۸٪</b> رضایت</span><span class="ss-sep"></span><span class="ss-item"><b>۲h</b> اعزام</span></div>';
+        case 'benefits-list':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($b) => '<div class="feat-row"><span class="feat-ico" style="background:#f0fdf4">✅</span><div><b>' . e($b) . '</b></div></div>', ['اعزام تکنسین در کمتر از ۲ ساعت', 'قطعات فابریک با فاکتور معتبر', '۶ ماه ضمانت کتبی قطعه و خدمات', 'پیش‌فاکتور شفاف قبل از شروع کار', 'پیگیری وضعیت درخواست آنلاین'])) . '</div></div>';
+        case 'warning-box':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="warning-box-demo"><span class="feat-ico" style="background:#fef2f2;font-size:22px">' . e($props['icon'] ?? '⚠️') . '</span><div><b style="color:#b91c1c">' . ($title ?: 'هشدار ایمنی مهم') . '</b><div class="feat-d">' . e($props['text'] ?? 'قبل از هرگونه باز کردن دستگاه، برق را کاملاً قطع کنید.') . '</div></div></div></div>';
+        case 'brand-intro-card':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="brand-intro-demo"><div class="fake-logo" style="font-size:34px">🏗️</div><div style="flex:1"><div class="blk-title" style="margin-bottom:4px">' . ($title ?: 'نمایندگی رسمی خدمات') . '</div><div class="feat-d">' . e($props['subtitle'] ?? 'بیش از یک دهه تجربه تخصصی') . '</div><div class="stars" style="font-size:11px;margin-top:5px">⭐⭐⭐⭐⭐ <b>۴.۹ از ۵</b></div></div><span class="hero-btn" style="align-self:center">مشاهده خدمات</span></div></div>';
+        case 'author-box':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="author-box-demo"><div class="fake-ava" style="font-size:38px">' . e($props['icon'] ?? '👨‍🔧') . '</div><div style="flex:1"><b style="font-size:14px">' . ($title ?: 'مهندس کریمی') . '</b><div class="feat-d">کارشناس برد و الکترونیک — ۱۴ سال تجربه</div><div class="feat-d" style="margin-top:4px">' . e($props['text'] ?? 'متخصص تعمیر برد‌های اصلی لباسشویی، یخچال و کولر گازی.') . '</div></div></div></div>';
+        case 'download-card':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="download-card-demo"><span class="feat-ico" style="font-size:30px;background:#eff6ff">📄</span><div style="flex:1"><div class="blk-title" style="margin-bottom:3px;text-align:right">' . ($title ?: 'بروشور خدمات ما') . '</div><div class="feat-d">' . e($props['subtitle'] ?? 'فهرست کامل خدمات و تعرفه‌ها در یک فایل PDF') . '</div></div><span class="hero-btn">' . e($props['btnText'] ?? '⬇ دانلود بروشور') . '</span></div></div>';
+        case 'schedule-table':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"><div class="blk-title">' . ($title ?: 'ساعات کاری ما') . '</div><div class="price-table"><div class="price-row"><span>شنبه</span><b>۹ تا ۲۰</b></div><div class="price-row"><span>یکشنبه تا چهارشنبه</span><b>۹ تا ۲۰</b></div><div class="price-row"><span>پنجشنبه</span><b>۹ تا ۱۴</b></div><div class="price-row"><span>جمعه</span><b>فقط امداد فوری</b></div></div></div>';
+        case 'price-highlight': {
+            $badge = trim((string)($props['badge'] ?? ''));
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="fake-card price-highlight-demo" style="text-align:right">' . ($badge !== '' ? '<span class="badge badge-warning" style="font-size:10px">' . e($badge) . '</span>' : '') . '<div class="blk-title" style="text-align:right;margin:8px 0 3px">' . ($title ?: 'سرویس دوره‌ای کامل') . '</div><div class="stat-n" style="font-size:31px;text-align:right">' . e($props['price'] ?? '۴۵۰ هزار تومان') . '</div><div class="feat-d" style="margin:7px 0 11px">شامل شست‌وشو، کالیبراسیون و تست ایمنی + ۶ ماه ضمانت</div><span class="hero-btn full">رزرو همین حالا</span></div></div>';
+        }
+        case 'feature-table':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"><div class="blk-title">' . ($title ?: 'مقایسه پلن‌های سرویس') . '</div><div class="feature-table-demo"><div class="ft-row ft-head"><span>ویژگی</span><b>اقتصادی</b><b class="ft-hl">استاندارد</b><b>ویژه</b></div><div class="ft-row"><span>عیب‌یابی تخصصی</span><b>✅</b><b class="ft-hl">✅</b><b>✅</b></div><div class="ft-row"><span>شست‌وشو کامل</span><b>—</b><b class="ft-hl">✅</b><b>✅</b></div><div class="ft-row"><span>ضمانت (ماه)</span><b>۳</b><b class="ft-hl">۶</b><b>۹</b></div><div class="ft-row"><span>اعزام فوری</span><b>—</b><b class="ft-hl">—</b><b>✅</b></div></div></div>';
+        case 'quick-contact-form':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="quick-form-demo"><div class="fake-input" style="flex:1">📱 شماره تماس شما</div><span class="hero-btn">' . e($props['btnText'] ?? 'درخواست تماس') . '</span></div><div class="feat-d" style="text-align:center;margin-top:7px">' . e($props['subtitle'] ?? $title ?? 'کارشناسان ما در کمتر از ۱۵ دقیقه تماس می‌گیرند') . '</div></div>';
+        case 'related-links':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($l) => '<div class="feat-row"><span class="feat-ico">📄</span><div><b>' . e($l) . '</b><div class="feat-d">مقاله راهنما — ۵ دقیقه مطالعه</div></div></div>', ['کد خطای LE لباسشویی ال‌جی — معنی و رفع', '۱۰ علامت خرابی کمپرسور یخچال', 'راهنمای نگهداری کولر گازی در تابستان', 'چرا ماشین لباسشویی لرزش دارد؟'])) . '</div></div>';
+        case 'warranty-steps':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"><div class="blk-title">' . ($title ?: 'گارانتی ما چگونه کار می‌کند') . '</div><div class="steps-row"><div class="step"><span class="step-n">۱</span><div class="step-t">صدور برگه ضمانت</div></div><div class="step-arrow">←</div><div class="step"><span class="step-n">۲</span><div class="step-t">ثبت سریال در سیستم</div></div><div class="step-arrow">←</div><div class="step"><span class="step-n">۳</span><div class="step-t">سرویس مجدد رایگان</div></div></div></div>';
 
         default:
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">📦 ' . e($block) . '</div><div class="fake-lines"><div class="fl w90"></div><div class="fl w70"></div></div></div>';
@@ -472,12 +504,34 @@ body { font-family: var(--font-body, Vazirmatn, Tahoma, 'Segoe UI', sans-serif);
 .blk-ts-md .blk-title { font-size: 17px; }
 .blk-ts-lg .blk-title { font-size: 21px; }
 .blk-ts-xl .blk-title { font-size: 26px; }
+/* 🎛 v2.14: اندازه عنوان روی تیترهای هیرو هم اثر بگذارد + تراز کامل‌تر */
+.blk-ts-sm .hero-title { font-size: 15px; } .blk-ts-md .hero-title { font-size: 19px; }
+.blk-ts-lg .hero-title { font-size: 24px; } .blk-ts-xl .hero-title { font-size: 29px; }
 .blk-al-center { text-align: center; }
-.blk-al-center .feat-list, .blk-al-center .num-list, .blk-al-center .price-table { margin: 0 auto; }
+.blk-al-center .feat-list, .blk-al-center .num-list, .blk-al-center .price-table, .blk-al-center .form-grid, .blk-al-center .story-wrap, .blk-al-center .author-box-demo, .blk-al-center .feature-table-demo, .blk-al-center .steps-row { margin: 0 auto; }
+.blk-al-center .hero-btns, .blk-al-center .chip-row { justify-content: center; }
 .blk-al-end { text-align: left; }
 .blk-w-wide { max-width: 1200px; margin-inline: auto; }
 .blk-w-boxed { max-width: 960px; margin-inline: auto; }
 .blk-w-narrow { max-width: 720px; margin-inline: auto; }
+
+/* ════════ 🆕 v2.14: استایل ۱۲ عنصر جدید ════════ */
+.stats-strip { display: flex; align-items: center; justify-content: space-around; flex-wrap: wrap; gap: 12px; background: linear-gradient(135deg, #0f172a, #1e3a8a); color: #fff; }
+.stats-strip .ss-item { text-align: center; font-size: 11.5px; opacity: .92; }
+.stats-strip .ss-item b { display: block; font-size: 23px; font-weight: 800; color: #93c5fd; }
+.stats-strip .ss-sep { width: 1px; height: 34px; background: rgba(255,255,255,.25); }
+.warning-box-demo { display: flex; gap: 13px; align-items: flex-start; background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 12px; padding: 14px 16px; }
+.brand-intro-demo, .download-card-demo { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; background: var(--card); border: 1.5px solid var(--border); border-radius: 14px; padding: 18px 20px; box-shadow: 0 4px 16px rgba(2,8,23,.06); }
+.author-box-demo { display: flex; gap: 14px; align-items: flex-start; background: #f8fafc; border: 1.5px solid var(--border); border-radius: 13px; padding: 16px 18px; }
+.price-highlight-demo { border: 2px solid var(--p); box-shadow: 0 10px 28px rgba(37,99,235,.15); }
+.feature-table-demo { max-width: 640px; margin: 0 auto; border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden; }
+.feature-table-demo .ft-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; align-items: center; }
+.feature-table-demo .ft-row > * { padding: 9px 10px; font-size: 12px; text-align: center; border-bottom: 1px solid var(--border); }
+.feature-table-demo .ft-row:last-child > * { border-bottom: none; }
+.feature-table-demo .ft-head { background: #0f172a; color: #fff; font-weight: 800; }
+.feature-table-demo .ft-hl { background: #eff6ff; color: #1e40af; font-weight: 800; }
+.feature-table-demo .ft-row span { text-align: right; font-weight: 700; }
+.quick-form-demo { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; background: var(--card); border: 1.5px solid var(--border); border-radius: 13px; padding: 12px 14px; max-width: 560px; margin: 0 auto; }
 
 @media (max-width: 640px) {
     .c2, .c3, .c4, .c6, .form-grid, .pv-cols { grid-template-columns: 1fr 1fr; }
