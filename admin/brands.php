@@ -98,7 +98,7 @@ $statusMap = [
         <table class="table">
             <thead>
             <tr>
-                <th>برند</th><th>وضعیت</th><th>دستگاه‌ها</th><th>مقالات</th><th>درخواست‌ها</th><th>تاریخ ایجاد</th><th>عملیات</th>
+                <th>برند</th><th>وضعیت</th><th>استقرار</th><th>دستگاه‌ها</th><th>مقالات</th><th>درخواست‌ها</th><th>تاریخ ایجاد</th><th>عملیات</th>
             </tr>
             </thead>
             <tbody>
@@ -121,6 +121,16 @@ $statusMap = [
                         <span class="badge <?= $statusMap[$brand['status']][1] ?? 'badge-secondary' ?>"><?= $statusMap[$brand['status']][0] ?? $brand['status'] ?></span>
                         <?= $brand['is_active'] ? '' : '<span class="badge badge-danger">غیرفعال</span>' ?>
                     </td>
+                    <td>
+                        <?php if (!empty($brand['is_deployed'])): ?>
+                            <span class="badge <?= ($brand['health_status'] ?? '') === 'online' ? 'badge-success' : (($brand['health_status'] ?? '') === 'offline' ? 'badge-danger' : 'badge-success') ?>">🟢 <?= $brand['full_domain'] ? 'مستقر' : 'مستقر' ?></span>
+                            <?= ($brand['ssl_status'] ?? 'none') === 'active' ? '<span class="badge badge-success" title="SSL فعال">🔒</span>' : '' ?>
+                        <?php elseif ($brand['status'] !== 'draft'): ?>
+                            <a href="deploy.php?brand_id=<?= (int)$brand['id'] ?>" class="btn btn-outline btn-sm" title="استقرار خودکار">🚀 استقرار</a>
+                        <?php else: ?>
+                            <span class="badge badge-secondary">⚪ ندارد</span>
+                        <?php endif; ?>
+                    </td>
                     <td><?= en_to_fa_digits((string)$brand['devices_count']) ?></td>
                     <td><?= en_to_fa_digits((string)$brand['articles_count']) ?></td>
                     <td><?= en_to_fa_digits((string)$brand['requests_count']) ?></td>
@@ -133,6 +143,10 @@ $statusMap = [
                             <a href="brand-edit.php?id=<?= (int)$brand['id'] ?>" class="btn btn-outline btn-sm" title="ویرایش">✏️</a>
                             <?php if ($brand['status'] !== 'draft'): ?>
                                 <a href="export.php?brand=<?= (int)$brand['id'] ?>" class="btn btn-outline btn-sm" title="دانلود ZIP">📦</a>
+                            <?php endif; ?>
+                            <?php if (!empty($brand['is_deployed']) && $brand['status'] !== 'draft'): ?>
+                                <a href="deploy.php?brand_id=<?= (int)$brand['id'] ?>" class="btn btn-outline btn-sm" title="بروزرسانی خودکار">🔄</a>
+                                <a href="health-dashboard.php?brand_id=<?= (int)$brand['id'] ?>" class="btn btn-outline btn-sm" title="وضعیت سلامت">📊</a>
                             <?php endif; ?>
                             <form method="post" style="display:inline" data-confirm="وضعیت فعال بودن این برند تغییر کند؟">
                                 <?= Auth::csrfField() ?>

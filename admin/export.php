@@ -194,6 +194,13 @@ $existingZips = array_map('basename', glob(UPLOADS_PATH . '/temp/*.zip') ?: []);
                 خروجی شامل: هسته کامل PHP (۳۰+ فایل) + متغیرهای جایگذاری‌شده (کلید API، برند، پالت رنگ)
                 + sitemap.xml و robots.txt خودکار + کامنت‌های فارسی
             </div>
+            <?php if (!empty(PathResolver::getSettings()['deploy_enabled'])): ?>
+            <div style="margin-top:14px;padding:12px;background:linear-gradient(135deg,#eff6ff,#f0fdf4);border:1px dashed #93c5fd;border-radius:10px">
+                <b>🚀 استقرار خودکار در دسترس است!</b><br>
+                <small style="color:var(--text-light)">بدون دانلود ZIP و ورود به cPanel — زیردامنه + آپلود + SSL خودکار:</small>
+                <a href="deploy.php" class="btn btn-primary btn-sm" style="margin-top:8px">🚀 رفتن به استقرار خودکار</a>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
 

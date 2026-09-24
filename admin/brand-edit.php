@@ -443,6 +443,7 @@ foreach ($pages as $p) {
         <button type="button" class="tab-btn <?= $currentTab === 'palette' ? 'active' : '' ?>" onclick="switchTab(this,'tab-palette')">🎨 پالت رنگ</button>
         <button type="button" class="tab-btn <?= $currentTab === 'seo' ? 'active' : '' ?>" onclick="switchTab(this,'tab-seo')">🔍 سئو</button>
         <button type="button" class="tab-btn <?= $currentTab === 'api' ? 'active' : '' ?>" onclick="switchTab(this,'tab-api')">🔌 API</button>
+        <button type="button" class="tab-btn <?= $currentTab === 'deploy' ? 'active' : '' ?>" onclick="switchTab(this,'tab-deploy')">🚀 استقرار</button>
     </div>
 
     <!-- 📇 تب اطلاعات -->
@@ -870,6 +871,82 @@ foreach ($pages as $p) {
                     <button type="button" class="btn btn-outline" onclick="copyText(document.getElementById('api-key-input').value, this)">📋 کپی</button>
                 </div>
                 <div class="hint" style="margin-top:10px">🔒 این کلید محرمانه است — در اختیار افراد غیرمجاز قرار ندهید.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🚀 تب استقرار و سرور -->
+    <div id="tab-deploy" class="tab-pane <?= $currentTab === 'deploy' ? 'active' : '' ?>">
+        <?php
+        /* 📊 وضعیت استقرار این برند */
+        $deployBrand = $db->fetch('SELECT * FROM brands WHERE id = ?', [(int)$brandId]);
+        $isDeployed = !empty($deployBrand['is_deployed']);
+        $deploySettings = PathResolver::getSettings();
+        $deployLogger = new DeploymentLogger();
+        $deployHistory = $deployLogger->getBrandHistory((int)$brandId, 10);
+        $subPreview = (new SubdomainManager())->previewSubdomain($deployBrand);
+        $sslMap = ['active' => ['🔒 فعال', 'badge-success'], 'pending' => ['⏳ در حال صدور', 'badge-warning'], 'none' => ['—', 'badge-secondary']];
+        $healthMap = ['online' => ['🟢 آنلاین', 'badge-success'], 'offline' => ['🔴 آفلاین', 'badge-danger'], 'error' => ['⚠️ خطا', 'badge-warning']];
+        ?>
+        <div class="card" style="margin-bottom:14px">
+            <div class="card-header"><h3>🚀 استقرار و سرور</h3></div>
+            <div class="card-body">
+                <?php if (empty($deploySettings['deploy_enabled'])): ?>
+                    <div class="alert alert-warning" style="margin-bottom:14px">⚠️ استقرار خودکار غیرفعال است — <a href="cpanel-settings.php">فعال‌سازی از تنظیمات cPanel</a></div>
+                <?php endif; ?>
+
+                <div class="table-wrap">
+                    <table class="table" style="max-width:640px">
+                        <tbody>
+                        <tr><td style="width:200px">وضعیت استقرار</td><td><?= $isDeployed ? '<span class="badge badge-success">🟢 مستقر</span>' : '<span class="badge badge-secondary">⚪ مستقر نشده</span>' ?></td></tr>
+                        <tr><td>دامنه</td><td dir="ltr"><?= $deployBrand['full_domain'] ? e($deployBrand['full_domain']) : ($subPreview . '.' . ($deploySettings['root_domain'] ?? '—')) ?></td></tr>
+                        <tr><td>مسیر سرور</td><td dir="ltr" style="font-size:12px"><?= e($deployBrand['server_path'] ?: PathResolver::resolveDocumentRoot($deployBrand)) ?></td></tr>
+                        <tr><td>SSL</td><td><span class="badge <?= ($sslMap[$deployBrand['ssl_status'] ?? 'none'] ?? $sslMap['none'])[1] ?>"><?= ($sslMap[$deployBrand['ssl_status'] ?? 'none'] ?? $sslMap['none'])[0] ?></span><?= $deployBrand['ssl_expiry'] ? ' — انقضا: ' . jdate((string)$deployBrand['ssl_expiry']) : '' ?></td></tr>
+                        <tr><td>آخرین استقرار</td><td><?= $deployBrand['deployed_at'] ? jdate((string)$deployBrand['deployed_at'], true) : '—' ?></td></tr>
+                        <tr><td>وضعیت سلامت</td><td><?php if ($deployBrand['health_status']): ?><span class="badge <?= ($healthMap[$deployBrand['health_status']] ?? $healthMap['error'])[1] ?>"><?= ($healthMap[$deployBrand['health_status']] ?? $healthMap['error'])[0] ?></span> <?= $deployBrand['last_health_check'] ? '(' . jdate((string)$deployBrand['last_health_check'], true) . ')' : '' ?><?php else: ?>—<?php endif; ?></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+                    <?php if ($isDeployed): ?>
+                        <a href="deploy.php?brand_id=<?= (int)$brandId ?>" class="btn btn-primary">🔄 بروزرسانی خودکار</a>
+                        <a href="health-dashboard.php?brand_id=<?= (int)$brandId ?>" class="btn btn-outline">📊 وضعیت سلامت</a>
+                        <a href="backups.php?brand_id=<?= (int)$brandId ?>" class="btn btn-outline">💾 بکاپ‌ها</a>
+                        <a href="<?= e($deployBrand['full_domain'] ? 'https://' . $deployBrand['full_domain'] : '#') ?>" target="_blank" rel="noopener" class="btn btn-outline">🌐 مشاهده سایت</a>
+                    <?php else: ?>
+                        <a href="deploy.php?brand_id=<?= (int)$brandId ?>" class="btn btn-primary">🚀 استقرار خودکار</a>
+                        <?php if ($deployBrand['status'] !== 'draft'): ?>
+                        <a href="subdomain-editor.php?brand_id=<?= (int)$brandId ?>" class="btn btn-outline">✏️ ویرایش نام زیردامنه</a>
+                        <a href="export.php?brand=<?= (int)$brandId ?>" class="btn btn-outline">📦 دانلود ZIP</a>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- 📋 تاریخچه عملیات این برند -->
+        <div class="card">
+            <div class="card-header"><h3>📋 تاریخچه عملیات این برند</h3></div>
+            <div class="table-wrap">
+                <?php if (empty($deployHistory)): ?>
+                    <div class="empty-state" style="padding:16px"><p>هنوز عملیاتی برای این برند ثبت نشده است.</p></div>
+                <?php else: ?>
+                <table class="table">
+                    <thead><tr><th>عملیات</th><th>وضعیت</th><th>شروع</th><th>مدت</th><th></th></tr></thead>
+                    <tbody>
+                    <?php foreach ($deployHistory as $op): [$label, $badge] = DeploymentLogger::statusBadge((string)$op['status']); ?>
+                    <tr>
+                        <td><?= DeploymentLogger::actionLabel((string)$op['action']) ?></td>
+                        <td><span class="badge <?= $badge ?>"><?= $label ?></span></td>
+                        <td style="font-size:12px"><?= jdate((string)$op['started_at'], true) ?></td>
+                        <td><?= $op['duration_seconds'] ? en_to_fa_digits((string)(int)$op['duration_seconds']) . ' ثانیه' : '—' ?></td>
+                        <td><a class="btn btn-outline btn-sm" href="deployment-logs.php">👁️ جزئیات</a></td>
+                    </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <?php endif; ?>
             </div>
         </div>
     </div>

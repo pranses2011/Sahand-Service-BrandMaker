@@ -130,6 +130,25 @@ try {
             </div>
 
             <div class="nav-section">
+                <div class="nav-section-title">🚀 استقرار خودکار</div>
+                <a class="nav-link <?= $activeMenu === 'deploy' ? 'active' : '' ?>" href="deploy.php">
+                    <span class="icon">🚀</span> استقرار سایت‌ها
+                </a>
+                <a class="nav-link <?= $activeMenu === 'health-dashboard' ? 'active' : '' ?>" href="health-dashboard.php">
+                    <span class="icon">📊</span> سلامت سایت‌ها
+                </a>
+                <a class="nav-link <?= $activeMenu === 'backups' ? 'active' : '' ?>" href="backups.php">
+                    <span class="icon">💾</span> بکاپ‌ها
+                </a>
+                <a class="nav-link <?= $activeMenu === 'deployment-logs' ? 'active' : '' ?>" href="deployment-logs.php">
+                    <span class="icon">📋</span> لاگ استقرار
+                </a>
+                <a class="nav-link <?= $activeMenu === 'cpanel-settings' ? 'active' : '' ?>" href="cpanel-settings.php">
+                    <span class="icon">⚙️</span> اتصال cPanel
+                </a>
+            </div>
+
+            <div class="nav-section">
                 <div class="nav-section-title">سیستم</div>
                 <a class="nav-link <?= $activeMenu === 'settings' ? 'active' : '' ?>" href="settings.php">
                     <span class="icon">⚙️</span> تنظیمات
