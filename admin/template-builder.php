@@ -150,6 +150,7 @@ $blockLibrary = [
         'hero-countdown' => ['⏱️', 'هیرو با شمارش معکوس', []],
         'hero-form' => ['🦸', 'هیرو + فرم درخواست کنار هم', ['title' => 'درخواست تعمیر آنلاین']],
         'hero-marquee' => ['🏃', 'نوار خبر متحرک', ['text' => '⚡ اعزام تکنسین در کمتر از ۲ ساعت — ⭐ بیش از ۵۰ هزار تعمیر موفق — 🛡️ ۶ ماه ضمانت کتبی']],
+        'announcement-pill' => ['📢', 'اعلان برجسته تک‌خطی (Pill)', ['title' => '📣 تیتر مهم امروز: پذیرش فوری درخواست‌های تعطیلات']],
     ],
     'محتوا' => [
         'text' => ['📝', 'متن آزاد', ['title' => 'درباره ما', 'text' => 'متن خود را اینجا بنویسید — این بخش در سایت به همین شکل نمایش داده می‌شود.']],
@@ -163,6 +164,9 @@ $blockLibrary = [
         'area-list' => ['📍', 'فهرست محدوده خدمات (چیپ‌های شهر)', ['title' => 'مناطق تحت پوشش']],
         'checklist' => ['✅', 'چک‌لیست قبل از تماس', ['title' => 'قبل از تماس این‌ها را بررسی کنید']],
         'search-bar' => ['🔎', 'نوار جستجوی بزرگ', ['placeholder' => 'جستجوی کد خطا، مقاله یا دستگاه...']],
+        'heading-center' => ['🎯', 'عنوان بزرگ وسط‌چین + زیرعنوان', ['title' => 'خدمات تخصصی ما', 'subtitle' => 'با بیش از یک دهه تجربه در تعمیر لوازم خانگی']],
+        'numbered-list' => ['🔢', 'لیست شماره‌دار بزرگ', ['title' => 'مراحل سرویس دوره‌ای']],
+        'info-box' => ['💡', 'جعبه اطلاعات مهم (آیکون + متن)', ['title' => 'نکته مهم', 'icon' => '💡', 'text' => 'قبل از تماس، مدل دستگاه و کد خطا را آماده کنید تا پاسخگویی سریع‌تر باشد.']],
     ],
     '🏛 ستون‌بندی' => [
         'section-columns' => ['🏛', 'بخش چندستونی (۲-۴ ستون)', ['columns' => 2]],
@@ -181,6 +185,10 @@ $blockLibrary = [
         'certificates' => ['🎖️', 'کارت گواهینامه‌ها و افتخارات', ['title' => 'گواهینامه‌ها و افتخارات']],
         'review-grid' => ['⭐', 'شبکه نظرات مشتریان', ['title' => 'مشتریان ما چه می‌گویند']],
         'contact-cards' => ['📇', 'کارت‌های اطلاعات تماس', []],
+        'price-cards' => ['💠', 'کارت‌های پلن قیمت (۳ پلن)', ['title' => 'پلن‌های سرویس دوره‌ای']],
+        'location-cards' => ['🏬', 'کارت شعب و آدرس‌ها', ['title' => 'شعب ما']],
+        'expert-cards' => ['👨‍🔧', 'کارت متخصصین (آواتار + تخصص)', ['title' => 'تیم متخصصین ما']],
+        'logo-cloud' => ['☁️', 'ابر لوگوها و نمادها', ['title' => 'مجوزها و نمادهای ما']],
     ],
     'فرم' => [
         'contact-form' => ['📝', 'فرم تماس', []],
@@ -201,6 +209,7 @@ $blockLibrary = [
         'timeline' => ['🕐', 'خط زمانی پیشرفت کار', []],
         'steps-process' => ['👣', 'مراحل کار (فرآیند)', []],
         'before-after' => ['🔀', 'مقایسه قبل/بعد تعمیر', []],
+        'social-proof' => ['🌟', 'اثبات اجتماعی (آواتار + امتیاز)', ['text' => 'بیش از ۵۰ هزار مشتری به ما اعتماد کرده‌اند']],
     ],
     'رسانه' => [
         'gallery' => ['🖼️', 'گالری تصاویر', []],
@@ -215,6 +224,8 @@ $blockLibrary = [
         'sticky-mobile-cta' => ['📱', 'نوار فراخوان چسبان موبایل', []],
         'cta-whatsapp' => ['💚', 'CTA واتساپ', []],
         'warranty-banner' => ['🛡️', 'بنر ضمانت کتبی', []],
+        'link-buttons' => ['🔗', 'دکمه‌های لینک (بروشور/پیگیری)', ['title' => 'دسترسی سریع']],
+        'promo-card' => ['🎁', 'کارت کمپین و تخفیف ویژه', ['title' => 'کمپین سرویس بهاره', 'subtitle' => 'تا ۲۵٪ تخفیف سرویس دوره‌ای — تا پایان ماه']],
     ],
     'ساختار' => [
         'breadcrumb' => ['🧭', 'مسیر راهنما (Breadcrumb)', []],
@@ -222,10 +233,12 @@ $blockLibrary = [
         'button-group' => ['🔘', 'گروه دکمه', []],
         'icon-list' => ['📋', 'فهرست با آیکون', []],
         'separator' => ['⬜', 'جداکننده', []],
+        'divider-icon' => ['➖', 'جداکننده با آیکون وسط', ['icon' => '🔧']],
         'spacer' => ['⬜', 'فاصله', ['height' => 46]],
         'working-hours' => ['🕐', 'کارت ساعات کاری', []],
         'social-follow' => ['📣', 'دنبال‌کردن شبکه‌های اجتماعی', []],
         'trust-badges' => ['🏅', 'نشان‌های اعتماد (ردیفی)', []],
+        'contact-info-bar' => ['📇', 'نوار فشرده اطلاعات تماس', ['phone' => '۰۲۱-۱۲۳۴۵۶۷۸']],
     ],
     'فوتر' => [
         'footer-simple' => ['🦶', 'فوتر ساده', []],
@@ -236,13 +249,26 @@ $blockLibrary = [
     ],
 ];
 
-/* 🧩 v2.12: بلوک‌های ترکیبی ذخیره‌شده کاربر (از جدول builder_blocks) */
+/* 🧩 v2.12: بلوک‌های ترکیبی ذخیره‌شده کاربر (از جدول builder_blocks)
+   v3.3: پشتیبانی ترکیب‌های گروهی (چند بلوک باهم) — تعداد بلوک هر ترکیب محاسبه می‌شود */
 $savedBlocks = [];
 try {
     $savedBlocks = $db->fetchAll('SELECT id, name, category, block_json FROM builder_blocks ORDER BY updated_at DESC, id DESC LIMIT 60');
 } catch (Throwable $sbE) {
     $savedBlocks = [];
 }
+$savedCounts = [];
+foreach ($savedBlocks as $sb) {
+    $j = json_decode((string)$sb['block_json'], true);
+    if (is_array($j) && isset($j['type']) && $j['type'] === 'group' && is_array($j['blocks'] ?? null)) {
+        $savedCounts[$sb['id']] = count($j['blocks']);
+    } elseif (is_array($j) && array_is_list($j)) {
+        $savedCounts[$sb['id']] = count($j);
+    } else {
+        $savedCounts[$sb['id']] = 1;
+    }
+}
+$totalBlockCount = array_sum(array_map('count', $blockLibrary));
 ?>
 <link rel="stylesheet" href="<?= asset_ver('assets/css/builder.css') ?>">
 <style>
@@ -272,6 +298,33 @@ try {
 .tb-dropzone.drag-over { border-color: #2563eb; background: rgba(37,99,235,.1); transform: scale(1.008); }
 .tb-dropzone .tb-empty-hint { color: #94a3b8; font-size: 11.5px; text-align: center; margin: auto; line-height: 1.9 }
 .tb-col-wrap { display: grid; gap: 14px; }
+
+/* 🎚️ v3.3: دکمه نوع نمایش عناصر */
+.palette-view-toggle { display: flex; gap: 6px; padding: 8px 10px; background: var(--bg, #f8fafc); border-radius: 10px; margin: 0 10px 10px; border: 1px solid var(--border, #e2e8f0); }
+.pvt-btn { flex: 1; border: 1.5px solid var(--border, #e2e8f0); background: #fff; border-radius: 8px; padding: 7px 4px; font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit; color: var(--text-light, #64748b); transition: all .15s; }
+.pvt-btn.active { border-color: #2563eb; color: #1e40af; background: #eff6ff; box-shadow: 0 2px 8px rgba(37,99,235,.15); }
+
+/* 🖼️ حالت کارتی — پیش‌نمایش واقعی هر عنصر */
+.block-library.view-cards { width: 330px; }
+.block-library.view-cards .block-cat { position: sticky; top: 0; z-index: 5; background: inherit; backdrop-filter: blur(3px); }
+.block-library.view-cards .block-item { flex-direction: column; align-items: stretch; gap: 6px; padding: 9px; position: relative; }
+.block-library.view-cards .block-item > .icon { position: absolute; top: 8px; right: 8px; z-index: 3; background: rgba(255,255,255,.92); border-radius: 7px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 13px; box-shadow: 0 1px 5px rgba(0,0,0,.12); }
+.block-library.view-cards .bi-label { font-size: 11px; font-weight: 800; padding-inline-start: 30px; min-height: 24px; display: flex; align-items: center; }
+.block-library.view-cards .block-eye { position: absolute; top: 8px; left: 8px; z-index: 3; }
+.el-thumb { position: relative; border-radius: 9px; overflow: hidden; border: 1px solid #e2e8f0; background: #fff; height: 118px; }
+.el-thumb-stage { width: 620px; transform: scale(0.46); transform-origin: top right; pointer-events: none; }
+.el-thumb .el-thumb-veil { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 78%, rgba(255,255,255,.9)); pointer-events: none; }
+.el-thumb:hover { border-color: #2563eb; box-shadow: 0 6px 18px rgba(37,99,235,.14); }
+
+/* 🧺 سبد انتخاب چند بلوکی (ترکیب گروهی) */
+.basket-bar { position: sticky; top: 8px; z-index: 40; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: rgba(15,23,42,.94); color: #e2e8f0; border-radius: 12px; padding: 8px 14px; margin-bottom: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.28); font-size: 12.5px; }
+.basket-bar.hidden { display: none; }
+.basket-bar .bb-count { background: #2563eb; color: #fff; border-radius: 20px; padding: 2px 11px; font-weight: 800; }
+.basket-bar button { border: none; border-radius: 8px; padding: 6px 13px; font-weight: 700; cursor: pointer; font-size: 11.5px; font-family: inherit; }
+.basket-bar .bb-save { background: #16a34a; color: #fff; }
+.basket-bar .bb-clear { background: #334155; color: #e2e8f0; }
+.tb-block.in-basket { outline: 2.5px solid #16a34a; outline-offset: 2px; }
+.tb-block.in-basket::after { content: '🧺'; position: absolute; bottom: 8px; left: 10px; z-index: 22; font-size: 15px; }
 </style>
 
 <form method="post" id="builder-form">
@@ -315,19 +368,25 @@ try {
 
     <div class="builder">
         <!-- 📚 کتابخانه بلوک -->
-        <aside class="block-library">
-            <div class="block-lib-title">📚 بلوک‌ها را بکشید ↓ <small style="font-weight:400;color:var(--text-light)">(دابل‌کلیک = افزودن)</small></div>
+        <aside class="block-library" id="block-library">
+            <div class="block-lib-title">📚 بلوک‌ها <small style="font-weight:400;color:var(--text-light)">(دابل‌کلیک = افزودن)</small></div>
+
+            <!-- 🎚️ v3.3: دکمه نوع نمایش عناصر — فهرستی یا کارتی با پیش‌نمایش واقعی -->
+            <div class="palette-view-toggle" id="palette-view-toggle">
+                <button type="button" class="pvt-btn" data-view="list" onclick="setPaletteView('list')" title="نمایش فهرستی فشرده">📋 فهرستی</button>
+                <button type="button" class="pvt-btn" data-view="cards" onclick="setPaletteView('cards')" title="نمایش کارتی با پیش‌نمایش واقعی هر عنصر">🖼️ کارتی</button>
+            </div>
 
             <!-- 🧩 v2.12: بلوک‌های ترکیبی ذخیره‌شده کاربر -->
             <div class="block-cat" style="background:rgba(37,99,235,.08);border-inline-start:3px solid var(--primary)">🧩 بلوک‌های ترکیبی من <span class="badge badge-info" style="font-size:9.5px"><?= count($savedBlocks) ?></span></div>
             <?php if (empty($savedBlocks)): ?>
-                <div class="hint" style="padding:4px 12px 10px;font-size:10.5px;line-height:1.8">هنوز بلوک ترکیبی ذخیره نکرده‌اید — بلوکی را در بوم انتخاب و از پنل ویژگی‌ها «💾 ذخیره به‌عنوان بلوک ترکیبی» را بزنید.</div>
+                <div class="hint" style="padding:4px 12px 10px;font-size:10.5px;line-height:1.8">هنوز بلوک ترکیبی ذخیره نکرده‌اید — چند بلوک را با دکمه 🧺 در سبد انتخاب بگذارید و «ذخیره ترکیب» را بزنید تا همیشه باهم قابل استفاده مجدد باشند.</div>
             <?php else: ?>
                 <?php foreach ($savedBlocks as $sb): ?>
-                    <div class="block-item" draggable="true" data-block="saved:<?= (int)$sb['id'] ?>" style="border-inline-start:3px solid var(--primary)" title="بلوک ترکیبی — دابل‌کلیک یا درگ کنید">
+                    <div class="block-item" draggable="true" data-block="saved:<?= (int)$sb['id'] ?>" style="border-inline-start:3px solid var(--primary)" title="بلوک ترکیبی <?= $savedCounts[$sb['id']] > 1 ? '(' . $savedCounts[$sb['id']] . ' بلوک باهم)' : '(تک‌بلوک)' ?> — دابل‌کلیک یا درگ کنید؛ همه بلوک‌ها با هم و با همان تنظیمات درج می‌شوند">
                         <span class="icon">🧩</span>
-                        <span><?= e($sb['name']) ?></span>
-                        <form method="post" style="display:inline" onsubmit="return confirm('بلوک ترکیبی «<?= e(addslashes((string)$sb['name'])) ?>» حذف شود؟')">
+                        <span><?= e($sb['name']) ?><?= $savedCounts[$sb['id']] > 1 ? ' <span class="badge badge-info" style="font-size:9px">' . (int)$savedCounts[$sb['id']] . ' بلوک</span>' : '' ?></span>
+                        <form method="post" style="display:inline" data-confirm="بلوک ترکیبی «<?= e((string)$sb['name']) ?>» حذف شود؟">
                             <?= Auth::csrfField() ?>
                             <input type="hidden" name="action" value="delete_builder_block">
                             <input type="hidden" name="block_id" value="<?= (int)$sb['id'] ?>">
@@ -341,17 +400,26 @@ try {
             <?php foreach ($blockLibrary as $category => $blocks): ?>
                 <div class="block-cat"><?= e($category) ?> <span class="badge badge-secondary" style="font-size:9.5px"><?= count($blocks) ?></span></div>
                 <?php foreach ($blocks as $key => [$icon, $label, $defaults]): ?>
-                    <div class="block-item" draggable="true" data-block="<?= e($key) ?>" title="دابل‌کلیک = افزودن سریع | دکمه 👁 = پیش‌نمایش تک‌بلوک">
+                    <div class="block-item" draggable="true" data-block="<?= e($key) ?>" data-label="<?= e($label) ?>" title="دابل‌کلیک = افزودن سریع | دکمه 👁 = پیش‌نمایش تک‌بلوک">
                         <span class="icon"><?= $icon ?></span>
-                        <span><?= e($label) ?></span>
+                        <span class="bi-label"><?= e($label) ?></span>
                         <button type="button" class="block-eye" title="پیش‌نمایش این بلوک" onclick="event.stopPropagation();previewSingleBlock('<?= e($key) ?>')">👁</button>
                     </div>
                 <?php endforeach; ?>
             <?php endforeach; ?>
+            <div class="hint" style="padding:10px 12px;font-size:10.5px;line-height:1.8">📦 مجموعاً <?= (int)$totalBlockCount ?> عنصر در <?= count($blockLibrary) ?> دسته — با حالت «کارتی» پیش‌نمایش واقعی هر عنصر را ببینید.</div>
         </aside>
 
         <!-- 🎨 بوم طراحی زنده -->
         <section class="builder-canvas" id="canvas">
+            <!-- 🧺 v3.3: سبد انتخاب چند بلوکی — برای ذخیره ترکیب گروهی -->
+            <div class="basket-bar hidden" id="basket-bar">
+                <span>🧺 انتخاب شما:</span>
+                <span class="bb-count" id="basket-count">۰</span>
+                <span>بلوک</span>
+                <button type="button" class="bb-save" onclick="saveBasketAsComposite()">💾 ذخیره ترکیب (همه باهم)</button>
+                <button type="button" class="bb-clear" onclick="clearBasket()">✖ پاک کردن انتخاب</button>
+            </div>
             <div class="canvas-empty" id="canvas-empty" <?= $layout ? 'style="display:none"' : '' ?>>
                 <div style="font-size:48px;margin-bottom:10px">🎭</div>
                 بلوک‌ها را از پنل راست بکشید و اینجا رها کنید<br>
@@ -428,7 +496,12 @@ function blockHtml(block, props) {
     const t = props.title || '';
     const padCls = 'blk-pad-' + (props.padding || 'default');
     const bgCls = 'blk-bg-' + (props.background || 'default');
-    const B = (inner, extra) => `<div class="blk ${bgCls} ${padCls} ${extra || ''}">${inner}</div>`;
+    /* 🎛 v3.3: تنظیمات پیشرفته — اندازه عنوان / تراز / عرض محتوا / کلاس سفارشی */
+    const sizeCls = 'blk-ts-' + (props.titleSize || 'md');
+    const alignCls = props.align && props.align !== 'start' ? 'blk-al-' + props.align : '';
+    const widthCls = props.width && props.width !== 'full' ? 'blk-w-' + props.width : '';
+    const customCls = String(props.customClass || '').trim().replace(/[^a-zA-Z0-9\-_\s]/g, '');
+    const B = (inner, extra) => `<div class="blk ${bgCls} ${padCls} ${sizeCls} ${alignCls} ${widthCls} ${customCls} ${extra || ''}">${inner}</div>`;
     const TITLE = t ? `<div class="blk-title">${esc(t)}</div>` : '';
 
     switch (block) {
@@ -509,6 +582,21 @@ function blockHtml(block, props) {
         case 'trust-badges': return B(`<div class="chip-row" style="justify-content:space-around">${[['🛡️', 'ضمانت کتبی'], ['💳', 'پرداخت اقساطی'], ['⚡', 'اعزام فوری'], ['🏆', 'نمایندگی رسمی'], ['🔧', 'قطعات اصلی']].map(([i, n]) => `<div style="text-align:center;min-width:86px"><div style="font-size:26px">${i}</div><div class="feat-d" style="font-size:11px">${n}</div></div>`).join('')}</div>`, '');
         case 'footer-links': return `<div class="blk ${bgCls} ${padCls} footer-blk"><div class="tb-col-wrap" style="grid-template-columns:2fr 1fr 1fr 1fr"><div><div class="fake-logo">🏗️</div><div class="fl w90"></div><div class="fl w60"></div><div class="soc-row"><span>Telegram</span><span>Instagram</span></div></div><div><div class="card-t">خدمات</div><div class="feat-d">تعمیر لباسشویی<br>تعمیر یخچال<br>سرویس کولر</div></div><div><div class="card-t">لینک‌ها</div><div class="feat-d">مقالات<br>کدهای خطا<br>سوالات متداول</div></div><div><div class="card-t">تماس</div><div class="feat-d">📞 ۰۲۱-۱۲۳۴۵۶۷۸<br>📍 تهران</div></div></div></div>`;
         case 'payment-methods': return B(`<div class="blk-title" style="margin-bottom:8px">شیوه‌های پرداخت</div><div class="chip-row" style="justify-content:center">${['💳 پرداخت کارتی', '💰 پرداخت نقدی', '🧾 کارت به کارت', '📟 درگاه آنلاین', '🤝 اقساطی'].map(p => `<span class="chip">${p}</span>`).join('')}</div>`, '');
+
+        /* ════════ 🆕 v3.3: عناصر جدید (۱۳ عنصر — کتابخانه کامل‌تر) ════════ */
+        case 'announcement-pill': return B(`<div class="pill-announce"><span class="pill-dot"></span>${esc(t || '📣 تیتر مهم امروز')}</span></div>`, '');
+        case 'heading-center': return B(`<div style="text-align:center"><div class="blk-title" style="font-size:23px">${esc(t || 'عنوان بزرگ بخش')}</div><div class="feat-d" style="font-size:13.5px;margin-top:6px">${esc(props.subtitle || 'زیرعنوان توضیحی این بخش را اینجا بنویسید')}</div><div style="width:56px;height:4px;border-radius:4px;background:var(--p,#2563eb);margin:14px auto 0"></div></div>`, '');
+        case 'numbered-list': return B(`${TITLE}<div class="num-list"><div class="num-row"><span class="num-n">۱</span><div><b>عیب‌یابی تخصصی رایگان</b><div class="feat-d">بررسی کامل با دستگاه تست</div></div></div><div class="num-row"><span class="num-n">۲</span><div><b>پیش‌فاکتور شفاف</b><div class="feat-d">تأیید قیمت قبل از شروع کار</div></div></div><div class="num-row"><span class="num-n">۳</span><div><b>تعمیر با قطعات اصلی</b><div class="feat-d">همراه با ۶ ماه ضمانت</div></div></div></div>`, '');
+        case 'info-box': return `<div class="blk ${bgCls} ${padCls}"><div class="info-box-demo"><span class="feat-ico" style="font-size:22px">${esc(props.icon || '💡')}</span><div><b>${esc(t || 'نکته مهم')}</b><div class="feat-d">${esc(props.text || 'متن توضیح جعبه اطلاعات...')}</div></div></div></div>`;
+        case 'price-cards': return B(`<div class="blk-title">${esc(t || 'پلن‌های سرویس')}</div><div class="cols c3"><div class="fake-card"><div class="card-t">اقتصادی</div><div class="stat-n">۴۵۰<span style="font-size:11px">هزار</span></div><div class="feat-d">سرویس پایه + تست</div></div><div class="fake-card" style="border-color:#2563eb;box-shadow:0 6px 20px rgba(37,99,235,.16)"><span class="badge badge-info" style="font-size:9.5px">پیشنهاد ما</span><div class="card-t">استاندارد</div><div class="stat-n">۷۸۰<span style="font-size:11px">هزار</span></div><div class="feat-d">سرویس کامل + شست‌وشو</div></div><div class="fake-card"><div class="card-t">ویژه</div><div class="stat-n">۱۲۵۰<span style="font-size:11px">هزار</span></div><div class="feat-d">اورهال + ضمانت ۹ ماهه</div></div></div>`);
+        case 'location-cards': return B(`<div class="blk-title">${esc(t || 'شعب ما')}</div><div class="cols c${gridCols(props, 3)}">${[['🏬', 'شعبه مرکزی', 'تهران، خیابان ولیعصر'], ['🏬', 'شعبه غرب', 'شهرک غرب، بلوار دریا'], ['🏬', 'شعبه شمال', 'نیاوران، میدان ازگیری']].map(([i, n, a]) => `<div class="fake-card"><div class="card-ico">${i}</div><div class="card-t">${n}</div><div class="feat-d">📍 ${a}</div></div>`).join('')}</div>`);
+        case 'expert-cards': return B(`<div class="blk-title">${esc(t || 'متخصصین ما')}</div><div class="cols c${gridCols(props, 4)}">${[['🔧', 'مهندس کریمی', 'برد و الکترونیک'], ['❄️', 'مهندس رضایی', 'مدار برودت'], ['🌀', 'مهندس احمدی', 'سیستم شست‌وشو'], ['📺', 'مهندس موسوی', 'پنل و تاچ']].map(([i, n, s]) => `<div class="fake-card"><div class="fake-ava">${i}</div><div class="card-t">${n}</div><div class="feat-d">${s}</div><div class="stars" style="font-size:10px">⭐ ۴.۹</div></div>`).join('')}</div>`);
+        case 'logo-cloud': return B(`${TITLE}<div class="chip-row" style="justify-content:center">${['🏅', '📋', '🎖️', '✅', '🏛️', '🛡️', '💳', '⭐'].map(i => `<div class="fake-logo-s" style="width:64px">${i}</div>`).join('')}</div>`, '');
+        case 'social-proof': return `<div class="blk ${bgCls} ${padCls}"><div class="soc-proof"><div class="ava-stack"><span class="fake-ava" style="width:34px;height:34px;font-size:13px">👩</span><span class="fake-ava" style="width:34px;height:34px;font-size:13px;margin-inline-start:-10px">🧑</span><span class="fake-ava" style="width:34px;height:34px;font-size:13px;margin-inline-start:-10px">👨</span><span class="fake-ava" style="width:34px;height:34px;font-size:11px;margin-inline-start:-10px">+۵۰k</span></div><div><div class="stars">⭐⭐⭐⭐⭐ <b>۴.۹ از ۵</b></div><div class="feat-d">${esc(props.text || 'بیش از ۵۰ هزار مشتری به ما اعتماد کرده‌اند')}</div></div></div></div>`;
+        case 'link-buttons': return B(`${TITLE}<div class="hero-btns" style="justify-content:flex-start"><span class="hero-btn">📄 دانلود بروشور</span><span class="hero-btn ghost">🔎 پیگیری درخواست</span><span class="hero-btn ghost">🧾 فاکتور آنلاین</span></div>`, '');
+        case 'promo-card': return B(`<div class="promo-card-demo"><div><span class="badge badge-warning" style="font-size:10.5px">🎁 پیشنهاد ویژه</span><div class="blk-title" style="font-size:19px;margin:9px 0 5px">${esc(t || 'کمپین سرویس بهاره')}</div><div class="feat-d">${esc(props.subtitle || 'تا ۲۵٪ تخفیف — تا پایان ماه')}</div></div><div style="text-align:center"><div class="stat-n" style="font-size:33px">۲۵٪</div><span class="hero-btn" style="margin-top:8px">همین حالا رزرو کنید</span></div></div>`, '');
+        case 'divider-icon': return `<div class="blk ${bgCls}" style="padding:10px 16px"><div class="divider-ico"><span class="divider-line"></span><span style="font-size:17px">${esc(props.icon || '🔧')}</span><span class="divider-line"></span></div></div>`;
+        case 'contact-info-bar': return `<div class="blk ${bgCls} ${padCls}"><div class="chip-row" style="justify-content:space-between"><span class="chip">📞 <b dir="ltr">${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</b></span><span class="chip">🕐 شنبه-پنجشنبه ۹-۲۰</span><span class="chip">📍 تهران</span><span class="chip">💬 واتساپ</span></div></div>`;
         default: return B(`${TITLE}<div class="fake-lines"><div class="fl w90"></div><div class="fl w70"></div></div>`);
     }
 }
@@ -626,6 +714,31 @@ function blockHtml(block, props) {
 .soc-row { display:flex; gap:12px; justify-content:center; font-size:11px; color:#94a3b8; margin-top:9px; }
 .crump-blk { text-align:center; font-size:11.5px; color:#64748b; background:#f8fafc; }
 .pv-list { margin:0 20px 0 0; font-size:13px; line-height:2.2; color:#334155; }
+/* 🆕 v3.3: عناصر جدید */
+.pill-announce { display:flex; align-items:center; gap:10px; background:#eff6ff; border:1.5px solid #bfdbfe; color:#1e40af; border-radius:40px; padding:11px 20px; font-weight:700; font-size:13px; }
+.pill-dot { width:9px; height:9px; border-radius:50%; background:#2563eb; box-shadow:0 0 0 4px rgba(37,99,235,.18); flex:0 0 9px; }
+.num-list { display:flex; flex-direction:column; gap:12px; max-width:640px; margin:0 auto; }
+.num-row { display:flex; gap:13px; align-items:flex-start; }
+.num-n { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#1e40af,#0ea5e9); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; flex:0 0 34px; }
+.info-box-demo { display:flex; gap:13px; align-items:flex-start; background:#fffbeb; border:1.5px solid #fde68a; border-radius:12px; padding:14px 16px; }
+.soc-proof { display:flex; gap:15px; align-items:center; justify-content:center; flex-wrap:wrap; }
+.ava-stack { display:flex; }
+.ava-stack .fake-ava { border:2px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.14); }
+.promo-card-demo { display:flex; gap:18px; align-items:center; justify-content:space-between; flex-wrap:wrap; background:linear-gradient(135deg,#fff7ed,#ffedd5); border:1.5px solid #fdba74; border-radius:14px; padding:20px 22px; }
+.divider-ico { display:flex; align-items:center; gap:12px; }
+.divider-line { flex:1; height:1.5px; background:linear-gradient(90deg,transparent,#cbd5e1,#cbd5e1,transparent); }
+.stars { color:#f59e0b; letter-spacing:1px; }
+/* 🎛 v3.3: تنظیمات پیشرفته */
+.blk-ts-sm .blk-title { font-size:14px; }
+.blk-ts-md .blk-title { font-size:17px; }
+.blk-ts-lg .blk-title { font-size:21px; }
+.blk-ts-xl .blk-title { font-size:26px; }
+.blk-al-center { text-align:center; }
+.blk-al-center .feat-list, .blk-al-center .num-list, .blk-al-center .price-table { margin:0 auto; }
+.blk-al-end { text-align:left; }
+.blk-w-wide { max-width:1200px; margin-inline:auto; }
+.blk-w-boxed { max-width:960px; margin-inline:auto; }
+.blk-w-narrow { max-width:720px; margin-inline:auto; }
 @media (max-width:640px) { .c2,.c3,.c4,.c6,.form-grid { grid-template-columns:1fr 1fr; } .c6{grid-template-columns:repeat(3,1fr);} }
 @media (max-width:420px) { .c2,.c3,.c4,.form-grid { grid-template-columns:1fr; } .fake-nav{display:none} }
 `;
@@ -697,9 +810,11 @@ function renderLevel(arr, container, prefix) {
             <button type="button" onclick="event.stopPropagation();moveBlock('${path}',-1)" title="بالا">↑</button>
             <button type="button" onclick="event.stopPropagation();moveBlock('${path}',1)" title="پایین">↓</button>
             <button type="button" onclick="event.stopPropagation();duplicateBlock('${path}')" title="کپی">⧉</button>
+            <button type="button" onclick="event.stopPropagation();toggleBasket('${path}',this)" title="افزودن به سبد ترکیب (${basket.has(path) ? 'در سبد' : ''})" style="${basket.has(path) ? 'color:#4ade80' : ''}">🧺</button>
             <button type="button" onclick="event.stopPropagation();previewBlockAt('${path}')" title="پیش‌نمایش">👁</button>
             <button type="button" onclick="event.stopPropagation();removeBlock('${path}')" title="حذف">✕</button>`;
         el.appendChild(tools);
+        if (basket.has(path)) { el.classList.add('in-basket'); }
 
         const label = document.createElement('div');
         label.className = 'tb-label';
@@ -766,7 +881,7 @@ function attachDropzone(dz, colPath) {
         if (data.startsWith('move:')) {
             movePathTo(data.slice(5), arr, arr.length);
         } else if (data.startsWith('new:')) {
-            arr.push(makeBlock(data.slice(4)));
+            arr.push(...makeBlocks(data.slice(4)));
             selected = colPath + '.' + (arr.length - 1);
         }
         syncAndRender();
@@ -798,7 +913,7 @@ function attachInsertDrop(el, path) {
         if (data.startsWith('move:')) {
             movePathTo(data.slice(5), arr, target);
         } else if (data.startsWith('new:')) {
-            arr.splice(target, 0, makeBlock(data.slice(4)));
+            arr.splice(target, 0, ...makeBlocks(data.slice(4)));
             selected = (parentPath ? parentPath + '.' : '') + target;
         }
         syncAndRender();
@@ -827,35 +942,115 @@ function movePathTo(fromPath, targetArr, targetIdx) {
 /* ساخت بلوک جدید با پیش‌فرض‌های کتابخانه
    🧩 v2.12: کلیدهای «saved:{id}» بلوک ترکیبی ذخیره‌شده را کپی عمیق می‌کنند */
 function makeBlock(key) {
+    const many = makeBlocks(key);
+    return many[0];
+}
+
+/* 🧩 v3.3: ساخت «چند بلوک» با یک کلید — ترکیب‌های گروهی همه بلوک‌هایشان
+   را باهم برمی‌گردانند (متن + آکاردئون مثلاً)؛ عناصر معمولی تک‌عضوی‌اند */
+function makeBlocks(key) {
     if (String(key).indexOf('saved:') === 0) {
         const savedId = parseInt(String(key).slice(6), 10);
         const savedNode = SAVED_BLOCKS[savedId];
-        if (savedNode && typeof savedNode === 'object') {
-            /* کپی عمیق مستقل — تغییر در بوم، بلوک ذخیره‌شده را خراب نمی‌کند */
-            const copy = JSON.parse(JSON.stringify(savedNode));
+        const normalize = n => {
+            const copy = JSON.parse(JSON.stringify(n));
             copy.props = Object.assign({ padding: 'default', background: 'default', visible: true }, copy.props || {});
             return copy;
+        };
+        if (savedNode && typeof savedNode === 'object') {
+            /* 🔀 ترکیب گروهی: آرایه یا {type:'group', blocks:[...]} */
+            if (Array.isArray(savedNode)) {
+                return savedNode.filter(n => n && n.block).map(normalize);
+            }
+            if (savedNode.type === 'group' && Array.isArray(savedNode.blocks)) {
+                return savedNode.blocks.filter(n => n && n.block).map(normalize);
+            }
+            /* تک‌بلوک قدیمی */
+            return [normalize(savedNode)];
         }
-        return { block: 'text', props: { title: 'بلوک ترکیبی یافت نشد', text: 'این بلوک ترکیبی حذف شده است.' } };
+        return [{ block: 'text', props: { title: 'بلوک ترکیبی یافت نشد', text: 'این بلوک ترکیبی حذف شده است.' } }];
     }
     const meta = BLOCK_META[key] || {};
     const props = Object.assign({ padding: 'default', background: 'default', visible: true }, (meta.defaults && typeof meta.defaults === 'object') ? JSON.parse(JSON.stringify(meta.defaults)) : {});
     const blk = { block: key, props };
     if (key === 'section-columns') { blk.cols = [[], []]; }
     if (key === 'section-split') { blk.cols = [[], []]; }
-    return blk;
+    return [blk];
 }
 
-/* 🧩 v2.12: ذخیره بلوک انتخابی به‌عنوان بلوک ترکیبی قابل استفاده مجدد */
-function saveCompositeBlock() {
+/* ==================================================
+ * 🧺 v3.3: سبد انتخاب چند بلوکی — ذخیره ترکیب گروهی
+ * (منطق درست طبق درخواست: چند بلوک + تنظیماتشان باهم
+ *  ذخیره و موقع استفاده، همه باهم روی صفحه قرار می‌گیرند)
+ * ================================================== */
+const basket = new Set();
+const faNum = n => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+
+function toggleBasket(path, btn) {
+    if (basket.has(path)) {
+        basket.delete(path);
+    } else {
+        basket.add(path);
+    }
+    render();
+    renderBasket();
+}
+
+function clearBasket() {
+    basket.clear();
+    render();
+    renderBasket();
+}
+
+function renderBasket() {
+    const bar = document.getElementById('basket-bar');
+    const cnt = document.getElementById('basket-count');
+    bar.classList.toggle('hidden', basket.size === 0);
+    cnt.textContent = faNum(basket.size);
+}
+
+/* ذخیره ترکیب گروهی — بلوک‌های انتخابی (مرتب، بدون تو در تو) به‌عنوان یک ترکیب */
+async function saveBasketAsComposite() {
+    if (basket.size === 0) { return; }
+    /* فقط مسیرهای سطح بالا (فرزندانِ بلوک انتخاب‌شده حذف می‌شوند) + مرتب‌سازی */
+    const paths = [...basket].filter(p => !p.includes('.'))
+        .sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+    if (paths.length === 0) {
+        await sahandAlert({ title: 'انتخاب نامعتبر', message: 'بلوک‌های داخل ستون را نمی‌توان مستقیم ترکیب کرد — بلوک‌های سطح اصلی صفحه را انتخاب کنید (یا از ذخیره تک‌بلوک با ستون‌ها در پنل ویژگی‌ها استفاده کنید).', type: 'warning', icon: '🧺' });
+        return;
+    }
+    const nodes = paths.map(p => JSON.parse(JSON.stringify(resolveNode(p)))).filter(n => n && n.block);
+    if (nodes.length === 0) { return; }
+
+    const name = await sahandPrompt({
+        title: '💾 ذخیره بلوک ترکیبی گروهی',
+        message: nodes.length + ' بلوک انتخاب‌شده با همه تنظیمات و ستون‌هایشان ذخیره می‌شوند و دفعه بعد همه باهم درج می‌شوند:',
+        label: 'نام ترکیب',
+        value: 'ترکیب «' + (nodes[0].props?.title || BLOCK_META[nodes[0].block]?.label || 'بلوک') + '» + ' + faNum(nodes.length - 1) + ' مورد دیگر',
+        confirmText: 'ذخیره ترکیب',
+        type: 'question', icon: '🧩',
+    });
+    if (name === null) { return; }
+
+    document.getElementById('save-block-name').value = name.trim() || 'ترکیب بدون نام';
+    document.getElementById('save-block-json').value = JSON.stringify({ type: 'group', blocks: nodes });
+    document.getElementById('save-block-form').submit();
+}
+
+/* 🧩 v2.12: ذخیره بلوک انتخابی (تک) به‌عنوان بلوک ترکیبی قابل استفاده مجدد */
+async function saveCompositeBlock() {
     const node = selected ? resolveNode(selected) : null;
     if (!node || !node.block) {
-        alert('ابتدا یک بلوک را در بوم انتخاب کنید.');
+        await sahandAlert({ title: 'انتخاب نشده', message: 'ابتدا یک بلوک را در بوم انتخاب کنید.', type: 'warning', icon: '🧩' });
         return;
     }
     const meta = BLOCK_META[node.block] || { label: node.block };
     const suggested = meta.label || '';
-    const name = prompt('نام بلوک ترکیبی (با ستون‌ها و تنظیمات فعلی ذخیره می‌شود):', suggested);
+    const name = await sahandPrompt({
+        title: '💾 ذخیره به‌عنوان بلوک ترکیبی',
+        message: 'این بلوک با ستون‌ها و تنظیمات فعلی ذخیره می‌شود:',
+        label: 'نام بلوک ترکیبی', value: suggested, confirmText: 'ذخیره', type: 'question', icon: '🧩',
+    });
     if (name === null) { return; }
     document.getElementById('save-block-name').value = name.trim() || suggested;
     document.getElementById('save-block-json').value = JSON.stringify(node);
@@ -869,7 +1064,7 @@ canvas.addEventListener('drop', e => {
     e.preventDefault();
     const data = e.dataTransfer.getData('text/plain');
     if (data.startsWith('new:')) {
-        layout.push(makeBlock(data.slice(4)));
+        layout.push(...makeBlocks(data.slice(4)));
         selected = String(layout.length - 1);
         syncAndRender();
         renderProps();
@@ -884,16 +1079,50 @@ document.querySelectorAll('.block-item').forEach(item => {
         const node = selected ? resolveNode(selected) : null;
         if (node && Array.isArray(node.cols)) {
             const colArr = node.cols[0];
-            colArr.push(makeBlock(item.dataset.block));
+            colArr.push(...makeBlocks(item.dataset.block));
             selected = selected + '.cols.0.' + (colArr.length - 1);
         } else {
-            layout.push(makeBlock(item.dataset.block));
+            layout.push(...makeBlocks(item.dataset.block));
             selected = String(layout.length - 1);
         }
         syncAndRender();
         renderProps();
     });
 });
+
+/* ==================================================
+ * 🎚️ v3.3: نوع نمایش عناصر — فهرستی / کارتی با پیش‌نمایش واقعی
+ * ================================================== */
+function setPaletteView(view) {
+    const lib = document.getElementById('block-library');
+    lib.classList.toggle('view-cards', view === 'cards');
+    document.querySelectorAll('.pvt-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+    try { localStorage.setItem('tb_palette_view', view); } catch (e) {}
+    if (view === 'cards') { renderThumbs(); }
+}
+
+/* 🖼️ پیش‌نمایش واقعی هر عنصر — رندر زنده با همان موتور بوم، مقیاس‌شده */
+function renderThumbs() {
+    document.querySelectorAll('.block-library .block-item[data-block]').forEach(item => {
+        if (item.querySelector('.el-thumb')) { return; }
+        const key = item.dataset.block;
+        if (String(key).indexOf('saved:') === 0) { return; } /* ترکیب‌ها در بوم دیده می‌شوند */
+        const meta = BLOCK_META[key];
+        if (!meta) { return; }
+        const props = Object.assign({ padding: 'compact', background: 'default' }, meta.defaults || {});
+        const thumb = document.createElement('div');
+        thumb.className = 'el-thumb';
+        thumb.innerHTML = '<div class="el-thumb-stage">' + blockHtml(key, props) + '</div><div class="el-thumb-veil"></div>';
+        item.appendChild(thumb);
+    });
+}
+
+/* مقداردهی اولیه: نمایش ذخیره‌شده کاربر */
+(function initPaletteView() {
+    let v = 'list';
+    try { v = localStorage.getItem('tb_palette_view') || 'list'; } catch (e) {}
+    setPaletteView(v === 'cards' ? 'cards' : 'list');
+})();
 
 /* انتخاب و ویژگی‌ها */
 function selectBlock(path) {
@@ -921,23 +1150,28 @@ function renderProps() {
     const props = item.props || {};
     let html = `<div style="font-weight:800;margin-bottom:12px;font-size:13px">${isSavedComposite ? '🧩' : '📦'} ${esc(meta.label)}</div>`;
 
-    /* فیلدهای متنی مخصوص بلوک (عنوان/زیرعنوان/متن/تلفن) — v2.12: پوشش همه عناصر جدید */
-    const titleBlocks = ['hero', 'hero-split', 'hero-slider', 'hero-video', 'hero-countdown', 'hero-form', 'text', 'text-image', 'intro', 'rich-text', 'cta-request', 'cta-banner', 'alert-notice', 'quote', 'devices-grid', 'services-grid', 'features', 'articles-recent', 'articles-grid', 'team', 'pricing-table', 'faq-accordion', 'testimonials', 'counter-stats', 'gallery', 'map', 'tabs', 'timeline', 'steps-process', 'icon-list', 'cta-phone', 'video-embed', 'image-carousel', 'two-col', 'three-col', 'skill-bars', 'progress-bars', 'notification-bar', 'hero-marquee', 'brand-story', 'area-list', 'checklist', 'search-bar', 'certificates', 'review-grid', 'contact-cards', 'appointment-form', 'stats-grid', 'before-after', 'working-hours', 'cta-whatsapp', 'warranty-banner', 'social-follow', 'trust-badges', 'footer-links', 'payment-methods', 'counter-stats'];
+    /* فیلدهای متنی مخصوص بلوک (عنوان/زیرعنوان/متن/تلفن) — v3.3: پوشش همه عناصر جدید */
+    const titleBlocks = ['hero', 'hero-split', 'hero-slider', 'hero-video', 'hero-countdown', 'hero-form', 'text', 'text-image', 'intro', 'rich-text', 'cta-request', 'cta-banner', 'alert-notice', 'quote', 'devices-grid', 'services-grid', 'features', 'articles-recent', 'articles-grid', 'team', 'pricing-table', 'faq-accordion', 'testimonials', 'counter-stats', 'gallery', 'map', 'tabs', 'timeline', 'steps-process', 'icon-list', 'cta-phone', 'video-embed', 'image-carousel', 'two-col', 'three-col', 'skill-bars', 'progress-bars', 'notification-bar', 'hero-marquee', 'brand-story', 'area-list', 'checklist', 'search-bar', 'certificates', 'review-grid', 'contact-cards', 'appointment-form', 'stats-grid', 'before-after', 'working-hours', 'cta-whatsapp', 'warranty-banner', 'social-follow', 'trust-badges', 'footer-links', 'payment-methods', 'announcement-pill', 'heading-center', 'numbered-list', 'info-box', 'price-cards', 'location-cards', 'expert-cards', 'logo-cloud', 'link-buttons', 'promo-card', 'contact-info-bar', 'counter-stats'];
     if (item.block === 'section-columns') {
         html += textField('title', props.title || '');
     } else if (titleBlocks.includes(item.block)) {
         html += textField('title', props.title || '');
-        if (['hero', 'hero-form'].includes(item.block)) { html += textField('subtitle', props.subtitle || ''); }
-        if (['cta-phone', 'sticky-mobile-cta'].includes(item.block)) { html += textField('phone', props.phone || ''); }
+        if (['hero', 'hero-form', 'heading-center', 'promo-card'].includes(item.block)) { html += textField('subtitle', props.subtitle || ''); }
+        if (['cta-phone', 'sticky-mobile-cta', 'contact-info-bar'].includes(item.block)) { html += textField('phone', props.phone || ''); }
     }
-    /* متن بلوک متن/هشدار/نقل‌قول/نوار اطلاعیه/مارکی */
-    if (['text', 'rich-text', 'alert-notice', 'quote', 'notification-bar', 'hero-marquee', 'warranty-banner'].includes(item.block)) {
+    /* متن بلوک متن/هشدار/نقل‌قول/نوار اطلاعیه/مارکی/جعبه اطلاعات */
+    if (['text', 'rich-text', 'alert-notice', 'quote', 'notification-bar', 'hero-marquee', 'warranty-banner', 'info-box', 'social-proof'].includes(item.block)) {
         html += `<div class="form-group"><label>متن</label>
             <textarea class="form-control" rows="4" style="font-size:12px" oninput="setProp('${selected}','text',this.value)">${esc(props.text || '')}</textarea></div>`;
     }
     /* متن جایگزین نوار جستجو */
     if (item.block === 'search-bar') {
         html += textField('placeholder', props.placeholder || '');
+    }
+    /* 🔣 آیکون عناصر (جعبه اطلاعات / جداکننده آیکون‌دار) */
+    if (['info-box', 'divider-icon'].includes(item.block)) {
+        html += `<div class="form-group"><label>🔣 آیکون (ایموجی)</label>
+            <input type="text" class="form-control" style="font-size:15px" value="${esc(props.icon || '')}" oninput="setProp('${selected}','icon',this.value)" placeholder="مثلاً 💡 یا 🔧"></div>`;
     }
 
     /* 🏛 تعداد ستون — بخش چندستونی */
@@ -948,7 +1182,7 @@ function renderProps() {
             </select></div>`;
     }
     /* 🗂 v2.12: تعداد ستون کارت‌ها — شبکه‌های کارتی (۲ تا ۶) */
-    if (['services-grid', 'devices-grid', 'articles-grid', 'articles-recent', 'team', 'gallery', 'certificates', 'review-grid', 'stats-grid', 'features', 'brands-links'].includes(item.block)) {
+    if (['services-grid', 'devices-grid', 'articles-grid', 'articles-recent', 'team', 'gallery', 'certificates', 'review-grid', 'stats-grid', 'features', 'brands-links', 'location-cards', 'expert-cards', 'logo-cloud'].includes(item.block)) {
         const def = item.block === 'devices-grid' ? 4 : (item.block === 'services-grid' || item.block === 'features' ? 3 : 3);
         html += `<div class="form-group"><label>🗂 تعداد ستون کارت‌ها</label>
             <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','columns',parseInt(this.value,10))">
@@ -976,6 +1210,25 @@ function renderProps() {
                 ${[['info', 'آبی اطلاعیه'], ['success', 'سبز موفقیت'], ['warning', 'زرد هشدار']].map(([v, l]) => `<option value="${v}" ${(props.notifColor || 'info') === v ? 'selected' : ''}>${l}</option>`).join('')}
             </select></div>`;
     }
+
+    /* 🎛 v3.3: تنظیمات حرفه‌ای عمومی — روی همه بلوک‌ها قابل تنظیم */
+    html += `
+        <div style="font-size:11px;font-weight:800;color:var(--primary);margin:11px 0 7px">🎛 تنظیمات پیشرفته</div>
+        <div class="form-group"><label>اندازه عنوان</label>
+            <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','titleSize',this.value)">
+                ${['sm', 'md', 'lg', 'xl'].map(v => `<option value="${v}" ${(props.titleSize || 'md') === v ? 'selected' : ''}>${{ sm: 'کوچک', md: 'متوسط (پیش‌فرض)', lg: 'بزرگ', xl: 'خیلی بزرگ' }[v]}</option>`).join('')}
+            </select></div>
+        <div class="form-group"><label>تراز افقی محتوا</label>
+            <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','align',this.value)">
+                ${[['start', 'راست (پیش‌فرض)'], ['center', 'وسط‌چین'], ['end', 'چپ']].map(([v, l]) => `<option value="${v}" ${(props.align || 'start') === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select></div>
+        <div class="form-group"><label>عرض محتوا</label>
+            <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','width',this.value)">
+                ${[['full', 'تمام‌عرض (پیش‌فرض)'], ['wide', 'عریض (۱۲۰۰px)'], ['boxed', 'جعبه‌ای (۹۶۰px)'], ['narrow', 'باریک (۷۲۰px)']].map(([v, l]) => `<option value="${v}" ${(props.width || 'full') === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select></div>
+        <div class="form-group"><label>کلاس CSS سفارشی (اختیاری)</label>
+            <input type="text" class="form-control" style="font-size:11.5px;direction:ltr" value="${esc(props.customClass || '')}" oninput="setProp('${selected}','customClass',this.value)" placeholder="مثلاً my-special-block"></div>
+        <hr style="border:none;border-top:1px dashed var(--border);margin:11px 0">`;
 
     /* عمومی‌ها */
     html += `

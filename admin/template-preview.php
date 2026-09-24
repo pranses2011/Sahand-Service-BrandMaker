@@ -48,6 +48,12 @@ function renderPreviewBlock(string $block, array $props = []): string
     if ($hidden) {
         return '<div class="blk-hidden">🙈 بخش پنهان: <b>' . e($block) . '</b></div>';
     }
+    /* 🎛 v3.3: تنظیمات پیشرفته — اندازه عنوان / تراز / عرض محتوا / کلاس سفارشی */
+    $sizeCls = 'blk-ts-' . ($props['titleSize'] ?? 'md');
+    $alignCls = isset($props['align']) && $props['align'] !== 'start' && $props['align'] !== '' ? 'blk-al-' . $props['align'] : '';
+    $widthCls = isset($props['width']) && $props['width'] !== 'full' && $props['width'] !== '' ? 'blk-w-' . $props['width'] : '';
+    $customCls = preg_replace('/[^a-zA-Z0-9\-_\s]/', '', (string)($props['customClass'] ?? ''));
+    $extraCls = $sizeCls . ' ' . $alignCls . ' ' . $widthCls . ' ' . $customCls;
     $head = $title ? '<div class="blk-title">' . e($title) . '</div>' : '';
 
     switch ($block) {
@@ -164,6 +170,76 @@ function renderPreviewBlock(string $block, array $props = []): string
             return '<div class="blk ' . $bgClass . ' ' . $padClass . ' footer-blk"><div class="cols c3"><div><div class="fake-logo">🏗️</div><div class="fl w80"></div></div><div><div class="card-t">تماس</div><div class="feat-d">📞 ۰۲۱-۱۲۳۴۵۶۷۸<br>📍 تهران، خیابان نمونه</div></div><div><div class="card-t">ساعات کاری</div><div class="feat-d">شنبه تا پنجشنبه<br>۹ صبح تا ۸ شب</div></div></div></div>';
         case 'copyright':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . ' crump-blk">© تمامی حقوق برای نمایندگی محفوظ است</div>';
+        /* ════════ 🆕 v2.12: عناصر — پیش‌نمایش واقعی (قبلاً fallback بودند!) ════════ */
+        case 'notification-bar':
+            return '<div class="blk notif-bar ' . e($props['notifColor'] ?? 'info') . '" style="padding:8px 14px">' . e($props['text'] ?? '🎉 سرویس ویژه تعطیلات — ۱۵٪ تخفیف سرویس دوره‌ای') . '</div>';
+        case 'hero-form':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' hero-blk split-hero"><div class="hero-split"><div><div class="hero-title">' . ($title ?: 'درخواست تعمیر آنلاین') . '</div><div class="hero-sub">فرم را پر کنید — کارشناسان ما تماس می‌گیرند</div><div class="hero-btns"><span class="hero-btn">📞 تماس فوری</span></div></div><div class="fake-card" style="text-align:right;background:rgba(255,255,255,.14);border:none"><div class="fake-input">نام و شماره تماس</div><div class="fake-input">نوع دستگاه</div><div class="hero-btn full" style="margin-top:8px">ثبت درخواست</div></div></div></div>';
+        case 'hero-marquee':
+            return '<div class="blk marquee-blk"><div class="marquee-track"><span>' . e($props['text'] ?? '⚡ اعزام تکنسین در کمتر از ۲ ساعت — ⭐ بیش از ۵۰ هزار تعمیر موفق') . '</span></div></div>';
+        case 'brand-story':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<div class="story-wrap"><div class="story-sec"><span class="story-year">۱۳۸۵</span><div><b>شروع فعالیت</b><div class="feat-d">اولین مرکز تعمیرات با یک تعمیرکار</div></div></div><div class="story-sec"><span class="story-year">۱۳۹۲</span><div><b>گسترش خدمات</b><div class="feat-d">پوشش تمام لوازم خانگی</div></div></div><div class="story-sec"><span class="story-year">امروز</span><div><b>نمایندگی رسمی</b><div class="feat-d">تیم ۱۲ نفره و ۵۰ هزار تعمیر موفق</div></div></div></div></div>';
+        case 'area-list':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<div class="chip-row">' . implode('', array_map(static fn($a) => '<span class="chip">📍 ' . $a . '</span>', ['سعادت‌آباد', 'پونک', 'ولنجک', 'تجریش', 'شهرک غرب', 'نیاوران', 'میرداماد', 'جردن'])) . '</div></div>';
+        case 'checklist':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<div class="feat-list"><div class="feat-row"><span class="feat-ico">☑️</span><div>دستگاه را روشن و خاموش کنید و دوباره امتحان کنید</div></div><div class="feat-row"><span class="feat-ico">☑️</span><div>کد خطای نمایشگر را یادداشت کنید</div></div><div class="feat-row"><span class="feat-ico">☑️</span><div>صداهای غیرعادی و بوی سوختگی را بررسی کنید</div></div><div class="feat-row"><span class="feat-ico">☑️</span><div>فاکتور خرید و گارانتی را آماده داشته باشید</div></div></div></div>';
+        case 'search-bar':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="search-wrap"><span class="search-ico">🔎</span><div class="fake-input" style="flex:1;border:none">' . e($props['placeholder'] ?? 'جستجوی کد خطا، مقاله یا دستگاه...') . '</div><span class="hero-btn">جستجو</span></div></div>';
+        case 'certificates':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"><div class="blk-title">' . ($title ?: 'گواهینامه‌ها و افتخارات') . '</div><div class="cols c3">' . implode('', array_map(static fn($p) => '<div class="fake-card"><div class="card-ico">' . $p[0] . '</div><div class="card-t">' . $p[1] . '</div><div class="fl w60"></div></div>', [['🎖️', 'نمایندگی رسمی'], ['📋', 'گواهی ایزو ۹۰۰۱'], ['🏆', 'برترین خدمات ۱۴۰۳']])) . '</div></div>';
+        case 'review-grid':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"><div class="blk-title">' . ($title ?: 'مشتریان ما چه می‌گویند') . '</div><div class="cols c3">' . str_repeat('<div class="fake-card"><div class="stars">⭐⭐⭐⭐⭐</div><div class="fl w90"></div><div class="fl w70"></div><div class="fake-ava" style="margin-top:8px">👤</div></div>', 3) . '</div></div>';
+        case 'contact-cards':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"><div class="blk-title">' . ($title ?: 'راه‌های ارتباطی') . '</div><div class="cols c3"><div class="fake-card"><div class="card-ico">📞</div><div class="card-t">تلفن</div><div class="feat-d" dir="ltr">۰۲۱-۱۲۳۴۵۶۷۸</div></div><div class="fake-card"><div class="card-ico">💬</div><div class="card-t">واتساپ</div><div class="feat-d" dir="ltr">۰۹۱۲-۰۰۰-۰۰۰۰</div></div><div class="fake-card"><div class="card-ico">📍</div><div class="card-t">آدرس</div><div class="feat-d">تهران، خیابان نمونه</div></div></div></div>';
+        case 'appointment-form':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"><div class="blk-title">' . ($title ?: 'رزرو نوبت سرویس') . '</div><div class="form-grid"><div class="fake-input">نام و شماره تماس</div><div class="fake-input">📅 تاریخ مورد نظر</div><div class="fake-input">🕐 بازه ساعتی (۹-۱۲ / ۱۲-۱۵ / ۱۵-۱۸)</div><div class="fake-input">نوع دستگاه و شرح مشکل</div><div class="hero-btn full">رزرو نوبت</div></div></div>';
+        case 'stats-grid':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"><div class="blk-title">' . ($title ?: 'سهند سرویس در یک نگاه') . '</div><div class="cols c3"><div class="fake-card"><div class="stat-n">۱۲+</div><div class="feat-d">سال تجربه</div></div><div class="fake-card"><div class="stat-n">۵۰k+</div><div class="feat-d">تعمیر موفق</div></div><div class="fake-card"><div class="stat-n">۹۸٪</div><div class="feat-d">رضایت مشتری</div></div><div class="fake-card"><div class="stat-n">۲h</div><div class="feat-d">اعزام تکنسین</div></div><div class="fake-card"><div class="stat-n">۴۲</div><div class="feat-d">نوع دستگاه</div></div><div class="fake-card"><div class="stat-n">۶ ماه</div><div class="feat-d">ضمانت کتبی</div></div></div></div>';
+        case 'before-after':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"><div class="blk-title">' . ($title ?: 'نتیجه تعمیر حرفه‌ای') . '</div><div class="ba-wrap"><div class="ba-side"><div class="ba-tag bad">قبل</div><div class="fake-img small" style="height:110px">🧺 فرسوده</div></div><div class="ba-arrow">⇐</div><div class="ba-side"><div class="ba-tag ok">بعد</div><div class="fake-img small" style="height:110px">✨ مثل روز اول</div></div></div></div>';
+        case 'cta-whatsapp':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' cta-blk"><div class="hero-btns"><span class="hero-btn" style="background:#16a34a">💬 گفتگو در واتساپ</span><span class="hero-btn ghost">📞 تماس تلفنی</span></div></div>';
+        case 'warranty-banner':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="feat-row" style="align-items:center"><span class="feat-ico" style="font-size:30px">🛡️</span><div><b style="font-size:15px">ضمانت کتبی ۶ ماهه روی قطعه و خدمات</b><div class="feat-d">در صورت ایراد مجدد، تعمیر اصلاحی رایگان</div></div><span class="hero-btn" style="margin-inline-start:auto">مشاهده شرایط</span></div></div>';
+        case 'working-hours':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"><div class="blk-title">' . ($title ?: 'ساعات کاری') . '</div><div class="price-table"><div class="price-row"><span>شنبه تا چهارشنبه</span><b>۹ صبح تا ۸ شب</b></div><div class="price-row"><span>پنجشنبه</span><b>۹ صبح تا ۲ ظهر</b></div><div class="price-row"><span>جمعه</span><b>⚠️ فقط امداد فوری</b></div></div></div>';
+        case 'social-follow':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"><div class="blk-title">' . ($title ?: 'ما را دنبال کنید') . '</div><div class="hero-btns"><span class="hero-btn" style="background:#229ED9"> Telegram</span><span class="hero-btn" style="background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)"> Instagram</span><span class="hero-btn" style="background:#25D366"> WhatsApp</span><span class="hero-btn" style="background:#e11d48"> Aparat</span></div></div>';
+        case 'trust-badges':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="chip-row" style="justify-content:space-around">' . implode('', array_map(static fn($p) => '<div style="text-align:center;min-width:86px"><div style="font-size:26px">' . $p[0] . '</div><div class="feat-d" style="font-size:11px">' . $p[1] . '</div></div>', [['🛡️', 'ضمانت کتبی'], ['💳', 'پرداخت اقساطی'], ['⚡', 'اعزام فوری'], ['🏆', 'نمایندگی رسمی'], ['🔧', 'قطعات اصلی']])) . '</div></div>';
+        case 'footer-links':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' footer-blk"><div class="cols" style="grid-template-columns:2fr 1fr 1fr 1fr;gap:16px"><div><div class="fake-logo">🏗️</div><div class="fl w90"></div><div class="fl w60"></div><div class="soc-row"><span>Telegram</span><span>Instagram</span></div></div><div><div class="card-t">خدمات</div><div class="feat-d">تعمیر لباسشویی<br>تعمیر یخچال<br>سرویس کولر</div></div><div><div class="card-t">لینک‌ها</div><div class="feat-d">مقالات<br>کدهای خطا<br>سوالات متداول</div></div><div><div class="card-t">تماس</div><div class="feat-d">📞 ۰۲۱-۱۲۳۴۵۶۷۸<br>📍 تهران</div></div></div></div>';
+        case 'payment-methods':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title" style="margin-bottom:8px">شیوه‌های پرداخت</div><div class="chip-row" style="justify-content:center">' . implode('', array_map(static fn($p) => '<span class="chip">' . $p . '</span>', ['💳 پرداخت کارتی', '💰 پرداخت نقدی', '🧾 کارت به کارت', '📟 درگاه آنلاین', '🤝 اقساطی'])) . '</div></div>';
+
+        /* ════════ 🆕 v3.3: عناصر جدید — پیش‌نمایش واقعی ════════ */
+        case 'announcement-pill':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="pill-announce"><span class="pill-dot"></span>' . ($title ?: '📣 تیتر مهم امروز') . '</div></div>';
+        case 'heading-center':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div style="text-align:center"><div class="blk-title" style="font-size:23px">' . ($title ?: 'عنوان بزرگ بخش') . '</div><div class="feat-d" style="font-size:13.5px;margin-top:6px">' . e($props['subtitle'] ?? 'زیرعنوان توضیحی این بخش') . '</div><div style="width:56px;height:4px;border-radius:4px;background:var(--p);margin:14px auto 0"></div></div></div>';
+        case 'numbered-list':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<div class="num-list"><div class="num-row"><span class="num-n">۱</span><div><b>عیب‌یابی تخصصی رایگان</b><div class="feat-d">بررسی کامل با دستگاه تست</div></div></div><div class="num-row"><span class="num-n">۲</span><div><b>پیش‌فاکتور شفاف</b><div class="feat-d">تأیید قیمت قبل از شروع کار</div></div></div><div class="num-row"><span class="num-n">۳</span><div><b>تعمیر با قطعات اصلی</b><div class="feat-d">همراه با ۶ ماه ضمانت</div></div></div></div></div>';
+        case 'info-box':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="info-box-demo"><span class="feat-ico" style="font-size:22px">' . e($props['icon'] ?? '💡') . '</span><div><b>' . ($title ?: 'نکته مهم') . '</b><div class="feat-d">' . e($props['text'] ?? 'متن توضیح جعبه اطلاعات...') . '</div></div></div></div>';
+        case 'price-cards':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"><div class="blk-title">' . ($title ?: 'پلن‌های سرویس') . '</div><div class="cols c3"><div class="fake-card"><div class="card-t">اقتصادی</div><div class="stat-n">۴۵۰<span style="font-size:11px">هزار</span></div><div class="feat-d">سرویس پایه + تست</div></div><div class="fake-card" style="border-color:var(--p);box-shadow:0 6px 20px rgba(37,99,235,.16)"><span class="badge badge-info" style="font-size:9.5px">پیشنهاد ما</span><div class="card-t">استاندارد</div><div class="stat-n">۷۸۰<span style="font-size:11px">هزار</span></div><div class="feat-d">سرویس کامل + شست‌وشو</div></div><div class="fake-card"><div class="card-t">ویژه</div><div class="stat-n">۱۲۵۰<span style="font-size:11px">هزار</span></div><div class="feat-d">اورهال + ضمانت ۹ ماهه</div></div></div></div>';
+        case 'location-cards':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"><div class="blk-title">' . ($title ?: 'شعب ما') . '</div><div class="cols c3">' . implode('', array_map(static fn($p) => '<div class="fake-card"><div class="card-ico">' . $p[0] . '</div><div class="card-t">' . $p[1] . '</div><div class="feat-d">📍 ' . $p[2] . '</div></div>', [['🏬', 'شعبه مرکزی', 'تهران، ولیعصر'], ['🏬', 'شعبه غرب', 'شهرک غرب'], ['🏬', 'شعبه شمال', 'نیاوران']])) . '</div></div>';
+        case 'expert-cards':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"><div class="blk-title">' . ($title ?: 'متخصصین ما') . '</div><div class="cols c4">' . implode('', array_map(static fn($p) => '<div class="fake-card"><div class="fake-ava">' . $p[0] . '</div><div class="card-t">' . $p[1] . '</div><div class="feat-d">' . $p[2] . '</div><div class="stars" style="font-size:10px">⭐ ۴.۹</div></div>', [['🔧', 'مهندس کریمی', 'برد و الکترونیک'], ['❄️', 'مهندس رضایی', 'مدار برودت'], ['🌀', 'مهندس احمدی', 'سیستم شست‌وشو'], ['📺', 'مهندس موسوی', 'پنل و تاچ']])) . '</div></div>';
+        case 'logo-cloud':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<div class="chip-row" style="justify-content:center">' . implode('', array_map(static fn($i) => '<div class="fake-logo-s" style="width:64px">' . $i . '</div>', ['🏅', '📋', '🎖️', '✅', '🏛️', '🛡️', '💳', '⭐'])) . '</div></div>';
+        case 'social-proof':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="soc-proof"><div class="ava-stack"><span class="fake-ava" style="width:34px;height:34px;font-size:13px">👩</span><span class="fake-ava" style="width:34px;height:34px;font-size:13px;margin-inline-start:-10px">🧑</span><span class="fake-ava" style="width:34px;height:34px;font-size:13px;margin-inline-start:-10px">👨</span><span class="fake-ava" style="width:34px;height:34px;font-size:11px;margin-inline-start:-10px">+۵۰k</span></div><div><div class="stars">⭐⭐⭐⭐⭐ <b>۴.۹ از ۵</b></div><div class="feat-d">' . e($props['text'] ?? 'بیش از ۵۰ هزار مشتری به ما اعتماد کرده‌اند') . '</div></div></div></div>';
+        case 'link-buttons':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<div class="hero-btns" style="justify-content:flex-start"><span class="hero-btn">📄 دانلود بروشور</span><span class="hero-btn ghost">🔎 پیگیری درخواست</span><span class="hero-btn ghost">🧾 فاکتور آنلاین</span></div></div>';
+        case 'promo-card':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="promo-card-demo"><div><span class="badge badge-warning" style="font-size:10.5px">🎁 پیشنهاد ویژه</span><div class="blk-title" style="font-size:19px;margin:9px 0 5px">' . ($title ?: 'کمپین سرویس بهاره') . '</div><div class="feat-d">' . e($props['subtitle'] ?? 'تا ۲۵٪ تخفیف — تا پایان ماه') . '</div></div><div style="text-align:center"><div class="stat-n" style="font-size:33px">۲۵٪</div><span class="hero-btn" style="margin-top:8px">همین حالا رزرو کنید</span></div></div></div>';
+        case 'divider-icon':
+            return '<div class="blk ' . $bgClass . '" style="padding:10px 16px"><div class="divider-ico"><span class="divider-line"></span><span style="font-size:17px">' . e($props['icon'] ?? '🔧') . '</span><span class="divider-line"></span></div></div>';
+        case 'contact-info-bar':
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="chip-row" style="justify-content:space-between"><span class="chip">📞 <b dir="ltr">' . e($props['phone'] ?? '۰۲۱-۱۲۳۴۵۶۷۸') . '</b></span><span class="chip">🕐 شنبه-پنجشنبه ۹-۲۰</span><span class="chip">📍 تهران</span><span class="chip">💬 واتساپ</span></div></div>';
+
         default:
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">📦 ' . e($block) . '</div><div class="fake-lines"><div class="fl w90"></div><div class="fl w70"></div></div></div>';
     }
@@ -349,6 +425,56 @@ body { font-family: Vazirmatn, Tahoma, 'Segoe UI', sans-serif; background: var(-
 .footer-blk .fake-nav { color: #94a3b8; }
 .soc-row { display: flex; gap: 12px; justify-content: center; font-size: 11px; color: #94a3b8; margin-top: 9px; }
 .crump-blk { text-align: center; font-size: 11.5px; color: var(--muted); background: #f8fafc; }
+
+/* ════════ 🆕 v2.12 + v3.3: استایل عناصر جدید — پیش‌نمایش واقعی ════════ */
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.chip { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 4px 13px; font-size: 11.5px; color: var(--text); }
+.blk-bg-primary .chip, .blk-bg-dark .chip, .blk-bg-gradient .chip { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.25); color: #fff; }
+.notif-bar { text-align: center; font-weight: 700; font-size: 13px; }
+.notif-bar.info { background: #eff6ff; color: #1e40af; }
+.notif-bar.success { background: #f0fdf4; color: #15803d; }
+.notif-bar.warning { background: #fffbeb; color: #b45309; }
+.marquee-blk { overflow: hidden; background: #0f172a; color: #fff; }
+.marquee-track { white-space: nowrap; animation: pvMarquee 14s linear infinite; padding: 9px 0; font-size: 12.5px; font-weight: 600; }
+@keyframes pvMarquee { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.search-wrap { display: flex; align-items: center; gap: 9px; background: #fff; border: 1.5px solid var(--border); border-radius: 13px; padding: 7px 12px; max-width: 560px; margin: 0 auto; }
+.search-ico { font-size: 16px; }
+.story-wrap { display: flex; flex-direction: column; gap: 15px; max-width: 620px; margin: 0 auto; }
+.story-sec { display: flex; gap: 14px; align-items: center; }
+.story-year { background: var(--p); color: #fff; border-radius: 10px; padding: 5px 13px; font-weight: 800; font-size: 13px; white-space: nowrap; }
+.ba-wrap { display: flex; gap: 13px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.ba-side { flex: 1; min-width: 200px; max-width: 300px; }
+.ba-tag { display: inline-block; border-radius: 8px; font-size: 11px; font-weight: 800; padding: 2.5px 11px; margin-bottom: 6px; }
+.ba-tag.bad { background: #fef2f2; color: #b91c1c; }
+.ba-tag.ok { background: #f0fdf4; color: #15803d; }
+.ba-arrow { font-size: 26px; color: var(--p); }
+.pill-announce { display: flex; align-items: center; gap: 10px; background: #eff6ff; border: 1.5px solid #bfdbfe; color: #1e40af; border-radius: 40px; padding: 11px 20px; font-weight: 700; font-size: 13px; max-width: 640px; margin: 0 auto; }
+.pill-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--p); box-shadow: 0 0 0 4px rgba(37,99,235,.18); flex: 0 0 9px; }
+.num-list { display: flex; flex-direction: column; gap: 12px; max-width: 640px; margin: 0 auto; }
+.num-row { display: flex; gap: 13px; align-items: flex-start; }
+.num-n { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--p), var(--s)); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; flex: 0 0 34px; }
+.info-box-demo { display: flex; gap: 13px; align-items: flex-start; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 12px; padding: 14px 16px; }
+.soc-proof { display: flex; gap: 15px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.ava-stack { display: flex; }
+.ava-stack .fake-ava { border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.14); border-radius: 50%; }
+.promo-card-demo { display: flex; gap: 18px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: linear-gradient(135deg, #fff7ed, #ffedd5); border: 1.5px solid #fdba74; border-radius: 14px; padding: 20px 22px; }
+.divider-ico { display: flex; align-items: center; gap: 12px; }
+.divider-line { flex: 1; height: 1.5px; background: linear-gradient(90deg, transparent, #cbd5e1, #cbd5e1, transparent); }
+.stars { color: #f59e0b; letter-spacing: 1px; }
+.badge-info { background: #dbeafe; color: #1e40af; }
+.badge-warning { background: #fef3c7; color: #92400e; }
+.badge { border-radius: 20px; padding: 2px 10px; font-size: 10.5px; font-weight: 700; }
+/* 🎛 v3.3: تنظیمات پیشرفته */
+.blk-ts-sm .blk-title { font-size: 14px; }
+.blk-ts-md .blk-title { font-size: 17px; }
+.blk-ts-lg .blk-title { font-size: 21px; }
+.blk-ts-xl .blk-title { font-size: 26px; }
+.blk-al-center { text-align: center; }
+.blk-al-center .feat-list, .blk-al-center .num-list, .blk-al-center .price-table { margin: 0 auto; }
+.blk-al-end { text-align: left; }
+.blk-w-wide { max-width: 1200px; margin-inline: auto; }
+.blk-w-boxed { max-width: 960px; margin-inline: auto; }
+.blk-w-narrow { max-width: 720px; margin-inline: auto; }
 
 @media (max-width: 640px) {
     .c2, .c3, .c4, .c6, .form-grid, .pv-cols { grid-template-columns: 1fr 1fr; }
