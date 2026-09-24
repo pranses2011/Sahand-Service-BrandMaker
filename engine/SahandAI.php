@@ -475,7 +475,9 @@ class SahandAI
         ]);
 
         /* 🎨 v2.6: تصاویر یکتای AI (۲ تصویر درون‌متن) + تصویر OG مرتبط با همین مقاله
-         * پس از ثبت (شناسه نهایی موجود است) تولید و محتوا غنی‌سازی می‌شود */
+         * پس از ثبت (شناسه نهایی موجود است) تولید و محتوا غنی‌سازی می‌شود
+         * 🆕 v2.14: تصاویر «واقعی AI» مرتبط با موضوع (سرویس عکس) — شاخص هم
+         * عکس واقعی می‌شود؛ در قطعی سرویس، بسته عکس‌های دستگاه جایگزین است */
         $ogImage = null;
         if (!empty($article['ai_images_wanted'])) {
             try {
@@ -490,12 +492,13 @@ class SahandAI
                     strip_tags((string)($article['content'] ?? ''))
                 );
                 $ogImage = $aiResult['og']['path'] ?? null;
+                if (!empty($aiResult['featured'])) {
+                    /* 🖼️ تصویر شاخص = عکس واقعی AI (جایگزین بنر بسته آماده) */
+                    $this->db->update('brand_articles', ['featured_image' => $aiResult['featured']['path']], 'id = ?', [$articleId]);
+                }
                 if (!empty($aiResult['images'])) {
                     $injector = new ArticleImageService();
-                    $richContent = $injector->injectIntoContent($article['content'], array_merge(
-                        array_slice($article['images'] ?? [], 0, 1), // بنر شاخص از بسته واقعی
-                        $aiResult['images']                          // + ۲ تصویر یکتای AI
-                    ), true);
+                    $richContent = $injector->injectIntoContent($article['content'], $aiResult['images']);
                     $this->db->update('brand_articles', ['content' => $richContent], 'id = ?', [$articleId]);
                 }
             } catch (Throwable $e) {

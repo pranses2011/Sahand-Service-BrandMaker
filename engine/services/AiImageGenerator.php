@@ -75,23 +75,44 @@ class AiImageGenerator
         $og = $this->buildOg($seed, $title, $deviceKey, $palette, $brand, $dir . '/og-article-' . $safeId, self::OG_W, self::OG_H);
         $result['og'] = $og;
 
-        /* --- 🖼️ ۲ تصویر درون‌متن: عکس واقعی همان دستگاه (بدون متن) + واترمارک دوتایی --- */
+        /* --- 🖼️ تصاویر مقاله — v2.14: اول عکس واقعی AI مرتبط با موضوع
+              (تولید لحظه‌ای از سرویس عکس + واترمارک دوتایی بزرگ)؛
+              ۱ شاخص + ۲ درون‌متن — در صورت قطعی سرویس → بسته عکس‌های دستگاه --- */
+        $inline = [];
+        $aiFeatured = null;
+        $photoSource = 'package';
         try {
-            $picker = new ArticleImageService();
-            $photos = $picker->pick($deviceKey, $topicType, $title, $focusKw, $brand, $content);
+            $photoGen = new AiPhotoService();
+            $aiPhotos = $photoGen->generateForArticle($articleId, $title, $deviceKey, $topicType, $brand, 3);
+            if ($aiPhotos) {
+                $photoSource = 'ai_photo';
+                $aiFeatured = $aiPhotos[0];
+                $inline = array_slice($aiPhotos, 1, 2);
+            }
         } catch (Throwable $e) {
-            $photos = [];
+            @error_log('[AiPhotoService] fallback به بسته: ' . $e->getMessage());
+            $inline = [];
         }
-        /* تصویر اول (featured) قبلاً توسط ArticleGenerator درج شده — اینجا
-           تصاویر ۲ و ۳ (نماهای دوم و سوم) برای درج درون‌متن برگردانده می‌شوند */
-        $inline = array_slice($photos, 1, 2);
+
         if (!$inline) {
-            /* 🛟 fallback: بسته عکس عمومی + واترمارک */
+            /* 🛟 fallback: بسته عکس واقعی ثابت + واترمارک */
             try {
-                $generic = $picker->pick(null, $topicType, $title, $focusKw, $brand, $content);
-                $inline = array_slice($generic, 0, 2);
+                $picker = new ArticleImageService();
+                $photos = $picker->pick($deviceKey, $topicType, $title, $focusKw, $brand, $content);
             } catch (Throwable $e) {
-                $inline = [];
+                $photos = [];
+            }
+            /* تصویر اول (featured) قبلاً توسط ArticleGenerator درج شده — اینجا
+               تصاویر ۲ و ۳ (نماهای دوم و سوم) برای درج درون‌متن برگردانده می‌شوند */
+            $inline = array_slice($photos, 1, 2);
+            if (!$inline) {
+                /* 🛟 fallback دوم: بسته عکس عمومی + واترمارک */
+                try {
+                    $generic = $picker->pick(null, $topicType, $title, $focusKw, $brand, $content);
+                    $inline = array_slice($generic, 0, 2);
+                } catch (Throwable $e) {
+                    $inline = [];
+                }
             }
         }
         $alts = [
@@ -104,9 +125,22 @@ class AiImageGenerator
                 'url'     => (string)$photo['url'],
                 'alt'     => $alts[$i] ?? $photo['alt'],
                 'caption' => $photo['caption'] ?? '',
+                'source'  => (string)($photo['source'] ?? $photoSource),
             ];
         }
 
+        /* 🖼️ تصویر شاخص واقعی AI (جایگزین بنر بسته آماده) */
+        if ($aiFeatured !== null) {
+            $result['featured'] = [
+                'path'    => (string)$aiFeatured['path'],
+                'url'     => (string)$aiFeatured['url'],
+                'alt'     => $aiFeatured['alt'],
+                'caption' => $aiFeatured['caption'],
+                'source'  => 'ai_photo',
+            ];
+        }
+
+        $result['photo_source'] = $photoSource;
         return $result;
     }
 
@@ -706,8 +740,9 @@ class AiImageGenerator
             }
             if ($aMime === 'image/jpg') { $aMime = 'image/jpeg'; }
             if (is_string($aData) && $aData !== '') {
-                $aSz = $isOg ? 130 : (int)round(min($w, $h) * 0.24);
-                $p[] = sprintf('<image x="%d" y="%d" width="%d" height="%d" preserveAspectRatio="xMidYMax meet" opacity=".86" href="data:%s;base64,%s"/>',
+                /* 🪧 v2.14: واترمارک نمایندگی بزرگ‌تر (سازگار با مسیر GD/stampedCopy) */
+                $aSz = $isOg ? 130 : (int)round(min($w, $h) * 0.33);
+                $p[] = sprintf('<image x="%d" y="%d" width="%d" height="%d" preserveAspectRatio="xMidYMax meet" opacity=".9" href="data:%s;base64,%s"/>',
                     (int)round($w * 0.022), $h - $aSz - (int)round($h * 0.03), $aSz, $aSz, $aMime, base64_encode($aData));
             }
         }
@@ -716,7 +751,8 @@ class AiImageGenerator
            «هیچ متنی داخلش نباشه» عکس واقعی بدون متن هستند؛ این مسیر فقط
            fallback تزئینی است) */
         if ($isOg) {
-            $lines = $this->wrapPersian($title, 30, 3);
+            /* 🔢 v2.14: اعداد عنوان فارسی رندر شوند (مثل مسیر PNG) */
+            $lines = $this->wrapPersian(PersianGlyphs::persianDigits($title), 30, 3);
             $ty = $h * .60;
             foreach ($lines as $i => $line) {
                 $p[] = sprintf('<text x="%d" y="%.0f" font-family="%s" font-size="%d" font-weight="800" fill="#fff" text-anchor="middle">%s</text>',

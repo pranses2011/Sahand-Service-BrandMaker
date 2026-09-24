@@ -336,6 +336,28 @@ class ArticleImageService
     }
 
     /**
+     * 🧹 حذف تصاویر تولیدی قبلی مقاله از محتوا (v2.14)
+     *
+     * طبق درخواست: «با هر بار کلیک روی تولید مجدد تصاویر مقاله، تصاویر جدید
+     * جایگزین تصاویر قبلی شوند (در صورت وجود)» — قبل از درج تصاویر تازه،
+     * همه <figure> های حاوی تصویر تولیدی موتور (uploads/articles/ai/ یا
+     * uploads/articles/wm/) از محتوا حذف می‌شوند؛ تصاویر آپلودی دستی کاربر
+     * (مسیرهای دیگر) دست‌نخورده می‌مانند.
+     */
+    public function stripGeneratedFigures(string $content): string
+    {
+        if (trim($content) === '') {
+            return $content;
+        }
+        /* فقط figure های دارای تصویر در پوشه‌های تولیدی موتور */
+        $pattern = '#<figure\b[^>]*>\s*<img[^>]*src=["\'][^"\']*/uploads/articles/(?:ai|wm)/[^"\']*["\'][^>]*>\s*(?:<figcaption>[^<]*</figcaption>\s*)?</figure>#ius';
+        $clean = preg_replace($pattern, '', $content);
+        /* حذف فاصله‌های خالی حاصل (۲+ خط جدید → ۱) */
+        $clean = preg_replace("/(?:\n\s*){3,}/u", "\n\n", (string)$clean);
+        return trim((string)$clean) !== '' ? (string)$clean : $content;
+    }
+
+    /**
      * 🧩 درج تصاویر در جایگاه‌های راهبردی محتوای HTML
      *
      * @param string $content HTML مقاله

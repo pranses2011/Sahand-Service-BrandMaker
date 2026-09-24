@@ -79,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'gen_og') {
     }
 }
 
-/* 🖼️ تولید مجدد ۲ تصویر یکتای AI مقاله (v2.6) */
+/* 🖼️ تولید مجدد ۲ تصویر یکتای AI مقاله (v2.14 — جایگزینی، نه افزودن) */
 if (get_param('regen_images') === '1' && ($regenId = (int)get_param('edit')) > 0) {
     $article = $db->fetch('SELECT a.*, b.name_fa AS brand_name, b.logo AS brand_logo, b.extra_settings FROM brand_articles a JOIN brands b ON b.id = a.brand_id WHERE a.id = ?', [$regenId]);
     if ($article) {
@@ -95,12 +95,20 @@ if (get_param('regen_images') === '1' && ($regenId = (int)get_param('edit')) > 0
                 '',
                 strip_tags((string)($article['content'] ?? ''))
             );
-            /* درج ۲ تصویر تازه در انتهای محتوا (تصاویر قبلی حفظ می‌شوند) */
+            /* 🧹 v2.14: تصاویر تولیدی قبلی حذف → تصاویر تازه «جایگزین» می‌شوند
+               (قبلاً هر بار تولید، تصاویر جدید به انتهای محتوا «افزوده» می‌شدند) */
             $injector = new ArticleImageService();
-            $rich = $injector->injectIntoContent($article['content'], $aiImages['images']);
-            $db->update('brand_articles', ['content' => $rich, 'og_image' => $aiImages['og']['path']], 'id = ?', [$regenId]);
+            $stripped = $injector->stripGeneratedFigures((string)$article['content']);
+            $rich = $injector->injectIntoContent($stripped, $aiImages['images']);
+            /* 🖼️ تصویر شاخص هم عکس واقعی AI جدید می‌شود (در صورت موفقیت سرویس) */
+            $upd = ['content' => $rich, 'og_image' => $aiImages['og']['path']];
+            if (!empty($aiImages['featured'])) {
+                $upd['featured_image'] = $aiImages['featured']['path'];
+            }
+            $db->update('brand_articles', $upd, 'id = ?', [$regenId]);
             (new Cache())->delete('brand_articles_all');
-            flash('success', '🎨 ۲ تصویر یکتای AI + تصویر OG جدید برای این مقاله تولید و درج شد.');
+            $srcLabel = ($aiImages['photo_source'] ?? '') === 'ai_photo' ? 'عکس واقعی مرتبط با موضوع' : 'عکس‌های بسته دستگاه';
+            flash('success', '🎨 ۲ تصویر ' . $srcLabel . ' + تصویر OG جدید تولید شد — تصاویر قبلی مقاله جایگزین شدند و واترمارک‌ها (لوگوی برند + نمایندگی بزرگ‌تر) مهر خوردند.');
         } catch (Throwable $e) {
             flash('danger', 'خطای تولید تصویر AI: ' . $e->getMessage());
         }
@@ -298,7 +306,8 @@ body { font-family: Vazirmatn, Vazir, Tahoma, sans-serif; background: #f1f5f9; c
 <div class="pv-container">
     <div class="pv-card">
         <?php if (!empty($previewArticle['featured_image'])): ?>
-            <img class="pv-featured" src="<?= e(asset_url((string)$previewArticle['featured_image'])) ?>" alt="تصویر شاخص">
+            <?php $pvFeAbs = ROOT_PATH . '/' . ltrim((string)$previewArticle['featured_image'], '/'); $pvFeV = is_file($pvFeAbs) ? '?v=' . filemtime($pvFeAbs) : ''; ?>
+            <img class="pv-featured" src="<?= e(asset_url((string)$previewArticle['featured_image'])) . $pvFeV ?>" alt="تصویر شاخص">
         <?php endif; ?>
         <?php if (!empty($previewArticle['excerpt'])): ?>
             <div class="pv-excerpt">💡 <?= e($previewArticle['excerpt']) ?></div>
@@ -306,7 +315,8 @@ body { font-family: Vazirmatn, Vazir, Tahoma, sans-serif; background: #f1f5f9; c
         <div class="pv-content"><?= $previewArticle['content'] /* sanitize شده هنگام ذخیره */ ?></div>
         <?php if (!empty($previewArticle['og_image'])): ?>
             <div class="pv-label">🖼 تصویر OG (شبکه‌های اجتماعی)</div>
-            <img class="pv-og" src="<?= e(asset_url((string)$previewArticle['og_image'])) ?>" alt="OG">
+            <?php $pvOgAbs = ROOT_PATH . '/' . ltrim((string)$previewArticle['og_image'], '/'); $pvOgV = is_file($pvOgAbs) ? '?v=' . filemtime($pvOgAbs) : ''; ?>
+            <img class="pv-og" src="<?= e(asset_url((string)$previewArticle['og_image'])) . $pvOgV ?>" alt="OG">
         <?php endif; ?>
         <?php if ($tags): ?>
             <div class="pv-tags"><?php foreach ($tags as $t): ?><span>#<?= e((string)$t) ?></span><?php endforeach; ?></div>
@@ -413,7 +423,14 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
             <div class="form-group">
                 <label>📌 تصویر OG مقاله (شبکه‌های اجتماعی — ۱۲۰۰×۶۳۰)</label>
                 <?php if ($ogImage !== ''): ?>
-                    <img id="og-preview" src="<?= e(asset_url($ogImage)) ?>" alt="پیش‌نمایش OG" style="max-width:340px;border-radius:11px;border:1px solid var(--border);display:block;margin-bottom:9px">
+                    <?php
+                    /* 🐛 v2.14: cache-buster بر اساس زمان فایل — بدون این، بعد از «تولید مجدد
+                       تصاویر مقاله» مرورگر تصویر قدیمی کش‌شده (با کادر سفید قدیمی پشت لوگو)
+                       را نشان می‌داد در حالی که فایل جدید سالم روی دیسک بود */
+                    $ogAbs = ROOT_PATH . '/' . ltrim($ogImage, '/');
+                    $ogV = is_file($ogAbs) ? '?v=' . filemtime($ogAbs) : '?v=' . time();
+                    ?>
+                    <img id="og-preview" src="<?= e(asset_url($ogImage)) . $ogV ?>" alt="پیش‌نمایش OG" style="max-width:340px;border-radius:11px;border:1px solid var(--border);display:block;margin-bottom:9px">
                 <?php else: ?>
                     <img id="og-preview" src="" alt="" style="display:none;max-width:340px;border-radius:11px;border:1px solid var(--border);margin-bottom:9px">
                 <?php endif; ?>

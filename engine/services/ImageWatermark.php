@@ -406,9 +406,9 @@ class ImageWatermark
         }
 
         /* 🗃 کش: کلید = منبع + برند + زمان تغییر لوگوها + نسخه چیدمان واترمارک
-           (v3.2: نسخه «wm3» — واترمارک‌های بزرگ‌تر + پس‌زمینه پاک‌شده JPG مجدداً تولید شوند) */
+           (v2.14: نسخه «wm4» — واترمارک نمایندگی بزرگ‌تر مجدداً تولید شود) */
         $sig = md5($srcRel . '|' . ($brand['id'] ?? 0) . '|' . filemtime($srcAbs) . '|' .
-            ($brandLogo ? filemtime($brandLogo) : '-') . '|' . ($agencyLogo ? filemtime($agencyLogo) : '-') . '|wm3');
+            ($brandLogo ? filemtime($brandLogo) : '-') . '|' . ($agencyLogo ? filemtime($agencyLogo) : '-') . '|wm4');
         $outRel = 'uploads/articles/wm/' . pathinfo($srcRel, PATHINFO_FILENAME) . '-' . $sig . '.' . $ext;
         $outAbs = ROOT_PATH . '/' . $outRel;
         if (is_file($outAbs) && filesize($outAbs) > 1024) {
@@ -425,13 +425,14 @@ class ImageWatermark
             return null;
         }
         /* نسبت تصویر مقاله — واترمارک متناسب با ابعاد واقعی
-           (v3.2: بسیار بزرگ‌تر و پررنگ‌تر طبق درخواست مجدد کاربر — لوگوی برند ≈۳۰٪ و نمایندگی ≈۲۵٪ ضلع کوتاه) */
+           (v2.14: لوگوی نمایندگی بزرگ‌تر از برند طبق درخواست مجدد کاربر —
+           برند ≈۳۰٪ و نمایندگی ≈۳۳٪ ضلع کوتاه؛ نسخه کش wm4) */
         $shortSide = min(imagesx($img), imagesy($img));
         $max = max(120, (int)round($shortSide * 0.30));
         self::stampCorners($img, $brandLogo, $agencyLogo, [
             'brand_max'  => $max,
-            'agency_max' => (int)round($max * 0.84),
-            'opacity'    => 0.92,
+            'agency_max' => (int)round($max * 1.10),
+            'opacity'    => 0.93,
             'margin'     => max(14, (int)round($shortSide * 0.022)),
         ]);
         $ok = $ext === 'png' ? imagepng($img, $outAbs, 8) : imagejpeg($img, $outAbs, 88);
