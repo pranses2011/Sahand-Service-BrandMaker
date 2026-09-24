@@ -91,11 +91,13 @@ class ErrorCodeEngine
         $records = [];
         $webCount = 0;
 
-        /* ---------- ۱) جستجوی آنلاین — منبع اصلی (v2.7) ---------- */
+        /* ---------- ۱) جستجوی آنلاین — منبع اصلی (v3.0: دو فازی + تعمیق تک‌کد) ---------- */
         if ($useWeb) {
             try {
-                $webCodes = $this->searchWebCodes($brand['name_en'] ?: $brand['name_fa'], $brand['name_fa'], $deviceKey, $deviceFa);
+                $webCodes = $this->searchWebCodes($brand['name_en'] ?: $brand['name_fa'], $brand['name_fa'], $deviceKey, $deviceFa, $brandKey);
                 foreach ($webCodes as $wc) {
+                    /* 🔀 ادغام دانش curated وقتی همین کد را می‌شناسد — وب مقدم، دانش فاصله‌ها را پر می‌کند (v3.0) */
+                    $wc = $this->mergeKbIntoWebRecord($brandKb, $deviceKey, $wc);
                     $records[] = $this->buildRecord($brand, $deviceKey, $deviceFa, $deviceEn, $wc, 'web');
                     $webCount++;
                     foreach ($wc['source_urls'] ?? [] as $u) {
@@ -174,15 +176,16 @@ class ErrorCodeEngine
      * ================================================== */
 
     /**
-     * 🌐 جستجوی کدهای خطا در وب — فارسی و انگلیسی (v2.7: اعتبارسنجی زمینه + استخراج دلایل/راه‌حل)
+     * 🌐 جستجوی کدهای خطا در وب — فارسی و انگلیسی (v3.0: دو فازی + راستی‌آزمایی تک‌کد)
      *
-     * دقت بالاتر: کدی پذیرفته می‌شود که در متن حاوی نام برند یا دستگاه آمده باشد
-     * (حذف کدهای تصادفی مثل «E3» از متن‌های بی‌ربط).
-     * دلایل و راه‌حل‌ها از جمله‌های واقعی نتایج استخراج می‌شوند، نه قالب آماده.
+     * فاز ۱ (کشف): کوئری‌های عمومی → کدهای کاندید از نتایج
+     * فاز ۲ (تعمیق v3.0): برای هر کد برتر، جستجوی اختصاصی + خواندن متن کامل صفحه
+     *   → شواهد واقعی، عنوان دقیق، دلایل و راه‌حل‌های غنی از متن کامل (نه فقط اسنیپت)
+     *   → کدهایی که در فاز ۲ هیچ شاهد مستقلی نیافتند و پایگاه دانش هم نمی‌شناسد → رد می‌شوند
      *
      * @return array<array{code,title,part,category,severity,causes,fixes_user,fixes_tech,source_urls}>
      */
-    private function searchWebCodes(string $brandEn, string $brandFa, string $deviceKey, string $deviceFa): array
+    private function searchWebCodes(string $brandEn, string $brandFa, string $deviceKey, string $deviceFa, ?string $brandKey = null): array
     {
         $searcher = new WebSearchService();
         $deviceEn = self::DEVICE_FA[$deviceKey][1] ?? ucfirst($deviceKey);
@@ -229,6 +232,7 @@ class ErrorCodeEngine
                             'fixes_tech' => [],
                             'source_urls' => [],
                             '_evidence' => 1,
+                            '_verified' => false,
                         ];
                         $contextTexts[$mCode] = [];
                     } else {
@@ -248,9 +252,51 @@ class ErrorCodeEngine
             }
         }
 
+        /* ---------- 🎯 فاز ۲ (v3.0): راستی‌آزمایی و تعمیق تک‌کد ----------
+         * کدهای پرشاهد (مرتب نزولی) تک‌تک با جستجوی اختصاصی و خواندن صفحه،
+         * عمیق می‌شوند — دقت فیلدها از این مسیر چند برابر می‌شود. */
+        uasort($found, fn($a, $b) => $b['_evidence'] <=> $a['_evidence']);
+        $deepBudget = 10; // سقف کدهایی که عمیق بررسی می‌شوند (نرخ جستجو محدود است)
+        $i = 0;
+        foreach ($found as $codeKey => &$f) {
+            if ($i++ >= $deepBudget) { break; }
+            try {
+                $deep = $this->deepResearchCode($searcher, $brandEn, $brandFa, $deviceEn, $deviceFa, $codeKey);
+            } catch (Throwable $e) {
+                $deep = null;
+            }
+            if ($deep === null) {
+                /* هیچ شاهد اختصاصی → فقط اگر پایگاه دانش این کد را بشناسد نگه داشته شود */
+                if (!$this->kbKnowsCode($brandKey, $deviceKey, $codeKey)) {
+                    $f['_reject'] = true;
+                }
+                continue;
+            }
+            $f['_verified'] = true;
+            $f['_evidence'] += $deep['evidence'];
+            $contextTexts[$codeKey] = array_merge($contextTexts[$codeKey] ?? [], $deep['contexts']);
+            $f['source_urls'] = array_values(array_unique(array_merge($f['source_urls'], $deep['urls'])));
+            if (!empty($deep['title'])) {
+                $f['title'] = $deep['title'];
+            }
+            if (($f['part'] ?? '') === '' || $f['part'] === 'قطعه مرتبط با کد') {
+                $f['part'] = $deep['part'] ?: $f['part'];
+            }
+            $f['severity'] = $deep['severity'] ?: $f['severity'];
+            /* متن غنی صفحه برای استخراج مشخصات فنی و محل قطعه (v3.0) */
+            if (!empty($deep['page_text'])) {
+                $f['_specs_ctx'] = $deep['page_text'];
+                $f['_location'] = $deep['location'];
+            }
+        }
+        unset($f);
+
+        /* 🧹 حذف کدهای رد‌شده در راستی‌آزمایی */
+        $found = array_filter($found, fn($f) => empty($f['_reject']));
+
         /* 🧠 استخراج دلایل و راه‌حل‌ها از جمله‌های واقعی نتایج (v2.7) */
         foreach ($found as $codeKey => &$f) {
-            $ctx = implode(' . ', $contextTexts[$codeKey] ?? []);
+            $ctx = implode(' . ', array_slice($contextTexts[$codeKey] ?? [], 0, 8));
             $f['causes'] = $this->extractCausesFromContext($ctx, $deviceKey, $f['category']);
             $userF = $this->extractFixesFromContext($ctx, 'user');
             $techF = $this->extractFixesFromContext($ctx, 'tech');
@@ -266,27 +312,303 @@ class ErrorCodeEngine
         }
         unset($f);
 
-        /* 🏷 اولویت‌بندی: کدهای با شواهد بیشتر اول — و حذف کدهای بدون هیچ شاهد زمینه‌ای قوی */
-        uasort($found, fn($a, $b) => $b['_evidence'] <=> $a['_evidence']);
-        $strong = array_filter($found, fn($f) => $f['_evidence'] >= 1);
-        foreach ($strong as &$f) {
-            unset($f['_evidence']);
+        /* 🏷 اولویت‌بندی: کدهای راستی‌آزمایی‌شده و با شواهد بیشتر اول */
+        uasort($found, fn($a, $b) => ($b['_verified'] <=> $a['_verified']) ?: ($b['_evidence'] <=> $a['_evidence']));
+        foreach ($found as &$f) {
+            unset($f['_evidence'], $f['_verified']);
         }
         unset($f);
 
-        return array_values(array_slice($strong, 0, 60));
+        return array_values(array_slice($found, 0, 40));
     }
 
     /**
-     * 🧠 استخراج دلایل از جمله‌های واقعی وب (v2.7)
-     * الگوها: «به علت X»، «علت آن X است»، «caused by X»، «due to X»
+     * 🎯 جستجوی عمیق تک‌کد (v3.0) — راستی‌آزمایی + متن غنی + معنای دقیق
+     *
+     * برای هر کد کاندید:
+     *   ۱) جستجوی اختصاصی EN + FA حول خود کد
+     *   ۲) خواندن متن کامل بهترین صفحه (نه فقط اسنیپت)
+     *   ۳) استخراج معنای کد از تیتر صفحه (مثل «E4 = Water Drainage»)
+     *
+     * @return array|null null = کد در وب تأیید نشد
+     */
+    private function deepResearchCode(WebSearchService $searcher, string $brandEn, string $brandFa, string $deviceEn, string $deviceFa, string $code): ?array
+    {
+        $contexts = [];
+        $urls = [];
+        $evidence = 0;
+        $bestTitle = '';
+        $bestPart = '';
+        $bestSeverity = '';
+
+        $queries = [
+            "{$brandEn} {$deviceEn} error code {$code} meaning cause fix",
+            "کد خطا {$code} {$deviceFa} {$brandFa} علت راه حل",
+        ];
+        foreach ($queries as $q) {
+            try {
+                $res = $searcher->search($q, 6);
+            } catch (Throwable $e) {
+                continue;
+            }
+            foreach ($res['results'] ?? [] as $r) {
+                $text = ($r['title'] ?? '') . ' — ' . ($r['snippet'] ?? '');
+                $url = (string)($r['url'] ?? '');
+                if ($text === '' || trim($text) === '—') { continue; }
+                /* خود کد باید در نتیجه باشد (با توجه به فاصله در «Er FF») */
+                $codeVariants = [$code, str_replace(' ', '', $code), str_replace(' ', '-', $code)];
+                $hasCode = false;
+                foreach ($codeVariants as $cv) {
+                    if (stripos($text, $cv) !== false || mb_strpos($text, $cv) !== false) { $hasCode = true; break; }
+                }
+                if (!$hasCode) { continue; }
+                /* زمینه برند/دستگاه */
+                $hasCtx = stripos($text, $brandEn) !== false
+                    || mb_strpos($text, $brandFa) !== false
+                    || stripos($text, $deviceEn) !== false
+                    || mb_strpos($text, $deviceFa) !== false;
+                if (!$hasCtx) { continue; }
+                $evidence++;
+                if (count($contexts) < 6) { $contexts[] = $text; }
+                if ($url !== '' && count($urls) < 4 && !in_array($url, $urls, true)) { $urls[] = $url; }
+                if ($bestTitle === '') {
+                    $t = $this->meaningFromTitle((string)($r['title'] ?? ''), $code, $deviceFa);
+                    if ($t !== null) { $bestTitle = $t; }
+                }
+            }
+        }
+
+        /* 📖 متن کامل بهترین صفحه — منبع اصلی دلایل/راه‌حل/مشخصات */
+        $pageText = '';
+        foreach (array_slice($urls, 0, 2) as $u) {
+            try {
+                $page = $searcher->fetchPageText($u, 7000);
+            } catch (Throwable $e) {
+                continue;
+            }
+            if (empty($page['ok'])) { continue; }
+            $txt = (string)$page['text'];
+            /* صفحه باید کد و زمینه را داشته باشد */
+            $hasCode = stripos($txt, str_replace(' ', '', $code)) !== false || mb_strpos($txt, $code) !== false;
+            $hasCtx = stripos($txt, $brandEn) !== false || stripos($txt, $deviceEn) !== false
+                || mb_strpos($txt, $brandFa) !== false || mb_strpos($txt, $deviceFa) !== false;
+            if ($hasCode && $hasCtx && mb_strlen($txt) > 400) {
+                $pageText = $txt;
+                if (count($contexts) < 8) { $contexts[] = ($page['title'] ?? '') . ' — ' . mb_substr($txt, 0, 2500); }
+                if ($bestTitle === '') {
+                    $t = $this->meaningFromTitle((string)($page['title'] ?? ''), $code, $deviceFa);
+                    if ($t !== null) { $bestTitle = $t; }
+                }
+                break;
+            }
+        }
+
+        if ($evidence === 0 && $pageText === '') {
+            return null;
+        }
+
+        /* استخراج تکمیلی از متن غنی */
+        $richCtx = $pageText !== '' ? $pageText : implode(' . ', $contexts);
+        if ($bestPart === '') {
+            $bestPart = $this->partFromContext($richCtx);
+            if ($bestPart === 'قطعه مرتبط با کد') { $bestPart = ''; }
+        }
+        if ($bestSeverity === '') {
+            $bestSeverity = $this->severityFromContext($richCtx);
+        }
+
+        return [
+            'evidence'  => max(1, $evidence),
+            'contexts'  => $contexts,
+            'urls'      => $urls,
+            'title'     => $bestTitle,
+            'part'      => $bestPart,
+            'severity'  => $bestSeverity,
+            'page_text' => $pageText,
+            'location'  => $this->locationFromContext($richCtx),
+        ];
+    }
+
+    /**
+     * 💎 استخراج معنای کد از تیتر صفحه (v3.0)
+     * الگوهای رایج: «E4 Error = Water Drainage Problem»، «کد 4E (خطای آبرسانی)»،
+     * «What Does Error E18 Mean? Drainage Issue»
+     */
+    private function meaningFromTitle(string $title, string $code, string $deviceFa): ?string
+    {
+        $title = trim($title);
+        if ($title === '' || mb_strlen($title) < 8) { return null; }
+
+        /* انگلیسی: بعد از «=» یا «:» یا «Mean?» معمولاً معنا می‌آید */
+        if (preg_match('/error\s+code\s+' . preg_quote($code, '/') . '\s*(?:=|:|–|—|-)\s*([a-zA-Z0-9\s&\'\-]{6,60})/iu', $title, $m)
+            || preg_match('/' . preg_quote($code, '/') . '\s*(?:=|:|–|—)\s*(?:means?\s*)?([a-zA-Z0-9\s&\'\-]{6,60})/iu', $title, $m)) {
+            $en = trim($m[1]);
+            $fa = $this->translateErrorPhrase($en);
+            return $fa ?? 'خطای ' . $en;
+        }
+        /* فارسی: داخل پرانتز یا بعد از «یعنی» */
+        if (preg_match('/(?:کد|خطا)\s*' . preg_quote($code, '/') . '\s*[\(（]?([^\)）]{6,60})[\)）]?/u', $title, $m)) {
+            $inner = trim($m[1], " \t.،:؛-");
+            if (mb_strlen($inner) >= 6 && !preg_match('/^\d+$/u', $inner)) {
+                return 'خطای ' . $inner;
+            }
+        }
+        /* کلیدواژه‌ای از خود تیتر */
+        $kw = $this->titleFromContext($code, $title, $deviceFa);
+        if ($kw !== 'خطای ' . $code . ' در ' . $deviceFa) {
+            return $kw;
+        }
+        return null;
+    }
+
+    /** 🌐 ترجمه عبارت معنای خطا (EN → FA) — واژه‌نامه تعمیرات (v3.0) */
+    private function translateErrorPhrase(string $en): ?string
+    {
+        $dict = [
+            '/drain|drainage/i' => 'تخلیه آب',
+            '/water supply|water inlet|fill|filling|intake|water feed/i' => 'ورود آب',
+            '/water leak|leakage/i' => 'نشت آب',
+            '/door|lid|lock|latch/i' => 'قفل درب',
+            '/heat|heater|heating|element/i' => 'گرمایش و هیتر',
+            '/sensor|thermistor|temperature|ntc/i' => 'سنسور دما',
+            '/motor|drive/i' => 'موتور',
+            '/fan|blower/i' => 'فن',
+            '/communication|connect/i' => 'ارتباطی',
+            '/balance|unbalanc|vibrat/i' => 'عدم توازن',
+            '/overflow|foam|suds|over-suds/i' => 'سرریز/کف',
+            '/compressor/i' => 'کمپرسور',
+            '/defrost|ice|frost/i' => 'برفک‌زدایی',
+            '/board|control|pcb|eeprom|memory/i' => 'برد کنترل',
+            '/power|electric|voltage/i' => 'برق‌رسانی',
+            '/child lock|key lock/i' => 'قفل کودک',
+            '/filter|clog/i' => 'فیلتر و گرفتگی',
+            '/level|position|instal/i' => 'تراز و نصب',
+        ];
+        foreach ($dict as $re => $fa) {
+            if (preg_match($re, $en)) {
+                return 'خطای ' . $fa;
+            }
+        }
+        return null;
+    }
+
+    /** 📍 استخراج محل قطعه از متن غنی (v3.0) */
+    private function locationFromContext(string $ctx): string
+    {
+        if ($ctx === '') { return ''; }
+        /* فارسی: «در قسمت/بخش/سمت/پشت X» */
+        if (preg_match_all('/(?:قسمت|بخش|سمت|پشت|زیر|داخل|کنار)\s+([^۱۲۳۴۵۶۷۸۹۰.،؛!؟"()\n]{4,40})/u', $ctx, $m)) {
+            foreach ($m[0] as $i => $full) {
+                $frag = trim($m[1][$i]);
+                if (mb_strlen($frag) >= 4 && preg_match('/(پمپ|شیر|سنسور|فن|موتور|کمپرسور|برد|المنت|هیتر|درب|فیلتر|مخزن|اواپراتور|کندانسور)/u', $full . ' ' . $frag)) {
+                    return mb_substr($full, 0, 60);
+                }
+            }
+        }
+        /* انگلیسی: «located at/in/on the X» */
+        if (preg_match('/(?:located|situated|positioned|found)\s+(?:at|in|on|near|behind|under)\s+(?:the\s+)?([a-zA-Z0-9\s\-]{5,60})/i', $ctx, $m)) {
+            $en = trim($m[1]);
+            $map = [
+                '/back|rear/i' => 'پشت دستگاه', '/bottom|base|under/i' => 'پایین دستگاه',
+                '/front|behind.*(panel|kick)/i' => 'جلوی دستگاه پشت پنل',
+                '/top|upper/i' => 'بالای دستگاه', '/side|left|right/i' => 'کنار دستگاه',
+                '/door/i' => 'درب دستگاه', '/inside|interior/i' => 'داخل محفظه',
+                '/outdoor|external unit/i' => 'یونیت خارجی', '/indoor|internal unit/i' => 'یونیت داخلی',
+            ];
+            foreach ($map as $re => $fa) {
+                if (preg_match($re, $en)) { return $fa; }
+            }
+        }
+        return '';
+    }
+
+    /**
+     * ❓ آیا پایگاه دانش curated این کد را می‌شناسد؟ (v3.0 — برای تصمیم نگه‌داشتن کد کم‌شاهد)
+     */
+    private function kbKnowsCode(?string $brandKey, string $deviceKey, string $code): bool
+    {
+        if ($brandKey === null) { return false; }
+        $kb = TextProcessor::loadKnowledge('error-codes-brands');
+        $codes = $kb['brands'][$brandKey]['devices'][$deviceKey]['codes'] ?? [];
+        foreach ($codes as $kc) {
+            $kCode = strtoupper(str_replace([' ', '-'], '', (string)$kc['code']));
+            if ($kCode === strtoupper(str_replace([' ', '-'], '', $code))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 🔀 ادغام دانش curated در رکورد وب (v3.0) — وب مقدم، دانش فاصله‌ها را پر می‌کند
+     * این ترکیب دقت فیلدها را بیشینه می‌کند: داده‌های دقیق سازنده (KB)
+     * برای همین کد + شواهد تازه وب.
+     */
+    private function mergeKbIntoWebRecord(?array $brandKb, string $deviceKey, array $wc): array
+    {
+        if (!$brandKb) {
+            return $wc;
+        }
+        $kbCodes = $brandKb['devices'][$deviceKey]['codes'] ?? [];
+        $webCodeNorm = strtoupper(str_replace([' ', '-'], '', (string)$wc['code']));
+        foreach ($kbCodes as $kc) {
+            $kNorm = strtoupper(str_replace([' ', '-'], '', (string)$kc['code']));
+            if ($kNorm !== $webCodeNorm) {
+                continue;
+            }
+            /* عنوان: اگر وب معنای دقیق نیافته و KB عنوان دارد */
+            if ((!isset($wc['title']) || trim((string)$wc['title']) === '' || $wc['title'] === 'خطای ' . $wc['code']) && !empty($kc['title'])) {
+                $wc['title'] = $kc['title'];
+            }
+            /* قطعه/دسته/شدت: KB دقیق‌تر است اگر وب مقدار عمومی داد */
+            if (!empty($kc['part']) && (empty($wc['part']) || $wc['part'] === 'قطعه مرتبط با کد')) {
+                $wc['part'] = $kc['part'];
+            }
+            if (!empty($kc['category'])) {
+                $wc['category'] = $kc['category'];
+            }
+            if (!empty($kc['severity'])) {
+                $wc['severity'] = $kc['severity'];
+            }
+            /* دلایل و راه‌حل‌ها: ادغام بدون تکرار — وب اول (تازه‌تر)، KB بعد */
+            foreach (['causes', 'fixes_user', 'fixes_tech'] as $field) {
+                $kbList = array_map('trim', (array)($kc[$field] ?? []));
+                $merged = array_merge((array)($wc[$field] ?? []), []);
+                foreach ($kbList as $item) {
+                    if ($item !== '' && !in_array($item, $merged, true)) {
+                        $merged[] = $item;
+                    }
+                }
+                $wc[$field] = array_slice($merged, 0, 8);
+            }
+            /* مشخصات فنی و محل — KB سازنده دقیق‌ترین منبع است */
+            if (!empty($kc['specs']) && empty($wc['_specs_ctx'])) {
+                $wc['specs'] = $kc['specs'];
+            }
+            if (!empty($kc['location']) && empty($wc['_location'])) {
+                $wc['location'] = $kc['location'];
+            }
+            if (!empty($kc['models'])) {
+                $wc['models'] = $kc['models'];
+            }
+            if (isset($kc['needs_technician'])) {
+                $wc['needs_technician'] = (int)$kc['needs_technician'] ?: ($wc['needs_technician'] ?? 1);
+            }
+            break;
+        }
+        return $wc;
+    }
+
+    /**
+     * 🧠 استخراج دلایل از جمله‌های واقعی وب (v2.7 + v3.0)
+     * الگوها: «به علت X»، «علت آن X است»، «caused by X»، «due to X»، «faulty/defective X»
      * اگر جمله‌ای پیدا نشد → دلایل استاندارد همان نوع دستگاه (دانش فنی معتبر)
      */
     private function extractCausesFromContext(string $ctx, string $deviceKey, string $category): array
     {
         $causes = [];
         // فارسی: «علت ... است/می‌شود»، «به دلیل ...»، «بر اثر ...»
-        if (preg_match_all('/(?:به\s+(?:دلیل|علت)|علت\s+(?:اصلی\s+)?(?:آن\s+)?|بر\s+اثر)\s+([^۱۲۳۴۵۶۷۸۹۰.،؛!؟"()]{8,60})/u', $ctx, $m)) {
+        if (preg_match_all('/(?:به\s+(?:دلیل|علت)|علت\s+(?:اصلی\s+)?(?:آن\s+)?|بر\s+اثر)\s+([^۱۲۳۴۵۶۷۸۹۰.،؛!؟"()\n]{8,60})/u', $ctx, $m)) {
             foreach ($m[1] as $mm) {
                 $c = mb_scrub(trim(preg_replace('/\s+/u', ' ', $mm)));
                 if (mb_strlen($c) >= 8 && mb_strlen($c) <= 70 && !in_array($c, $causes, true)) {
@@ -295,11 +617,21 @@ class ErrorCodeEngine
                 if (count($causes) >= 5) { break; }
             }
         }
-        // انگلیسی: «caused by X»، «due to X»
-        if (count($causes) < 5 && preg_match_all('/(?:caused\s+by|due\s+to|because\s+of)\s+([a-zA-Z\s\-]{6,60})/i', $ctx, $m)) {
+        // انگلیسی: «caused by X»، «due to X» (v3.0: پسوند name عبارت اسمی را می‌گیرد)
+        if (count($causes) < 5 && preg_match_all('/(?:caused\s+by|due\s+to|because\s+of)\s+(?:a\s+|an\s+|the\s+)?([a-zA-Z\s\-]{6,60})/i', $ctx, $m)) {
             foreach ($m[1] as $mm) {
                 $c = trim(preg_replace('/\s+/u', ' ', $mm));
                 if (mb_strlen($c) >= 6 && !in_array($c, $causes, true)) {
+                    $causes[] = mb_substr($c, 0, 60);
+                }
+                if (count($causes) >= 5) { break; }
+            }
+        }
+        // انگلیسی: «a faulty/defective/worn X» — علت‌های اسمی رایج مقالات تعمیر (v3.0)
+        if (count($causes) < 5 && preg_match_all('/(?:a\s+|an\s+)?(faulty|defective|worn[\s-]?out|failed|damaged|clogged|blocked|loose|broken)\s+([a-zA-Z\s\-]{4,40})/i', $ctx, $m)) {
+            foreach ($m[0] as $i => $full) {
+                $c = trim(preg_replace('/\s+/u', ' ', $full));
+                if (mb_strlen($c) >= 8 && !in_array($c, $causes, true)) {
                     $causes[] = mb_substr($c, 0, 60);
                 }
                 if (count($causes) >= 5) { break; }
@@ -413,8 +745,8 @@ class ErrorCodeEngine
     private function extractCodePatterns(string $text): array
     {
         $codes = [];
-        // E18 / E-18 / F01 / CH05 / Er FF / UE / OE / LE / IE / dE / tE / nE / 4E / 5E / H1 / 21 / 88
-        if (preg_match_all('/\b(E-?\d{1,2}|F-?\d{1,2}|CH-?\d{1,2}|Er\s?[A-Z]{1,2}|[4n5d][Ee]|[UOILFf][Ee]|[dt][Ee]|[Hh]\d{1,2}|\d{1,2}[Ee]?)\b/u', $text, $m)) {
+        // ۱) کدهای حرف‌دار: E18 / E-18 / F01 / CH05 / Er FF / UE / OE / LE / IE / dE / tE / nE / 4E / 5E / H1
+        if (preg_match_all('/\b(E-?\d{1,2}|F-?\d{1,2}|CH-?\d{1,2}|Er\s?[A-Z]{1,2}|[4n5d][Ee]|[UOILFf][Ee]|[dt][Ee]|[Hh]\d{1,2})\b/u', $text, $m)) {
             foreach ($m[1] as $raw) {
                 $c = $this->normalizeCode($raw);
                 if ($c !== null && !isset($codes[$c])) {
@@ -422,9 +754,18 @@ class ErrorCodeEngine
                 }
             }
         }
-        // فیلتر نویز: اعداد تنها فقط دو رقمی معتبرند (فیلتر روی «کلید» = خود کد؛
-        // کلیدهای عددی PHP به int تبدیل می‌شوند → با strval یکسان‌سازی)
-        return array_keys(array_filter($codes, fn($c) => !ctype_digit($s = strval($c)) || strlen($s) === 2, ARRAY_FILTER_USE_KEY));
+        // ۲) کدهای فقط-عددی: فقط وقتی پشت واژه «کد/خطا/error/code» آمده‌اند (v3.0 — حذف نویز «۲۱ نکته»)
+        if (preg_match_all('/(?:code|error|fault|کد|خطا)\s*[#:\\-]?\s*(\d{1,2})\b/ui', $text, $m)) {
+            foreach ($m[1] as $raw) {
+                if (strlen($raw) === 2) { // فقط دو رقمی‌ها (کدهای تک‌رقمی بسیار نویزند)
+                    $c = $this->normalizeCode($raw);
+                    if ($c !== null && !isset($codes[$c])) {
+                        $codes[$c] = true;
+                    }
+                }
+            }
+        }
+        return array_keys($codes);
     }
 
     /** 🧹 نرمال‌سازی کد */
@@ -521,6 +862,24 @@ class ErrorCodeEngine
             $c['part'] = $part;
         }
 
+        /* ⚡ مشخصات فنی (v3.0): KB → استخراج از متن غنی صفحه → فالبک دسته */
+        $specs = trim((string)($c['specs'] ?? ''));
+        if ($specs === '' && !empty($c['_specs_ctx'])) {
+            $specs = $this->specsFromContext((string)$c['_specs_ctx']);
+        }
+        if ($specs === '') {
+            $specs = $this->fallbackSpecs($c['category'] ?? '');
+        }
+
+        /* 📍 محل قطعه (v3.0): KB → استخراج از متن غنی → فالبک دسته */
+        $location = trim((string)($c['location'] ?? ''));
+        if ($location === '' && !empty($c['_location'])) {
+            $location = trim((string)$c['_location']);
+        }
+        if ($location === '') {
+            $location = $this->fallbackLocation($c['category'] ?? '');
+        }
+
         /* توضیح کامل ۳-۵ جمله‌ای یکتا و سئو-پسند */
         $description = $this->composeDescription($brandName, $deviceFa, $c, $causes, $severity, $seed);
 
@@ -538,8 +897,8 @@ class ErrorCodeEngine
             'models'          => json_encode((array)($c['models'] ?? $this->fallbackModels($brandName, $deviceKey)), JSON_UNESCAPED_UNICODE),
             'category'        => $this->normalizeCategory((string)($c['category'] ?? 'سایر')),
             'related_part'    => $this->partWithEn($c['part'] ?? ''),
-            'tech_specs'      => (string)($c['specs'] ?? $this->fallbackSpecs($c['category'] ?? '')),
-            'part_location'   => (string)($c['location'] ?? $this->fallbackLocation($c['category'] ?? '')),
+            'tech_specs'      => $specs,
+            'part_location'   => $location,
             'source'          => $source,
             'source_urls'     => json_encode(array_slice((array)($c['source_urls'] ?? []), 0, 6), JSON_UNESCAPED_UNICODE),
             'is_active'       => 1,
@@ -575,9 +934,36 @@ class ErrorCodeEngine
         return $openers[$seed % 3] . ' ' . $mids[($seed >> 2) % 2] . ' ' . $severityText[$severity] . ' ' . $closers[($seed >> 3) % 3];
     }
 
-    /* ==================================================
-     * 🧰 قالب‌های تخصصی دستگاه
-     * ================================================== */
+    /** 🧰 قالب‌های تخصصی دستگاه */
+
+    /**
+     * ⚡ استخراج مشخصات فنی واقعی از متن غنی صفحه (v3.0)
+     * مقادیر عددی با واحد: اهم/کیلواهم، ولت، وات/کیلووات، بار
+     */
+    private function specsFromContext(string $ctx): string
+    {
+        $out = [];
+        if (preg_match('/(\d+(?:\.\d+)?)\s*(?:k[ΩΩ]|kilohms?)/i', $ctx, $m)) {
+            $out[] = 'مقاومت مرجع: ' . en_to_fa_digits($m[1]) . ' کیلواهم';
+        } elseif (preg_match('/(\d{2,4})\s*(?:[ΩΩ]|ohms?)\b/i', $ctx, $m)) {
+            $out[] = 'مقاومت مرجع: ' . en_to_fa_digits($m[1]) . ' اهم';
+        }
+        if (preg_match('/(\d{2,3})\s*(?:volts?|V)\b/i', $ctx, $m)) {
+            $out[] = 'ولتاژ کاری: ' . en_to_fa_digits($m[1]) . ' ولت';
+        }
+        if (preg_match('/(\d+(?:\.\d+)?)\s*(?:kW|kilowatts?)\b/i', $ctx, $m)) {
+            $out[] = 'توان: ' . en_to_fa_digits($m[1]) . ' کیلووات';
+        } elseif (preg_match('/(\d{3,4})\s*(?:watts?|W)\b/i', $ctx, $m)) {
+            $out[] = 'توان: ' . en_to_fa_digits($m[1]) . ' وات';
+        }
+        if (preg_match('/(\d+(?:\.\d+)?)\s*bar\b/i', $ctx, $m)) {
+            $out[] = 'فشار کاری: ' . en_to_fa_digits($m[1]) . ' بار';
+        }
+        if (preg_match('/(-?\d{2,3})\s*(?:°C|celsius|degrees? celsius)/i', $ctx, $m)) {
+            $out[] = 'دمای کاری: ' . en_to_fa_digits($m[1]) . ' درجه سانتیگراد';
+        }
+        return implode(' | ', array_slice($out, 0, 3));
+    }
 
     private function deviceCauses(string $deviceKey, string $category): array
     {
@@ -589,7 +975,7 @@ class ErrorCodeEngine
             'dryer'           => ['گرفتگی مسیر تخلیه هوا و لینت', 'خرابی سنسور رطوبت', 'سوختن هیتر', 'خرابی موتور درام', 'اشکال برد'],
             'microwave'       => ['خرابی دیود ولتاژ بالا', 'سوختن فیوز حرارتی', 'خرابی مگنترون', 'اشکال درب و قفل میکروسوئیچ', 'خرابی برد کنترل'],
             'oven'            => ['سوختن المنت Grill/Upper', 'خرابی ترموستات یا سنسور دما', 'خرابی سنسور شعله (ایونیزاسیون)', 'اشکال برد لمسی', 'لقی سوکت‌های حرارتی'],
-            'water_heater'    => ['خرابی ترموستات', 'رسوب روی المنت/مبدل', 'خراحی سنسور دود', 'افت فشار آب', 'خرابی برد'],
+            'water_heater'    => ['خرابی ترموستات', 'رسوب روی المنت/مبدل', 'خرابی سنسور دود', 'افت فشار آب', 'خرابی برد'],
             'package'         => ['افت فشار آب سیستم', 'خرابی پمپ سیرکولاسیون', 'گیر کردن سوئیچ فشار', 'خرابی سنسور NTC', 'نشت گاز/آب'],
             'television'      => ['خرابی بک‌لایت LED', 'اشکال T-Con', 'خرابی پاور بورد', 'خرابی مین‌بورد', 'نوسان برق ورودی'],
         ];
@@ -637,7 +1023,7 @@ class ErrorCodeEngine
     private function titleFromContext(string $code, string $text, string $deviceFa): string
     {
         $patterns = [
-            '/(درain|drain|تخلیه)/iu' => 'خطای تخلیه آب',
+            '/(drain|drainage|تخلیه)/iu' => 'خطای تخلیه آب',
             '/(inlet|ورود آب|آبرسانی)/iu' => 'خطای ورود آب',
             '/(door|درب|قفل)/iu' => 'خطای قفل درب',
             '/(heat|هیتر|گرمایش|المنت)/iu' => 'خطای گرمایش و هیتر',
@@ -788,6 +1174,61 @@ class ErrorCodeEngine
      * ================================================== */
 
     /**
+     * 🌐 متن وبِ اختصاصی همین رکورد — برای بهبود تک‌فیلدی (v3.0)
+     * یک جستجو + خواندن بهترین صفحه؛ در صورت شکست null.
+     */
+    private function webContextForRecord(array $rec, string $deviceFa): ?string
+    {
+        try {
+            $searcher = new WebSearchService();
+            $brandEn = trim((string)($rec['brand_en'] ?? '')) ?: (string)($rec['brand_name'] ?? '');
+            $deviceEn = self::DEVICE_FA[$rec['device_key']][1] ?? ucfirst((string)$rec['device_key']);
+            $res = $searcher->search("{$brandEn} {$deviceEn} error code {$rec['code']} part location specs", 5);
+            foreach ($res['results'] ?? [] as $r) {
+                $text = ($r['title'] ?? '') . ' — ' . ($r['snippet'] ?? '');
+                if (stripos($text, (string)$rec['code']) === false && mb_strpos($text, (string)$rec['code']) === false) { continue; }
+                try {
+                    $page = $searcher->fetchPageText((string)($r['url'] ?? ''), 6000);
+                    if (!empty($page['ok'])) {
+                        $txt = (string)$page['text'];
+                        if (mb_strlen($txt) > 300) {
+                            return ($page['title'] ?? '') . ' — ' . $txt;
+                        }
+                    }
+                } catch (Throwable $e) {
+                    continue;
+                }
+            }
+            /* حداقل اسنیپت‌ها */
+            $snips = '';
+            foreach (array_slice($res['results'] ?? [], 0, 4) as $r) {
+                $snips .= ' ' . ($r['title'] ?? '') . ' — ' . ($r['snippet'] ?? '');
+            }
+            return trim($snips) !== '' ? $snips : null;
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    /** 📚 فیلد curated از پایگاه دانش برای همین رکورد (v3.0) */
+    private function kbFieldForRecord(array $rec, string $field): string
+    {
+        $brand = $this->db->fetch('SELECT name_fa, name_en FROM brands WHERE id = ?', [(int)$rec['brand_id']]);
+        if (!$brand) { return ''; }
+        $brandKey = $this->matchBrandKey($brand['name_fa'], $brand['name_en']);
+        if ($brandKey === null) { return ''; }
+        $kb = TextProcessor::loadKnowledge('error-codes-brands');
+        $codes = $kb['brands'][$brandKey]['devices'][$rec['device_key']]['codes'] ?? [];
+        $recNorm = strtoupper(str_replace([' ', '-'], '', (string)$rec['code']));
+        foreach ($codes as $kc) {
+            if (strtoupper(str_replace([' ', '-'], '', (string)$kc['code'])) === $recNorm) {
+                return trim((string)($kc[$field] ?? ''));
+            }
+        }
+        return '';
+    }
+
+    /**
      * ✨ بهینه‌سازی و یکتاسازی یک فیلد از کد خطا با AI
      *
      * @param int    $errorId شناسه رکورد
@@ -796,7 +1237,7 @@ class ErrorCodeEngine
      */
     public function improveField(int $errorId, string $field): array
     {
-        $rec = $this->db->fetch('SELECT e.*, b.name_fa AS brand_name FROM error_codes e LEFT JOIN brands b ON b.id = e.brand_id WHERE e.id = ?', [$errorId]);
+        $rec = $this->db->fetch('SELECT e.*, b.name_fa AS brand_name, b.name_en AS brand_en FROM error_codes e LEFT JOIN brands b ON b.id = e.brand_id WHERE e.id = ?', [$errorId]);
         if (!$rec) {
             throw new RuntimeException('کد خطا یافت نشد.');
         }
@@ -869,18 +1310,42 @@ class ErrorCodeEngine
                 break;
 
             case 'related_part':
-                $new = $this->partWithEn($old ?: 'قطعه مرتبط با کد');
+                $deep = $this->webContextForRecord($rec, $deviceFa);
+                $part = trim($old);
+                if (($part === '' || $part === 'قطعه مرتبط با کد') && $deep !== null) {
+                    $part = $this->partFromContext($deep);
+                    if ($part === 'قطعه مرتبط با کد') { $part = ''; }
+                }
+                $new = $this->partWithEn($part ?: 'قطعه مرتبط با کد');
                 break;
 
             case 'tech_specs':
-                $new = $old ?: $this->fallbackSpecs((string)$rec['category']);
-                if (mb_strlen($new) < 30) {
-                    $new .= ' · برای مقدار دقیق، شماره مدل را در مرجع قطعات بررسی کنید';
+                $deep = $this->webContextForRecord($rec, $deviceFa);
+                $new = '';
+                /* KB curated برای همین کد دقیق‌ترین منبع است */
+                $kbSpecs = $this->kbFieldForRecord($rec, 'specs');
+                if ($kbSpecs !== '') {
+                    $new = $kbSpecs;
+                } elseif ($deep !== null) {
+                    $new = $this->specsFromContext($deep);
+                }
+                if ($new === '') {
+                    $new = $old ?: $this->fallbackSpecs((string)$rec['category']);
                 }
                 break;
 
             case 'part_location':
-                $new = $old ?: $this->fallbackLocation((string)$rec['category']);
+                $deep = $this->webContextForRecord($rec, $deviceFa);
+                $new = '';
+                $kbLoc = $this->kbFieldForRecord($rec, 'location');
+                if ($kbLoc !== '') {
+                    $new = $kbLoc;
+                } elseif ($deep !== null) {
+                    $new = $this->locationFromContext($deep);
+                }
+                if ($new === '') {
+                    $new = $old ?: $this->fallbackLocation((string)$rec['category']);
+                }
                 break;
 
             case 'subtype':
