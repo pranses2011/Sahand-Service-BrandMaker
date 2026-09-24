@@ -15,3 +15,7 @@ uploads/cache/*
 *.zip
 cache/engine/*.json
 cache/*.json
+
+# 🧪 خروجی‌های زمان اجرا (سشن ۲۰۲۶-۰۹-۲۴ v2.8)
+cache/.schema_v*
+engine/knowledge/ai-lessons.json
