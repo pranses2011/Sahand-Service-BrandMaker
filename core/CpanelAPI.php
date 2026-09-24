@@ -175,28 +175,64 @@ class CpanelAPI
     /**
      * 🔍 تست اتصال به cPanel
      *
+     * ⚠️ برخی سرورها ماژول Cpanel::API::Version را ندارند؛
+     *    بنابراین زنجیره‌ای از ماژول‌های پرکاربرد امتحان می‌شود و
+     *    موفقیت هر کدام به معنای برقراری اتصال و اعتبار توکن است.
+     *
      * @return array [success => bool, message => string, data => array]
      */
     public function connect(): array
     {
-        $data = $this->call('Version', 'version');
-        if ($data === false) {
-            return ['success' => false, 'message' => $this->lastError ?: 'اتصال برقرار نشد.', 'data' => []];
+        // 🎯 ماژول‌های امتحانی به‌ترتیب — اولین موفقیت = اتصال سالم
+        $probes = [
+            ['module' => 'Version',     'function' => 'version',                  'label' => 'نسخه cPanel'],
+            ['module' => 'Variables',   'function' => 'get_server_information',    'label' => 'اطلاعات سرور'],
+            ['module' => 'Quota',       'function' => 'get_disk_info',             'label' => 'اطلاعات دیسک'],
+            ['module' => 'Branding',    'function' => 'get_application_name',      'label' => 'نام پنل'],
+        ];
+
+        $errors = [];
+        foreach ($probes as $probe) {
+            $data = $this->call($probe['module'], $probe['function']);
+            if ($data !== false) {
+                // 🎉 یکی از ماژول‌ها جواب داد — اتصال و توکن معتبر است
+                $version = (string)($data['version'] ?? '');
+                $server  = (string)($data['server_host'] ?? $data['hostname'] ?? '');
+                $app     = (string)($data['application_name'] ?? '');
+
+                $extra = [];
+                if ($version !== '') $extra[] = 'نسخه: ' . $version;
+                if ($server  !== '') $extra[] = 'هاست: ' . $server;
+                if ($app     !== '') $extra[] = 'پنل: ' . $app;
+
+                return [
+                    'success' => true,
+                    'message' => '✅ اتصال به cPanel برقرار است' . ($extra !== [] ? ' (' . implode(' — ', $extra) . ')' : ''),
+                    'data'    => array_merge(is_array($data) ? $data : [], ['probe' => $probe['module']]),
+                ];
+            }
+            $errors[] = $probe['module'] . ': ' . ($this->lastError ?: 'ناموفق');
         }
+
         return [
-            'success' => true,
-            'message' => 'اتصال به cPanel برقرار است',
-            'data'    => ['version' => (string)($data['version'] ?? '')],
+            'success' => false,
+            'message' => '❌ ' . ($this->lastError ?: 'اتصال برقرار نشد.') . "\n\n🔍 ماژول‌های امتحان‌شده:\n" . implode("\n", $errors),
+            'data'    => [],
         ];
     }
 
     /**
-     * 📀 نسخه API سرور
+     * 📀 نسخه API سرور — با fallback روی چند ماژول
      */
     public function getAPIVersion(): string
     {
-        $data = $this->call('Version', 'version');
-        return $data === false ? '' : (string)($data['version'] ?? '');
+        foreach ([['Version', 'version'], ['Variables', 'get_server_information'], ['Quota', 'get_disk_info']] as [$m, $f]) {
+            $data = $this->call($m, $f);
+            if ($data !== false && !empty($data['version'])) {
+                return (string)$data['version'];
+            }
+        }
+        return '';
     }
 
     /**
@@ -673,6 +709,71 @@ class CpanelAPI
             return ['success' => false, 'message' => $this->lastError ?: 'افزودن دامنه اختصاصی ناموفق بود.'];
         }
         return ['success' => true, 'message' => 'دامنه اختصاصی ' . $domain . ' افزوده شد — رکوردهای DNS را تنظیم کنید.'];
+    }
+
+    /* ==================================================
+     * ⏰ Cron Jobs — مدیریت زمان‌بندی‌ها
+     * ================================================== */
+
+    /**
+     * ⏰ افزودن یک Cron Job به cPanel
+     *
+     * @param string $command  دستور کامل (مثلاً php /home/user/public_html/cron/backup.php)
+     * @param string $minute   دقیقه (ستاره یعنی هر دقیقه، یا عبارت هر-۱۵-دقیقه)
+     * @param string $hour     ساعت (ستاره یا عدد 0 تا 23)
+     * @param string $day      روز ماه (ستاره یا عدد 1 تا 31)
+     * @param string $month    ماه (ستاره یا عدد 1 تا 12)
+     * @param string $weekday  روز هفته (ستاره یا عدد 0 تا 6)
+     * @return array [success => bool, message => string]
+     */
+    public function addCronJob(string $command, string $minute = '*', string $hour = '*', string $day = '*', string $month = '*', string $weekday = '*'): array
+    {
+        $command = trim($command);
+        if ($command === '') {
+            return ['success' => false, 'message' => 'دستور Cron خالی است.'];
+        }
+
+        // 🛡️ فقط دستورات امن مجازند (php / مسیر مطلق) — جلوگیری از تزریق
+        if (!preg_match('#^(php|/usr/bin/php|/usr/local/bin/php|curl|wget|/bin/bash|/bin/sh)\s+#i', $command) && !preg_match('#^/home/[^/\s]+/.+#', $command)) {
+            return ['success' => false, 'message' => 'دستور مجاز نیست — فقط دستورات php/curl/wget با مسیر مطلق مجازند.'];
+        }
+
+        $data = $this->call('Cron', 'add_line', [
+            'command'  => $command,
+            'minute'   => $minute,
+            'hour'     => $hour,
+            'day'      => $day,
+            'month'    => $month,
+            'weekday'  => $weekday,
+            // اگر خط تکراری وجود داشت، بازنویسی شود
+            'confirm'  => 'overwrite',
+        ]);
+        if ($data === false) {
+            return ['success' => false, 'message' => $this->lastError ?: 'افزودن Cron ناموفق بود.'];
+        }
+        $lineNo = (int)($data['linekey'] ?? $data['line'] ?? 0);
+        return ['success' => true, 'message' => '✅ Cron با موفقیت به cPanel اضافه شد.' . ($lineNo ? ' (شناسه: ' . $lineNo . ')' : ''), 'line' => $lineNo];
+    }
+
+    /**
+     * 📋 لیست Cron Jobs فعلی cPanel
+     */
+    public function listCronJobs(): array
+    {
+        $data = $this->call('Cron', 'list_lines');
+        return $data === false ? [] : (array)($data['crons'] ?? []);
+    }
+
+    /**
+     * 🗑️ حذف یک Cron Job با شماره خط
+     */
+    public function removeCronJob(int $lineNo): array
+    {
+        $data = $this->call('Cron', 'remove_line', ['lineno' => $lineNo]);
+        if ($data === false) {
+            return ['success' => false, 'message' => $this->lastError ?: 'حذف Cron ناموفق بود.'];
+        }
+        return ['success' => true, 'message' => 'Cron حذف شد.'];
     }
 
     /* ==================================================

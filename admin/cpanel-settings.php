@@ -43,6 +43,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'test_
     json_response(['success' => $result['success'], 'message' => $result['message']]);
 }
 
+/* ⏰ افزودن خودکار Cron به cPanel (AJAX) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_cron') {
+    Auth::enforceCsrf();
+    $job = post('job', '');
+    // 🧭 مسیر واقعی نصب روی سرور — دقیقاً همان جایی که فایل‌های cron هستند
+    $cronBaseReal = rtrim(str_replace('\\', '/', dirname(__DIR__)), '/');
+    // 🗺️ نقشه دستورات مجاز — از کلید امن به مشخصات کامل cron
+    $jobs = [
+        'health-check' => ['command' => 'php ' . $cronBaseReal . '/cron/health-check.php', 'minute' => '*/15', 'hour' => '*',  'day' => '*', 'month' => '*', 'weekday' => '*'],
+        'ssl-check'    => ['command' => 'php ' . $cronBaseReal . '/cron/ssl-check.php',    'minute' => '0',      'hour' => '3',  'day' => '*', 'month' => '*', 'weekday' => '*'],
+        'backup'       => ['command' => 'php ' . $cronBaseReal . '/cron/backup.php',       'minute' => '0',      'hour' => '2',  'day' => '*', 'month' => '*', 'weekday' => '6'],
+    ];
+    if ($job === 'all') {
+        $results = [];
+        $okCount = 0;
+        $api = new CpanelAPI();
+        foreach ($jobs as $key => $spec) {
+            $r = $api->addCronJob($spec['command'], $spec['minute'], $spec['hour'], $spec['day'], $spec['month'], $spec['weekday']);
+            $results[] = ($r['success'] ? '✅' : '❌') . ' ' . $spec['command'] . ' — ' . $r['message'];
+            if ($r['success']) $okCount++;
+        }
+        json_response(['success' => $okCount > 0, 'message' => $okCount . ' از ' . count($jobs) . " دستور Cron اضافه شد:\n" . implode("\n", $results)]);
+    }
+    if (!isset($jobs[$job])) {
+        json_response(['success' => false, 'message' => 'دستور ناشناخته است.']);
+    }
+    $spec = $jobs[$job];
+    $api = new CpanelAPI();
+    $r = $api->addCronJob($spec['command'], $spec['minute'], $spec['hour'], $spec['day'], $spec['month'], $spec['weekday']);
+    json_response(['success' => $r['success'], 'message' => $r['message']]);
+}
+
 /* 🔍 اعتبارسنجی الگو (AJAX) */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'validate_pattern') {
     Auth::enforceCsrf();
@@ -133,7 +165,8 @@ $hasFtpPass = !empty($s['ftp_password_enc']);
 $presets = PathResolver::getPresetPatterns();
 $variables = PathResolver::getPatternVariables();
 $previews = PathResolver::previewPath((string)($s['doc_root_pattern'] ?? PathResolver::DEFAULT_PATTERN));
-$cronBase = '/home/' . ($s['cpanel_username'] ?: 'user') . '/public_html/brandmaker';
+$cronBase = rtrim(str_replace('\\', '/', dirname(__DIR__)), '/');
+// مسیر واقعی نصب روی سرور — دقیقاً همان جایی که فایل‌های cron قرار دارند
 ?>
 
 <form method="post" id="settings-form">
@@ -320,16 +353,35 @@ $cronBase = '/home/' . ($s['cpanel_username'] ?: 'user') . '/public_html/brandma
     <div class="card" style="margin-bottom:16px">
         <div class="card-header"><h3>⏰ Cron Jobs مورد نیاز</h3></div>
         <div class="card-body">
-            <p class="hint">این خطوط را در cPanel ▸ Advanced ▸ Cron Jobs اضافه کنید (مسیر را با مسیر واقعی سایت ساز خود تنظیم کنید):</p>
-            <pre dir="ltr" style="background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;overflow:auto;font-size:12px;line-height:1.9"># بررسی سلامت سایت‌ها — هر ۱۵ دقیقه
-*/15 * * * * php <?= e($cronBase) ?>/cron/health-check.php
-
-# بررسی SSL — روزانه ساعت ۳ صبح
-0 3 * * * php <?= e($cronBase) ?>/cron/ssl-check.php
-
-# بکاپ خودکار هفتگی — شنبه ساعت ۲ صبح
-0 2 * * 6 php <?= e($cronBase) ?>/cron/backup.php</pre>
-            <button type="button" class="btn btn-outline" onclick="copyCron()">📋 کپی دستورات</button>
+            <p class="hint">هر دستور را با یک کلیک به cPanel اضافه کنید (نیازی به کپی دستی نیست) — یا همه را یکجا اضافه کنید:</p>
+            <div style="margin-bottom:12px">
+                <button type="button" class="btn btn-primary" onclick="addCronToCpanel('all', this)">⚡ افزودن همه به cPanel</button>
+            </div>
+            <div class="cron-job-list" id="cron-job-list">
+                <div class="cron-job-row">
+                    <div class="cron-job-info">
+                        <div class="cron-job-title">🩺 بررسی سلامت سایت‌ها — هر ۱۵ دقیقه</div>
+                        <code dir="ltr" class="cron-cmd">*/15 * * * * php <?= e($cronBase) ?>/cron/health-check.php</code>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="addCronToCpanel('health-check', this)">➕ افزودن به cPanel</button>
+                </div>
+                <div class="cron-job-row">
+                    <div class="cron-job-info">
+                        <div class="cron-job-title">🔒 بررسی SSL — روزانه ساعت ۳ صبح</div>
+                        <code dir="ltr" class="cron-cmd">0 3 * * * php <?= e($cronBase) ?>/cron/ssl-check.php</code>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="addCronToCpanel('ssl-check', this)">➕ افزودن به cPanel</button>
+                </div>
+                <div class="cron-job-row">
+                    <div class="cron-job-info">
+                        <div class="cron-job-title">💾 بکاپ خودکار هفتگی — شنبه ساعت ۲ صبح</div>
+                        <code dir="ltr" class="cron-cmd">0 2 * * 6 php <?= e($cronBase) ?>/cron/backup.php</code>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="addCronToCpanel('backup', this)">➕ افزودن به cPanel</button>
+                </div>
+            </div>
+            <div id="cron-add-result" class="test-result" style="margin-top:10px;white-space:pre-line"></div>
+            <button type="button" class="btn btn-outline" style="margin-top:10px" onclick="copyCron()">📋 کپی دستی دستورات</button>
         </div>
     </div>
 
@@ -344,7 +396,14 @@ $cronBase = '/home/' . ($s['cpanel_username'] ?: 'user') . '/public_html/brandma
 .preset-item{display:flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:.15s}
 .preset-item:hover{background:var(--bg-secondary,#f8fafc)}
 .preview-box{background:#f1f5f9;border:1px dashed var(--border);border-radius:8px;padding:10px 14px;line-height:2}
-.test-result{font-size:13px}
+.test-result{font-size:13px;white-space:pre-line}
+.cron-job-list{display:flex;flex-direction:column;gap:10px}
+.cron-job-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-secondary,#f8fafc);transition:.15s}
+.cron-job-row:hover{border-color:#2563eb}
+.cron-job-info{display:flex;flex-direction:column;gap:6px;min-width:0}
+.cron-job-title{font-size:13px;font-weight:700}
+.cron-cmd{direction:ltr;text-align:left;font-size:11.5px;background:#0f172a;color:#e2e8f0;padding:8px 12px;border-radius:6px;overflow:auto;white-space:nowrap;max-width:100%}
+.btn-sm{padding:6px 12px;font-size:12px;white-space:nowrap}
 .field-error{color:var(--danger,#dc2626);font-size:12.5px}
 .hint{color:var(--text-light);font-size:12.5px;margin-bottom:10px}
 </style>
@@ -433,8 +492,38 @@ function resetPattern() {
 
 /* 📋 کپی دستورات cron */
 function copyCron() {
-    const text = document.querySelector('pre').textContent;
+    const text = [...document.querySelectorAll('.cron-cmd')].map(c => c.textContent).join('\n');
     navigator.clipboard.writeText(text.trim()).then(() => alert('✅ دستورات Cron کپی شد'));
+}
+
+/* ⏰ افزودن خودکار دستور cron به cPanel */
+function addCronToCpanel(job, btn) {
+    const resultEl = document.getElementById('cron-add-result');
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '⏳ در حال افزودن...';
+    resultEl.textContent = '';
+    resultEl.style.color = '';
+
+    const form = new FormData();
+    form.append('action', 'add_cron');
+    form.append('job', job);
+    form.append('csrf_token', '<?= e($_SESSION['csrf_token'] ?? '') ?>');
+
+    fetch('cpanel-settings.php', {method: 'POST', body: form})
+        .then(r => r.json())
+        .then(data => {
+            resultEl.textContent = (data.success ? '' : '❌ ') + (data.message || '');
+            resultEl.style.color = data.success ? '#16a34a' : '#dc2626';
+            btn.innerHTML = data.success ? '✅ اضافه شد' : original;
+            if (data.success) setTimeout(() => { btn.innerHTML = original; }, 2500);
+        })
+        .catch(() => {
+            resultEl.textContent = '❌ خطای شبکه — دوباره تلاش کنید';
+            resultEl.style.color = '#dc2626';
+            btn.innerHTML = original;
+        })
+        .finally(() => { btn.disabled = false; });
 }
 </script>
 
