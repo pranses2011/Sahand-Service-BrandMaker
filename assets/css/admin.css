@@ -392,19 +392,37 @@ td, .card-body, .alert, .card-header h3, .topbar-titles { overflow-wrap: break-w
 .switch input:checked + .slider::before { transform: translateX(-19px); }
 
 /* ---------- 🔔 هشدارها ---------- */
+/* ---------- 🏷️ کادرهای راهنما (بازطراحی v2.7.2) ----------
+   قبلاً display:flex بود — با محتوای طولانی (متن + b + code) آیتم‌های بی‌نام flex
+   می‌ساخت و جریان متن بهم می‌ریخت. حالا: بلوکی با نوار رنگی سمت راست و
+   جریان طبیعی متن — در هر عرضی سالم است (طبق درخواست کاربر: روش دیگر) */
 .alert {
-    padding: 13px 18px;
-    border-radius: 10px;
+    padding: 14px 18px;
+    border-radius: 12px;
     font-size: 13px;
+    line-height: 2.05;
     margin-bottom: 18px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    display: block;
+    border-inline-start: 4px solid transparent;
+    overflow-wrap: break-word;
 }
-.alert-success { background: var(--success-light); color: #166534; border: 1px solid #bbf7d0; }
-.alert-danger { background: var(--danger-light); color: #991b1b; border: 1px solid #fecaca; }
-.alert-warning { background: var(--warning-light); color: #92400e; border: 1px solid #fde68a; }
-.alert-info { background: var(--info-light); color: #155e75; border: 1px solid #a5f3fc; }
+.alert > :last-child { margin-bottom: 0; }
+.alert code {
+    direction: ltr;
+    display: inline-block;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-all;
+    background: rgba(255, 255, 255, .55);
+    padding: 1px 7px;
+    border-radius: 6px;
+    font-size: 11.5px;
+}
+.alert b { font-weight: 700; }
+.alert-success { background: var(--success-light); color: #166534; border: 1px solid #bbf7d0; border-inline-start: 4px solid var(--success); }
+.alert-danger { background: var(--danger-light); color: #991b1b; border: 1px solid #fecaca; border-inline-start: 4px solid var(--danger); }
+.alert-warning { background: var(--warning-light); color: #92400e; border: 1px solid #fde68a; border-inline-start: 4px solid var(--warning); }
+.alert-info { background: var(--info-light); color: #155e75; border: 1px solid #a5f3fc; border-inline-start: 4px solid var(--info); }
 
 /* ---------- 🗂️ تب‌ها ---------- */
 .tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--border); margin-bottom: 22px; flex-wrap: wrap; }
@@ -642,6 +660,57 @@ td, .card-body, .alert, .card-header h3, .topbar-titles { overflow-wrap: break-w
     .topbar h2 { font-size: 15.5px; }
     .topbar .breadcrumb { display: none; }
     .topbar-actions { gap: 8px; }
+}
+
+@media (max-width: 768px) {
+    /* 📱 v2.7.2: جدول‌ها به «کارت» تبدیل می‌شوند — ریشه‌یابی کامل مشکل
+       «عرض ستون‌ها مناسب نیست و متن تا ۲۰ سطر می‌شکند»:
+       جدول چندستونه (مثلاً ۸ ستون × min-width ۷۲px = ۵۷۶px) در عرض ۳۶۰px
+       موبایل جا نمی‌شود؛ حتی با اسکرول افقی، ستون‌های ۷۲-۱۲۵px متن را
+       چندسطری می‌کنند. راه‌حل استاندارد: هر ردیف = یک کارت؛ هر سلول =
+       یک خط «برچسب: مقدار» (برچسب از thead با JS تزریق می‌شود — sahandLabelTables) */
+    .table-wrap { overflow-x: visible; }
+    table.table, table.table tbody { display: block; width: 100%; }
+    table.table thead { display: none; }
+    table.table tr {
+        display: block;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        margin-bottom: 14px;
+        padding: 4px 0;
+        box-shadow: 0 1px 4px rgba(15, 23, 42, .05);
+        overflow: hidden;
+    }
+    table.table tr:hover td { background: transparent; }
+    table.table td {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        border-bottom: 1px dashed var(--border);
+        padding: 10px 16px;
+        min-width: 0 !important;
+        max-width: none !important;
+        text-align: left;
+        overflow-wrap: anywhere;
+    }
+    table.table td:last-child { border-bottom: none; }
+    table.table td::before {
+        content: attr(data-label);
+        font-weight: 700;
+        font-size: 11px;
+        color: var(--text-light);
+        flex-shrink: 0;
+        white-space: nowrap;
+        padding-inline-start: 2px;
+    }
+    table.table td:not([data-label])::before { content: ''; }
+    table.table td > * { max-width: 100%; }
+    table.table .actions { flex-wrap: wrap; justify-content: flex-end; margin-inline-start: auto; }
+    table.table td ul, table.table td ol { margin: 4px 0 4px 0; padding-inline-start: 18px; }
+    /* سلول‌های بدون برچسب (fallback بدون JS): مقدار تمام-عرض */
+    table.table td:not([data-label]) { display: block; text-align: right; }
 }
 
 @media (max-width: 640px) {

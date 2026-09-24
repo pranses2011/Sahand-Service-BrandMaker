@@ -215,3 +215,34 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 4500);
     });
 });
+
+/* 📱 جدول‌های واکنش‌گرا (v2.7.2) — تبدیل خودکار جدول‌ها به کارت در موبایل
+   ریشه مشکل: جدول چندستونه در عرض ۳۹۰px جا نمی‌شود؛ ستون‌ها به ۷۲px می‌رسند و
+   متن هر سلول تا ۲۰ سطر می‌شکند. راه‌حل: در موبایل هر «ردیف» یک کارت می‌شود و
+   هر سلول با برچسب ستونش (از thead) در یک خط افقی نمایش داده می‌شود.
+   این تابع فقط data-label روی td ها می‌گذارد؛ چیدمان با CSS انجام می‌شود.
+   برای محتوای AJAX هم global است: window.sahandLabelTables() */
+function sahandLabelTables(root) {
+    'use strict';
+    (root || document).querySelectorAll('table.table').forEach(function (table) {
+        var thead = table.querySelector('thead');
+        if (!thead) { return; }
+        var labels = [];
+        thead.querySelectorAll('th').forEach(function (th) {
+            labels.push((th.textContent || '').trim());
+        });
+        if (!labels.length) { return; }
+        table.querySelectorAll('tbody tr').forEach(function (tr) {
+            if (tr.classList.contains('repeat-row')) { return; }
+            tr.querySelectorAll(':scope > td').forEach(function (td, i) {
+                if (i < labels.length && labels[i]) {
+                    td.setAttribute('data-label', labels[i]);
+                }
+            });
+        });
+    });
+}
+window.sahandLabelTables = sahandLabelTables;
+document.addEventListener('DOMContentLoaded', function () { sahandLabelTables(); });
+
+
