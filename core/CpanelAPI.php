@@ -173,6 +173,116 @@ class CpanelAPI
     }
 
     /**
+     * 📡 فراخوانی مستقیم cPanel API 2 (سازگاری با ماژول‌های بدون معادل UAPI)
+     * =====================================================================
+     * برخی ماژول‌ها (مثل Cron) طبق مستندات رسمی cPanel «معادل UAPI ندارند»
+     * و فقط از طریق API2 قابل فراخوانی‌اند:
+     *   POST /json-api/cpanel
+     *     cpanel_jsonapi_user        = نام کاربری cPanel
+     *     cpanel_jsonapi_apiversion  = 2
+     *     cpanel_jsonapi_module      = ماژول (مثلاً Cron)
+     *     cpanel_jsonapi_func        = تابع (مثلاً add_line)
+     *
+     * ⚠️ چرا مسیر /execute/ (UAPI) کافی نیست؟
+     *    پل سازگاری UAPI→API2 در برخی نسخه‌های جدید cPanel (پرل ۵.۴۲+) با خطای
+     *    «Can't locate Cpanel/API/X.pm in @INC» شکست می‌خورد چون در eval محدودی
+     *    اجرا می‌شود؛ اما فراخوانی مستقیم API2 از دیسپچر رسمی آن عبور می‌کند.
+     *
+     * @param string $module ماژول API2 (مثلاً Cron)
+     * @param string $func   تابع API2 (مثلاً add_line)
+     * @param array  $params پارامترهای تابع
+     * @return array|false آرایه data در موفقیت، false در خطا (خطا در lastError)
+     */
+    public function callApi2(string $module, string $func, array $params = [])
+    {
+        $this->lastError = null;
+        $this->lastResponse = null;
+
+        $host = trim((string)($this->settings['cpanel_host'] ?? ''));
+        $port = (int)($this->settings['cpanel_port'] ?? 2083);
+        $proto = ($this->settings['cpanel_protocol'] ?? 'https') === 'http' ? 'http' : 'https';
+        $user = trim((string)($this->settings['cpanel_username'] ?? ''));
+        $token = DeployCrypto::decrypt((string)($this->settings['cpanel_token_enc'] ?? ''));
+
+        if ($host === '' || $user === '' || $token === '') {
+            $this->lastError = 'تنظیمات اتصال cPanel کامل نیست — آدرس سرور، نام کاربری و API Token الزامی است.';
+            return false;
+        }
+
+        $url = sprintf('%s://%s:%d/json-api/cpanel', $proto, $host, $port);
+
+        /* 📦 پارامترهای استاندارد API2 + پارامترهای تابع */
+        $postFields = [
+            'cpanel_jsonapi_user'       => $user,
+            'cpanel_jsonapi_apiversion' => 2,
+            'cpanel_jsonapi_module'     => $module,
+            'cpanel_jsonapi_func'       => $func,
+        ];
+        foreach ($params as $key => $value) {
+            $postFields[$key] = is_scalar($value) ? (string)$value : json_encode($value);
+        }
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => http_build_query($postFields),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => $this->timeout,
+            CURLOPT_CONNECTTIMEOUT => 15,
+            CURLOPT_HTTPHEADER     => [
+                'Authorization: cpanel ' . $user . ':' . $token,
+                'Content-Type: application/x-www-form-urlencoded',
+            ],
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 2,
+        ]);
+
+        $body = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($body === false) {
+            $this->lastError = 'خطای شبکه در ارتباط با cPanel (API2): ' . ($curlError ?: 'پاسخی دریافت نشد');
+            return false;
+        }
+
+        $json = json_decode((string)$body, true);
+        if (!is_array($json) || !isset($json['cpanelresult'])) {
+            $this->lastError = 'پاسخ API2 قابل خواندن نیست (HTTP ' . $httpCode . ')';
+            return false;
+        }
+
+        $this->lastResponse = $json;
+
+        if ($httpCode === 401 || $httpCode === 403) {
+            $this->lastError = 'دسترسی cPanel رد شد (HTTP ' . $httpCode . ') — API Token نامعتبر است یا دسترسی لازم را ندارد.';
+            return false;
+        }
+
+        $result = $json['cpanelresult'];
+
+        /* ✅ موفقیت API2: event.result = 1 */
+        $eventResult = (int)($result['event']['result'] ?? 0);
+        if ($eventResult === 1) {
+            return is_array($result['data'] ?? null) ? $result['data'] : [];
+        }
+
+        /* ❌ خطا — از چند مکان ممکن استخراج شود */
+        $msg = (string)($result['error'] ?? '');
+        if ($msg === '') {
+            $data0 = is_array($result['data'][0] ?? null) ? $result['data'][0] : [];
+            if (isset($data0['status']) && (int)$data0['status'] === 0) {
+                $msg = (string)($data0['statusmsg'] ?? '');
+            }
+        }
+        $this->lastError = 'cPanel (API2) خطا برگرداند: ' . ($msg !== '' ? $msg : 'عملیات ناموفق بود (HTTP ' . $httpCode . ')');
+        return false;
+    }
+
+    /**
      * 🔍 تست اتصال به cPanel
      *
      * ⚠️ برخی سرورها ماژول Cpanel::API::Version را ندارند؛
@@ -718,26 +828,75 @@ class CpanelAPI
     /**
      * ⏰ افزودن یک Cron Job به cPanel
      *
+     * 🔁 استراتژی چندلایه (v2.14):
+     *   ① API2 مستقیم (json-api/cpanel?module=Cron&func=add_line) — روش رسمی؛
+     *      Cron طبق مستندات cPanel «معادل UAPI ندارد» و پل UAPI→API2 روی
+     *      نسخه‌های جدید (پرل ۵.۴۲+) با خطای «Can't locate Cpanel/API/Cron.pm»
+     *      شکست می‌خورد.
+     *   ② پل UAPI (/execute/Cron/add_line) — برای سرورهای قدیمی‌تر که پل سالم است.
+     *   ③ اگر هر دو ناموفق بودند → خطای شفاف + راهنمای افزودن دستی.
+     *
+     * 🛡️ ضدتکرار: اگر همین دستور از قبل در crontab وجود داشته باشد،
+     *    بدون خطا «موجود» گزارش می‌شود (دوباره اضافه نمی‌شود).
+     *
      * @param string $command  دستور کامل (مثلاً php /home/user/public_html/cron/backup.php)
      * @param string $minute   دقیقه (ستاره یعنی هر دقیقه، یا عبارت هر-۱۵-دقیقه)
      * @param string $hour     ساعت (ستاره یا عدد 0 تا 23)
      * @param string $day      روز ماه (ستاره یا عدد 1 تا 31)
      * @param string $month    ماه (ستاره یا عدد 1 تا 12)
      * @param string $weekday  روز هفته (ستاره یا عدد 0 تا 6)
-     * @return array [success => bool, message => string]
+     * @return array [success => bool, message => string, existed => bool, method => string]
      */
     public function addCronJob(string $command, string $minute = '*', string $hour = '*', string $day = '*', string $month = '*', string $weekday = '*'): array
     {
         $command = trim($command);
         if ($command === '') {
-            return ['success' => false, 'message' => 'دستور Cron خالی است.'];
+            return ['success' => false, 'message' => 'دستور Cron خالی است.', 'existed' => false, 'method' => ''];
         }
 
         // 🛡️ فقط دستورات امن مجازند (php / مسیر مطلق) — جلوگیری از تزریق
         if (!preg_match('#^(php|/usr/bin/php|/usr/local/bin/php|curl|wget|/bin/bash|/bin/sh)\s+#i', $command) && !preg_match('#^/home/[^/\s]+/.+#', $command)) {
-            return ['success' => false, 'message' => 'دستور مجاز نیست — فقط دستورات php/curl/wget با مسیر مطلق مجازند.'];
+            return ['success' => false, 'message' => 'دستور مجاز نیست — فقط دستورات php/curl/wget با مسیر مطلق مجازند.', 'existed' => false, 'method' => ''];
         }
 
+        /* 🛡️ ضدتکرار — اگر همین دستور از قبل ثبت شده، دوباره اضافه نکن */
+        $existing = $this->listCronJobs();
+        foreach ($existing as $line) {
+            $cmd = trim((string)($line['command'] ?? ''));
+            if ($cmd === $command) {
+                return [
+                    'success' => true,
+                    'existed' => true,
+                    'method'  => 'dedup',
+                    'message' => '✅ این دستور از قبل در cPanel ثبت شده بود — دوباره اضافه نشد.',
+                ];
+            }
+        }
+
+        /* ① API2 مستقیم — روش رسمی و پایدار */
+        $data = $this->callApi2('Cron', 'add_line', [
+            'command' => $command,
+            'day'     => $day,
+            'hour'    => $hour,
+            'minute'  => $minute,
+            'month'   => $month,
+            'weekday' => $weekday,
+        ]);
+        if ($data !== false) {
+            $lineKey = (string)($data[0]['linekey'] ?? '');
+            $status  = (int)($data[0]['status'] ?? 1);
+            if ($status === 1) {
+                return ['success' => true, 'existed' => false, 'method' => 'api2', 'message' => '✅ Cron با موفقیت به cPanel اضافه شد.' . ($lineKey !== '' ? ' (شناسه: ' . $lineKey . ')' : ''), 'line' => $lineKey];
+            }
+            /* گاهی status=0 ولی event.result=1 — پیام را نشان بده */
+            $statusMsg = (string)($data[0]['statusmsg'] ?? '');
+            if ($statusMsg !== '' && stripos($statusMsg, 'installed') === false) {
+                return ['success' => false, 'existed' => false, 'method' => 'api2', 'message' => 'cPanel پاسخ داد: ' . $statusMsg];
+            }
+        }
+
+        /* ② پل UAPI — برای سرورهایی که پل UAPI→API2 سالم دارند */
+        $api2Error = $this->lastError; // خطای مرحله ① برای پیام نهایی
         $data = $this->call('Cron', 'add_line', [
             'command'  => $command,
             'minute'   => $minute,
@@ -748,32 +907,105 @@ class CpanelAPI
             // اگر خط تکراری وجود داشت، بازنویسی شود
             'confirm'  => 'overwrite',
         ]);
-        if ($data === false) {
-            return ['success' => false, 'message' => $this->lastError ?: 'افزودن Cron ناموفق بود.'];
+        if ($data !== false) {
+            $lineNo = (string)($data['linekey'] ?? $data['line'] ?? '');
+            return ['success' => true, 'existed' => false, 'method' => 'uapi', 'message' => '✅ Cron با موفقیت به cPanel اضافه شد.' . ($lineNo !== '' ? ' (شناسه: ' . $lineNo . ')' : ''), 'line' => $lineNo];
         }
-        $lineNo = (int)($data['linekey'] ?? $data['line'] ?? 0);
-        return ['success' => true, 'message' => '✅ Cron با موفقیت به cPanel اضافه شد.' . ($lineNo ? ' (شناسه: ' . $lineNo . ')' : ''), 'line' => $lineNo];
+
+        /* ③ هر دو روش ناموفق — راهنمای شفاف */
+        return [
+            'success' => false,
+            'existed' => false,
+            'method'  => 'failed',
+            'message' => "هر دو روش افزودن Cron (API2 و UAPI) ناموفق بودند.\n" .
+                "— خطای API2: " . ($api2Error ?: 'نامشخص') . "\n" .
+                "— خطای UAPI: " . ($this->lastError ?: 'نامشخص') . "\n" .
+                "💡 راه حل: از cPanel » Advanced » Cron Jobs دستور زیر را دستی اضافه کنید:\n" .
+                $minute . ' ' . $hour . ' ' . $day . ' ' . $month . ' ' . $weekday . ' ' . $command,
+        ];
     }
 
     /**
-     * 📋 لیست Cron Jobs فعلی cPanel
+     * 📋 لیست Cron Jobs فعلی cPanel (API2 اول + fallback پل UAPI)
+     * خروجی نرمال‌شده: هر خط = [command, minute, hour, day, month, weekday, linekey, count]
      */
     public function listCronJobs(): array
     {
+        /* ① API2 مستقیم — listcron */
+        $data = $this->callApi2('Cron', 'listcron');
+        if ($data !== false) {
+            $rows = [];
+            foreach ($data as $row) {
+                if (!is_array($row) || !isset($row['command'])) {
+                    continue; // ردیف «count» پایانی که فقط تعداد کل است
+                }
+                $rows[] = [
+                    'command'  => (string)($row['command'] ?? ''),
+                    'minute'   => (string)($row['minute'] ?? '*'),
+                    'hour'     => (string)($row['hour'] ?? '*'),
+                    'day'      => (string)($row['day'] ?? '*'),
+                    'month'    => (string)($row['month'] ?? '*'),
+                    'weekday'  => (string)($row['weekday'] ?? '*'),
+                    'linekey'  => (string)($row['linekey'] ?? ''),
+                    'count'    => (int)($row['count'] ?? 0),
+                ];
+            }
+            return $rows;
+        }
+
+        /* ② پل UAPI — list_lines (فرمت UAPI) */
         $data = $this->call('Cron', 'list_lines');
-        return $data === false ? [] : (array)($data['crons'] ?? []);
+        if ($data === false) {
+            return [];
+        }
+        $rows = [];
+        foreach ((array)($data['crons'] ?? []) as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $rows[] = [
+                'command'  => (string)($row['command'] ?? ''),
+                'minute'   => (string)($row['minute'] ?? '*'),
+                'hour'     => (string)($row['hour'] ?? '*'),
+                'day'      => (string)($row['day'] ?? '*'),
+                'month'    => (string)($row['month'] ?? '*'),
+                'weekday'  => (string)($row['weekday'] ?? '*'),
+                'linekey'  => (string)($row['linekey'] ?? ''),
+                'count'    => (int)($row['count'] ?? 0),
+            ];
+        }
+        return $rows;
     }
 
     /**
-     * 🗑️ حذف یک Cron Job با شماره خط
+     * 🗑️ حذف یک Cron Job (API2 اول + fallback پل UAPI)
+     *
+     * @param int|string $lineRef شماره خط (count) یا linekey — API2 شماره خط می‌پذیرد
      */
-    public function removeCronJob(int $lineNo): array
+    public function removeCronJob($lineRef): array
     {
-        $data = $this->call('Cron', 'remove_line', ['lineno' => $lineNo]);
-        if ($data === false) {
-            return ['success' => false, 'message' => $this->lastError ?: 'حذف Cron ناموفق بود.'];
+        $lineRef = trim((string)$lineRef);
+        if ($lineRef === '') {
+            return ['success' => false, 'message' => 'شناسه خط Cron نامعتبر است.'];
         }
-        return ['success' => true, 'message' => 'Cron حذف شد.'];
+
+        /* ① API2 مستقیم — remove_line با پارامتر line */
+        $data = $this->callApi2('Cron', 'remove_line', ['line' => $lineRef]);
+        if ($data !== false) {
+            return ['success' => true, 'message' => '✅ Cron حذف شد.'];
+        }
+        $api2Error = $this->lastError;
+
+        /* ② پل UAPI — remove_line با lineno */
+        $data = $this->call('Cron', 'remove_line', ['lineno' => $lineRef]);
+        if ($data !== false) {
+            return ['success' => true, 'message' => '✅ Cron حذف شد.'];
+        }
+
+        return [
+            'success' => false,
+            'message' => "حذف Cron در هر دو روش ناموفق بود.\n— API2: " . ($api2Error ?: 'نامشخص') . "\n— UAPI: " . ($this->lastError ?: 'نامشخص'),
+        ];
     }
 
     /* ==================================================

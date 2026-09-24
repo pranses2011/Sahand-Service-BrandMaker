@@ -362,10 +362,15 @@ async function openDeployDialog(brandId, isUpdate) {
         return;
     }
     currentBrandId = brandId;
-    updateMode = isUpdate;
 
     const body = await api({action: 'preview', brand_id: brandId});
     if (!body.success) { sahandAlert({ title: 'خطا', message: errText(body), type: 'danger' }); return; }
+
+    /* 🛡️ v2.14: حالت عملیات از پاسخ زنده سرور (preview) تعیین می‌شود —
+       نه از پارامتر فراخوانی‌کننده؛ اگر پرچم is_deployed قدیمی/ناسازگار
+       بود، دیالوگ حالت اشتباه («بروزرسانی») نشان می‌داد و شروع با خطای
+       «این برند هنوز استقرار خودکار ندارد» رد می‌شد. */
+    updateMode = !!body.is_deployed;
 
     document.getElementById('deploy-dialog-title').textContent = body.is_deployed ? '🔄 بروزرسانی خودکار سایت' : '🚀 پیش‌نمایش استقرار خودکار';
     document.getElementById('pv-brand').textContent = body.brand.name_fa + ' (' + body.brand.name_en + ')';

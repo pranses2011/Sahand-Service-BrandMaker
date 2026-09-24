@@ -482,8 +482,14 @@ function validatePattern() {
 }
 
 /* 🔄 بازگشت به پیش‌فرض */
-function resetPattern() {
-    if (!confirm('الگوی مسیر به پیش‌فرض (/public_html/brands/{brand_slug}) بازگردانده شود؟')) return;
+async function resetPattern() {
+    const ok = await sahandConfirm({
+        title: 'بازگردانی الگوی مسیر',
+        message: 'الگوی مسیر به پیش‌فرض (/public_html/brands/{brand_slug}) بازگردانده شود؟',
+        type: 'question', icon: '🧭',
+        confirmText: 'بله، بازگردانی کن',
+    });
+    if (!ok) return;
     const form = new FormData();
     form.append('action', 'reset_pattern');
     form.append('csrf_token', '<?= e($_SESSION['csrf_token'] ?? '') ?>');
@@ -493,7 +499,9 @@ function resetPattern() {
 /* 📋 کپی دستورات cron */
 function copyCron() {
     const text = [...document.querySelectorAll('.cron-cmd')].map(c => c.textContent).join('\n');
-    navigator.clipboard.writeText(text.trim()).then(() => alert('✅ دستورات Cron کپی شد'));
+    navigator.clipboard.writeText(text.trim()).then(() => {
+        sahandToast({ message: 'دستورات Cron کپی شد — در cPanel » Advanced » Cron Jobs جای‌گذاری کنید', type: 'success', icon: '📋', duration: 4500 });
+    });
 }
 
 /* ⏰ افزودن خودکار دستور cron به cPanel */
@@ -517,11 +525,20 @@ function addCronToCpanel(job, btn) {
             resultEl.style.color = data.success ? '#16a34a' : '#dc2626';
             btn.innerHTML = data.success ? '✅ اضافه شد' : original;
             if (data.success) setTimeout(() => { btn.innerHTML = original; }, 2500);
+            /* 💬 دیالوگ زیبا برای نتیجه افزودن Cron (به‌جای متن خام) */
+            sahandAlert({
+                title: data.success ? '⏰ Cron ثبت شد' : 'ثبت Cron ناموفق بود',
+                message: data.message || '',
+                type: data.success ? 'success' : 'danger',
+                icon: data.success ? '⏰' : '⛔',
+                confirmText: 'متوجه شدم',
+            });
         })
         .catch(() => {
             resultEl.textContent = '❌ خطای شبکه — دوباره تلاش کنید';
             resultEl.style.color = '#dc2626';
             btn.innerHTML = original;
+            sahandAlert({ title: 'خطای شبکه', message: 'ارتباط با سرور برقرار نشد — دوباره تلاش کنید.', type: 'danger', icon: '🌐' });
         })
         .finally(() => { btn.disabled = false; });
 }

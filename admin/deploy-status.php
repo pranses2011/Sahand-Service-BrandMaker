@@ -163,12 +163,19 @@ switch ($action) {
         $subdomain = $subManager->previewSubdomain($brand);
         $rootDomain = (string)($settings['root_domain'] ?? '');
         $serverPath = PathResolver::resolveDocumentRoot($brand);
-        $steps = $deployer->stepsFor($brand['is_deployed'] ? 'update' : 'deploy');
+
+        /* 🛡️ v2.14: استقرار واقعی = پرچم is_deployed + مسیر سرور معتبر
+           (قبلاً اگر is_deployed=1 ولی server_path خالی بود، فرانت حالت
+           «بروزرسانی» نشان می‌داد و queueUpdate با خطای «این برند هنوز
+           استقرار خودکار ندارد» رد می‌شد — حالت استقرار جدید درست است) */
+        $reallyDeployed = !empty($brand['is_deployed']) && trim((string)($brand['server_path'] ?? '')) !== '';
+
+        $steps = $deployer->stepsFor($reallyDeployed ? 'update' : 'deploy');
 
         json_response([
             'success'    => true,
             'brand'      => ['id' => (int)$brand['id'], 'name_fa' => $brand['name_fa'], 'name_en' => $brand['name_en']],
-            'is_deployed' => (bool)$brand['is_deployed'],
+            'is_deployed' => $reallyDeployed,
             'subdomain'  => $subdomain,
             'full_domain'=> $subdomain . '.' . $rootDomain,
             'root_domain'=> $rootDomain,
