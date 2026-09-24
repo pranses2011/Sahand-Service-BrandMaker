@@ -50,7 +50,790 @@
       "label_fa": "منو",
       "file": "menu.svg",
       "category": "general"
+    },
+    {
+      "name": "bx-anchor",
+      "label_fa": "لنگر",
+      "file": "bx-anchor.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-award",
+      "label_fa": "نشان افتخار",
+      "file": "bx-award.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-badge-check",
+      "label_fa": "تأییدشده",
+      "file": "bx-badge-check.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-bar-chart",
+      "label_fa": "نمودار ستونی",
+      "file": "bx-bar-chart.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-barcode",
+      "label_fa": "بارکد",
+      "file": "bx-barcode.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-bath",
+      "label_fa": "حمام",
+      "file": "bx-bath.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-battery",
+      "label_fa": "باتری",
+      "file": "bx-battery.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-bell",
+      "label_fa": "زنگ اعلان",
+      "file": "bx-bell.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-bluetooth",
+      "label_fa": "بلوتوث",
+      "file": "bx-bluetooth.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-book",
+      "label_fa": "کتاب",
+      "file": "bx-book.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-bookmark",
+      "label_fa": "نشان‌گذاری",
+      "file": "bx-bookmark.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-box",
+      "label_fa": "جعبه",
+      "file": "bx-box.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-briefcase",
+      "label_fa": "کیف کار",
+      "file": "bx-briefcase.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-brush",
+      "label_fa": "قلم‌موی",
+      "file": "bx-brush.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-building",
+      "label_fa": "ساختمان",
+      "file": "bx-building.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-bulb",
+      "label_fa": "لامپ",
+      "file": "bx-bulb.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-bus",
+      "label_fa": "اتوبوس",
+      "file": "bx-bus.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-calendar",
+      "label_fa": "تقویم",
+      "file": "bx-calendar.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-calendar-check",
+      "label_fa": "قرار تأییدشده",
+      "file": "bx-calendar-check.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-camera",
+      "label_fa": "دوربین",
+      "file": "bx-camera.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-car",
+      "label_fa": "خودرو",
+      "file": "bx-car.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-check",
+      "label_fa": "تیک تأیید",
+      "file": "bx-check.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-check-circle",
+      "label_fa": "تأیید",
+      "file": "bx-check-circle.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-chevron-down",
+      "label_fa": "فلش پایین",
+      "file": "bx-chevron-down.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-chevron-left",
+      "label_fa": "فلش چپ",
+      "file": "bx-chevron-left.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-chevron-right",
+      "label_fa": "فلش راست",
+      "file": "bx-chevron-right.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-chevron-up",
+      "label_fa": "فلش بالا",
+      "file": "bx-chevron-up.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-circle",
+      "label_fa": "دایره",
+      "file": "bx-circle.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-cloud",
+      "label_fa": "ابر",
+      "file": "bx-cloud.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-code",
+      "label_fa": "کد",
+      "file": "bx-code.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-coffee",
+      "label_fa": "قهوه",
+      "file": "bx-coffee.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-cog",
+      "label_fa": "چرخ‌دنده",
+      "file": "bx-cog.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-compass",
+      "label_fa": "قطب‌نما",
+      "file": "bx-compass.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-copy",
+      "label_fa": "کپی",
+      "file": "bx-copy.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-credit-card",
+      "label_fa": "کارت بانکی",
+      "file": "bx-credit-card.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-diamond",
+      "label_fa": "لوزی",
+      "file": "bx-diamond.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-download",
+      "label_fa": "دانلود",
+      "file": "bx-download.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-droplet",
+      "label_fa": "قطره آب",
+      "file": "bx-droplet.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-edit",
+      "label_fa": "ویرایش",
+      "file": "bx-edit.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-file",
+      "label_fa": "فایل",
+      "file": "bx-file.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-filter",
+      "label_fa": "فیلتر",
+      "file": "bx-filter.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-fingerprint",
+      "label_fa": "اثر انگشت",
+      "file": "bx-fingerprint.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-flag",
+      "label_fa": "پرچم",
+      "file": "bx-flag.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-folder",
+      "label_fa": "پوشه",
+      "file": "bx-folder.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-fridge",
+      "label_fa": "یخچال",
+      "file": "bx-fridge.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-gift",
+      "label_fa": "هدیه",
+      "file": "bx-gift.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-globe",
+      "label_fa": "وب",
+      "file": "bx-globe.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-grid",
+      "label_fa": "شبکه",
+      "file": "bx-grid.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-heart",
+      "label_fa": "قلب",
+      "file": "bx-heart.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-help-circle",
+      "label_fa": "راهنما",
+      "file": "bx-help-circle.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-history",
+      "label_fa": "تاریخچه",
+      "file": "bx-history.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-home",
+      "label_fa": "خانه",
+      "file": "bx-home.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-hourglass",
+      "label_fa": "شنی",
+      "file": "bx-hourglass.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-id-card",
+      "label_fa": "کارت شناسایی",
+      "file": "bx-id-card.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-image",
+      "label_fa": "تصویر",
+      "file": "bx-image.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-info-circle",
+      "label_fa": "اطلاعات",
+      "file": "bx-info-circle.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-key",
+      "label_fa": "کلید",
+      "file": "bx-key.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-laptop",
+      "label_fa": "لپ‌تاپ",
+      "file": "bx-laptop.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-layout",
+      "label_fa": "چیدمان",
+      "file": "bx-layout.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-leaf",
+      "label_fa": "برگ",
+      "file": "bx-leaf.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-line-chart",
+      "label_fa": "نمودار خطی",
+      "file": "bx-line-chart.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-link",
+      "label_fa": "لینک",
+      "file": "bx-link.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-lock",
+      "label_fa": "قفل",
+      "file": "bx-lock.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-log-in",
+      "label_fa": "ورود",
+      "file": "bx-log-in.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-log-out",
+      "label_fa": "خروج",
+      "file": "bx-log-out.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-map",
+      "label_fa": "نقشه",
+      "file": "bx-map.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-map-pin",
+      "label_fa": "موقعیت مکانی",
+      "file": "bx-map-pin.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-meh",
+      "label_fa": "بی‌تفاوت",
+      "file": "bx-meh.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-menu",
+      "label_fa": "منو",
+      "file": "bx-menu.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-message-square",
+      "label_fa": "پیام",
+      "file": "bx-message-square.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-minus",
+      "label_fa": "کم کردن",
+      "file": "bx-minus.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-minus-circle",
+      "label_fa": "کم کردن",
+      "file": "bx-minus-circle.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-moon",
+      "label_fa": "ماه",
+      "file": "bx-moon.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-music",
+      "label_fa": "موسیقی",
+      "file": "bx-music.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-navigation",
+      "label_fa": "ناوبری",
+      "file": "bx-navigation.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-package",
+      "label_fa": "بسته",
+      "file": "bx-package.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-palette",
+      "label_fa": "پالت رنگ",
+      "file": "bx-palette.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-paperclip",
+      "label_fa": "گیره کاغذ",
+      "file": "bx-paperclip.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-pause",
+      "label_fa": "توقف",
+      "file": "bx-pause.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-pen",
+      "label_fa": "قلم",
+      "file": "bx-pen.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-phone",
+      "label_fa": "تلفن",
+      "file": "bx-phone.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-phone-call",
+      "label_fa": "تماس تلفنی",
+      "file": "bx-phone-call.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-pie-chart",
+      "label_fa": "نمودار دایره‌ای",
+      "file": "bx-pie-chart.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-play",
+      "label_fa": "پخش",
+      "file": "bx-play.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-plug",
+      "label_fa": "پریز برق",
+      "file": "bx-plug.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-plus",
+      "label_fa": "افزودن",
+      "file": "bx-plus.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-plus-circle",
+      "label_fa": "افزودن",
+      "file": "bx-plus-circle.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-printer",
+      "label_fa": "چاپگر",
+      "file": "bx-printer.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-radio",
+      "label_fa": "رادیو",
+      "file": "bx-radio.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-receipt",
+      "label_fa": "رسید",
+      "file": "bx-receipt.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-recycle",
+      "label_fa": "بازیافت",
+      "file": "bx-recycle.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-refresh",
+      "label_fa": "بروزرسانی",
+      "file": "bx-refresh.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-rocket",
+      "label_fa": "موشک/شتاب",
+      "file": "bx-rocket.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-ruler",
+      "label_fa": "خط‌کش",
+      "file": "bx-ruler.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-save",
+      "label_fa": "ذخیره",
+      "file": "bx-save.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-scan",
+      "label_fa": "اسکن",
+      "file": "bx-scan.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-search",
+      "label_fa": "جستجو",
+      "file": "bx-search.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-send",
+      "label_fa": "ارسال",
+      "file": "bx-send.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-server",
+      "label_fa": "سرور",
+      "file": "bx-server.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-shield",
+      "label_fa": "محافظ",
+      "file": "bx-shield.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-shopping-bag",
+      "label_fa": "کیف خرید",
+      "file": "bx-shopping-bag.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-shower",
+      "label_fa": "دوش",
+      "file": "bx-shower.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-smile",
+      "label_fa": "خندان",
+      "file": "bx-smile.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-square",
+      "label_fa": "مربع",
+      "file": "bx-square.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-star",
+      "label_fa": "ستاره",
+      "file": "bx-star.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-store",
+      "label_fa": "فروشگاه",
+      "file": "bx-store.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-sun",
+      "label_fa": "خورشید",
+      "file": "bx-sun.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-support",
+      "label_fa": "پشتیبانی",
+      "file": "bx-support.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-tag",
+      "label_fa": "برچسب",
+      "file": "bx-tag.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-timer",
+      "label_fa": "کرنومتر",
+      "file": "bx-timer.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-trash",
+      "label_fa": "سطل زباله",
+      "file": "bx-trash.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-trending-up",
+      "label_fa": "رشد",
+      "file": "bx-trending-up.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-trophy",
+      "label_fa": "جام",
+      "file": "bx-trophy.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-tv",
+      "label_fa": "تلویزیون",
+      "file": "bx-tv.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-upload",
+      "label_fa": "بارگذاری",
+      "file": "bx-upload.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-user",
+      "label_fa": "کاربر",
+      "file": "bx-user.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-video",
+      "label_fa": "ویدیو",
+      "file": "bx-video.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-wallet",
+      "label_fa": "کیف پول",
+      "file": "bx-wallet.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-wifi",
+      "label_fa": "وای‌فای",
+      "file": "bx-wifi.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-wind",
+      "label_fa": "باد",
+      "file": "bx-wind.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-wrench",
+      "label_fa": "آچار",
+      "file": "bx-wrench.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-x",
+      "label_fa": "بستن",
+      "file": "bx-x.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-x-circle",
+      "label_fa": "بستن",
+      "file": "bx-x-circle.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-zoom-in",
+      "label_fa": "بزرگ‌نمایی",
+      "file": "bx-zoom-in.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-arrow-back",
+      "label_fa": "فلش بازگشت",
+      "file": "bx-arrow-back.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-arrow-from-bottom",
+      "label_fa": "از پایین",
+      "file": "bx-arrow-from-bottom.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-arrow-from-left",
+      "label_fa": "از چپ",
+      "file": "bx-arrow-from-left.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-arrow-from-right",
+      "label_fa": "از راست",
+      "file": "bx-arrow-from-right.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-arrow-from-top",
+      "label_fa": "از بالا",
+      "file": "bx-arrow-from-top.svg",
+      "category": "general"
+    },
+    {
+      "name": "bx-arrow-to-bottom",
+      "label_fa": "به پایین",
+      "file": "bx-arrow-to-bottom.svg",
+      "category": "general"
     }
   ],
-  "import_hint": "۱۵۰۰+"
+  "import_hint": "boxicons.com",
+  "icon_count": 138,
+  "expanded_at": "2026-09-25 00:00:00",
+  "curated_note": "مجموعه گزینشی 138 آیکونی از منبع رسمی — برای نصب کامل پک از دکمه دانلود پنل استفاده کنید."
 }

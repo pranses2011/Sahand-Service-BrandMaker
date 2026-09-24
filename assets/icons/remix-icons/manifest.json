@@ -50,7 +50,790 @@
       "label_fa": "منو",
       "file": "menu.svg",
       "category": "general"
+    },
+    {
+      "name": "link",
+      "label_fa": "لینک",
+      "file": "link.svg",
+      "category": "editor"
+    },
+    {
+      "name": "alert-line",
+      "label_fa": "هشدار",
+      "file": "alert-line.svg",
+      "category": "system"
+    },
+    {
+      "name": "arrow-down-circle-line",
+      "label_fa": "فلش پایین",
+      "file": "arrow-down-circle-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-down-double-line",
+      "label_fa": "فلش پایین",
+      "file": "arrow-down-double-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-down-line",
+      "label_fa": "فلش پایین",
+      "file": "arrow-down-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-down-s-line",
+      "label_fa": "فلش پایین",
+      "file": "arrow-down-s-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-down-wide-line",
+      "label_fa": "فلش پایین",
+      "file": "arrow-down-wide-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-drop-down-line",
+      "label_fa": "فلش پایین",
+      "file": "arrow-drop-down-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-drop-left-line",
+      "label_fa": "فلش چپ",
+      "file": "arrow-drop-left-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-drop-right-line",
+      "label_fa": "فلش راست",
+      "file": "arrow-drop-right-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-drop-up-line",
+      "label_fa": "فلش بالا",
+      "file": "arrow-drop-up-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-go-back-line",
+      "label_fa": "بازگشت",
+      "file": "arrow-go-back-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-go-forward-line",
+      "label_fa": "جلو",
+      "file": "arrow-go-forward-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-left-circle-line",
+      "label_fa": "فلش چپ",
+      "file": "arrow-left-circle-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-left-double-line",
+      "label_fa": "فلش چپ",
+      "file": "arrow-left-double-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-left-down-line",
+      "label_fa": "فلش چپ",
+      "file": "arrow-left-down-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-left-line",
+      "label_fa": "فلش چپ",
+      "file": "arrow-left-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-left-right-line",
+      "label_fa": "فلش چپ",
+      "file": "arrow-left-right-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-left-s-line",
+      "label_fa": "فلش چپ",
+      "file": "arrow-left-s-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-left-up-line",
+      "label_fa": "فلش چپ",
+      "file": "arrow-left-up-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-left-wide-line",
+      "label_fa": "فلش چپ",
+      "file": "arrow-left-wide-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-right-circle-line",
+      "label_fa": "فلش راست",
+      "file": "arrow-right-circle-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-right-double-line",
+      "label_fa": "فلش راست",
+      "file": "arrow-right-double-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-right-down-line",
+      "label_fa": "فلش راست",
+      "file": "arrow-right-down-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-right-line",
+      "label_fa": "فلش راست",
+      "file": "arrow-right-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-right-s-line",
+      "label_fa": "فلش راست",
+      "file": "arrow-right-s-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-right-up-line",
+      "label_fa": "فلش راست",
+      "file": "arrow-right-up-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-right-wide-line",
+      "label_fa": "فلش راست",
+      "file": "arrow-right-wide-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-turn-back-line",
+      "label_fa": "بازگشت",
+      "file": "arrow-turn-back-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-turn-forward-line",
+      "label_fa": "جلو",
+      "file": "arrow-turn-forward-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-up-circle-line",
+      "label_fa": "فلش بالا",
+      "file": "arrow-up-circle-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-up-double-line",
+      "label_fa": "فلش بالا",
+      "file": "arrow-up-double-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-up-down-line",
+      "label_fa": "فلش بالا",
+      "file": "arrow-up-down-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-up-line",
+      "label_fa": "فلش بالا",
+      "file": "arrow-up-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-up-s-line",
+      "label_fa": "فلش بالا",
+      "file": "arrow-up-s-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-up-wide-line",
+      "label_fa": "فلش بالا",
+      "file": "arrow-up-wide-line.svg",
+      "category": "general"
+    },
+    {
+      "name": "battery-2-charge-line",
+      "label_fa": "باتری",
+      "file": "battery-2-charge-line.svg",
+      "category": "device"
+    },
+    {
+      "name": "battery-2-line",
+      "label_fa": "باتری",
+      "file": "battery-2-line.svg",
+      "category": "device"
+    },
+    {
+      "name": "battery-charge-line",
+      "label_fa": "شارژ باتری",
+      "file": "battery-charge-line.svg",
+      "category": "device"
+    },
+    {
+      "name": "battery-line",
+      "label_fa": "باتری",
+      "file": "battery-line.svg",
+      "category": "device"
+    },
+    {
+      "name": "battery-low-line",
+      "label_fa": "باتری ضعیف",
+      "file": "battery-low-line.svg",
+      "category": "device"
+    },
+    {
+      "name": "battery-saver-line",
+      "label_fa": "صرفه‌جویی باتری",
+      "file": "battery-saver-line.svg",
+      "category": "device"
+    },
+    {
+      "name": "battery-share-line",
+      "label_fa": "battery-share",
+      "file": "battery-share-line.svg",
+      "category": "device"
+    },
+    {
+      "name": "calendar-2-line",
+      "label_fa": "calendar-2",
+      "file": "calendar-2-line.svg",
+      "category": "business"
+    },
+    {
+      "name": "calendar-check-line",
+      "label_fa": "قرار تأییدشده",
+      "file": "calendar-check-line.svg",
+      "category": "business"
+    },
+    {
+      "name": "calendar-close-line",
+      "label_fa": "بستن تقویم",
+      "file": "calendar-close-line.svg",
+      "category": "business"
+    },
+    {
+      "name": "calendar-event-line",
+      "label_fa": "رویداد تقویم",
+      "file": "calendar-event-line.svg",
+      "category": "business"
+    },
+    {
+      "name": "calendar-line",
+      "label_fa": "تقویم",
+      "file": "calendar-line.svg",
+      "category": "business"
+    },
+    {
+      "name": "calendar-schedule-line",
+      "label_fa": "زمان‌بندی تقویم",
+      "file": "calendar-schedule-line.svg",
+      "category": "business"
+    },
+    {
+      "name": "calendar-todo-line",
+      "label_fa": "کارهای تقویم",
+      "file": "calendar-todo-line.svg",
+      "category": "business"
+    },
+    {
+      "name": "check-double-line",
+      "label_fa": "تأیید دوبل",
+      "file": "check-double-line.svg",
+      "category": "system"
+    },
+    {
+      "name": "check-line",
+      "label_fa": "تیک تأیید",
+      "file": "check-line.svg",
+      "category": "system"
+    },
+    {
+      "name": "circle-line",
+      "label_fa": "دایره",
+      "file": "circle-line.svg",
+      "category": "design"
+    },
+    {
+      "name": "cloud-line",
+      "label_fa": "ابر",
+      "file": "cloud-line.svg",
+      "category": "business"
+    },
+    {
+      "name": "cloud-off-line",
+      "label_fa": "قطع ابر",
+      "file": "cloud-off-line.svg",
+      "category": "business"
+    },
+    {
+      "name": "cloud-windy-line",
+      "label_fa": "باد و ابر",
+      "file": "cloud-windy-line.svg",
+      "category": "weather"
+    },
+    {
+      "name": "device-line",
+      "label_fa": "دستگاه",
+      "file": "device-line.svg",
+      "category": "device"
+    },
+    {
+      "name": "device-recover-line",
+      "label_fa": "بازیابی دستگاه",
+      "file": "device-recover-line.svg",
+      "category": "device"
+    },
+    {
+      "name": "file-2-line",
+      "label_fa": "فایل",
+      "file": "file-2-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-3-line",
+      "label_fa": "فایل",
+      "file": "file-3-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-4-line",
+      "label_fa": "فایل",
+      "file": "file-4-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-add-line",
+      "label_fa": "افزودن فایل",
+      "file": "file-add-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-chart-2-line",
+      "label_fa": "نمودار فایل",
+      "file": "file-chart-2-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-chart-line",
+      "label_fa": "نمودار خطی",
+      "file": "file-chart-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-check-line",
+      "label_fa": "سند تأییدشده",
+      "file": "file-check-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-close-line",
+      "label_fa": "بستن فایل",
+      "file": "file-close-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-cloud-line",
+      "label_fa": "file-cloud",
+      "file": "file-cloud-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-code-line",
+      "label_fa": "فایل کد",
+      "file": "file-code-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-copy-2-line",
+      "label_fa": "file-copy-2",
+      "file": "file-copy-2-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-copy-line",
+      "label_fa": "file-copy",
+      "file": "file-copy-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-damage-line",
+      "label_fa": "file-damage",
+      "file": "file-damage-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-download-line",
+      "label_fa": "file-download",
+      "file": "file-download-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-edit-line",
+      "label_fa": "file-edit",
+      "file": "file-edit-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-excel-2-line",
+      "label_fa": "فایل Excel",
+      "file": "file-excel-2-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-excel-line",
+      "label_fa": "فایل Excel",
+      "file": "file-excel-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-forbid-line",
+      "label_fa": "file-forbid",
+      "file": "file-forbid-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-gif-line",
+      "label_fa": "file-gif",
+      "file": "file-gif-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-history-line",
+      "label_fa": "file-history",
+      "file": "file-history-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-hwp-line",
+      "label_fa": "file-hwp",
+      "file": "file-hwp-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-image-line",
+      "label_fa": "فایل تصویر",
+      "file": "file-image-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-info-line",
+      "label_fa": "file-info",
+      "file": "file-info-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-line",
+      "label_fa": "فایل",
+      "file": "file-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-list-2-line",
+      "label_fa": "file-list-2",
+      "file": "file-list-2-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-list-3-line",
+      "label_fa": "file-list-3",
+      "file": "file-list-3-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-list-line",
+      "label_fa": "file-list",
+      "file": "file-list-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-lock-line",
+      "label_fa": "file-lock",
+      "file": "file-lock-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-marked-line",
+      "label_fa": "file-marked",
+      "file": "file-marked-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-music-line",
+      "label_fa": "file-music",
+      "file": "file-music-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-paper-2-line",
+      "label_fa": "file-paper-2",
+      "file": "file-paper-2-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-paper-line",
+      "label_fa": "file-paper",
+      "file": "file-paper-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-pdf-2-line",
+      "label_fa": "فایل PDF",
+      "file": "file-pdf-2-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-pdf-line",
+      "label_fa": "فایل PDF",
+      "file": "file-pdf-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-ppt-2-line",
+      "label_fa": "file-ppt-2",
+      "file": "file-ppt-2-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-ppt-line",
+      "label_fa": "file-ppt",
+      "file": "file-ppt-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-reduce-line",
+      "label_fa": "file-reduce",
+      "file": "file-reduce-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-search-line",
+      "label_fa": "file-search",
+      "file": "file-search-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-settings-line",
+      "label_fa": "file-settings",
+      "file": "file-settings-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-shield-2-line",
+      "label_fa": "file-shield-2",
+      "file": "file-shield-2-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-shield-line",
+      "label_fa": "file-shield",
+      "file": "file-shield-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-shred-line",
+      "label_fa": "file-shred",
+      "file": "file-shred-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-text-line",
+      "label_fa": "متن/سند",
+      "file": "file-text-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-transfer-line",
+      "label_fa": "file-transfer",
+      "file": "file-transfer-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-unknow-line",
+      "label_fa": "file-unknow",
+      "file": "file-unknow-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-upload-line",
+      "label_fa": "file-upload",
+      "file": "file-upload-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-user-line",
+      "label_fa": "file-user",
+      "file": "file-user-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-video-line",
+      "label_fa": "فایل ویدیو",
+      "file": "file-video-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-warning-line",
+      "label_fa": "file-warning",
+      "file": "file-warning-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-word-2-line",
+      "label_fa": "فایل Word",
+      "file": "file-word-2-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-word-line",
+      "label_fa": "فایل Word",
+      "file": "file-word-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "file-zip-line",
+      "label_fa": "file-zip",
+      "file": "file-zip-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-2-line",
+      "label_fa": "folder-2",
+      "file": "folder-2-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-3-line",
+      "label_fa": "folder-3",
+      "file": "folder-3-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-4-line",
+      "label_fa": "folder-4",
+      "file": "folder-4-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-5-line",
+      "label_fa": "folder-5",
+      "file": "folder-5-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-6-line",
+      "label_fa": "folder-6",
+      "file": "folder-6-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-add-line",
+      "label_fa": "folder-add",
+      "file": "folder-add-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-chart-2-line",
+      "label_fa": "folder-chart-2",
+      "file": "folder-chart-2-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-chart-line",
+      "label_fa": "نمودار خطی",
+      "file": "folder-chart-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-check-line",
+      "label_fa": "folder-check",
+      "file": "folder-check-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-close-line",
+      "label_fa": "folder-close",
+      "file": "folder-close-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-cloud-line",
+      "label_fa": "folder-cloud",
+      "file": "folder-cloud-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-download-line",
+      "label_fa": "folder-download",
+      "file": "folder-download-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-forbid-line",
+      "label_fa": "folder-forbid",
+      "file": "folder-forbid-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-history-line",
+      "label_fa": "folder-history",
+      "file": "folder-history-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-image-line",
+      "label_fa": "folder-image",
+      "file": "folder-image-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-info-line",
+      "label_fa": "folder-info",
+      "file": "folder-info-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-keyhole-line",
+      "label_fa": "folder-keyhole",
+      "file": "folder-keyhole-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-line",
+      "label_fa": "پوشه",
+      "file": "folder-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-lock-line",
+      "label_fa": "folder-lock",
+      "file": "folder-lock-line.svg",
+      "category": "document"
+    },
+    {
+      "name": "folder-music-line",
+      "label_fa": "folder-music",
+      "file": "folder-music-line.svg",
+      "category": "document"
     }
   ],
-  "import_hint": "۲۲۰۰+"
+  "import_hint": "remixicon.com",
+  "icon_count": 138,
+  "expanded_at": "2026-09-25 00:00:00",
+  "curated_note": "مجموعه گزینشی 138 آیکونی از منبع رسمی — برای نصب کامل پک از دکمه دانلود پنل استفاده کنید."
 }

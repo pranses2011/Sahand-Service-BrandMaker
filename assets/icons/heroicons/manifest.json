@@ -50,7 +50,760 @@
       "label_fa": "منو",
       "file": "menu.svg",
       "category": "general"
+    },
+    {
+      "name": "arrow-down",
+      "label_fa": "فلش پایین",
+      "file": "arrow-down.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-left",
+      "label_fa": "فلش چپ",
+      "file": "arrow-left.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-right",
+      "label_fa": "فلش راست",
+      "file": "arrow-right.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-up",
+      "label_fa": "فلش بالا",
+      "file": "arrow-up.svg",
+      "category": "general"
+    },
+    {
+      "name": "bell",
+      "label_fa": "زنگ اعلان",
+      "file": "bell.svg",
+      "category": "general"
+    },
+    {
+      "name": "bolt",
+      "label_fa": "برق",
+      "file": "bolt.svg",
+      "category": "general"
+    },
+    {
+      "name": "bookmark",
+      "label_fa": "نشان‌گذاری",
+      "file": "bookmark.svg",
+      "category": "general"
+    },
+    {
+      "name": "briefcase",
+      "label_fa": "کیف کار",
+      "file": "briefcase.svg",
+      "category": "general"
+    },
+    {
+      "name": "camera",
+      "label_fa": "دوربین",
+      "file": "camera.svg",
+      "category": "general"
+    },
+    {
+      "name": "check",
+      "label_fa": "تیک تأیید",
+      "file": "check.svg",
+      "category": "general"
+    },
+    {
+      "name": "check-circle",
+      "label_fa": "تأیید",
+      "file": "check-circle.svg",
+      "category": "general"
+    },
+    {
+      "name": "chevron-down",
+      "label_fa": "فلش پایین",
+      "file": "chevron-down.svg",
+      "category": "general"
+    },
+    {
+      "name": "chevron-left",
+      "label_fa": "فلش چپ",
+      "file": "chevron-left.svg",
+      "category": "general"
+    },
+    {
+      "name": "chevron-right",
+      "label_fa": "فلش راست",
+      "file": "chevron-right.svg",
+      "category": "general"
+    },
+    {
+      "name": "chevron-up",
+      "label_fa": "فلش بالا",
+      "file": "chevron-up.svg",
+      "category": "general"
+    },
+    {
+      "name": "clock",
+      "label_fa": "ساعت",
+      "file": "clock.svg",
+      "category": "general"
+    },
+    {
+      "name": "cloud",
+      "label_fa": "ابر",
+      "file": "cloud.svg",
+      "category": "general"
+    },
+    {
+      "name": "cog",
+      "label_fa": "چرخ‌دنده",
+      "file": "cog.svg",
+      "category": "general"
+    },
+    {
+      "name": "credit-card",
+      "label_fa": "کارت بانکی",
+      "file": "credit-card.svg",
+      "category": "general"
+    },
+    {
+      "name": "device-tablet",
+      "label_fa": "تبلت",
+      "file": "device-tablet.svg",
+      "category": "general"
+    },
+    {
+      "name": "eye",
+      "label_fa": "نمایش",
+      "file": "eye.svg",
+      "category": "general"
+    },
+    {
+      "name": "fire",
+      "label_fa": "آتش",
+      "file": "fire.svg",
+      "category": "general"
+    },
+    {
+      "name": "flag",
+      "label_fa": "پرچم",
+      "file": "flag.svg",
+      "category": "general"
+    },
+    {
+      "name": "folder",
+      "label_fa": "پوشه",
+      "file": "folder.svg",
+      "category": "general"
+    },
+    {
+      "name": "gift",
+      "label_fa": "هدیه",
+      "file": "gift.svg",
+      "category": "general"
+    },
+    {
+      "name": "inbox",
+      "label_fa": "صندوق ورودی",
+      "file": "inbox.svg",
+      "category": "general"
+    },
+    {
+      "name": "key",
+      "label_fa": "کلید",
+      "file": "key.svg",
+      "category": "general"
+    },
+    {
+      "name": "link",
+      "label_fa": "لینک",
+      "file": "link.svg",
+      "category": "general"
+    },
+    {
+      "name": "map",
+      "label_fa": "نقشه",
+      "file": "map.svg",
+      "category": "general"
+    },
+    {
+      "name": "map-pin",
+      "label_fa": "موقعیت مکانی",
+      "file": "map-pin.svg",
+      "category": "general"
+    },
+    {
+      "name": "megaphone",
+      "label_fa": "بلندگو",
+      "file": "megaphone.svg",
+      "category": "general"
+    },
+    {
+      "name": "minus",
+      "label_fa": "کم کردن",
+      "file": "minus.svg",
+      "category": "general"
+    },
+    {
+      "name": "minus-circle",
+      "label_fa": "کم کردن",
+      "file": "minus-circle.svg",
+      "category": "general"
+    },
+    {
+      "name": "moon",
+      "label_fa": "ماه",
+      "file": "moon.svg",
+      "category": "general"
+    },
+    {
+      "name": "newspaper",
+      "label_fa": "روزنامه",
+      "file": "newspaper.svg",
+      "category": "general"
+    },
+    {
+      "name": "pause",
+      "label_fa": "توقف",
+      "file": "pause.svg",
+      "category": "general"
+    },
+    {
+      "name": "phone",
+      "label_fa": "تلفن",
+      "file": "phone.svg",
+      "category": "general"
+    },
+    {
+      "name": "play",
+      "label_fa": "پخش",
+      "file": "play.svg",
+      "category": "general"
+    },
+    {
+      "name": "plus",
+      "label_fa": "افزودن",
+      "file": "plus.svg",
+      "category": "general"
+    },
+    {
+      "name": "plus-circle",
+      "label_fa": "افزودن",
+      "file": "plus-circle.svg",
+      "category": "general"
+    },
+    {
+      "name": "power",
+      "label_fa": "روشن/خاموش",
+      "file": "power.svg",
+      "category": "general"
+    },
+    {
+      "name": "printer",
+      "label_fa": "چاپگر",
+      "file": "printer.svg",
+      "category": "general"
+    },
+    {
+      "name": "qr-code",
+      "label_fa": "کد QR",
+      "file": "qr-code.svg",
+      "category": "general"
+    },
+    {
+      "name": "radio",
+      "label_fa": "رادیو",
+      "file": "radio.svg",
+      "category": "general"
+    },
+    {
+      "name": "scissors",
+      "label_fa": "قیچی",
+      "file": "scissors.svg",
+      "category": "general"
+    },
+    {
+      "name": "server",
+      "label_fa": "سرور",
+      "file": "server.svg",
+      "category": "general"
+    },
+    {
+      "name": "shield-check",
+      "label_fa": "ضمانت",
+      "file": "shield-check.svg",
+      "category": "general"
+    },
+    {
+      "name": "shopping-bag",
+      "label_fa": "کیف خرید",
+      "file": "shopping-bag.svg",
+      "category": "general"
+    },
+    {
+      "name": "shopping-cart",
+      "label_fa": "سبد خرید",
+      "file": "shopping-cart.svg",
+      "category": "general"
+    },
+    {
+      "name": "sparkles",
+      "label_fa": "درخشش",
+      "file": "sparkles.svg",
+      "category": "general"
+    },
+    {
+      "name": "sun",
+      "label_fa": "خورشید",
+      "file": "sun.svg",
+      "category": "general"
+    },
+    {
+      "name": "tag",
+      "label_fa": "برچسب",
+      "file": "tag.svg",
+      "category": "general"
+    },
+    {
+      "name": "ticket",
+      "label_fa": "بلیت",
+      "file": "ticket.svg",
+      "category": "general"
+    },
+    {
+      "name": "trash",
+      "label_fa": "سطل زباله",
+      "file": "trash.svg",
+      "category": "general"
+    },
+    {
+      "name": "trophy",
+      "label_fa": "جام",
+      "file": "trophy.svg",
+      "category": "general"
+    },
+    {
+      "name": "truck",
+      "label_fa": "کامین ارسال",
+      "file": "truck.svg",
+      "category": "general"
+    },
+    {
+      "name": "tv",
+      "label_fa": "تلویزیون",
+      "file": "tv.svg",
+      "category": "general"
+    },
+    {
+      "name": "users",
+      "label_fa": "کاربران",
+      "file": "users.svg",
+      "category": "general"
+    },
+    {
+      "name": "wallet",
+      "label_fa": "کیف پول",
+      "file": "wallet.svg",
+      "category": "general"
+    },
+    {
+      "name": "wifi",
+      "label_fa": "وای‌فای",
+      "file": "wifi.svg",
+      "category": "general"
+    },
+    {
+      "name": "wrench",
+      "label_fa": "آچار",
+      "file": "wrench.svg",
+      "category": "general"
+    },
+    {
+      "name": "wrench-screwdriver",
+      "label_fa": "تعمیرات",
+      "file": "wrench-screwdriver.svg",
+      "category": "general"
+    },
+    {
+      "name": "x-circle",
+      "label_fa": "بستن",
+      "file": "x-circle.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-down-circle",
+      "label_fa": "فلش پایین",
+      "file": "arrow-down-circle.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-down-left",
+      "label_fa": "فلش پایین",
+      "file": "arrow-down-left.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-down-on-square",
+      "label_fa": "فلش پایین",
+      "file": "arrow-down-on-square.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-down-on-square-stack",
+      "label_fa": "فلش پایین",
+      "file": "arrow-down-on-square-stack.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-down-right",
+      "label_fa": "فلش مورب پایین",
+      "file": "arrow-down-right.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-down-tray",
+      "label_fa": "فلش پایین",
+      "file": "arrow-down-tray.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-left-circle",
+      "label_fa": "فلش چپ",
+      "file": "arrow-left-circle.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-left-end-on-rectangle",
+      "label_fa": "فلش چپ",
+      "file": "arrow-left-end-on-rectangle.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-left-on-rectangle",
+      "label_fa": "فلش چپ",
+      "file": "arrow-left-on-rectangle.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-left-start-on-rectangle",
+      "label_fa": "فلش چپ",
+      "file": "arrow-left-start-on-rectangle.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-long-down",
+      "label_fa": "فلش بلند پایین",
+      "file": "arrow-long-down.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-long-left",
+      "label_fa": "فلش بلند چپ",
+      "file": "arrow-long-left.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-long-right",
+      "label_fa": "فلش بلند راست",
+      "file": "arrow-long-right.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-long-up",
+      "label_fa": "فلش بلند بالا",
+      "file": "arrow-long-up.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-path",
+      "label_fa": "مسیر چرخشی",
+      "file": "arrow-path.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-path-rounded-square",
+      "label_fa": "مسیر چرخشی",
+      "file": "arrow-path-rounded-square.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-right-circle",
+      "label_fa": "فلش راست",
+      "file": "arrow-right-circle.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-right-end-on-rectangle",
+      "label_fa": "فلش راست",
+      "file": "arrow-right-end-on-rectangle.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-right-on-rectangle",
+      "label_fa": "فلش راست",
+      "file": "arrow-right-on-rectangle.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-right-start-on-rectangle",
+      "label_fa": "فلش راست",
+      "file": "arrow-right-start-on-rectangle.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-small-down",
+      "label_fa": "فلش کوچک پایین",
+      "file": "arrow-small-down.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-small-left",
+      "label_fa": "فلش کوچک چپ",
+      "file": "arrow-small-left.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-small-right",
+      "label_fa": "فلش کوچک راست",
+      "file": "arrow-small-right.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-small-up",
+      "label_fa": "فلش کوچک بالا",
+      "file": "arrow-small-up.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-top-right-on-square",
+      "label_fa": "باز کردن لینک",
+      "file": "arrow-top-right-on-square.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-trending-down",
+      "label_fa": "افت",
+      "file": "arrow-trending-down.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-trending-up",
+      "label_fa": "رشد",
+      "file": "arrow-trending-up.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-turn-down-left",
+      "label_fa": "arrow-turn-down-left",
+      "file": "arrow-turn-down-left.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-turn-down-right",
+      "label_fa": "arrow-turn-down-right",
+      "file": "arrow-turn-down-right.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-turn-left-down",
+      "label_fa": "arrow-turn-left-down",
+      "file": "arrow-turn-left-down.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-turn-left-up",
+      "label_fa": "arrow-turn-left-up",
+      "file": "arrow-turn-left-up.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-turn-right-down",
+      "label_fa": "arrow-turn-right-down",
+      "file": "arrow-turn-right-down.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-turn-right-up",
+      "label_fa": "arrow-turn-right-up",
+      "file": "arrow-turn-right-up.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-turn-up-left",
+      "label_fa": "arrow-turn-up-left",
+      "file": "arrow-turn-up-left.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-turn-up-right",
+      "label_fa": "arrow-turn-up-right",
+      "file": "arrow-turn-up-right.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-up-circle",
+      "label_fa": "فلش بالا",
+      "file": "arrow-up-circle.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-up-left",
+      "label_fa": "فلش بالا",
+      "file": "arrow-up-left.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-up-on-square",
+      "label_fa": "فلش بالا",
+      "file": "arrow-up-on-square.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-up-on-square-stack",
+      "label_fa": "فلش بالا",
+      "file": "arrow-up-on-square-stack.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-up-right",
+      "label_fa": "فلش مورب",
+      "file": "arrow-up-right.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-up-tray",
+      "label_fa": "فلش بالا",
+      "file": "arrow-up-tray.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-uturn-down",
+      "label_fa": "چرخش ۱۸۰ درجه",
+      "file": "arrow-uturn-down.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-uturn-left",
+      "label_fa": "چرخش ۱۸۰ درجه",
+      "file": "arrow-uturn-left.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-uturn-right",
+      "label_fa": "چرخش ۱۸۰ درجه",
+      "file": "arrow-uturn-right.svg",
+      "category": "general"
+    },
+    {
+      "name": "arrow-uturn-up",
+      "label_fa": "چرخش ۱۸۰ درجه",
+      "file": "arrow-uturn-up.svg",
+      "category": "general"
+    },
+    {
+      "name": "battery-0",
+      "label_fa": "باتری خالی",
+      "file": "battery-0.svg",
+      "category": "general"
+    },
+    {
+      "name": "battery-100",
+      "label_fa": "باتری کامل",
+      "file": "battery-100.svg",
+      "category": "general"
+    },
+    {
+      "name": "battery-50",
+      "label_fa": "باتری نیمه",
+      "file": "battery-50.svg",
+      "category": "general"
+    },
+    {
+      "name": "calendar-date-range",
+      "label_fa": "بازه تاریخ",
+      "file": "calendar-date-range.svg",
+      "category": "general"
+    },
+    {
+      "name": "calendar-days",
+      "label_fa": "تقویم روزها",
+      "file": "calendar-days.svg",
+      "category": "general"
+    },
+    {
+      "name": "chart-bar",
+      "label_fa": "نمودار ستونی",
+      "file": "chart-bar.svg",
+      "category": "general"
+    },
+    {
+      "name": "chart-bar-square",
+      "label_fa": "نمودار ستونی",
+      "file": "chart-bar-square.svg",
+      "category": "general"
+    },
+    {
+      "name": "chart-pie",
+      "label_fa": "نمودار دایرهای",
+      "file": "chart-pie.svg",
+      "category": "general"
+    },
+    {
+      "name": "check-badge",
+      "label_fa": "نشان تأیید",
+      "file": "check-badge.svg",
+      "category": "general"
+    },
+    {
+      "name": "chevron-double-down",
+      "label_fa": "فلش دوبل پایین",
+      "file": "chevron-double-down.svg",
+      "category": "general"
+    },
+    {
+      "name": "chevron-double-left",
+      "label_fa": "فلش دوبل چپ",
+      "file": "chevron-double-left.svg",
+      "category": "general"
+    },
+    {
+      "name": "chevron-double-right",
+      "label_fa": "فلش دوبل راست",
+      "file": "chevron-double-right.svg",
+      "category": "general"
+    },
+    {
+      "name": "chevron-double-up",
+      "label_fa": "فلش دوبل بالا",
+      "file": "chevron-double-up.svg",
+      "category": "general"
+    },
+    {
+      "name": "chevron-up-down",
+      "label_fa": "فلش بالا",
+      "file": "chevron-up-down.svg",
+      "category": "general"
+    },
+    {
+      "name": "circle-stack",
+      "label_fa": "circle-stack",
+      "file": "circle-stack.svg",
+      "category": "general"
+    },
+    {
+      "name": "cloud-arrow-down",
+      "label_fa": "فلش پایین",
+      "file": "cloud-arrow-down.svg",
+      "category": "general"
+    },
+    {
+      "name": "cloud-arrow-up",
+      "label_fa": "فلش بالا",
+      "file": "cloud-arrow-up.svg",
+      "category": "general"
     }
   ],
-  "import_hint": "۳۰۰+"
+  "import_hint": "heroicons.com",
+  "icon_count": 133,
+  "expanded_at": "2026-09-25 00:00:00",
+  "curated_note": "مجموعه گزینشی 133 آیکونی از منبع رسمی — برای نصب کامل پک از دکمه دانلود پنل استفاده کنید."
 }
