@@ -206,26 +206,32 @@ $logoUrl     = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
     }
     .login-eye:hover { background: #eef2ff; color: #475569; }
 
-    /* 🖼️ کپچا — تصویر درون‌خطی + کادر ورود بزرگ و خوانا (v2.7.1) */
+    /* 🖼️ کپچا — تصویر بالا + کادر ورود «زیر تصویر» و بزرگ (v2.7.2 — طبق درخواست کاربر) */
     .login-captcha {
-        display: flex; gap: 10px; align-items: stretch;
+        display: flex; flex-direction: column; gap: 10px;
         background: #f8fafc; border: 1.5px solid var(--border); border-radius: 14px;
-        padding: 10px; transition: border-color .18s, box-shadow .18s;
+        padding: 12px; transition: border-color .18s, box-shadow .18s;
     }
     .login-captcha:focus-within { border-color: #3b82f6; box-shadow: 0 0 0 4px rgba(59,130,246,.14); }
+    .captcha-row { display: flex; gap: 10px; align-items: stretch; }
     .login-captcha img {
-        border-radius: 10px; height: 84px; width: 250px; max-width: 56%;
-        cursor: pointer; flex-shrink: 0; background: #f3f4f6;
+        border-radius: 10px; height: 92px; flex: 1; min-width: 0;
+        cursor: pointer; background: #f3f4f6;
         transition: transform .15s;
     }
     .login-captcha img:active { transform: scale(.985); }
     .login-captcha input {
-        flex: 1; min-width: 0; border: none; background: none; outline: none;
-        font-family: var(--font); font-size: 26px; font-weight: 800;
-        letter-spacing: 7px; text-align: center; color: var(--text);
+        width: 100%; box-sizing: border-box;
+        border: 1.5px dashed #cbd5e1; border-radius: 12px; background: #fff;
+        outline: none;
+        font-family: var(--font); font-size: 28px; font-weight: 800;
+        letter-spacing: 9px; text-align: center; color: var(--text);
         direction: ltr; text-transform: uppercase;
-        min-height: 84px;
+        padding: 10px 14px; min-height: 66px;
+        transition: border-color .18s, box-shadow .18s;
     }
+    .login-captcha input:focus { border-color: #3b82f6; border-style: solid; box-shadow: 0 0 0 4px rgba(59,130,246,.12); }
+    .login-captcha input::placeholder { font-size: 14px; letter-spacing: 0; font-weight: 400; color: #94a3b8; }
     .captcha-refresh {
         align-self: center; width: 46px; height: 46px; flex-shrink: 0;
         border: 1px solid var(--border); background: #fff; border-radius: 11px;
@@ -265,17 +271,20 @@ $logoUrl     = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
     .login-foot .dot { width: 5px; height: 5px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
     .login-hint { display: none; margin-top: 8px; font-size: 12px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 6px 10px; text-align: center; }
 
-    /* 📱 موبایل: تک‌کارته + کپچای بزرگ */
+    /* 📱 موبایل: تک‌کارته + کپچای بزرگ‌تر (v2.7.2 — کادر کد در موبایل بزرگ و کاملاً خوانا) */
     @media (max-width: 920px) {
         .login-side { display: none; }
         .login-card { border-radius: 20px; max-width: 460px; margin-inline: auto; }
         .login-wrap { max-width: 460px; }
     }
     @media (max-width: 480px) {
-        .login-card { padding: 32px 20px 24px; }
-        .login-captcha img { width: 178px; height: 70px; }
-        .login-captcha input { font-size: 22px; letter-spacing: 5px; min-height: 70px; }
-        .login-captcha { padding: 8px; gap: 8px; }
+        .login-card { padding: 30px 18px 22px; }
+        .login-captcha { padding: 10px; gap: 10px; }
+        .captcha-row { gap: 8px; }
+        .login-captcha img { height: 86px; }
+        .login-captcha input { font-size: 26px; letter-spacing: 8px; min-height: 74px; padding: 12px 10px; }
+        .captcha-refresh { width: 50px; height: 50px; }
+        .login-submit { padding: 16px 16px; font-size: 16.5px; }
     }
     @media (prefers-reduced-motion: reduce) {
         .login-page::before, .login-page::after, .login-wrap { animation: none; }
@@ -325,13 +334,15 @@ $logoUrl     = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
             <div class="login-field">
                 <label for="login-captcha-input">کد امنیتی</label>
                 <div class="login-captcha">
-                    <img src="<?= e($captchaUri) ?>" alt="کد امنیتی" id="captcha-img" width="250" height="84"
-                         onclick="refreshLoginCaptcha()" title="برای تغییر کلیک کنید">
+                    <div class="captcha-row">
+                        <img src="<?= e($captchaUri) ?>" alt="کد امنیتی" id="captcha-img" width="320" height="92"
+                             onclick="refreshLoginCaptcha()" title="برای تغییر کلیک کنید">
+                        <button type="button" class="captcha-refresh" onclick="refreshLoginCaptcha(this)" title="تولید کد جدید" aria-label="تولید کد جدید">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                        </button>
+                    </div>
                     <input type="text" id="login-captcha-input" name="captcha" required maxlength="5"
-                           placeholder="کد ۵ حرفی" inputmode="latin" autocomplete="off" autocapitalize="characters">
-                    <button type="button" class="captcha-refresh" onclick="refreshLoginCaptcha(this)" title="تولید کد جدید" aria-label="تولید کد جدید">
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                    </button>
+                           placeholder="کد ۵ حرفی بالا را وارد کنید" inputmode="latin" autocomplete="off" autocapitalize="characters">
                 </div>
                 <div class="login-hint" id="captcha-hint">تولید کد جدید ناموفق بود — لطفاً دوباره تلاش کنید.</div>
             </div>
@@ -363,7 +374,7 @@ $logoUrl     = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
             <li><span class="fico">📈</span><span>سئو خودکار، اسکیما و پیش‌نمایش زنده صفحات</span></li>
             <li><span class="fico">🛡️</span><span>امنیت چندلایه: CSRF، محدودیت تلاش و کپچای درون‌خطی</span></li>
         </ul>
-        <span class="side-badge">نسخه <?= e(SAHEND_VERSION) ?></span>
+        <span class="side-badge">نسخه <?= e(SAHAND_VERSION) ?></span>
     </aside>
     </div>
 </div>
