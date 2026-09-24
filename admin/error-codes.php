@@ -132,9 +132,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'generate_device') {
         $brandId = (int)post('brand_id');
         $deviceKey = (string)post('device_key');
-        $useWeb = post('use_web') === '1';
+        /* 🐛 v2.12: چک‌باکس HTML بدون value="1" مقدار «on» می‌فرستاد و === '1'
+           همیشه false بود → جستجوی آنلاین هرگز اجرا نمی‌شد و خطای
+           «جستجوی آنلاین غیرفعال بود» نمایش داده می‌شد. حالا هر دو مقدار
+           پذیرفته می‌شود (HTML هم value="1" گرفت). */
+        $useWeb = in_array(post('use_web'), ['1', 'on', 'true'], true);
+        $overwrite = in_array(post('overwrite'), ['1', 'on', 'true'], true);
         try {
-            $result = $engine->generateForDevice($brandId, $deviceKey, $useWeb, post('overwrite') === '1');
+            $result = $engine->generateForDevice($brandId, $deviceKey, $useWeb, $overwrite);
             $msg = '🚨 موتور خطایاب AI: ' . $result['report'] . ' — منابع: ' . implode('، ', array_slice($result['sources'], 0, 3));
             flash($result['inserted'] > 0 ? 'success' : 'warning', $msg);
         } catch (Throwable $e) {
@@ -315,8 +320,8 @@ $categories = ErrorCodeEngine::CATEGORIES;
                     </select>
                     <div class="hint" id="gen-device-hint">فهرست دستگاه‌ها بر اساس برند انتخابی به‌صورت خودکار فیلتر می‌شود.</div>
                 </div>
-                <label class="form-check" style="margin:10px 0"><input type="checkbox" name="use_web" checked> 🌐 جستجوی آنلاین اینترنت (فارسی + خارجی) برای کدهای بیشتر با منبع‌یابی</label>
-                <label class="form-check" style="margin-bottom:10px"><input type="checkbox" name="overwrite"> 🔄 جایگزینی کدهای قبلی همین دستگاه</label>
+                <label class="form-check" style="margin:10px 0"><input type="checkbox" name="use_web" value="1" checked> 🌐 جستجوی آنلاین اینترنت (فارسی + خارجی) برای کدهای بیشتر با منبع‌یابی</label>
+                <label class="form-check" style="margin-bottom:10px"><input type="checkbox" name="overwrite" value="1"> 🔄 جایگزینی کدهای قبلی همین دستگاه</label>
                 <button type="submit" class="btn btn-success btn-block">🚨 تولید همه کدهای خطای واقعی این دستگاه</button>
                 <div class="hint" style="margin-top:10px">
                     🧠 کدها «ساخته» نمی‌شوند — از پایگاه دانش ۱۵۰ کدی ۹ برند پرتقاضا + جستجوی آنلاین وب «استخراج» می‌شوند و همه ۱۴ فیلد به‌صورت یکتا و سئو-پسند تکمیل می‌گردد.
