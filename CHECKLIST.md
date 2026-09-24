@@ -859,3 +859,77 @@
 - [x] CHANGELOG [2.9.0] + WORKLOG مرحله ۳۲ + همین بخش + UPGRADE + README + AI-API-GUIDE 3.9.0
 - [x] رلیز v2.9.0: install.zip + update.zip + UPGRADE + AI-API-GUIDE + SHA256SUMS
 - [x] 📦 رلیز v2.9.0 منتشر شد: تگ + ۵ پیوست (install ۳.۲MB/۴۴۷f + update ۱.۳MB/۳۰f+۹عکس + ۲ راهنما + SHA256SUMS) — تست سلامت ZIP ✓
+
+---
+
+## ✅ چک‌لیست نسخه ۲.۱۱.۰ — افزونه استقرار خودکار (بخش ۲۱ BrandMaker.md)
+
+> 🎯 پیاده‌سازی کامل پرامپت «Create-Subdomain.md» — پرامپت اصلی (۳۰ مورد) + پرامپت تکمیلی (۲۰ مورد). راستی‌آزمایی: تست جامع ۱۲ بخش / ۱۳۹ مورد با شبیه‌ساز cPanel UAPI.
+
+### 📌 چک‌لیست اصلی سند (۳۰ مورد)
+
+| # | ویژگی | وضعیت | توضیح پیاده‌سازی |
+|---|-------|-------|------------------|
+| 1 | ساخت خودکار زیردامنه در cPanel | ✅ | CpanelAPI::createSubdomain (UAPI SubDomain/addsubdomain) + ثبت DB |
+| 2 | ساخت خودکار ساختار پوشه‌ها | ✅ | stepFolders: css/js/pages/includes/cache |
+| 3 | آپلود خودکار فایل‌ها (API + FTP Fallback) | ✅ | upload_files + FtpManager + سوئیچ خودکار |
+| 4 | استخراج خودکار ZIP | ✅ | fileop extract + حذف ZIP پس از استخراج + flatten |
+| 5 | تولید خودکار config.php | ✅ | ConfigGenerator — ۱۱ ثابت + حفظ تنظیمات در بروزرسانی |
+| 6 | تولید خودکار .htaccess بهینه | ✅ | HtaccessGenerator — HTTPS/Gzip/کش/امنیتی/قوانین صفحات فعال |
+| 7 | نصب خودکار SSL (AutoSSL / LE) | ✅ | enable_autossl + start_autossl_scan + polling ۹۰ث + ادامه بقیه با cron |
+| 8 | تنظیم خودکار مجوزها | ✅ | chmod 755/644/600(config) |
+| 9 | تست خودکار پس از استقرار | ✅ | runFinalTest: HTTP + محتوا (قابل غیرفعال در تنظیمات) |
+| 10 | بروزرسانی بدون از دست رفتن config | ✅ | extractPreservable + بازنویسی |
+| 11 | حذف خودکار (فایل + زیردامنه) | ✅ | ۵ مرحله با بکاپ نهایی + تأیید نام برند |
+| 12 | بکاپ خودکار قبل از بروزرسانی | ✅ | stepBackup (auto_before_update) |
+| 13 | مانیتورینگ سلامت (Cron) | ✅ | cron/health-check.php هر ۱۵ دقیقه |
+| 14 | مانیتورینگ SSL (Cron) | ✅ | cron/ssl-check.php روزانه + هشدار ۳۰ روز |
+| 15 | دامنه اختصاصی (Addon Domain) | ✅ | CpanelAPI::addAddonDomain |
+| 16 | DNS Guide دامنه اختصاصی | ✅ | نمایش رکوردهای A/CNAME در SubdomainManager (راهنمای cPanel-settings) |
+| 17 | لاگ کامل عملیات | ✅ | deployments + deployment_logs دو سطحی |
+| 18 | نوار پیشرفت زیبا | ✅ | deploy.php — مرحله‌ای AJAX + متون فارسی + درصد |
+| 19 | اعلان پس از استقرار | ✅ | NotificationService (پنل) — ایمیل/تلگرام از تنظیمات موجود |
+| 20 | رمزنگاری Token و FTP | ✅ | DeployCrypto AES-256-CBC + HMAC |
+| 21 | Rollback در صورت خطا | ✅ | تست ناموفق → restoreBackup خودکار |
+| 22 | بروزرسانی دسته‌ای | ✅ | batch_update با چک‌باکس |
+| 23 | صف پردازش عملیات | ✅ | گارد تک‌عملیات همزمان هر برند + پردازش تک‌به‌تک |
+| 24 | داشبورد سلامت | ✅ | health-dashboard.php — ۵ کارت + روند |
+| 25 | Cron Jobs آماده کپی | ✅ | cpanel-settings.php — بلوک کپی |
+| 26 | ۳ روش آپلود | ✅ | API / FTP / Session (گوشه‌ای — نیازمند رمز متنی) |
+| 27 | کامنت فارسی تمام کدها | ✅ | هر ۱۴ کلاس + ۷ صفحه + ۳ endpoint + ۳ cron |
+| 28 | مستندات فارسی کامل | ✅ | CHANGELOG/UPGRADE/README/API-GUIDE + WORKLOG مرحله ۳۴ |
+| 29 | سازگار هاست اشتراکی cPanel | ✅ | بدون SSH — فقط UAPI/HTTP + PHP 7.4+ |
+| 30 | بدون نیاز به SSH | ✅ | تمام عملیات از UAPI/FTP |
+
+### 📌 چک‌لیست پرامپت تکمیلی (۲۰ مورد)
+
+| # | ویژگی | وضعیت | توضیح |
+|---|-------|-------|-------|
+| 1 | نگهداری فقط ۵ بکاپ آخر | ✅ | BackupManager::KEEP_COUNT=5 |
+| 2 | حذف خودکار بکاپ اضافی | ✅ | enforceRetentionPolicy — تست: ۷→۵ |
+| 3 | نامگذاری شمسی | ✅ | ShamsiDate (الگوریتم داخلی) |
+| 4 | فرمت {slug}_{YYYY-MM-DD}_{HH-mm-ss}.zip | ✅ | تست regex پاس |
+| 5 | کلاس ShamsiDate بدون API خارجی | ✅ | الگوریتم ۳۳ ساله + ۴ تاریخ مرجع تست |
+| 6 | نمایش شمسی زیبا در پنل | ✅ | backups.php — ۱۴۰۴/۰۳/۲۵ ۱۴:۳۰ |
+| 7 | الگوی Document Root در تنظیمات | ✅ | cpanel-settings.php بخش ۲ |
+| 8 | متغیرهای پویا | ✅ | ۸ متغیر ({brand_slug}/{year}/{username}/...) |
+| 9 | ۶ الگوی پیش‌فرض | ✅ | getPresetPatterns |
+| 10 | پیش‌نمایش زنده با برند نمونه | ✅ | samsung + lg |
+| 11 | اعتبارسنجی الگو | ✅ | ۶ قاعده امنیتی — ۸ تست |
+| 12 | حفظ مسیر برندهای موجود | ✅ | بروزرسانی از server_path ذخیره‌شده |
+| 13 | دیالوگ پیش‌نمایش قبل استقرار | ✅ | deploy.php modal |
+| 14 | ویرایش نام زیردامنه در دیالوگ | ✅ | + subdomain-editor.php مستقل |
+| 15 | اعتبارسنجی ۸ قانون | ✅ | ۲۲ تست پاس |
+| 16 | بررسی موجود بودن DB + cPanel | ✅ | validateSubdomainName |
+| 17 | پیشنهاد ۳ نام جایگزین | ✅ | suggestAlternatives |
+| 18 | لیست کلمات رزرو | ✅ | ۳۰ کلمه (www/mail/admin/...) |
+| 19 | ذخیره نام سفارشی در DB | ✅ | subdomain_name + custom_subdomain |
+| 20 | کامنت فارسی | ✅ | تمام کلاس‌ها |
+
+### 🧪 تست و کیفیت
+- [x] شبیه‌ساز cPanel UAPI (Node) — ۱۶ اندپوینت
+- [x] تست جامع ۱۲ بخش / ۱۳۹ مورد — همه موفق
+- [x] لینت PHP 8.3 — ۳۸ فایل صفر خطا
+- [x] مهاجرت خودکار idempotent (نشانگر .schema_v211)
+- [x] فایل حساس (.deploy_secret) خارج از گیت
+

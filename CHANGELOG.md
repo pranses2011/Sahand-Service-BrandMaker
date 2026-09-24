@@ -7,6 +7,57 @@
 
 ---
 
+## [2.11.0] — 2026-09-25 «افزونه استقرار خودکار — ساخت زیردامنه و استقرار بدون ورود به cPanel»
+
+> 🎯 **زمینه**: درخواست کاربر «فایل (Create-Subdomain.md) را بخوان و داخل BrandMaker.md اضافه کن و درخواست داخلش را انجام بده» — پیاده‌سازی کامل پرامپت افزونه استقرار خودکار (بخش ۲۱ BrandMaker.md: پرامپت اصلی ۱۵ بخشی + چک‌لیست ۳۰ موردی + پرامپت تکمیلی ۲۰ موردی).
+
+### 📚 ادغام سند (کامیت docs-plugin-prompt)
+- **BrandMaker.md ۱۶۲۳ ← ۳۲۰۴ خط**: بخش ۲۱ «افزونه استقرار خودکار» (کل سند Create-Subdomain.md: ۱۵ بخش شامل فرآیند ۱۰ مرحله‌ای، ماژول‌ها، دیتابیس، ساختار فایل، یکپارچه‌سازی) + بخش 21-ب «پرامپت تکمیلی» (بکاپ شمسی + الگوی Document Root + ویرایش نام زیردامنه) + ردیف فهرست
+
+### 🧩 هسته — ۱۴ کلاس جدید core/ (کامیت feat-deploy-core)
+- **ShamsiDate**: تبدیل داخلی میلادی ↔ شمسی (الگوریتم ۳۳ ساله — بدون API خارجی) با ۳ فرمت: نام فایل `1404-03-25_14-30-45` / ذخیره `1404-03-25 14:30:45` / نمایش `۱۴۰۴/۰۳/۲۵ ۱۴:۳۰` + سال/ماه جاری برای الگو
+- **DeployCrypto**: AES-256-CBC + HMAC-SHA256 (Encrypt-then-MAC) — کلید ۳۲ بایتی تصادفی در `cache/.deploy_secret` (chmod 600) — تشخیص دستکاری + ماسک پنل
+- **SubdomainValidator**: ۸ قانون DNS (کاراکترها/طول ۲-۶۳/خط تیره ابتدا-انتها/رزرو ۳۰ کلمه/تکرار...) + ۳ پیشنهاد جایگزین (`{name}-service`، `-repair`، `-{سال شمسی}`)
+- **PathResolver**: ۶ الگوی آماده + ۸ متغیر پویا + اعتبارسنجی امنیتی ۶ قاعده (مسیر مطلق/حساس/طول/کاراکتر/متغیر/یکتایی) + پیش‌نمایش + save/reset
+- **CpanelAPI**: کلاینت UAPI کامل — زیردامنه (add/del/list/exists)، فایل (mkdir/upload_files/fileop extract-unlink-compress-move/list_files/save_file_content/get_file_content/chmod)، SSL (list/enable_autossl/start_scan)، AddonDomain، Quota + نرمال‌سازی مرکزی مسیرها + قرارداد PHP cURL (CURLFile)
+- **FtpManager**: FTPS/Passive + mkdir بازگشتی + upload + chmod + حذف بازگشتی
+- **DeploymentLogger**: دو سطح (عملیات + مراحل) + getStatus برای AJAX + برچسب/بج فارسی
+- **SubdomainManager**: previewSubdomain + validateSubdomainName (DB+cPanel) + checkAvailability + confirmAndCreate + delete
+- **SSLManager**: checkSSL (cPanel+HTTPS مستقیم) + installSSL (AutoSSL/LE) + waitForCertificate (polling) + checkRenewal (هشدار ۳۰ روز)
+- **BackupManager**: createBackup (compress + نام شمسی) + enforceRetentionPolicy (دقیقاً ۵) + restore (بکاپ ایمنی + حذف + استخراج + flatten) + delete + weeklyScheduled
+- **HealthChecker**: checkBrand (HTTP HEAD + زمان پاسخ + SSL + API) + checkAll + getDashboard + getTrend
+- **ConfigGenerator**: تولید config.php (۱۱ ثابت: BRAND_ID/API_KEY/DOMAIN/SLUG/API/ASSETS/TRACKER/CACHE...) + extractPreservable (حفظ تنظیمات در بروزرسانی)
+- **HtaccessGenerator**: RewriteEngine + HTTPS/www redirect + قوانین صفحات فعال برند + Gzip + کش (تصاویر ۳۰روز/CSS-JS ۷روز/فونت ۱سال/HTML ۱ساعت) + هدرهای امنیتی + 404
+- **Deployer**: ارکستراتور step-based — deploy ۱۱ مرحله / update ۱۰ مرحله / delete ۵ مرحله + صف (تک‌عملیات همزمان هر برند) + rollback خودکار + buildSiteZip (همان منطق export) + runNextStep (مقاوم timeout)
+
+### 🗄️ مهاجرت دیتابیس (اتوماتیک .schema_v211)
+- ۱۱ ستون جدید `brands`: is_deployed/deployed_at/deploy_method/server_path/subdomain_name/full_domain/custom_subdomain/ssl_status/ssl_expiry/last_health_check/health_status
+- ستون `can_deploy` در api_keys (کلیدهای خارجی با مجوز استقرار)
+- ۶ جدول جدید: cpanel_settings (تک‌ردیفی + ۲۵ ستون) / deployments / deployment_logs / site_health / backups (با ستون‌های شمسی) / ssl_certificates
+- database.sql برای نصب تازه هم‌گام شد
+
+### 🖥️ پنل — ۷ صفحه جدید + یکپارچه‌سازی (کامیت feat-deploy-admin)
+- **cpanel-settings.php**: ۴ بخش (اتصال + الگوی Document Root + FTP + تنظیمات استقرار) + تست اتصال زنده cPanel/FTP + اعتبارسنجی/پیش‌نمایش الگو + Cron Jobs آماده کپی
+- **deploy.php**: لیست برندها با ستون استقرار/SSL + دیالوگ پیش‌نمایش (ویرایش نام + اعتبارسنجی زنده + پیشنهاد) + نوار پیشرفت مرحله‌ای + بروزرسانی دسته‌ای + حذف با تأیید نام برند
+- **deploy-status.php**: ۷ اکشن AJAX (start/step/status/cancel/validate_subdomain/preview/batch_update)
+- **subdomain-editor.php**: فرم ویرایش مستقل + پیش‌نمایش دامنه/مسیر
+- **health-dashboard.php**: ۵ کارت آماری + جدول وضعیت + بررسی فوری + روند ۲۴ بررسی
+- **backups.php**: تاریخ شمسی زیبا + «X از ۵» + حجم + دانلود/بازیابی/حذف + بکاپ فوری
+- **deployment-logs.php**: فیلتر نوع/وضعیت + دیالوگ جزئیات مراحل
+- یکپارچه‌سازی: گروه منوی جدید (۵ لینک) + ستون استقرار در brands.php + تب 🚀 استقرار در brand-edit.php + کاوت در export.php
+
+### 🔌 API خارجی + Cron (کامیت feat-deploy-api-cron)
+- ۱۳ اندپوینت: deploy (start/update/status/logs/step/list) + health (brand/check/all) + backup (list/create/restore/delete) — همه با گارد can_deploy (به‌جز health خواندنی)
+- ۳ فایل cron: health-check (هر ۱۵ دقیقه + اعلان آفلاین) / ssl-check (روزانه + نصب مجدد + هشدار انقضا) / backup (هفتگی + retention) + .htaccess مسدودکننده وب
+
+### 🧪 تضمین کیفیت (کامیت fix-deploy-integration)
+- **شبیه‌ساز cPanel UAPI** (Node — deploy-mock-server.js): ۱۶ اندپوینت واقعی + فایل‌سیستم mock
+- **تست جامع ۱۲ بخش / ۱۳۹ مورد / همه موفق**: مهاجرت + ShamsiDate (۴ تاریخ مرجع) + ۸ قانون زیردامنه + الگوها + AES + تولید config/htaccess (لینت PHP) + **جریان کامل استقرار ۱۱ مرحله‌ای + بروزرسانی + حذف با mock** + retention ۵ + HealthChecker + Logger
+- ۶ باگ واقعی پیدا و رفع شد: multipart PHP cURL / نرمال‌سازی مسیر / openssl_x509_parse PHP 8.3 / پوشه ریشه / ستون created_at / cast بولی MySQL
+
+### 🔐 امنیت
+- 🔒 حذف cache/.deploy_secret از گیت (کلید هر نصب محلی است) + gitignore
+
 ## [2.10.0] — 2026-09-25 «دارایی‌های کامل روی سرور + نمای چاپی»
 
 > 🎯 **زمینه**: درخواست کاربر «درخواست داخل فایل (BrandMaker.md) را انجام بده» — ممیزی کامل پرامپت در برابر پیاده‌سازی و بستن شکاف‌های واقعی. هر ۱۰ وظیفه نسخه قبل تکمیل بود؛ این نسخه شکاف‌های باقی‌مانده الزامات پرامپت را می‌بندد.

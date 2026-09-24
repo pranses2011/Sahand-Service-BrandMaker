@@ -1147,3 +1147,47 @@
 ### 📦 رلیز v2.10.0
 - تگ `v2.10.0` روی main + پوش — بسته‌ها: install.zip (نصب کامل) + update.zip (تغییرات از 2.9.0) + UPGRADE-v2.10.0.md + SHA256SUMS-v2.10.0.txt
 - CHANGELOG (۵ بخش) + README (بج + جدول تازه‌ها) + UPGRADE (۵ اولویت + ۵ گام راستی‌آزمایی) + نسخه سیستم 2.10.0
+---
+
+## مرحله ۳۴ — افزونه استقرار خودکار (نسخه ۲.۱۱.۰) — ۲۰۲۶/۰۶/۰۴
+
+### 🧩 زمینه
+درخواست کاربر: «فایل (Create-Subdomain.md) را که داخل ریپو گذاشتم بخون و داخل BrandMaker.md اضافه بکن و درخواست داخلش را انجام بده. و بعد فایل راهنمای استفاده از APIها از خارج از سایت‌ساز را هم در صورت نیاز بروزرسانی بکن. و رلیز جدید به همراه پکیج نصب و پکیج بروزرسانی و فایلهای راهنما بساز.»
+سند شامل پرامپت اصلی ۱۵ بخشی (چک‌لیست ۳۰ موردی) + پرامپت تکمیلی (بکاپ شمسی ۵ نسخه / الگوی Document Root / ویرایش نام زیردامنه — چک‌لیست ۲۰ موردی) بود.
+
+### ✅ اقدامات انجام‌شده (۶ کامیت)
+1. **docs-plugin-prompt** — ادغام کامل سند در BrandMaker.md به‌عنوان بخش ۲۱ + 21-ب + ردیف فهرست (۱۶۲۳ ← ۳۲۰۴ خط)
+2. **feat-deploy-core** — ۱۴ کلاس هسته + مهاجرت خودکار .schema_v211 در config.php (۶ جدول + ۱۲ ستون) + database.sql + نسخه 2.11.0
+3. **feat-deploy-admin** — ۷ صفحه پنل + ۷ اکشن AJAX + منوی جدید + ستون brands.php + تب brand-edit + کاوت export.php
+4. **feat-deploy-api-cron** — ۱۳ اندپوینت API خارجی (با گارد can_deploy) + ۳ فایل cron + htaccess محافظ
+5. **fix-deploy-integration** — ۶ باگ رفع‌شده توسط تست یکپارچگی (multipart cURL / نرمال‌سازی مسیر / openssl PHP 8.3 / پوشه ریشه / created_at / cast بولی)
+6. **security-gitignore** — حذف cache/.deploy_secret از رهگیری گیت
+
+### 🧪 روش راستی‌آزمایی
+- **شبیه‌ساز cPanel UAPI** (scripts/deploy-mock-server.js): سرور Node با ۱۶ اندپوینت واقعی UAPI + فایل‌سیستم mock در /tmp — پاسخ‌های موفق/خطا مطابق قرارداد cPanel
+- **تست جامع** (scripts/test-deploy-plugin.php): ۱۲ بخش / ۱۳۹ مورد — همه موفق:
+  - مهاجرت: ۶ جدول + ۱۱ ستون brands + can_deploy + ردیف پیش‌فرض + نشانگر
+  - ShamsiDate: ۴ تاریخ مرجع (نوروز/تبدیل رفت‌وبرگشت) + فرمت‌ها
+  - SubdomainValidator: ۲۲ مورد (۸ قانون + رزرو + پیشنهاد + normalize)
+  - PathResolver: ۱۸ مورد (۶ الگو + ۸ متغیر + اعتبارسنجی + پیش‌نمایش)
+  - DeployCrypto: رفت‌وبرگشت + HMAC + ماسک
+  - Config/htaccess: ۲۱ مورد + لینت PHP فایل تولیدی
+  - **Integration: استقرار کامل ۱۱ مرحله با mock** (زیردامنه → پوشه‌ها → آپلود CURLFile → استخراج → config → htaccess → chmod → SSL → finalize) + بروزرسانی ۱۰ مرحله (بکاپ/حفظ config/حذف/آپلود/بازنویسی) + حذف ۵ مرحله + retention دقیقاً ۵ + HealthChecker
+- لینت PHP 8.3 همه ۳۸ فایل جدید/تغییرکرده — صفر خطا
+
+### 🧠 تصمیم‌های فنی کلیدی
+1. **آپلود مرحله‌به‌مرحله AJAX** (نه یک درخواست طولانی): هر مرحله یک درخواست — مقاوم به timeout هاست اشتراکی + نوار پیشرفت زنده + قابل از سرگیری
+2. **قرارداد PHP cURL**: آرایه ساده + CURLFile (ساختار name/contents مربوط به Guzzle است و در cURL خام کار نمی‌کند — باگ №۱ تست)
+3. **نرمال‌سازی مرکزی مسیر** در CpanelAPI::call برای path/dir/file/destfiles/sourcefiles — همه فراخوانی‌ها حتی مستقیم، مسیر کامل /home/user می‌گیرند
+4. **گارد can_deploy جدا از auth پایه**: کلیدهای API برندها (برای fetch محتوا) اجازه استقرار ندارند — کلید سیستمی جداگانه لازم است
+5. **openssl_x509_parse** به جای پراپرتی validTo_time_t (رفع هشدار PHP 8.3)
+6. **retention با ORDER BY id DESC + array_slice** — بدون وابستگی به ساعت سرور (id ترتیبی مطمئن‌تر از timestamp)
+7. **پوشه ریشه در stepFolders حذف شد** — SubDomain::addsubdomain خودش document root را می‌سازد
+8. **session fallback غیرفعال پیش‌فرض** — نیازمند رمز متنی cPanel است که به دلایل امنیتی ذخیره نمی‌شود (طبق سند «کمتر پایدار»)
+
+### 📦 کامیت‌ها
+docs-plugin-prompt → feat-deploy-core → feat-deploy-admin → feat-deploy-api-cron → fix-deploy-integration → security-gitignore (+ feat-deploy-docs + release-v2.11.0)
+
+### 📦 رلیز v2.11.0
+تگ + install.zip + update.zip + UPGRADE + SHA256SUMS — جزئیات در بخش رلیز
+
