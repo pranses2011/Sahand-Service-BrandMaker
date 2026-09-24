@@ -1189,5 +1189,9 @@
 docs-plugin-prompt → feat-deploy-core → feat-deploy-admin → feat-deploy-api-cron → fix-deploy-integration → security-gitignore (+ feat-deploy-docs + release-v2.11.0)
 
 ### 📦 رلیز v2.11.0
-تگ + install.zip + update.zip + UPGRADE + SHA256SUMS — جزئیات در بخش رلیز
+- **install.zip**: ۶.۲MB / ۱۹۹۶ فایل (git archive — کل پروژه بدون runtime)
+- **update.zip**: ۳۸۴KB / ۵۱ فایل (فقط تغییرات از v2.10.0 — diff مبتنی؛ شامل config.php با نسخه جدید؛ config.local.php و آپلودها دست‌نخورده)
+- **پیوست‌ها**: UPGRADE-2.11.0.md + AI-API-GUIDE-v3.9.1-fa.md + SHA256SUMS-v2.11.0.txt
+- تست سلامت هر دو ZIP + راستی‌آزمایی ۹ فایل کلیدی در update.zip — همه پاس
+- نکته: تگ v2.10.0 به کامیت درست (ed6b76f) بازتنظیم شد — قبلاً روی کامیت مستندات بود
 
