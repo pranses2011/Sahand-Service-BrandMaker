@@ -138,14 +138,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
            پذیرفته می‌شود (HTML هم value="1" گرفت). */
         $useWeb = in_array(post('use_web'), ['1', 'on', 'true'], true);
         $overwrite = in_array(post('overwrite'), ['1', 'on', 'true'], true);
+
+        /* 📊 v2.14 — حالت AJAX با نوار پیشرفت زنده:
+           فرانت یک کلید یکتا می‌سازد و با درخواست می‌فرستد؛ پیشرفت موتور در
+           فایل کش با همان کلید نوشته می‌شود و فرانت هر ۸۰۰ms آن را می‌خواند.
+           سشن زود بسته می‌شود تا قفل سشن، درخواست‌های polling را مسدود نکند. */
+        $isAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+        $progressKey = '';
+        $progressFile = '';
+        if ($isAjax) {
+            $progressKey = preg_replace('/[^a-z0-9]/i', '', (string)post('progress_key', '')) ?: (uniqid('eg') . random_int(100, 999));
+            $progressFile = CACHE_PATH . '/errorgen-' . $progressKey . '.json';
+            if (!is_dir(CACHE_PATH)) { @mkdir(CACHE_PATH, 0755, true); }
+            @file_put_contents($progressFile, json_encode(['pct' => 0, 'title' => 'آماده‌سازی...', 'detail' => '', 'ts' => time()], JSON_UNESCAPED_UNICODE));
+            session_write_close();
+        }
+
         try {
+            if ($isAjax) {
+                /* 📊 گیرنده پیشرفت — در فایل کش می‌نویسد (فرانت می‌خواند) */
+                $engine->setProgressSink(static function (int $pct, string $title, string $detail) use ($progressFile) : void {
+                    @file_put_contents($progressFile, json_encode(['pct' => $pct, 'title' => $title, 'detail' => $detail, 'ts' => time()], JSON_UNESCAPED_UNICODE));
+                });
+            }
             $result = $engine->generateForDevice($brandId, $deviceKey, $useWeb, $overwrite);
+            if ($isAjax) {
+                @unlink($progressFile);
+                json_response([
+                    'success'       => $result['inserted'] > 0,
+                    'report'        => $result['report'],
+                    'inserted'      => $result['inserted'],
+                    'skipped'       => $result['skipped'],
+                    'web_found'     => $result['web_found'],
+                    'kb_added'      => $result['kb_added'],
+                    'sources'       => array_slice($result['sources'], 0, 5),
+                    'redirect'      => 'error-codes.php?brand=' . $brandId . '&device=' . urlencode($deviceKey),
+                ]);
+            }
             $msg = '🚨 موتور خطایاب AI: ' . $result['report'] . ' — منابع: ' . implode('، ', array_slice($result['sources'], 0, 3));
             flash($result['inserted'] > 0 ? 'success' : 'warning', $msg);
         } catch (Throwable $e) {
+            if ($isAjax) {
+                @unlink($progressFile);
+                json_response(['success' => false, 'report' => 'خطای تولید: ' . $e->getMessage()], 200);
+            }
             flash('danger', 'خطای تولید: ' . $e->getMessage());
         }
         redirect('error-codes.php?brand=' . $brandId . '&device=' . urlencode($deviceKey));
+    }
+
+    /* 📊 v2.14 — روند پیشرفت خطایاب (AJAX polling) */
+    if ($action === 'errorgen_progress') {
+        header('Content-Type: application/json; charset=utf-8');
+        session_write_close(); // بدون قفل سشن — فایل مستقل خوانده می‌شود
+        $key = preg_replace('/[^a-z0-9]/i', '', (string)post('progress_key', get_param('progress_key', '')));
+        $file = CACHE_PATH . '/errorgen-' . $key . '.json';
+        if ($key === '' || !is_file($file)) {
+            json_response(['success' => false, 'done' => true]);
+        }
+        /* 🧹 فایل‌های رهاشده قدیمی (بیش از ۳ دقیقه) پاک شوند — نه فایل فعال */
+        foreach (glob(CACHE_PATH . '/errorgen-*.json') ?: [] as $old) {
+            if (is_file($old) && (time() - (int)filemtime($old)) > 180 && $old !== $file) {
+                @unlink($old);
+            }
+        }
+        $data = json_decode((string)@file_get_contents($file), true);
+        json_response(['success' => true, 'done' => false, 'progress' => is_array($data) ? $data : ['pct' => 0, 'title' => '', 'detail' => '']]);
     }
 
     /* ✨ بهینه‌سازی یک فیلد با AI (AJAX) */
@@ -606,6 +664,173 @@ $categories = ErrorCodeEngine::CATEGORIES;
         if (window.sahandConfirm) {
             sahandConfirm({ title: 'بهینه‌سازی با AI', message: 'فیلد انتخابی بازنویسی و یکتاسازی شود؟ (برای ثبت نهایی، فرم را ذخیره کنید)', type: 'question', confirmText: 'بله، بازنویسی کن', confirmIcon: '✨' }).then(function (ok) { if (ok) { run(); } });
         } else { run(); }
+    });
+})();
+</script>
+
+<!-- 📊 v2.14 — مودال نوار پیشرفت خطایاب -->
+<div id="errorgen-backdrop" style="position:fixed;inset:0;background:rgba(15,23,42,.62);backdrop-filter:blur(4px);z-index:9000;display:none;align-items:center;justify-content:center;padding:18px">
+    <div style="background:#fff;border-radius:18px;width:100%;max-width:520px;box-shadow:0 28px 70px rgba(0,0,0,.32);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:12px;padding:18px 22px 12px">
+            <div id="errorgen-icon" style="width:48px;height:48px;border-radius:13px;background:#eff6ff;border:1.5px solid #bfdbfe;display:flex;align-items:center;justify-content:center;font-size:24px">🚨</div>
+            <div style="flex:1">
+                <div style="font-weight:800;font-size:15.5px;color:#1e40af">موتور خطایاب AI در حال اجراست</div>
+                <div style="font-size:11.5px;color:#64748b">کدهای واقعی از وب فارسی و انگلیسی استخراج و راستی‌آزمایی می‌شوند</div>
+            </div>
+            <div id="errorgen-pct" style="font-size:22px;font-weight:800;color:#1e40af;min-width:64px;text-align:left" dir="ltr">۰٪</div>
+        </div>
+        <div style="padding:4px 22px 8px">
+            <div style="height:12px;background:#e2e8f0;border-radius:20px;overflow:hidden;position:relative">
+                <div id="errorgen-bar" style="height:100%;width:0%;border-radius:20px;background:linear-gradient(90deg,#1e40af,#0ea5e9);transition:width .5s ease"></div>
+                <div id="errorgen-bar-shine" style="position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);animation:egShine 1.4s linear infinite"></div>
+            </div>
+        </div>
+        <div style="padding:8px 22px 6px">
+            <div id="errorgen-step" style="font-weight:700;font-size:13.5px;color:#0f172a">آماده‌سازی...</div>
+            <div id="errorgen-detail" style="font-size:11.5px;color:#64748b;margin-top:3px;min-height:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" dir="auto"></div>
+        </div>
+        <div id="errorgen-log" style="margin:8px 22px 16px;max-height:180px;overflow-y:auto;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:11.5px;line-height:2.1;color:#334155"></div>
+    </div>
+</div>
+<style>
+@keyframes egShine { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+#errorgen-log .eg-row { display: flex; gap: 8px; align-items: flex-start; border-bottom: 1px dashed #e2e8f0; padding: 2px 0; }
+#errorgen-log .eg-row:last-child { border-bottom: none; }
+#errorgen-log .eg-ico { width: 18px; text-align: center; flex-shrink: 0; }
+#errorgen-log .eg-row.cur .eg-txt { color: #1e40af; font-weight: 700; }
+</style>
+<script>
+/* 📊 v2.14 — خطایاب با نوار پیشرفت زنده و شرح مراحل */
+(function () {
+    'use strict';
+    var form = document.getElementById('form-generate');
+    if (!form) { return; }
+    var backdrop = document.getElementById('errorgen-backdrop');
+    var barEl = document.getElementById('errorgen-bar');
+    var pctEl = document.getElementById('errorgen-pct');
+    var stepEl = document.getElementById('errorgen-step');
+    var detailEl = document.getElementById('errorgen-detail');
+    var logEl = document.getElementById('errorgen-log');
+    var iconEl = document.getElementById('errorgen-icon');
+    var shineEl = document.getElementById('errorgen-bar-shine');
+    var running = false;
+    var lastStepKey = '';
+
+    var faDigits = function (s) {
+        return String(s).replace(/\d/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[d]; });
+    };
+
+    function setProgress(p) {
+        var pct = Math.max(0, Math.min(100, parseInt(p.pct || 0, 10)));
+        barEl.style.width = pct + '%';
+        pctEl.textContent = faDigits(pct) + '٪';
+        stepEl.textContent = p.title || '';
+        detailEl.textContent = p.detail || '';
+        detailEl.title = p.detail || '';
+        /* لاگ مرحله‌ها — هر مرحله جدید یک ردیف */
+        var key = (p.title || '') + '';
+        if (key && key !== lastStepKey) {
+            if (lastStepKey) {
+                var prev = logEl.querySelector('.eg-row.cur');
+                if (prev) { prev.classList.remove('cur'); prev.querySelector('.eg-ico').textContent = '✅'; }
+            }
+            var row = document.createElement('div');
+            row.className = 'eg-row cur';
+            row.innerHTML = '<span class="eg-ico">⏳</span><span class="eg-txt"></span>';
+            row.querySelector('.eg-txt').textContent = key + (p.detail ? ' — ' + p.detail : '');
+            logEl.appendChild(row);
+            logEl.scrollTop = logEl.scrollHeight;
+            lastStepKey = key;
+        }
+    }
+    function finishModal(ok) {
+        shineEl.style.display = 'none';
+        if (ok) {
+            iconEl.style.background = '#f0fdf4';
+            iconEl.style.borderColor = '#bbf7d0';
+            iconEl.textContent = '✅';
+            barEl.style.width = '100%';
+            pctEl.textContent = '۱۰۰٪';
+            var prev = logEl.querySelector('.eg-row.cur');
+            if (prev) { prev.classList.remove('cur'); prev.querySelector('.eg-ico').textContent = '✅'; }
+        }
+    }
+
+    form.addEventListener('submit', function (e) {
+        if (running) { e.preventDefault(); return; }
+        var deviceSel = document.getElementById('gen-device');
+        if (!deviceSel || !deviceSel.value) {
+            e.preventDefault();
+            if (window.sahandAlert) { sahandAlert({ title: 'دستگاه انتخاب نشده', message: 'ابتدا برند و دستگاه را انتخاب کنید.', type: 'warning', icon: '🚨' }); }
+            return;
+        }
+        e.preventDefault();
+        running = true;
+        var csrf = form.querySelector('input[name="csrf_token"]');
+        var csrfVal = csrf ? csrf.value : '';
+        var progressKey = 'eg' + Date.now() + Math.random().toString(36).slice(2, 10);
+
+        var body = new URLSearchParams();
+        body.append('action', 'generate_device');
+        body.append('brand_id', form.querySelector('[name=brand_id]').value);
+        body.append('device_key', deviceSel.value);
+        body.append('use_web', form.querySelector('[name=use_web]').checked ? '1' : '0');
+        body.append('overwrite', form.querySelector('[name=overwrite]').checked ? '1' : '0');
+        body.append('progress_key', progressKey);
+        body.append('csrf_token', csrfVal);
+
+        backdrop.style.display = 'flex';
+        logEl.innerHTML = '';
+        lastStepKey = '';
+        setProgress({ pct: 0, title: 'آماده‌سازی...', detail: 'در حال ارسال درخواست به موتور خطایاب...' });
+
+        /* 🔄 polling روند پیشرفت از فایل کش */
+        var pollTimer = setInterval(function () {
+            var pb = new URLSearchParams();
+            pb.append('action', 'errorgen_progress');
+            pb.append('progress_key', progressKey);
+            pb.append('csrf_token', csrfVal);
+            fetch('error-codes.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfVal, 'X-Requested-With': 'XMLHttpRequest' },
+                body: pb.toString(),
+                credentials: 'same-origin'
+            }).then(function (r) { return r.json(); }).then(function (res) {
+                if (res.success && res.progress) { setProgress(res.progress); }
+            }).catch(function () {});
+        }, 800);
+
+        /* 🚀 اجرای اصلی موتور */
+        fetch('error-codes.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfVal, 'X-Requested-With': 'XMLHttpRequest' },
+            body: body.toString(),
+            credentials: 'same-origin'
+        }).then(function (r) { return r.json(); }).then(function (res) {
+            clearInterval(pollTimer);
+            running = false;
+            finishModal(res.success);
+            var title = res.success
+                ? '🚨 ' + faDigits(res.inserted || 0) + ' کد خطای واقعی ثبت شد'
+                : 'نتیجه خطایاب';
+            var msg = (res.report || 'پاسخی از سرور دریافت نشد.') +
+                (res.sources && res.sources.length ? '\n\n🔗 منابع:\n' + res.sources.slice(0, 3).join('\n') : '');
+            sahandAlert({
+                title: title,
+                message: msg,
+                type: res.success ? 'success' : 'warning',
+                icon: res.success ? '🚨' : '⚠️',
+                confirmText: 'مشاهده کدها',
+            }).then(function () {
+                if (res.redirect) { window.location.href = res.redirect; }
+                else { window.location.reload(); }
+            });
+        }).catch(function (err) {
+            clearInterval(pollTimer);
+            running = false;
+            finishModal(false);
+            sahandAlert({ title: 'خطای ارتباط', message: 'ارتباط با سرور برقرار نشد: ' + err.message + ' — دوباره تلاش کنید.', type: 'danger', icon: '🌐' });
+        });
     });
 })();
 </script>

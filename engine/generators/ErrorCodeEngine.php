@@ -23,6 +23,31 @@ class ErrorCodeEngine
     /** @var Database */
     private $db;
 
+    /** @var callable|null گیرنده گزارش پیشرفت (v2.14 — نوار پیشرفت خطایاب) */
+    private $progressSink = null;
+
+    /**
+     * 📊 تنظین گیرنده پیشرفت — با هر مرحله موتور صدا زده می‌شود:
+     *   fn(int $pct, string $title, string $detail)
+     */
+    public function setProgressSink(?callable $fn): void
+    {
+        $this->progressSink = $fn;
+    }
+
+    /** 📊 ارسال گزارش پیشرفت (بدون خطا اگر گیرنده‌ای نباشد) */
+    private function progress(int $pct, string $title, string $detail = ''): void
+    {
+        if ($this->progressSink === null) {
+            return;
+        }
+        try {
+            ($this->progressSink)(max(0, min(100, $pct)), $title, $detail);
+        } catch (Throwable $e) {
+            // گزارش پیشرفت هرگز جریان اصلی را نمی‌شکند
+        }
+    }
+
     /** @var array نقشه دستگاه‌ها */
     private const DEVICE_FA = [
         'washing_machine' => ['ماشین لباسشویی', 'Washing Machine'],
@@ -104,9 +129,12 @@ class ErrorCodeEngine
         $records = [];
         $webCount = 0;
 
+        $this->progress(4, 'بررسی برند و دستگاه', $brand['name_fa'] . ' — ' . $deviceFa . ($useWeb ? ' — جستجوی آنلاین فعال' : ' — جستجوی آنلاین غیرفعال'));
+
         /* ---------- ۱) جستجوی آنلاین — تنها منبع ثبت کد ---------- */
         if ($useWeb) {
             try {
+                $this->progress(8, 'شروع جستجوی آنلاین', 'کوئری‌های فارسی و انگلیسی به موتورهای جستجو ارسال می‌شود...');
                 $webCodes = $this->searchWebCodes($brand['name_en'] ?: $brand['name_fa'], $brand['name_fa'], $deviceKey, $deviceFa, $brandKey, $deadline);
                 foreach ($webCodes as $wc) {
                     /* 🔀 دانش curated فقط «فاصله‌های خالی» را پر می‌کند (v2.8:
@@ -126,6 +154,7 @@ class ErrorCodeEngine
         }
 
         /* ---------- ۲) درج در دیتابیس (بدون تکراری) ---------- */
+        $this->progress(88, 'استخراج دلایل، راه‌حل‌ها و مشخصات فنی', count($records) . ' کد راستی‌آزمایی‌شده آماده ثبت است...');
         $inserted = 0;
         $skipped = 0;
         $insertedCodes = []; // کدهای همین نوبت — برای جلوگیری از درج دوباره KB
@@ -203,6 +232,7 @@ class ErrorCodeEngine
         }
 
         /* ---------- ۳) گزارش صادقانه ---------- */
+        $this->progress(97, 'ثبت کدها در پایگاه داده', ($inserted + $kbAdded) . ' کد جدید ثبت شد');
         if ($webCount === 0 && $kbAdded === 0) {
             $report = $useWeb
                 ? 'هیچ کدی از جستجوی اینترنتی تأیید نشد و پایگاه دانش هم برای این برند+دستگاه کدی ندارد — چیزی ثبت نشد (طبق سیاست «فقط کدهای واقعی»). کوئری دیگری یا اتصال اینترنت را بررسی کنید.'
@@ -269,6 +299,8 @@ class ErrorCodeEngine
             if (microtime(true) > $deadline - 4.0) {
                 break;
             }
+            /* 📊 v2.14: گزارش مرحله‌به‌مرحله جستجو (۸٪ تا ۴۲٪) */
+            $this->progress(8 + (int)round(34 * ($qi / max(1, count($queries) - 1))), 'جستجوی وب — کوئری ' . ($qi + 1) . ' از ' . count($queries), mb_substr($query, 0, 90));
             try {
                 $res = $searcher->search($query, 10);
             } catch (Throwable $e) {
@@ -331,8 +363,10 @@ class ErrorCodeEngine
          * یا «کد OE: خطای تخلیه آب». جدول هر صفحه → معنای دقیق تک‌تک کدها؛
          * کدهای جدید کشف‌شده از این مسیر «تأییدشده با شاهد جدول» حساب می‌شوند. */
         $tableMeanings = [];
-        foreach (array_slice($listUrls, 0, 4) as $lu) {
+        foreach (array_slice($listUrls, 0, 4) as $lui => $lu) {
             if (microtime(true) > $deadline - 6.0) { break; }
+            /* 📊 v2.14: گزارش خواندن صفحات فهرست کد (۴۵٪ تا ۶۵٪) */
+            $this->progress(45 + (int)round(20 * ($lui / 4)), 'خواندن صفحات فهرست کد سازنده', 'صفحه ' . ($lui + 1) . ' از ' . count(array_slice($listUrls, 0, 4)) . ' تحلیل می‌شود...');
             try {
                 $page = $searcher->fetchPageText($lu, 9000);
             } catch (Throwable $e) {
@@ -399,6 +433,43 @@ class ErrorCodeEngine
                     }
                 }
             }
+
+            /* 🆕 v2.14 — تور ایمنی: کشف کدها از «متن کامل صفحه» با استخراج‌گر الگویی
+             * ریشه‌یابی «هیچ کدی برای مایکروویو ال‌جی»: حتی وقتی پارس جدول ساختاری
+             * همه فرمت‌ها را نگیرد، این مسیر هیچ کد واقعی صفحه را از دست نمی‌دهد.
+             * گارد زمینه: پنجره اطراف کد باید واژه خطا/کد/نمایش داشته باشد. */
+            foreach ($this->extractCodePatterns($txt) as $pgCode) {
+                $pgCtx = $this->codeCentricContext($txt, $pgCode, 700);
+                if ($pgCtx === '' || !preg_match('/(error|fault|code|کد|خطا|نمایش|display)/i', $pgCtx)) {
+                    continue;
+                }
+                if (!isset($found[$pgCode])) {
+                    $pgTitle = $tableMeanings[$pgCode] ?? $this->titleFromContext($pgCode, $pgCtx, $deviceFa);
+                    $found[$pgCode] = [
+                        'code' => $pgCode,
+                        'title' => $pgTitle,
+                        'part' => $this->partFromTitle($pgTitle) ?: $this->partFromContext($pgCtx),
+                        'category' => $this->categoryFromContext($pgCtx),
+                        'severity' => $this->severityFromContext($pgCtx),
+                        'causes' => [],
+                        'fixes_user' => [],
+                        'fixes_tech' => [],
+                        'source_urls' => [$lu],
+                        '_evidence' => 2, // کد در صفحه اختصاصی خطاهای همین برند+دستگاه
+                        '_verified' => true,
+                        '_table_verified' => isset($tableMeanings[$pgCode]),
+                    ];
+                    $contextTexts[$pgCode] = [$pgCtx];
+                } else {
+                    $found[$pgCode]['_evidence'] += 1;
+                    if (!in_array($lu, $found[$pgCode]['source_urls'], true) && count($found[$pgCode]['source_urls']) < 4) {
+                        $found[$pgCode]['source_urls'][] = $lu;
+                    }
+                    if (count($contextTexts[$pgCode]) < 8) {
+                        $contextTexts[$pgCode][] = $pgCtx;
+                    }
+                }
+            }
         }
 
         /* ---------- 🎯 فاز ۲ (v3.1): راستی‌آزمایی و تعمیق تک‌کد + بودجه زمانی ----------
@@ -414,7 +485,14 @@ class ErrorCodeEngine
            فیلدها کامل و بدون نقص باشند */
         $tableEnrichBudget = 4;
         $i = 0;
+        $totalCandidates = count($found);
+        $processedCandidates = 0;
         foreach ($found as $codeKey => &$f) {
+            $processedCandidates++;
+            /* 📊 v2.14: گزارش راستی‌آزمایی تک‌کد (۶۸٪ تا ۸۶٪) */
+            if ($processedCandidates % 2 === 1 || $processedCandidates === $totalCandidates) {
+                $this->progress(68 + (int)round(18 * ($processedCandidates / max(1, $totalCandidates))), 'راستی‌آزمایی و تعمیق کدها', 'کد ' . $codeKey . ' بررسی می‌شود (' . $processedCandidates . ' از ' . $totalCandidates . ')');
+            }
             /* 🎯 v2.8: کدهای تأییدشده با «جدول ساختاری» از تعمیق عبور می‌کنند —
                عنوان دقیق از خود جدول آمده؛ وقت برای کدهای دیگر صرفه‌جویی می‌شود.
                🆕 v3.9: مگر اینکه دلایل/راه‌حل‌هایشان نحیف باشد (کمتر از ۲) */
@@ -543,17 +621,22 @@ class ErrorCodeEngine
         if (mb_strlen($text) < 100) {
             return $out;
         }
+        /* 🐛 v2.14 — ریشه‌یابی «برای مایکروویو ال‌جی هیچ کدی پیدا نشد»:
+           کدهای با خط تیره داخلی (E-01 / F-13 / CH-05 — سبک رایج مایکروویو،
+           فر و کولر ال‌جی) در الگوی قبلی اصلاً نمی‌گنجیدند → جدول‌های کامل
+           سازنده چشم‌پوشی می‌شدند. حالا «-?» در کد پشتیبانی می‌شود. */
         /* ۱) انگلیسی: CODE - meaning / CODE: meaning / CODE | meaning
            ⚠️ کلاس کاراکتر معنا فقط «فاصله/تب» دارد نه \n — وگرنه تطبیق حریصانه
-           کدِ خط بعدی را می‌بلعد (باگ: «IE: Water Inlet Error» کل «UE»ی که
-           در خط بعد بود خورده بود و UE هرگز ثبت نمی‌شد!) */
-        if (preg_match_all('/\b(Er\s?)?([A-Z]{1,2}\d{1,2}|\d{1,2}[A-Z]{1,2}|[A-Z]{2}\d{0,2})\s*(?:=|:|\||–|—|-)\s*([a-zA-Z][a-zA-Z \t&\'\-]{8,70})/u', $text, $m, PREG_SET_ORDER)) {
+           کدِ خط بعد را می‌بلعد */
+        if (preg_match_all('/\b(Er\s?)?([A-Z]{1,2}-?\d{1,2}|\d{1,2}-?[A-Z]{1,2}|[A-Z]{2}\d{0,2})\s*(?:=|:|\||–|—|-)\s*([a-zA-Z][a-zA-Z \t&\'\-]{8,70})/u', $text, $m, PREG_SET_ORDER)) {
             foreach ($m as $mm) {
                 $code = $this->normalizeCode(trim(str_replace(' ', '', $mm[1] . $mm[2])));
                 if ($code === null) { continue; }
                 $en = trim(preg_replace('/\s+/u', ' ', $mm[3]));
-                /* 🛡 اگر معنا به توکنی شبیه «کدِ بعدی» ختم شده (هم‌خطی)، جدا شود */
-                $en = (string)preg_replace('/\s+[A-Z]{1,2}\d{0,2}$/u', '', $en);
+                /* 🛡 اگر معنا به توکنی شبیه «کدِ بعدی» ختم شده (هم‌خطی)، جدا شود —
+                   شامل قطعه‌نهایی مثل «E-» / «F-» (v2.14) و پسوند Meaning/Guide */
+                $en = (string)preg_replace('/\s+[A-Z]{1,2}(?:\d{0,2}|-)$/u', '', $en);
+                $en = (string)preg_replace('/\s+(Meaning|Error\s+Meaning|Guide|Explained)$/i', '', $en);
                 /* عبارت‌های بی‌محتوا رد */
                 if (preg_match('/^(what|how|why|error|code|this|the|and|for)\b/i', $en)) { continue; }
                 $fa = $this->translateErrorPhrase($en);
@@ -562,12 +645,22 @@ class ErrorCodeEngine
                 }
             }
         }
-        /* ۲) فارسی: «کد E4: خطای ...» / «E4 - خطای ...» / «نمایش IE می‌دهد: خطای ...»
-           🔑 کدهای دوحرفی بدون رقم (OE/UE/IE/DE...) هم پشتیبانی می‌شوند؛
-           فاصله بین کد و «خطای» حداکثر ۱۲ نویسه «بدون حرف لاتین» است تا
-           واژه‌های انگلیسی معمولی (IF/OR...) کد قلمداد نشوند و بعد از کد
-           مرز واژه (\b) لازم است تا PCB به PC تبدیل نشود */
-        if (preg_match_all('/\b([A-Z]{1,2}\d{1,2}|\d{1,2}[A-Z]{1,2}|[A-Z]{2}\d{0,2})\b[^\nA-Za-z]{0,12}?(?:خطای|ایراد|علامت)\s+([^\n.،؛!؟]{6,60})/u', $text, $m, PREG_SET_ORDER)) {
+        /* 🆕 v2.14 — ۱-ب) تیتر بخش: «E-01 Thermistor Short Error» / «F-13 Inverter
+           Overcurrent» — کد + عنوان توصیفی با فاصله (قالب رایج مقالات ۲۰۲۴+) */
+        if (preg_match_all('/\b([A-Z]{1,2}-?\d{1,2}|\d{1,2}-?[A-Z]{1,2})\s+((?:[A-Z][a-zA-Z]{2,}\s+){0,4}(?:Error|Fault|Failure|Protection|Overcurrent|Overvoltage|Under\s+Voltage|Sensor\s+Error))\b/', $text, $m, PREG_SET_ORDER)) {
+            foreach ($m as $mm) {
+                $code = $this->normalizeCode(trim($mm[1]));
+                if ($code === null) { continue; }
+                $en = trim(preg_replace('/\s+/u', ' ', $mm[2]));
+                $en = (string)preg_replace('/\s+(Meaning|Error\s+Meaning|Guide|Explained)$/i', '', $en);
+                $fa = $this->translateErrorPhrase($en);
+                if ($fa !== null && mb_strlen($fa) >= 10 && (!isset($out[$code]) || mb_strlen($fa) > mb_strlen($out[$code]))) {
+                    $out[$code] = mb_substr($fa, 0, 70);
+                }
+            }
+        }
+        /* ۲) فارسی: «کد E4: خطای ...» / «E4 - خطای ...» / «نمایش IE می‌دهد: خطای ...» */
+        if (preg_match_all('/\b([A-Z]{1,2}-?\d{1,2}|\d{1,2}-?[A-Z]{1,2}|[A-Z]{2}\d{0,2})\b[^\nA-Za-z]{0,12}?(?:خطای|ایراد|علامت)\s+([^\n.،؛!؟]{6,60})/u', $text, $m, PREG_SET_ORDER)) {
             foreach ($m as $mm) {
                 $code = $this->normalizeCode(trim($mm[1]));
                 if ($code === null) { continue; }
@@ -578,7 +671,7 @@ class ErrorCodeEngine
             }
         }
         /* ۳) جدول‌های با جداکننده تب یا | : «E4\tWater Drainage» / «| UE | Unbalance |» */
-        if (preg_match_all('/^\s*\|?\s*([A-Z]{1,2}\d{1,2}|\d{1,2}[A-Z]{1,2}|[A-Z]{2}\d{0,2})\b\s*\|\s*([^\n|]{8,70})/um', $text, $m, PREG_SET_ORDER)) {
+        if (preg_match_all('/^\s*\|?\s*([A-Z]{1,2}-?\d{1,2}|\d{1,2}-?[A-Z]{1,2}|[A-Z]{2}\d{0,2})\b\s*\|\s*([^\n|]{8,70})/um', $text, $m, PREG_SET_ORDER)) {
             foreach ($m as $mm) {
                 $code = $this->normalizeCode(trim($mm[1]));
                 if ($code === null) { continue; }
@@ -869,6 +962,25 @@ class ErrorCodeEngine
         $dict = [
             /* ⚠️ ترتیب حیاتی است: «Motor Locked» نباید به «قفل درب» برسد
                و «Water Level Sensor» نباید «سنسور دما» شود */
+            /* 🆕 v2.14: عبارات اینورتر/الکتریکی (مایکروویو/فر/کولر ال‌جی) — مقدم بر قوانین عمومی
+               ریشه‌یابی: کدهای E-01/F-13 مایکروویو ال‌جی معنای کاملی نداشتند */
+            '/over\s?current|overcurrent/i' => 'جریان بیش از حد اینورتر',
+            '/over\s?volt|overvoltage/i' => 'ولتاژ بیش از حد اینورتر',
+            '/under\s+volt/i' => 'افت ولتاژ اینورتر',
+            '/vdc\s*protection/i' => 'محافظت ولتاژ DC اینورتر',
+            '/heat\s?sink/i' => 'دساپاتور اینورتر',
+            '/inverter\s+communication|communication\s+error/i' => 'ارتباطی برد اینورتر',
+            '/inverter/i' => 'برد اینورتر',
+            '/thermistor\s+short|short\s+thermistor/i' => 'اتصال کوتاه ترمیستور (سنسور دما)',
+            '/thermistor|temperature\s+sensor|temp\s+sensor/i' => 'سنسور دما (ترمیستور)',
+            '/humidity\s+sensor/i' => 'سنسور رطوبت',
+            '/fermentation/i' => 'حالت تخمیر',
+            '/preheat/i' => 'پیش‌گرمایش',
+            '/keypad|key\s+pad/i' => 'کیپد (صفحه کلید)',
+            '/fan\s+relay|relay/i' => 'رله فن',
+            '/short(\s+error)?|shorted/i' => 'اتصال کوتاه',
+            '/cooling\s+down|cool\s+down/i' => 'خنک‌سازی (نوتیفیکیشن)',
+            /* --- قوانین عمومی --- */
             '/water level|pressure sensor|water pressure|level sensor/i' => 'سنسور سطح/فشار آب',
             /* LG رسمی برای OE می‌گوید «Water Outlet Error» */
             '/drain|drainage|outlet/i' => 'تخلیه آب',
@@ -878,7 +990,7 @@ class ErrorCodeEngine
             '/motor|drive/i' => 'موتور',
             '/door|lid|lock|latch/i' => 'قفل درب',
             '/heat|heater|heating|element/i' => 'گرمایش و هیتر',
-            '/sensor|thermistor|temperature|ntc/i' => 'سنسور دما',
+            '/sensor|ntc/i' => 'سنسور',
             '/fan|blower/i' => 'فن',
             '/communication|connect/i' => 'ارتباطی',
             '/balance|unbalanc|vibrat/i' => 'عدم توازن',
@@ -1087,6 +1199,22 @@ class ErrorCodeEngine
     private function extractCausesFromContext(string $ctx, string $deviceKey, string $category): array
     {
         $causes = [];
+        /* 🆕 v2.14: بخش ساختاریافته «Possible Causes:» — رایج‌ترین قالب مقالات فنی
+           مثال: «Possible Causes: Damaged wire harness. Faulty thermistor.»
+           ⚠️ الگوی مهارشده: هرچه تا کد بعدی/بخش بعدی است می‌گیرد (دو-نقطه داخلی مجاز) */
+        if (preg_match_all('/(?:possible\s+)?causes?\s*:\s*((?:(?!\b[A-Z]{1,2}-?\d{1,2}\s*:|\b(?:troubleshoot|how\s+to|solution|fix\b|repair\b|related|meaning|final)\b).){15,600})/is', $ctx, $m)) {
+            foreach ($m[1] as $block) {
+                foreach (preg_split('/[.;]\s+/', trim($block)) as $s) {
+                    $s = trim($s, " \t.,;-‌");
+                    if (mb_strlen($s) < 6 || mb_strlen($s) > 90) { continue; }
+                    $fa = $this->translateCauseOrFix($s);
+                    if ($fa !== null && !in_array($fa, $causes, true)) {
+                        $causes[] = $fa;
+                    }
+                    if (count($causes) >= 5) { break 2; }
+                }
+            }
+        }
         // فارسی: «علت ... است/می‌شود»، «به دلیل ...»، «بر اثر ...»
         if (preg_match_all('/(?:به\s+(?:دلیل|علت)|علت\s+(?:اصلی\s+)?(?:آن\s+)?|بر\s+اثر)\s+([^۱۲۳۴۵۶۷۸۹۰.،؛!؟"()\n]{8,60})/u', $ctx, $m)) {
             foreach ($m[1] as $mm) {
@@ -1097,22 +1225,22 @@ class ErrorCodeEngine
                 if (count($causes) >= 5) { break; }
             }
         }
-        // انگلیسی: «caused by X»، «due to X» (v3.0: پسوند name عبارت اسمی را می‌گیرد)
+        // انگلیسی: «caused by X»، «due to X» — ترجمه به فارسی (v2.14: دیگر انگلیسی خام ذخیره نمی‌شود)
         if (count($causes) < 5 && preg_match_all('/(?:caused\s+by|due\s+to|because\s+of)\s+(?:a\s+|an\s+|the\s+)?([a-zA-Z\s\-]{6,60})/i', $ctx, $m)) {
             foreach ($m[1] as $mm) {
-                $c = trim(preg_replace('/\s+/u', ' ', $mm));
-                if (mb_strlen($c) >= 6 && !in_array($c, $causes, true)) {
-                    $causes[] = mb_substr($c, 0, 60);
+                $fa = $this->translateCauseOrFix(trim(preg_replace('/\s+/u', ' ', $mm)));
+                if ($fa !== null && !in_array($fa, $causes, true)) {
+                    $causes[] = mb_substr($fa, 0, 70);
                 }
                 if (count($causes) >= 5) { break; }
             }
         }
-        // انگلیسی: «a faulty/defective/worn X» — علت‌های اسمی رایج مقالات تعمیر (v3.0)
+        // انگلیسی: «a faulty/defective/worn X» (v2.14: با ترجمه فارسی)
         if (count($causes) < 5 && preg_match_all('/(?:a\s+|an\s+)?(faulty|defective|worn[\s-]?out|failed|damaged|clogged|blocked|loose|broken)\s+([a-zA-Z\s\-]{4,40})/i', $ctx, $m)) {
             foreach ($m[0] as $i => $full) {
-                $c = trim(preg_replace('/\s+/u', ' ', $full));
-                if (mb_strlen($c) >= 8 && !in_array($c, $causes, true)) {
-                    $causes[] = mb_substr($c, 0, 60);
+                $fa = $this->translateCauseOrFix(trim(preg_replace('/\s+/u', ' ', $full)));
+                if ($fa !== null && !in_array($fa, $causes, true)) {
+                    $causes[] = mb_substr($fa, 0, 70);
                 }
                 if (count($causes) >= 5) { break; }
             }
@@ -1130,6 +1258,95 @@ class ErrorCodeEngine
     }
 
     /**
+     * 🌐 ترجمه دلیل/راه‌حل انگلیسی به فارسی (v2.14)
+     *
+     * ریشه‌یابی «فیلدهای نامربوط/ناقص»: دلایل و راه‌حل‌های استخراج‌شده از وب
+     * انگلیسی خام بودند و در سایت فارسی نامفهوم دیده می‌شدند؛ اکنون فقط
+     * عبارت‌هایی ترجمه و پذیرفته می‌شوند که قطعه/اقدام شناخته‌شده‌ای دارند —
+     * بقیه رد می‌شوند تا مخزن فارسی تخصصی همان دستگاه جایشان را بگیرد.
+     */
+    private function translateCauseOrFix(string $en): ?string
+    {
+        $en = trim(preg_replace('/\s+/u', ' ', $en));
+        if ($en === '' || mb_strlen($en) > 120) { return null; }
+
+        /* 📦 واژه‌نامه اسم‌های قطعات (EN → FA) */
+        $nouns = [
+            'wire harness|wiring harness|wiring|wire connection|connector|connections?' => 'اتصالات/هارنس سیم‌کشی',
+            'door (?:switch|latch|lock)|latch|interlock' => 'میکروسوئیچ و قفل درب',
+            'keypad|key pad|touch panel|control panel' => 'کیپد و پنل کنترل',
+            'thermistor|temperature sensor|temp sensor' => 'ترمیستور (سنسور دما)',
+            'humidity sensor' => 'سنسور رطوبت',
+            'inverter (?:board)?|ipm' => 'برد اینورتر',
+            'magnetron' => 'مگنترون',
+            'high voltage diode|hv diode|diode' => 'دیود ولتاژ بالا',
+            'capacitor' => 'خازن',
+            '(?:thermal )?fuse' => 'فیوز حرارتی',
+            'relay' => 'رله',
+            'fan(?: motor)?|blower' => 'فن',
+            'control board|pcb|main board|controller' => 'برد کنترل',
+            'drain (?:pump|hose|filter)|pump' => 'پمپ تخلیه و مسیر آن',
+            'water (?:inlet )?valve|inlet valve' => 'شیر برقی ورودی آب',
+            'pressure sensor|water level sensor' => 'سنسور فشار/سطح آب',
+            'heating element|heater' => 'المنت حرارتی',
+            'compressor' => 'کمپرسور',
+            'motor' => 'موتور',
+            'sensor' => 'سنسور',
+            'filter' => 'فیلتر',
+            'vent|airflow|air flow|duct' => 'مسیر تخلیه هوا',
+            'power supply|outlet|socket|cord|plug' => 'منبع تغذیه و کابل برق',
+            'switch' => 'سوئیچ',
+            'bearing|belt|seal|gasket' => 'بلبرینگ/تسمه/درزگیر',
+        ];
+
+        /* 🔧 اقدام‌ها (برای راه‌حل‌ها) */
+        $actions = [
+            'check|inspect|examine|verify|make sure|ensure|look at|review' => 'بررسی',
+            'clean|wipe|remove debris from' => 'تمیز کردن',
+            'replace|install a new|swap' => 'تعویض',
+            'reset|restart|reboot|power cycle|unplug' => 'ریست و قطع/وصل برق',
+            'test|measure|use a multimeter|check (?:the )?(?:resistance|voltage|continuity)' => 'تست با مولتی‌متر',
+            'tighten|secure|reconnect|reseat|plug (?:it )?(?:back )?in' => 'محکم‌کردن/اتصال مجدد',
+            'open|disassemble|remove|access' => 'باز کردن و دسترسی به',
+            'adjust|calibrate|level|align' => 'تنظیم و کالیبراسیون',
+            'call|contact|schedule|consult' => 'تماس با',
+        ];
+
+        /* 🎯 حالت ۱: راه‌حل — «check the door latch» → «بررسی میکروسوئیچ و قفل درب» */
+        $lower = mb_strtolower($en);
+        $actionFa = null;
+        foreach ($actions as $re => $fa) {
+            if (preg_match('/\b(?:' . $re . ')\b/i', $lower)) {
+                $actionFa = $fa;
+                break;
+            }
+        }
+        foreach ($nouns as $re => $fa) {
+            if (preg_match('/\b(?:' . $re . ')\b/i', $lower)) {
+                if ($actionFa !== null) {
+                    return $actionFa . ' ' . $fa;
+                }
+                /* حالت ۲: دلیل — «Damaged wire harness» → «خرابی اتصالات سیم‌کشی» */
+                $stateMap = [
+                    '/\b(faulty|defective|bad|failed|broken)\b/i' => 'خرابی ',
+                    '/\b(damaged|worn[\s-]?out)\b/i' => 'آسیب‌دیدگی ',
+                    '/\b(clogged|blocked|dirty)\b/i' => 'گرفتگی/کثیفی ',
+                    '/\bloose\b/i' => 'لقی ',
+                    '/\b(short|shorted)\b/i' => 'اتصال کوتاه ',
+                    '/\b(open|disconnected)\b/i' => 'قطعی ',
+                ];
+                $state = 'مشکل در ';
+                foreach ($stateMap as $sre => $sfa) {
+                    if (preg_match($sre, $lower)) { $state = $sfa; break; }
+                }
+                return $state . $fa;
+            }
+        }
+        /* بدون قطعه شناخته‌شده → رد (مخزن فارسی تخصصی جایگزین می‌شود) */
+        return null;
+    }
+
+    /**
      * 🧠 استخراج راه‌حل از جمله‌های واقعی وب (v2.7)
      * الگوها: «X را بررسی/تمیز/تعویض کنید»، «برای رفع ... X»، «to fix ... X»، «check/clean/replace X»
      * 🔍 فیلتر کیفیت: عبارت باید کاربردی و کامل باشد — قطعه‌های ناقص مثل «می‌خواهد» رد می‌شوند.
@@ -1138,25 +1355,41 @@ class ErrorCodeEngine
     {
         $fixes = [];
         if ($kind === 'user') {
+            /* 🆕 v2.14: بخش ساختاریافته «Troubleshooting Steps:» — قالب استاندارد مقالات
+               مثال: «Troubleshooting Steps: Check the wire harness. Reset the unit.»
+               ⚠️ الگوی مهارشده: دو-نقطه داخلی مجاز است؛ تا کد بعدی ادامه می‌یابد */
+            if (preg_match_all('/troubleshoot\w*\s*(?:steps?)?\s*:\s*((?:(?!\b[A-Z]{1,2}-?\d{1,2}\s*:|\b(?:related|meaning|final|conclusion|notes?\b|when\s+to)\b).){15,900})/is', $ctx, $m)) {
+                foreach ($m[1] as $block) {
+                    foreach (preg_split('/[.;]\s+/', trim($block)) as $s) {
+                        $s = trim($s, " \t.,;-‌");
+                        if (mb_strlen($s) < 6 || mb_strlen($s) > 110) { continue; }
+                        $fa = $this->translateCauseOrFix($s);
+                        if ($fa !== null && !in_array($fa, $fixes, true)) {
+                            $fixes[] = $fa;
+                        }
+                        if (count($fixes) >= 5) { break 2; }
+                    }
+                }
+            }
             $patterns = [
                 '/((?:بررسی|تمیز|باز|بستن|شست|قطع|اجرای|شارژ|ریست)[^۱۲۳۴۵۶۷۸۹۰.؛!؟]{5,60}\s+کنید)/u',
                 '/(برای\s+رفع[^.؛!؟]{5,60}(?:کنید|بایید|است))/u',
                 '/(?:شما\s+)?می‌?توانید\s+([^۱۲۳۴۵۶۷۸۹۰.؛!؟]{12,70}(?:کنید|بایید))/u',
-                /* 🆕 v3.9: دستور مستقیم انگلیسی مقالات راهنما */
-                '/((?:check|clean|open|close|reset|ensure|make sure)[^\n.؛!؟]{6,70})/i',
+                /* 🆕 v3.9: دستور مستقیم انگلیسی مقالات راهنما — با ترجمه فارسی (v2.14) */
+                '/((?:check|clean|open|close|reset|ensure|make sure|unplug|plug)[^\n.؛!؟]{6,70})/i',
                 '/(to\s+fix[^.؛!؟\n]{6,80})/i',
             ];
             /* کلمات لازم برای پذیرش راه‌حل کاربر */
-            $mustHave = ['بررسی', 'تمیز', 'باز', 'بستن', 'شست', 'قطع', 'برق', 'فشار', 'شیر', 'فیلتر', 'درب', 'ریست', 'تنظیم', 'check', 'clean', 'open', 'close', 'reset', 'replace', 'inspect', 'water', 'valve', 'filter', 'door', 'power'];
+            $mustHave = ['بررسی', 'تمیز', 'باز', 'بستن', 'شست', 'قطع', 'برق', 'فشار', 'شیر', 'فیلتر', 'درب', 'ریست', 'تنظیم', 'تست', 'تعویض', 'محکم', 'بررسی', 'کنید'];
         } else {
             $patterns = [
                 '/(?:نیاز\s+به|مستلزم)\s+((?:تست|تعویض|عیب‌یابی|تعمیر)[^.؛!؟]{0,50})/u',
                 '/((?:تست|اندازه‌گیری)\s+(?:مقاومت|ولتاژ|فشار)[^.؛!؟]{0,45})/u',
                 '/(?:should\s+be\s+(?:replaced|tested)|must\s+be\s+(?:replaced|tested)|requires?\s+a)\s+([a-zA-Z\s\-]{6,60})/i',
-                /* 🆕 v3.9: فعل دستوری رایج مقالات تعمیر */
+                /* 🆕 v3.9: فعل دستوری رایج مقالات تعمیر — با ترجمه فارسی (v2.14) */
                 '/(?:replace|test|inspect|measure|check|clean)\s+(?:the\s+|a\s+)?([a-z\s\-]{6,55})/i',
             ];
-            $mustHave = ['تست', 'تعویض', 'عیب‌یابی', 'تعمیر', 'مولتی', 'اندازه‌گیری', 'سنسور', 'برد', 'کمپرسور', 'شارژ', 'replace', 'test', 'measure', 'multimeter', 'sensor', 'board', 'repair'];
+            $mustHave = ['تست', 'تعویض', 'عیب‌یابی', 'تعمیر', 'مولتی', 'اندازه‌گیری', 'سنسور', 'برد', 'کمپرسور', 'شارژ', 'بررسی', 'تمیز', 'تعویض', 'بررسی', 'ریست'];
         }
         foreach ($patterns as $re) {
             if (preg_match_all($re, $ctx, $m)) {
@@ -1164,7 +1397,18 @@ class ErrorCodeEngine
                     $fx = mb_scrub(trim(preg_replace('/\s+/u', ' ', $mm)));
                     $fx = rtrim($fx, " ،,.");
                     if (mb_strlen($fx) < 12 || mb_strlen($fx) > 90) { continue; }
-                    /* 🔍 فیلتر کیفیت: باید حداقل یک کلیدواژه اقدام/قطعه داشته باشد */
+                    /* 🌐 v2.14: عبارت انگلیسی → ترجمه ساختاریافته فارسی؛
+                       اگر ترجمه ممکن نبود (قطعه ناشناخته) → رد */
+                    if (preg_match('/[a-zA-Z]/', $fx)) {
+                        $translated = $this->translateCauseOrFix($fx);
+                        if ($translated === null) { continue; }
+                        if (!in_array($translated, $fixes, true)) {
+                            $fixes[] = $translated;
+                        }
+                        if (count($fixes) >= 5) { break 2; }
+                        continue;
+                    }
+                    /* 🔍 فیلتر کیفیت فارسی: باید حداقل یک کلیدواژه اقدام/قطعه داشته باشد */
                     $lower = mb_strtolower($fx);
                     $ok = false;
                     foreach ($mustHave as $kw) {
@@ -1277,7 +1521,27 @@ class ErrorCodeEngine
                 }
             }
         }
+        /* 🧹 v2.14: حذف واژه‌های رایج انگلیسی که شکل کد دارند (may BE / to LE...)
+           ولی در پنجره زمینه‌شان هیچ واژه خطایی نیست — روی «متن کامل صفحه»
+           این نویزها فراوان‌اند و باعث کدهای ساختگی می‌شدند */
+        foreach (array_keys($codes) as $ck) {
+            if (strlen($ck) === 2 && preg_match('/^[A-Z]E$/', $ck)
+                && !preg_match('/(error|fault|code|کد|خطا|نمایش|display|shows?|indicates?)/i', $this->codeContextOf($text, $ck, 70))) {
+                unset($codes[$ck]);
+            }
+        }
         return array_keys($codes);
+    }
+
+    /** 🔎 پنجره کوچک اطراف کد — برای فیلتر زمینه‌ای نویزها (v2.14) */
+    private function codeContextOf(string $text, string $code, int $radius = 60): string
+    {
+        $pos = mb_stripos($text, $code);
+        if ($pos === false) {
+            return '';
+        }
+        $start = max(0, $pos - $radius);
+        return mb_substr($text, $start, $radius * 2);
     }
 
     /** 🧹 نرمال‌سازی کد */
