@@ -25,7 +25,7 @@
 class SahandAI
 {
     /** 🔖 نسخه موتور */
-    public const ENGINE_VERSION = '3.7.0'; // ۳.۷: سئو موضوع‌محور + خطایاب وب‌محور + نگارش فارسی v1.2 + بهبوددهنده HTML-امن
+    public const ENGINE_VERSION = '3.7.1'; // ۳.۷.۱: مقاله موضوع‌محور + خطایاب دوفازی + OG برنددار + رفع کرش ربات
 
     /** @var Database دیتابیس */
     private $db;
