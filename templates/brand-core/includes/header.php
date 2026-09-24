@@ -44,8 +44,10 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="<?= e($pageTitle) ?>">
     <meta name="twitter:description" content="<?= e($pageDesc) ?>">
-    <!-- 🔖 فاویکون و لوگو -->
-    <link rel="icon" href="<?= e($brand['logo'] ?: cdn_asset('images/placeholders/favicon.png')) ?>">
+    <!-- 🔖 فاویکون و لوگو (v2.12: فاوآیکون اختصاصی برند — پیش‌فرض لوگو) -->
+    <?php $faviconUrl = trim((string)($brand['favicon'] ?? '')) ?: trim((string)($brand['logo'] ?? '')); ?>
+    <link rel="icon" href="<?= e($faviconUrl ?: cdn_asset('images/placeholders/favicon.png')) ?>">
+    <link rel="apple-touch-icon" href="<?= e($faviconUrl ?: cdn_asset('images/placeholders/favicon.png')) ?>">
     <!-- 🔤 فونت از سرور سایت ساز -->
     <link rel="stylesheet" href="<?= e(BRANDMAKER_ASSETS) ?>/css/fonts.css">
     <!-- 🎨 استایل‌ها -->

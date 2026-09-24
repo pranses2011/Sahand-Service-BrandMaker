@@ -38,6 +38,7 @@ function api_brand_info(int $brandId): void
                 'name_fa'   => $brand['name_fa'],
                 'name_en'   => $brand['name_en'],
                 'logo'      => $brand['logo'] ? asset_url($brand['logo']) : '',
+                'favicon'   => ($brand['favicon'] ?: $brand['logo']) ? asset_url((string)($brand['favicon'] ?: $brand['logo'])) : '',
                 'domain'    => $brand['domain'],
                 'error_codes_enabled' => (bool)$brand['error_codes_enabled'],
                 'seo'       => ['title' => $brand['seo_title'], 'description' => $brand['seo_description'], 'keywords' => $brand['seo_keywords']],
