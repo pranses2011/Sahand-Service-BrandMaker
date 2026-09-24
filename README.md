@@ -2,7 +2,7 @@
 
 > سیستم اختصاصی تولید خودکار سایت برای برندهای لوازم خانگی — **PHP خالص، بدون هیچ وابستگی خارجی، سازگار با هاست اشتراکی cPanel**
 
-[![نسخه](https://img.shields.io/badge/نسخه-2.9.0-blue)]() [![موتور AI](https://img.shields.io/badge/موتور_AI-v3.9.0_فونت_ریشه‌ای+OG_پویا+تصاویر_واقعی+خطایاب_کامل-ff69b4)]() [![PHP](https://img.shields.io/badge/PHP-7.4%2B_بهینه_برای_8.3-purple)]() [![MySQL](https://img.shields.io/badge/MySQL-5.7%2B-orange)]() [![بدون وابستگی](https://img.shields.io/badge/وابستگی-صفر-green)]() [![تست](https://img.shields.io/badge/تست-450_موفق-brightgreen)]()
+[![نسخه](https://img.shields.io/badge/نسخه-2.10.0-blue)]() [![موتور AI](https://img.shields.io/badge/موتور_AI-v3.9.0_فونت_ریشه‌ای+OG_پویا+تصاویر_واقعی+خطایاب_کامل-ff69b4)]() [![PHP](https://img.shields.io/badge/PHP-7.4%2B_بهینه_برای_8.3-purple)]() [![MySQL](https://img.shields.io/badge/MySQL-5.7%2B-orange)]() [![بدون وابستگی](https://img.shields.io/badge/وابستگی-صفر-green)]() [![تست](https://img.shields.io/badge/تست-450_موفق-brightgreen)]()
 
 ## 🎯 سایت ساز چه می‌کند؟
 

@@ -1143,3 +1143,7 @@
 
 ### 📦 کامیت‌ها
 - `feat-fonts-bundled` + `feat-icons-curated` + `feat-print-views` (این بخش) — رلیز کامل v2.10.0 در ادامه همین مرحله
+
+### 📦 رلیز v2.10.0
+- تگ `v2.10.0` روی main + پوش — بسته‌ها: install.zip (نصب کامل) + update.zip (تغییرات از 2.9.0) + UPGRADE-v2.10.0.md + SHA256SUMS-v2.10.0.txt
+- CHANGELOG (۵ بخش) + README (بج + جدول تازه‌ها) + UPGRADE (۵ اولویت + ۵ گام راستی‌آزمایی) + نسخه سیستم 2.10.0
