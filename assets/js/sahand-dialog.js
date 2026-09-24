@@ -376,4 +376,33 @@
     global.sahandPrompt = sahandPrompt;
     global.sahandForm = sahandForm;
     global.sahandToast = toast;
+
+    /* ═══════════════════════════════════════════════════════════
+     * 📜 قانون کادر زیبا (قانون دائمی پروژه):
+     * هر alert() ساده در تمام پنل مدیریت، خودکار به کادر زیبای
+     * SahandDialog تبدیل می‌شود — دیگر هرگز کادر پیش‌فرض زشت
+     * مرورگر دیده نمی‌شود، حتی اگر کدی ناخواسته alert بنویسد.
+     * (alert چون مقدار برگشتی ندارد، جایگزینی کاملاً امن است)
+     * ═══════════════════════════════════════════════════════════ */
+    global.__nativeAlert = global.alert;
+    global.alert = function (message) {
+        try {
+            var msg = String(message == null ? '' : message);
+            /* تشخیص هوشمند نوع از روی ایموجی/متن پیام */
+            var type = 'info';
+            if (/^❌|^\uD83D\uDEA8|خطا|ناموفق|نشده|failed|undefined/i.test(msg)) { type = 'danger'; }
+            else if (/^⚠|توجه|هشدار|اخطار/i.test(msg)) { type = 'warning'; }
+            else if (/^✅|موفق|شد$|انجام شد/i.test(msg)) { type = 'success'; }
+            sahandAlert({
+                title: type === 'danger' ? 'خطا' : (type === 'warning' ? 'توجه' : (type === 'success' ? 'انجام شد' : 'پیام سیستم')),
+                message: msg,
+                type: type,
+                confirmText: 'متوجه شدم',
+                icon: type === 'danger' ? '⛔' : undefined,
+            });
+        } catch (e) {
+            /* در صورت هر مشکل، alert اصلی اجرا شود */
+            global.__nativeAlert(message);
+        }
+    };
 })(window);

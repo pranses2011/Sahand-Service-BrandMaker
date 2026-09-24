@@ -79,6 +79,12 @@ switch ($action) {
             $result = $deployer->queueDeploy($brandId, $subdomain, $sslInstall, 'panel');
         }
 
+        /* 🛡️ نرمال‌سازی کلید خطا — Deployer با «message» برمی‌گرداند؛
+           فرانت (deploy.php) «error» را می‌خواند → بدون این نگاشت، خطای
+           «❌ undefined» نمایش داده می‌شد */
+        if (empty($result['success'])) {
+            $result['error'] = $result['error'] ?? ($result['message'] ?? 'عملیات آغاز نشد.');
+        }
         json_response($result + ['step_delay' => 800]);
 
     /* ⚡ اجرای مرحله بعدی (حلقه پیشرفت) */
@@ -86,6 +92,9 @@ switch ($action) {
         $deploymentId = (int)($input['deployment_id'] ?? 0);
         $deployer = new Deployer();
         $result = $deployer->runNextStep($deploymentId);
+        if (empty($result['success']) && empty($result['error']) && isset($result['message'])) {
+            $result['error'] = $result['message'];
+        }
         json_response($result + ['step_delay' => 900]);
 
     /* 📊 فقط وضعیت (بدون اجرا) */

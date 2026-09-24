@@ -276,7 +276,7 @@ $csrf = e($_SESSION['csrf_token'] ?? '');
 <div class="modal-overlay" id="delete-dialog" style="display:none">
     <div class="modal-box" style="max-width:460px">
         <div class="modal-header"><h3>🗑️ حذف سایت برند</h3><button type="button" class="modal-close" onclick="document.getElementById('delete-dialog').style.display='none'">✕</button></div>
-        <form method="post" onsubmit="return confirm('⚠️ حذف کامل: فایل‌ها + زیردامنه + بکاپ نهایی. مطمئنید؟')">
+        <form method="post" data-confirm="⚠️ حذف کامل: فایل‌ها + زیردامنه + بکاپ نهایی. مطمئنید؟">
             <?= Auth::csrfField() ?>
             <input type="hidden" name="action" value="delete_deploy">
             <input type="hidden" name="brand_id" id="del-brand-id" value="">
@@ -358,14 +358,14 @@ let running = false;
 /* ═══════════ دیالوگ پیش‌نمایش استقرار ═══════════ */
 async function openDeployDialog(brandId, isUpdate) {
     if (!<?= $deployEnabled ? 'true' : 'false' ?>) {
-        alert('⚠️ استقرار خودکار فعال نیست — ابتدا از «تنظیمات cPanel» فعال کنید.');
+        sahandAlert({ title: 'استقرار غیرفعال', message: 'استقرار خودکار فعال نیست — ابتدا از «تنظیمات cPanel» فعال کنید.', type: 'warning', icon: '🚀' });
         return;
     }
     currentBrandId = brandId;
     updateMode = isUpdate;
 
     const body = await api({action: 'preview', brand_id: brandId});
-    if (!body.success) { alert(body.error || 'خطا'); return; }
+    if (!body.success) { sahandAlert({ title: 'خطا', message: errText(body), type: 'danger' }); return; }
 
     document.getElementById('deploy-dialog-title').textContent = body.is_deployed ? '🔄 بروزرسانی خودکار سایت' : '🚀 پیش‌نمایش استقرار خودکار';
     document.getElementById('pv-brand').textContent = body.brand.name_fa + ' (' + body.brand.name_en + ')';
@@ -471,7 +471,7 @@ async function startDeployment() {
     const addonDomain = document.getElementById('pv-addon-domain')?.value.trim() || '';
 
     if (domainType === 'addon' && addonDomain.length < 4) {
-        alert('دامنه الحاقی را وارد کنید (مثلاً mybrand.ir)');
+        sahandAlert({ title: 'دامنه ناقص', message: 'دامنه الحاقی را وارد کنید (مثلاً mybrand.ir)', type: 'warning', icon: '🌐' });
         return;
     }
 
@@ -486,7 +486,7 @@ async function startDeployment() {
     });
 
     if (!body.success) {
-        alert('❌ ' + body.error);
+        sahandAlert({ title: 'شروع نشد', message: errText(body), type: 'danger', icon: '🚀' });
         return;
     }
     closeDeployDialog();
@@ -535,7 +535,7 @@ async function resumeProgress(deploymentId, brandId) {
     document.getElementById('pr-error').style.display = 'none';
 
     const body = await api({action: 'status', deployment_id: deploymentId});
-    if (!body.success) { alert(body.error); return; }
+    if (!body.success) { sahandAlert({ title: 'خطا', message: errText(body), type: 'danger' }); return; }
 
     const d = body.deployment;
     document.getElementById('pr-title').textContent = (d.action === 'update' ? '🔄 بروزرسانی' : d.action === 'delete' ? '🗑️ حذف' : '🚀 استقرار') + ' — ' + (d.domain || '');
@@ -562,7 +562,8 @@ async function resumeProgress(deploymentId, brandId) {
 
 /* 🛑 لغو */
 async function cancelDeployment() {
-    if (!confirm('عملیات فعلی لغو شود؟')) return;
+    const ok = await sahandConfirm({ title: 'لغو عملیات', message: 'عملیات فعلی لغو شود؟', type: 'warning', confirmText: 'بله، لغو کن', cancelText: 'ادامه بده', icon: '🛑' });
+    if (!ok) return;
     await api({action: 'cancel', deployment_id: currentDeploymentId});
     showError('توسط شما لغو شد');
     finishProgress();
@@ -571,15 +572,24 @@ async function cancelDeployment() {
 /* ═══════════ بروزرسانی دسته‌ای ═══════════ */
 async function batchUpdate() {
     const ids = Array.from(document.querySelectorAll('.brand-check:checked')).map(c => parseInt(c.value));
-    if (!ids.length) { alert('حداقل یک برند مستقر انتخاب کنید'); return; }
-    if (!confirm(`بروزرسانی دسته‌ای ${ids.length} برند شروع شود؟\n(یکی‌یکی پردازش می‌شوند تا سرور overloaded نشود)`)) return;
+    if (!ids.length) { sahandAlert({ title: 'انتخاب نشده', message: 'حداقل یک برند مستقر انتخاب کنید', type: 'warning', icon: '☑️' }); return; }
+    const ok = await sahandConfirm({
+        title: 'بروزرسانی دسته‌ای',
+        message: 'بروزرسانی ' + faDigits(ids.length) + ' برند شروع شود؟\n(یکی‌یکی پردازش می‌شوند تا سرور overloaded نشود)',
+        type: 'question', confirmText: 'شروع کن', icon: '🔄',
+    });
+    if (!ok) return;
 
     const body = await api({action: 'batch_update', brand_ids: ids});
     if (body.success) {
-        alert(`✅ ${body.queued} برند در صف بروزرسانی قرار گرفت` + (body.errors.length ? `\n⚠️ ${body.errors.length} خطا:\n${body.errors.join('\n')}` : ''));
+        await sahandAlert({
+            title: 'در صف قرار گرفت',
+            message: '✅ ' + faDigits(body.queued) + ' برند در صف بروزرسانی قرار گرفت' + (body.errors.length ? '\n⚠️ ' + faDigits(body.errors.length) + ' خطا:\n' + body.errors.join('\n') : ''),
+            type: 'success', icon: '🔄',
+        });
         location.reload();
     } else {
-        alert('❌ ' + (body.errors || []).join('\n'));
+        sahandAlert({ title: 'خطا', message: (Array.isArray(body.errors) && body.errors.length ? body.errors.join('\n') : errText(body)), type: 'danger' });
     }
 }
 
@@ -620,14 +630,30 @@ function toggleAll(master) {
 }
 function faDigits(n) { return String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]); }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+/* 🛡️ استخراج امن متن خطا — هرگز «undefined» نمایش داده نمی‌شود */
+function errText(body) {
+    if (!body) { return 'خطای نامشخص — پاسخی از سرور دریافت نشد.'; }
+    if (typeof body.error === 'string' && body.error.trim() !== '') { return body.error; }
+    if (typeof body.message === 'string' && body.message.trim() !== '') { return body.message; }
+    return 'خطای نامشخص (پاسخ سرور: ' + String(body.status || body.code || 'بدون کد') + ')';
+}
 
-/* 📡 فراخوانی AJAX مشترک */
+/* 📡 فراخوانی AJAX مشترک — مقاوم در برابر پاسخ غیر JSON (مثل صفحه خطای ۵۰۰) */
 async function api(payload) {
     const form = new FormData();
     Object.entries(payload).forEach(([k, v]) => form.append(k, v));
     form.append('csrf_token', CSRF);
-    const res = await fetch('deploy-status.php', {method: 'POST', body: form});
-    return res.json();
+    let res;
+    try {
+        res = await fetch('deploy-status.php', {method: 'POST', body: form});
+    } catch (e) {
+        return {success: false, error: 'خطای شبکه — ارتباط با سرور برقرار نشد.'};
+    }
+    try {
+        return await res.json();
+    } catch (e) {
+        return {success: false, error: 'پاسخ سرور قابل خواندن نبود (HTTP ' + res.status + ') — احتمالاً خطای موقت سرور.'};
+    }
 }
 
 /* 🚀 اجرای خودکار: اگر deployment در URL بود */
