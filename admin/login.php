@@ -55,7 +55,7 @@ $logoUrl     = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
     <link rel="icon" href="<?= asset_url((string)Config::get(Config::KEY_AGENCY_FAVICON)) ?>">
     <link rel="stylesheet" href="<?= asset_ver('assets/css/admin.css') ?>">
     <style>
-    /* 🔐 استایل مستقل صفحه ورود — نسخه UI/UX Pro v2.7 */
+    /* 🔐 استایل مستقل صفحه ورود — نسخه UI/UX Pro v2.7.1 (دوپنلی + کپچای بزرگ) */
     .login-page {
         min-height: 100vh; min-height: 100dvh;
         display: flex; align-items: center; justify-content: center;
@@ -67,6 +67,14 @@ $logoUrl     = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
             radial-gradient(900px 600px at 8% 110%, rgba(20,184,166,.16), transparent 55%),
             linear-gradient(160deg, #0b1220 0%, #101c36 55%, #0b1220 100%);
     }
+    /* 🌐 بافت نقطه‌ای خیلی ملایم روی کل پس‌زمینه */
+    .login-page .login-grid {
+        position: absolute; inset: 0; pointer-events: none;
+        background-image: radial-gradient(rgba(148,163,184,.10) 1px, transparent 1px);
+        background-size: 26px 26px;
+        mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+        -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+    }
     /* 💫 حباب‌های نرم پس‌زمینه (فقط دکور مه‌آلود — با reduced-motion خاموش) */
     .login-page::before, .login-page::after {
         content: ''; position: absolute; border-radius: 50%; filter: blur(70px); opacity: .5;
@@ -76,17 +84,23 @@ $logoUrl     = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
     .login-page::after  { width: 360px; height: 360px; background: rgba(20,184,166,.12); bottom: -130px; inset-inline-start: -100px; animation: loginFloat 19s ease-in-out infinite alternate-reverse; }
     @keyframes loginFloat { from { transform: translate3d(0,0,0) } to { transform: translate3d(-34px, 30px, 0) } }
 
-    .login-card {
+    /* 🧩 قاب دوپنلی: فرم (راست RTL) + پنل برند (چپ) */
+    .login-wrap {
         position: relative; z-index: 1;
-        width: 100%; max-width: 440px;
-        background: rgba(255,255,255,.97);
-        border-radius: 18px;
-        padding: 40px 36px 32px;
-        box-shadow: 0 24px 70px rgba(2,8,23,.5), 0 2px 8px rgba(2,8,23,.25);
-        animation: loginRise .5s cubic-bezier(.22,.9,.36,1) both;
+        display: flex; align-items: stretch; justify-content: center;
+        width: 100%; max-width: 980px; gap: 0;
+        animation: loginRise .55s cubic-bezier(.22,.9,.36,1) both;
     }
-    @keyframes loginRise { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
+    @keyframes loginRise { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: none } }
 
+    .login-card {
+        flex: 1.12; min-width: 0;
+        background: rgba(255,255,255,.98);
+        border-radius: 20px;
+        padding: 42px 38px 30px;
+        box-shadow: 0 24px 70px rgba(2,8,23,.5), 0 2px 8px rgba(2,8,23,.25);
+        position: relative;
+    }
     /* نوار برند بالای کارت */
     .login-card::before {
         content: ''; position: absolute; top: 0; left: 24px; right: 24px; height: 4px;
@@ -94,14 +108,62 @@ $logoUrl     = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
         background: linear-gradient(90deg, #1e40af, #3b82f6 45%, #14b8a6);
     }
 
-    .login-brand { text-align: center; margin-bottom: 28px; }
+    /* 🎨 پنل برند — فقط دسکتاپ */
+    .login-side {
+        flex: .88; min-width: 0;
+        border-radius: 20px 0 0 20px;
+        padding: 44px 36px;
+        color: #fff;
+        display: flex; flex-direction: column; justify-content: center; gap: 18px;
+        background:
+            radial-gradient(500px 340px at 20% 12%, rgba(255,255,255,.14), transparent 60%),
+            linear-gradient(155deg, #1d4ed8 0%, #1e3a8a 48%, #0f766e 100%);
+        box-shadow: 0 24px 70px rgba(2,8,23,.45);
+        position: relative; overflow: hidden;
+    }
+    .login-side::before, .login-side::after {
+        content: ''; position: absolute; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.14);
+        pointer-events: none;
+    }
+    .login-side::before { width: 300px; height: 300px; inset-inline-start: -120px; top: -120px; }
+    .login-side::after  { width: 220px; height: 220px; inset-inline-end: -90px; bottom: -90px; border-color: rgba(255,255,255,.10); }
+    .side-logo {
+        width: 92px; height: 92px; margin-bottom: 6px;
+        border-radius: 24px;
+        background: rgba(255,255,255,.13);
+        border: 1px solid rgba(255,255,255,.25);
+        backdrop-filter: blur(6px);
+        box-shadow: 0 14px 34px rgba(2,8,23,.35), inset 0 1px 0 rgba(255,255,255,.3);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 44px; overflow: hidden;
+    }
+    .side-logo img { width: 100%; height: 100%; object-fit: contain; }
+    .login-side h2 { font-size: 21px; margin: 0 0 4px; color: #fff; }
+    .login-side .side-slogan { font-size: 13px; line-height: 2; color: rgba(255,255,255,.82); margin-bottom: 10px; }
+    .side-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+    .side-features li {
+        display: flex; align-items: flex-start; gap: 10px;
+        font-size: 13.5px; line-height: 1.9; color: rgba(255,255,255,.94);
+    }
+    .side-features .fico {
+        flex-shrink: 0; width: 34px; height: 34px; border-radius: 11px;
+        background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.22);
+        display: flex; align-items: center; justify-content: center; font-size: 16px;
+    }
+    .side-badge {
+        margin-top: 14px; align-self: flex-start;
+        font-size: 11.5px; font-weight: 700; letter-spacing: .3px;
+        background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25);
+        padding: 6px 14px; border-radius: 30px; color: rgba(255,255,255,.92);
+    }
+    .login-brand { text-align: center; margin-bottom: 26px; }
     .login-logo {
-        width: 76px; height: 76px; margin: 0 auto 16px;
-        border-radius: 20px;
+        width: 78px; height: 78px; margin: 0 auto 14px;
+        border-radius: 22px;
         background: linear-gradient(140deg, #1e40af, #3b82f6);
         box-shadow: 0 10px 26px rgba(30,64,175,.35), inset 0 1px 0 rgba(255,255,255,.25);
         display: flex; align-items: center; justify-content: center;
-        font-size: 36px; overflow: hidden;
+        font-size: 38px; overflow: hidden;
     }
     .login-logo img { width: 100%; height: 100%; object-fit: contain; }
     .login-brand h1 { font-size: 19px; margin-bottom: 6px; }
@@ -115,18 +177,18 @@ $logoUrl     = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
     }
     .login-alert svg { flex-shrink: 0; margin-top: 3px; }
 
-    .login-field { position: relative; margin-bottom: 16px; }
-    .login-field label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+    .login-field { position: relative; margin-bottom: 18px; }
+    .login-field label { display: block; font-size: 13.5px; font-weight: 700; margin-bottom: 8px; }
     .login-field .input-icon {
-        position: absolute; inset-inline-start: 13px; top: 41px;
+        position: absolute; inset-inline-start: 14px; top: 44px;
         width: 20px; height: 20px; color: #94a3b8; pointer-events: none;
         transition: color .18s;
     }
     .login-field input {
         width: 100%; box-sizing: border-box;
-        padding: 12px 42px 12px 12px;
+        padding: 14px 44px 14px 14px;
         border: 1.5px solid var(--border); border-radius: 12px;
-        font-family: var(--font); font-size: 15px; color: var(--text);
+        font-family: var(--font); font-size: 16px; color: var(--text);
         background: #f8fafc;
         transition: border-color .18s, box-shadow .18s, background .18s;
     }
@@ -137,35 +199,36 @@ $logoUrl     = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
     }
     .login-field:focus-within .input-icon { color: #3b82f6; }
     .login-eye {
-        position: absolute; inset-inline-end: 6px; top: 35px;
-        width: 36px; height: 36px; border: none; background: none; border-radius: 9px;
+        position: absolute; inset-inline-end: 6px; top: 38px;
+        width: 38px; height: 38px; border: none; background: none; border-radius: 9px;
         cursor: pointer; color: #94a3b8; display: flex; align-items: center; justify-content: center;
         transition: background .15s, color .15s;
     }
     .login-eye:hover { background: #eef2ff; color: #475569; }
 
-    /* 🖼️ کپچا — تصویر درون‌خطی (بدون درخواست شبکه) */
+    /* 🖼️ کپچا — تصویر درون‌خطی + کادر ورود بزرگ و خوانا (v2.7.1) */
     .login-captcha {
-        display: flex; gap: 8px; align-items: stretch;
-        background: #f8fafc; border: 1.5px solid var(--border); border-radius: 12px;
-        padding: 8px; transition: border-color .18s, box-shadow .18s;
+        display: flex; gap: 10px; align-items: stretch;
+        background: #f8fafc; border: 1.5px solid var(--border); border-radius: 14px;
+        padding: 10px; transition: border-color .18s, box-shadow .18s;
     }
     .login-captcha:focus-within { border-color: #3b82f6; box-shadow: 0 0 0 4px rgba(59,130,246,.14); }
     .login-captcha img {
-        border-radius: 8px; height: 72px; width: 220px; max-width: 58%;
+        border-radius: 10px; height: 84px; width: 250px; max-width: 56%;
         cursor: pointer; flex-shrink: 0; background: #f3f4f6;
         transition: transform .15s;
     }
     .login-captcha img:active { transform: scale(.985); }
     .login-captcha input {
         flex: 1; min-width: 0; border: none; background: none; outline: none;
-        font-family: var(--font); font-size: 17px; font-weight: 800;
-        letter-spacing: 5px; text-align: center; color: var(--text);
+        font-family: var(--font); font-size: 26px; font-weight: 800;
+        letter-spacing: 7px; text-align: center; color: var(--text);
         direction: ltr; text-transform: uppercase;
+        min-height: 84px;
     }
     .captcha-refresh {
-        align-self: center; width: 40px; height: 40px; flex-shrink: 0;
-        border: 1px solid var(--border); background: #fff; border-radius: 10px;
+        align-self: center; width: 46px; height: 46px; flex-shrink: 0;
+        border: 1px solid var(--border); background: #fff; border-radius: 11px;
         cursor: pointer; color: #64748b; font-size: 16px;
         display: flex; align-items: center; justify-content: center;
         transition: background .15s, color .15s, transform .4s;
@@ -174,11 +237,11 @@ $logoUrl     = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
     .captcha-refresh.spin { transform: rotate(360deg); }
 
     .login-submit {
-        width: 100%; margin-top: 8px;
-        padding: 13.5px 16px;
+        width: 100%; margin-top: 10px;
+        padding: 14.5px 16px;
         border: none; border-radius: 12px;
         background: linear-gradient(135deg, #1d4ed8, #3b82f6);
-        color: #fff; font-family: var(--font); font-size: 15.5px; font-weight: 800;
+        color: #fff; font-family: var(--font); font-size: 16px; font-weight: 800;
         cursor: pointer;
         box-shadow: 0 10px 24px rgba(29,78,216,.32), inset 0 1px 0 rgba(255,255,255,.22);
         transition: transform .16s, box-shadow .16s, filter .16s;
@@ -195,26 +258,35 @@ $logoUrl     = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
     @keyframes loginSpin { to { transform: rotate(360deg) } }
 
     .login-foot {
-        margin-top: 24px; padding-top: 16px; border-top: 1px dashed var(--border);
+        margin-top: 22px; padding-top: 15px; border-top: 1px dashed var(--border);
         display: flex; align-items: center; justify-content: center; gap: 6px;
         color: var(--text-light); font-size: 12px;
     }
     .login-foot .dot { width: 5px; height: 5px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
     .login-hint { display: none; margin-top: 8px; font-size: 12px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 6px 10px; text-align: center; }
 
+    /* 📱 موبایل: تک‌کارته + کپچای بزرگ */
+    @media (max-width: 920px) {
+        .login-side { display: none; }
+        .login-card { border-radius: 20px; max-width: 460px; margin-inline: auto; }
+        .login-wrap { max-width: 460px; }
+    }
     @media (max-width: 480px) {
         .login-card { padding: 32px 20px 24px; }
-        .login-captcha img { width: 170px; height: 64px; }
-        .login-captcha input { font-size: 15px; letter-spacing: 4px; }
+        .login-captcha img { width: 178px; height: 70px; }
+        .login-captcha input { font-size: 22px; letter-spacing: 5px; min-height: 70px; }
+        .login-captcha { padding: 8px; gap: 8px; }
     }
     @media (prefers-reduced-motion: reduce) {
-        .login-page::before, .login-page::after, .login-card { animation: none; }
+        .login-page::before, .login-page::after, .login-wrap { animation: none; }
         .login-submit, .login-submit:hover { transform: none; }
     }
     </style>
 </head>
 <body>
 <div class="login-page">
+    <div class="login-grid"></div>
+    <div class="login-wrap">
     <main class="login-card">
         <div class="login-brand">
             <div class="login-logo">
@@ -253,7 +325,7 @@ $logoUrl     = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
             <div class="login-field">
                 <label for="login-captcha-input">کد امنیتی</label>
                 <div class="login-captcha">
-                    <img src="<?= e($captchaUri) ?>" alt="کد امنیتی" id="captcha-img" width="220" height="72"
+                    <img src="<?= e($captchaUri) ?>" alt="کد امنیتی" id="captcha-img" width="250" height="84"
                          onclick="refreshLoginCaptcha()" title="برای تغییر کلیک کنید">
                     <input type="text" id="login-captcha-input" name="captcha" required maxlength="5"
                            placeholder="کد ۵ حرفی" inputmode="latin" autocomplete="off" autocapitalize="characters">
@@ -277,6 +349,23 @@ $logoUrl     = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
             <span>نسخه <?= e(SAHAND_VERSION) ?></span>
         </div>
     </main>
+
+    <!-- 🎨 پنل برند — فقط دسکتاپ -->
+    <aside class="login-side">
+        <div class="side-logo">
+            <?php if ($logoUrl): ?><img src="<?= e($logoUrl) ?>" alt="لوگو"><?php else: ?>🏗️<?php endif; ?>
+        </div>
+        <h2><?= e($agencyName) ?></h2>
+        <div class="side-slogan"><?= $agencySlogan !== '' ? e($agencySlogan) : 'سایت ساز هوشمند برندهای تعمیرات و خدمات' ?></div>
+        <ul class="side-features">
+            <li><span class="fico">🤖</span><span>موتور هوش مصنوعی سهند — تولید مقاله، سئو و خطایاب وب‌محور</span></li>
+            <li><span class="fico">🌐</span><span>سایت‌ساز چندبرندی با دامنه و قالب اختصاصی هر نمایندگی</span></li>
+            <li><span class="fico">📈</span><span>سئو خودکار، اسکیما و پیش‌نمایش زنده صفحات</span></li>
+            <li><span class="fico">🛡️</span><span>امنیت چندلایه: CSRF، محدودیت تلاش و کپچای درون‌خطی</span></li>
+        </ul>
+        <span class="side-badge">نسخه <?= e(SAHEND_VERSION) ?></span>
+    </aside>
+    </div>
 </div>
 <script>
 /* 👁 نمایش/پنهان رمز عبور */

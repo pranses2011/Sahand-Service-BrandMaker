@@ -171,8 +171,8 @@ class Auth
             @ob_end_clean();
         }
 
-        $width = 220;
-        $height = 72;
+        $width = 250;
+        $height = 84;
 
         // 🎯 لایه ۱ و ۲: رندر با GD (در صورت وجود)
         $gdAvailable = extension_loaded('gd') && function_exists('imagecreatetruecolor');
@@ -211,7 +211,7 @@ class Auth
             @ob_end_clean();
         }
         try {
-            $svg = self::buildCaptchaSvg($code, 220, 72);
+            $svg = self::buildCaptchaSvg($code, 250, 84);
             header('Content-Type: application/json; charset=utf-8');
             header('Cache-Control: no-store, no-cache, must-revalidate');
             header('Pragma: no-cache');
@@ -240,7 +240,7 @@ class Auth
             $_SESSION['captcha_code'] = $code;
         }
         try {
-            $svg = self::buildCaptchaSvg($code, 220, 72);
+            $svg = self::buildCaptchaSvg($code, 250, 84);
             return 'data:image/svg+xml;base64,' . base64_encode($svg);
         } catch (Throwable $e) {
             // 🛟 هرگز نباید رخ دهد (SVG خالص PHP است) — ولی تضمین: کد متنی
@@ -273,20 +273,22 @@ class Auth
         }
 
         $font = self::findCaptchaFont();
+        $scale = $width / 220;
 
         if ($font !== null) {
-            // ✍️ لایه ۱: فونت واقعی TTF — حروف درشت ۳۰px با چرخش واقعی هر حرف
-            $x = 26;
+            // ✍️ لایه ۱: فونت واقعی TTF — حروف درشت با چرخش واقعی هر حرف
+            $x = (int)round(26 * $scale);
+            $size = (int)round(30 * $scale);
             foreach (str_split($code) as $char) {
                 $color = imagecolorallocate($image, rand(20, 90), rand(20, 90), rand(80, 160));
-                imagettftext($image, 30, rand(-14, 14), $x, rand(46, 56), $color, $font, $char);
-                $x += 36;
+                imagettftext($image, $size, rand(-14, 14), $x, rand((int)round(46 * $scale), (int)round(56 * $scale)), $color, $font, $char);
+                $x += (int)round(36 * $scale);
             }
         } else {
             // ✍️ لایه ۲: فونت داخلی روی بوم کوچک + بزرگ‌نمایی نرم ۲.۶× با Bicubic
             //    (حروف ~۲۳×۳۹ پیکسل — تقریباً ۲.۵ برابر بزرگ‌تر از رندر قبلی)
-            $sw = (int)round($width / 2.6);   // ۸۵
-            $sh = (int)round($height / 2.6);  // ۲۸
+            $sw = (int)round($width / 2.6);
+            $sh = (int)round($height / 2.6);
             $small = imagecreatetruecolor($sw, $sh);
             $sbg = imagecolorallocate($small, 243, 244, 246);
             imagefilledrectangle($small, 0, 0, $sw, $sh, $sbg);
@@ -351,18 +353,24 @@ class Auth
             );
         }
 
-        // ✍️ حروف درشت ۳۲-۳۸px با چرخش
-        $x = 34;
+        // ✍️ حروف درشت با چرخش — مقیاس‌پذیر با ابعاد بوم (v2.7.1: کپچای بزرگ ۲۵۰×۸۴)
+        $scale = $width / 220;
+        $x = (int)round(34 * $scale);
+        $step = (int)round(38 * $scale);
+        $yMin = (int)round(48 * $scale);
+        $yMax = (int)round(57 * $scale);
+        $sizeMin = (int)round(32 * $scale);
+        $sizeMax = (int)round(38 * $scale);
         foreach (str_split($code) as $char) {
             $color = 'rgb(' . rand(20, 90) . ',' . rand(20, 90) . ',' . rand(80, 160) . ')';
             $angle = rand(-14, 14);
-            $y = rand(48, 57);
-            $size = rand(32, 38);
+            $y = rand($yMin, $yMax);
+            $size = rand($sizeMin, $sizeMax);
             $parts[] = sprintf(
                 '<text x="%d" y="%d" font-family="Vazirmatn,Vazir,Tahoma,Arial,sans-serif" font-size="%d" font-weight="700" fill="%s" text-anchor="middle" transform="rotate(%d %d %d)">%s</text>',
                 $x, $y, $size, $color, $angle, $x, $y, htmlspecialchars($char, ENT_QUOTES)
             );
-            $x += 38;
+            $x += $step;
         }
 
         return '<svg xmlns="http://www.w3.org/2000/svg" width="' . $width . '" height="' . $height . '" viewBox="0 0 ' . $width . ' ' . $height . '">'
