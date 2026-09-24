@@ -783,3 +783,4 @@
 - [x] نسخه سیستم 2.7.1 → 2.7.2 + موتور 3.7.1 → 3.7.2
 - [x] CHANGELOG [2.7.2] + WORKLOG مرحله ۳۰ + همین بخش + UPGRADE (۷ اولویت + ۱۷ فایل + راستی‌آزمایی)
 - [x] رلیز v2.7.2: install.zip + update.zip + UPGRADE + AI-API-GUIDE + SHA256SUMS
+- [x] 📦 رلیز v2.7.2 منتشر شد: تگ + ۵ پیوست (install 2.1MB/386f + update 433KB/22f + ۲ راهنما + SHA256SUMS) — تست سلامت ZIP ✓
