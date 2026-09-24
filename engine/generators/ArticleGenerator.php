@@ -83,6 +83,31 @@ class ArticleGenerator
             }
         }
         if ($device === null) {
+            /* 🐛 v2.9 — ریشه «تصویر/محتوای خارج از موضوع مقاله» (مثلاً تصویر
+               لباسشویی برای راهنمای خرید یخچال): قبلاً وقتی عنوان دلخواه بدون
+               device_key می‌آمد، دستگاه «تصادفی» انتخاب می‌شد و همه چیز مقاله
+               (دانش، تصاویر، جدول کد خطا) حول آن دستگاه ساخته می‌شد!
+               حالا: دستگاه از «خود عنوان» استنتاج می‌شود (۴۲ کلید دانش +
+               واژه‌های محاوره‌ای: لباسشویی، یخچال، کولر، جاروبرقی و ...) */
+            if ($customTitle !== null && $customTitle !== '') {
+                $inferred = ArticleImageService::inferDeviceKey($customTitle);
+                if ($inferred !== null) {
+                    foreach ($devices as $d) {
+                        if ($d['device_key'] === $inferred) {
+                            $device = $d;
+                            break;
+                        }
+                    }
+                    if ($device === null) {
+                        /* دستگاه در لیست برند نیست ولی موضوع مقاله همان است —
+                           دانش عمومی + تصویر اختصاصی همان دستگاه استفاده می‌شود */
+                        $dk = TextProcessor::loadKnowledge('devices')[$inferred] ?? [];
+                        $device = ['device_key' => $inferred, 'name_fa' => $dk['name_fa'] ?? $inferred];
+                    }
+                }
+            }
+        }
+        if ($device === null) {
             $device = TextProcessor::seededPick($devices, 'artdev|' . $brand['id'] . '|' . mt_rand());
         }
 

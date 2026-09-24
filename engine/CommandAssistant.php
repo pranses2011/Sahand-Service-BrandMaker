@@ -791,6 +791,17 @@ class CommandAssistant
                 return $key;
             }
         }
+        /* 🆕 v2.9: واژه‌های محاوره‌ای — «یخچال، لباسشویی، کولر، جاروبرقی...»
+           (نام رسمی دانش «یخچال و فریزر» است و «یخچال» تنها پیدا نمی‌شد →
+           دستگاه تصادفی انتخاب می‌شد و تصویر مقاله بی‌ربط می‌شد!) */
+        try {
+            $inferred = ArticleImageService::inferDeviceKey($norm);
+            if ($inferred !== null) {
+                return $inferred;
+            }
+        } catch (Throwable $e) {
+            // بی‌اثر بر جریان اصلی
+        }
         return null;
     }
 

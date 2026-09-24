@@ -1,10 +1,18 @@
 <?php
 /**
- * 🖼️ سرویس تصاویر مقاله — ArticleImageService v2.0
+ * 🖼️ سرویس تصاویر مقاله — ArticleImageService v3.0
  * ================================================================
  * هر مقاله تولیدی موتور سهند با ۳ تصویر مرتبط عرضه می‌شود:
  *   📌 بنر اصلی (featured) + ۲ تصویر درون‌متن
  *
+ * 🆕 v3.0 (طبق گزارش کاربر — «برای راهنمای خرید یخچال تصویر لباسشویی می‌گذارد»):
+ *   🎯 بسته از ۹ به ۱۸ عکس واقعی گسترش یافت (مایکروویو، فر و اجاق، هود،
+ *      آبگرمکن، جاروبرقی، پکیج دیواری، لوازم کوچک، ویترین یخچال، دریچه لباسشویی)
+ *   🗺️ DEVICE_MAP بازنویسی — تصویر اول هر دستگاه دقیقاً همان دستگاه است
+ *      (قبلاً پکیج → کولر گازی و جاروبرقی → تصاویر عمومی می‌افتاد)
+ *   🐛 ریشه اصلی: ArticleGenerator دستگاه را «تصادفی» انتخاب می‌کرد وقتی
+ *      عنوان دلخواه بدون device_key می‌آمد — حالا از عنوان استنتاج می‌شود
+ *   🛡 فقط فایل‌های موجود بسته انتخاب می‌شوند
  * 🆕 v2.0 (طبق گزارش کاربر — «تصویر لباسشویی برای مقاله یخچال»):
  *   🔎 inferDeviceKey() — وقتی کلید دستگاه خالی/نامعتبر است، دستگاه از
  *      «عنوان مقاله» استنتاج می‌شود (۴۲ دستگاه دانش + واژه‌های محاوره‌ای)
@@ -18,14 +26,16 @@
  *      washing_machine.jpg که وجود نداشت!
  *
  * @package SahandBrandMaker\Engine
- * @version 2.0
+ * @version 3.0
  */
 class ArticleImageService
 {
     /** 🖼️ نام فایل‌های بسته تصاویر (با خط تیره — مطابق نام واقعی فایل‌ها) */
     const IMAGE_FILES = [
-        'refrigerator', 'washing-machine', 'dishwasher', 'air-conditioner',
-        'television', 'workshop', 'spare-parts', 'diagnostics', 'modern-kitchen',
+        'refrigerator', 'fridge-showroom', 'washing-machine', 'washer-drum',
+        'dishwasher', 'air-conditioner', 'television', 'workshop', 'spare-parts',
+        'diagnostics', 'modern-kitchen', 'microwave', 'oven-stove', 'range-hood',
+        'water-heater', 'vacuum', 'package-boiler', 'small-appliances',
     ];
 
     /** 🔢 تعداد تصاویر هر مقاله */
@@ -33,48 +43,48 @@ class ArticleImageService
 
     /** 🗺️ نگاشت کلید دستگاه دانش → تصاویر مرتبط (به‌ترتیب اولویت) — پوشش هر ۴۲ کلید */
     const DEVICE_MAP = [
-        'refrigerator'      => ['refrigerator', 'diagnostics', 'modern-kitchen'],
-        'freezer'           => ['refrigerator', 'diagnostics', 'modern-kitchen'],
-        'wine_cooler'       => ['refrigerator', 'diagnostics', 'modern-kitchen'],
-        'washing_machine'   => ['washing-machine', 'diagnostics', 'spare-parts'],
-        'dryer'             => ['washing-machine', 'diagnostics', 'spare-parts'],
-        'dishwasher'        => ['dishwasher', 'diagnostics', 'modern-kitchen'],
+        'refrigerator'      => ['refrigerator', 'fridge-showroom', 'modern-kitchen'],
+        'freezer'           => ['refrigerator', 'fridge-showroom', 'diagnostics'],
+        'wine_cooler'       => ['refrigerator', 'fridge-showroom', 'modern-kitchen'],
+        'washing_machine'   => ['washing-machine', 'washer-drum', 'diagnostics'],
+        'dryer'             => ['washer-drum', 'washing-machine', 'diagnostics'],
+        'dishwasher'        => ['dishwasher', 'modern-kitchen', 'diagnostics'],
         'air_conditioner'   => ['air-conditioner', 'diagnostics', 'workshop'],
         'cooler'            => ['air-conditioner', 'diagnostics', 'workshop'],
         'ducted_split'      => ['air-conditioner', 'workshop', 'diagnostics'],
-        'package'           => ['air-conditioner', 'workshop', 'diagnostics'],
+        'package'           => ['package-boiler', 'water-heater', 'workshop'],
         'fan_coil'          => ['air-conditioner', 'workshop', 'diagnostics'],
         'tv'                => ['television', 'diagnostics', 'workshop'],
-        'microwave'         => ['modern-kitchen', 'workshop', 'diagnostics'],
-        'oven'              => ['modern-kitchen', 'diagnostics', 'workshop'],
-        'stove'             => ['modern-kitchen', 'workshop', 'diagnostics'],
-        'cooktop'           => ['modern-kitchen', 'workshop', 'diagnostics'],
-        'range_hood'        => ['modern-kitchen', 'workshop', 'diagnostics'],
-        'vacuum'            => ['workshop', 'diagnostics', 'spare-parts'],
-        'steam_cleaner'     => ['workshop', 'diagnostics', 'spare-parts'],
-        'water_heater'      => ['workshop', 'diagnostics', 'spare-parts'],
-        'solar_water_heater'=> ['workshop', 'diagnostics', 'spare-parts'],
-        'air_purifier'      => ['workshop', 'diagnostics', 'spare-parts'],
-        'dehumidifier'      => ['workshop', 'diagnostics', 'spare-parts'],
-        'water_dispenser'   => ['refrigerator', 'diagnostics', 'workshop'],
-        'kettle'            => ['spare-parts', 'workshop', 'diagnostics'],
-        'air_fryer'         => ['spare-parts', 'modern-kitchen', 'workshop'],
-        'blender'           => ['spare-parts', 'workshop', 'diagnostics'],
-        'juicer'            => ['spare-parts', 'workshop', 'diagnostics'],
-        'mixer'             => ['spare-parts', 'workshop', 'diagnostics'],
-        'food_processor'    => ['spare-parts', 'workshop', 'diagnostics'],
-        'meat_grinder'      => ['spare-parts', 'workshop', 'diagnostics'],
-        'toaster'           => ['spare-parts', 'modern-kitchen', 'workshop'],
-        'sandwich_maker'    => ['spare-parts', 'modern-kitchen', 'workshop'],
-        'fryer'             => ['spare-parts', 'modern-kitchen', 'workshop'],
-        'rice_cooker'       => ['spare-parts', 'modern-kitchen', 'workshop'],
-        'tea_maker'         => ['spare-parts', 'modern-kitchen', 'workshop'],
-        'coffee_maker'      => ['spare-parts', 'modern-kitchen', 'workshop'],
-        'iron'              => ['spare-parts', 'workshop', 'diagnostics'],
-        'hair_dryer'        => ['spare-parts', 'workshop', 'diagnostics'],
-        'hair_clipper'      => ['spare-parts', 'workshop', 'diagnostics'],
+        'microwave'         => ['microwave', 'modern-kitchen', 'workshop'],
+        'oven'              => ['oven-stove', 'modern-kitchen', 'diagnostics'],
+        'stove'             => ['oven-stove', 'modern-kitchen', 'workshop'],
+        'cooktop'           => ['oven-stove', 'range-hood', 'modern-kitchen'],
+        'range_hood'        => ['range-hood', 'modern-kitchen', 'workshop'],
+        'vacuum'            => ['vacuum', 'workshop', 'spare-parts'],
+        'steam_cleaner'     => ['vacuum', 'workshop', 'spare-parts'],
+        'water_heater'      => ['water-heater', 'package-boiler', 'workshop'],
+        'solar_water_heater'=> ['water-heater', 'workshop', 'diagnostics'],
+        'air_purifier'      => ['vacuum', 'workshop', 'spare-parts'],
+        'dehumidifier'      => ['air-conditioner', 'workshop', 'spare-parts'],
+        'water_dispenser'   => ['refrigerator', 'fridge-showroom', 'diagnostics'],
+        'kettle'            => ['small-appliances', 'modern-kitchen', 'workshop'],
+        'air_fryer'         => ['small-appliances', 'modern-kitchen', 'workshop'],
+        'blender'           => ['small-appliances', 'modern-kitchen', 'workshop'],
+        'juicer'            => ['small-appliances', 'modern-kitchen', 'workshop'],
+        'mixer'             => ['small-appliances', 'modern-kitchen', 'workshop'],
+        'food_processor'    => ['small-appliances', 'modern-kitchen', 'workshop'],
+        'meat_grinder'      => ['small-appliances', 'modern-kitchen', 'workshop'],
+        'toaster'           => ['small-appliances', 'modern-kitchen', 'workshop'],
+        'sandwich_maker'    => ['small-appliances', 'modern-kitchen', 'workshop'],
+        'fryer'             => ['small-appliances', 'modern-kitchen', 'workshop'],
+        'rice_cooker'       => ['small-appliances', 'modern-kitchen', 'workshop'],
+        'tea_maker'         => ['small-appliances', 'modern-kitchen', 'workshop'],
+        'coffee_maker'      => ['small-appliances', 'modern-kitchen', 'workshop'],
+        'iron'              => ['small-appliances', 'workshop', 'diagnostics'],
+        'hair_dryer'        => ['small-appliances', 'workshop', 'diagnostics'],
+        'hair_clipper'      => ['small-appliances', 'workshop', 'diagnostics'],
         'fan'               => ['workshop', 'diagnostics', 'spare-parts'],
-        'heater'            => ['workshop', 'diagnostics', 'spare-parts'],
+        'heater'            => ['water-heater', 'workshop', 'diagnostics'],
     ];
 
     /** 🔁 نام‌های قدیمی/مترادف کلید دستگاه → کلید دانش */
@@ -96,7 +106,7 @@ class ArticleImageService
         'maintenance'      => ['diagnostics', 'workshop', 'modern-kitchen'],
         'comparison'       => ['modern-kitchen', 'workshop', 'spare-parts'],
         'error_codes'      => ['diagnostics', 'spare-parts', 'workshop'],
-        'buying_guide'     => ['modern-kitchen', 'refrigerator', 'workshop'],
+        'buying_guide'     => ['fridge-showroom', 'modern-kitchen', 'workshop'],
         'energy_saving'    => ['diagnostics', 'modern-kitchen', 'workshop'],
         'seasonal_care'    => ['air-conditioner', 'refrigerator', 'modern-kitchen'],
         'cost_guide'       => ['diagnostics', 'spare-parts', 'workshop'],
@@ -256,6 +266,11 @@ class ArticleImageService
                 $candidates[] = $img;
             }
         }
+
+        /* 🛡 v3.0: فقط فایل‌های موجود — تصویر غایب هرگز انتخاب نمی‌شود */
+        $candidates = array_values(array_filter($candidates, static function ($f) {
+            return is_file(dirname(__DIR__, 2) . '/assets/images/articles/' . $f . '.jpg');
+        }));
 
         $chosen = array_slice($candidates, 0, self::IMAGES_PER_ARTICLE);
 

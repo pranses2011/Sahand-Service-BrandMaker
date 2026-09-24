@@ -36,11 +36,19 @@ class AiImageGenerator
      * ================================================== */
 
     /**
-     * 🎨 تولید کامل تصاویر مقاله: ۲ تصویر درون‌متن یکتا + تصویر OG
+     * 🎨 تولید کامل تصاویر مقاله (v3.0 — عکس واقعی + واترمارک دوتایی):
+     *   📌 تصویر OG (PNG متن فارسی شکل‌یافته + پس‌زمینه پویا + لوگوی بزرگ)
+     *   🖼️ ۲ تصویر درون‌متن «عکس واقعی موضوع مقاله» — بدون هیچ متنی داخل تصویر
+     *      + واترمارک لوگوی برند (پایین-راست) و لوگوی نمایندگی (پایین-چپ) شفاف
+     *
+     * 🆕 v3.0: قبلاً تصاویر درون‌متن SVG گرافیکی با «متن زیرعنوان» بودند —
+     * طبق درخواست کاربر: تصویر باید واقعی، مرتبط با محتوا و «بدون متن» باشد.
+     * حالا از بسته عکس‌های اختصاصی دستگاه (۱۸ عکس واقعی) + استنتاج دستگاه
+     * از عنوان استفاده می‌شود و روی همه، واترمارک دوتایی مهر می‌خورد.
      *
      * @param int    $articleId شناسه مقاله
      * @param string $title     عنوان مقاله
-     * @param string $deviceKey کلید دستگاه (برای آیکون موضوعی)
+     * @param string $deviceKey کلید دستگاه (برای انتخاب عکس موضوعی)
      * @param string $topicType نوع مقاله
      * @param array  $brand     رکورد برند (name_fa + رنگ‌ها از extra_settings)
      * @param string $focusKw   کلیدواژه کانونی (برای alt)
@@ -48,8 +56,7 @@ class AiImageGenerator
      */
     public function generateForArticle(int $articleId, string $title, string $deviceKey, string $topicType, array $brand, string $focusKw = ''): array
     {
-        /* 🎯 v2.7.2: اگر کلید دستگاه خالی/نامعتبر است، از عنوان استنتاج می‌شود —
-           ریشه «آیکون/تصویر لباسشویی برای مقاله یخچال» */
+        /* 🎯 v3.0: استنتاج مطمئن دستگاه — عنوان معتبرترین سیگنال است */
         if (!ArticleImageService::normalizeDeviceKey($deviceKey)) {
             $deviceKey = (string)(ArticleImageService::inferDeviceKey($title) ?? $deviceKey);
         }
@@ -68,25 +75,35 @@ class AiImageGenerator
         $og = $this->buildOg($seed, $title, $deviceKey, $palette, $brand, $dir . '/og-article-' . $safeId, self::OG_W, self::OG_H);
         $result['og'] = $og;
 
-        /* --- 🖼️ ۲ تصویر درون‌متن یکتا (موضوع متفاوت: نمای ۱ = کل مقاله، نمای ۲ = بخش میانی) --- */
+        /* --- 🖼️ ۲ تصویر درون‌متن: عکس واقعی همان دستگاه (بدون متن) + واترمارک دوتایی --- */
+        try {
+            $picker = new ArticleImageService();
+            $photos = $picker->pick($deviceKey, $topicType, $title, $focusKw, $brand);
+        } catch (Throwable $e) {
+            $photos = [];
+        }
+        /* تصویر اول (featured) قبلاً توسط ArticleGenerator درج شده — اینجا
+           تصاویر ۲ و ۳ (نماهای دوم و سوم) برای درج درون‌متن برگردانده می‌شوند */
+        $inline = array_slice($photos, 1, 2);
+        if (!$inline) {
+            /* 🛟 fallback: بسته عکس عمومی + واترمارک */
+            try {
+                $generic = $picker->pick(null, $topicType, $title, $focusKw, $brand);
+                $inline = array_slice($generic, 0, 2);
+            } catch (Throwable $e) {
+                $inline = [];
+            }
+        }
         $alts = [
             $this->articleAlt($title, $focusKw, 1),
             $this->articleAlt($title, $focusKw, 2),
         ];
-        $subtitles = [
-            $this->trimTitle($title, 42),
-            $this->sectionSubtitle($deviceKey, $topicType, $seed),
-        ];
-        foreach ([1, 2] as $i) {
-            $fileBase = $dir . '/ai-article-' . $safeId . '-' . $i;
-            $svg = $this->buildArtworkSvg($seed + $i * 7919, $subtitles[$i - 1], $deviceKey, $palette, $brand, self::ART_W, self::ART_H, $i === 1 ? 'hero' : 'inline');
-            $path = ROOT_PATH . '/' . $fileBase . '.svg';
-            @file_put_contents($path, $svg);
+        foreach (array_values($inline) as $i => $photo) {
             $result['images'][] = [
-                'path' => $fileBase . '.svg',
-                'url' => BASE_URL . '/' . $fileBase . '.svg',
-                'alt' => $alts[$i - 1],
-                'caption' => $subtitles[$i - 1],
+                'path'    => (string)$photo['path'],
+                'url'     => (string)$photo['url'],
+                'alt'     => $alts[$i] ?? $photo['alt'],
+                'caption' => $photo['caption'] ?? '',
             ];
         }
 
@@ -700,21 +717,29 @@ class AiImageGenerator
             }
         }
 
-        /* عنوان — چند خطی */
-        $lines = $this->wrapPersian($title, 30, 3);
-        $ty = $h * .60;
-        foreach ($lines as $i => $line) {
-            $p[] = sprintf('<text x="%d" y="%.0f" font-family="%s" font-size="%d" font-weight="800" fill="#fff" text-anchor="middle">%s</text>',
-                $w / 2, $ty + $i * 54, $fontFamily, 38, htmlspecialchars($line, ENT_QUOTES));
-        }
+        /* عنوان و نام برند — فقط برای OG (تصاویر مقاله طبق درخواست کاربر
+           «هیچ متنی داخلش نباشه» عکس واقعی بدون متن هستند؛ این مسیر فقط
+           fallback تزئینی است) */
+        if ($isOg) {
+            $lines = $this->wrapPersian($title, 30, 3);
+            $ty = $h * .60;
+            foreach ($lines as $i => $line) {
+                $p[] = sprintf('<text x="%d" y="%.0f" font-family="%s" font-size="%d" font-weight="800" fill="#fff" text-anchor="middle">%s</text>',
+                    $w / 2, $ty + $i * 54, $fontFamily, 38, htmlspecialchars($line, ENT_QUOTES));
+            }
 
-        /* نام برند + نشان */
-        $brandName = trim((string)($brand['name_fa'] ?? ''));
-        $p[] = sprintf('<rect x="%d" y="%d" rx="16" width="%d" height="34" fill="%s" opacity=".92"/>',
-            $w / 2 - (mb_strlen($brandName) * 8 + 26), $h - 64, mb_strlen($brandName) * 16 + 52, $accent);
-        if ($brandName !== '') {
-            $p[] = sprintf('<text x="%d" y="%d" font-family="%s" font-size="19" font-weight="700" fill="#fff" text-anchor="middle">🔧 %s</text>',
-                $w / 2, $h - 40, $fontFamily, htmlspecialchars($brandName, ENT_QUOTES));
+            /* نام برند + نشان */
+            $brandName = trim((string)($brand['name_fa'] ?? ''));
+            $p[] = sprintf('<rect x="%d" y="%d" rx="16" width="%d" height="34" fill="%s" opacity=".92"/>',
+                $w / 2 - (mb_strlen($brandName) * 8 + 26), $h - 64, mb_strlen($brandName) * 16 + 52, $accent);
+            if ($brandName !== '') {
+                $p[] = sprintf('<text x="%d" y="%d" font-family="%s" font-size="19" font-weight="700" fill="#fff" text-anchor="middle">🔧 %s</text>',
+                    $w / 2, $h - 40, $fontFamily, htmlspecialchars($brandName, ENT_QUOTES));
+            }
+        } else {
+            /* fallback تصویر مقاله: آیکون بزرگ موضوعی در مرکز — بدون هیچ متن */
+            $p[] = sprintf('<text x="%d" y="%d" font-size="%d" text-anchor="middle" opacity=".9">%s</text>',
+                $w / 2, $h * .52, (int)round(min($w, $h) * 0.34), $icon);
         }
 
         return '<svg xmlns="http://www.w3.org/2000/svg" width="' . $w . '" height="' . $h . '" viewBox="0 0 ' . $w . ' ' . $h . '">' . $fontFace . implode('', $p) . '</svg>';
