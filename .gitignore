@@ -21,3 +21,7 @@ cache/.schema_v*
 engine/knowledge/ai-lessons.json
 og-test/
 test-out/
+
+# 🚀 افزونه استقرار خودکار (v2.11) — فایل‌های حساس زمان اجرا
+cache/.deploy_secret
+cache/.schema_v211
