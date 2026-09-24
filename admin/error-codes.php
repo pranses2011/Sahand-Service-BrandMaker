@@ -51,6 +51,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('error-codes.php');
     }
 
+    /* 🗑️🗑️ حذف دسته‌جمعی نتایج فیلتر (برند + دستگاه + جستجو) — v2.7.2
+       فقط همان رکوردهایی حذف می‌شوند که «الان در فهرست فیلترشده» دیده می‌شوند */
+    if ($action === 'bulk_delete') {
+        $b = (int)post('brand');
+        $d = trim((string)post('device'));
+        $q = trim((string)post('q'));
+        $where = '1=1';
+        $params = [];
+        if ($b > 0) {
+            $where .= ' AND brand_id = ?';
+            $params[] = $b;
+        } elseif ($b === -1) {
+            $where .= ' AND brand_id IS NULL';
+        }
+        if ($d !== '') {
+            $where .= ' AND device_key = ?';
+            $params[] = $d;
+        }
+        if ($q !== '') {
+            $where .= ' AND (code LIKE ? OR title LIKE ? OR description LIKE ? OR related_part LIKE ?)';
+            $like = "%{$q}%";
+            array_push($params, $like, $like, $like, $like);
+        }
+        $count = $db->count('error_codes', $where, $params);
+        if ($count > 0) {
+            $db->delete('error_codes', $where, $params);
+            flash('success', '🗑️ ' . en_to_fa_digits((string)$count) . ' کد خطا مطابق فیلتر حذف شد.');
+        } else {
+            flash('warning', 'هیچ کد خطایی مطابق این فیلتر یافت نشد.');
+        }
+        redirect('error-codes.php' . ($b > 0 ? '?brand=' . $b : ''));
+    }
+
     /* 💾 ذخیره ویرایش ۱۴ فیلدی */
     if ($action === 'save_edit') {
         $id = (int)post('error_id');
@@ -404,6 +437,17 @@ $categories = ErrorCodeEngine::CATEGORIES;
                 </select>
                 <button type="submit" class="btn btn-outline">فیلتر</button>
             </form>
+            <?php if ($total > 0): ?>
+            <!-- 🗑️🗑️ حذف دسته‌جمعی نتایج همین فیلتر — v2.7.2 -->
+            <form method="post" data-confirm="حذف دسته‌جمعی: همه <?= en_to_fa_digits((string)$total) ?> کد خطایی که با همین فیلتر (برند/دستگاه/جستجو) دیده می‌شوند حذف شوند؟ این عمل بازگشت‌پذیر نیست!">
+                <?= Auth::csrfField() ?>
+                <input type="hidden" name="action" value="bulk_delete">
+                <input type="hidden" name="brand" value="<?= (int)$brandFilter ?>">
+                <input type="hidden" name="device" value="<?= e($deviceFilter) ?>">
+                <input type="hidden" name="q" value="<?= e($search) ?>">
+                <button type="submit" class="btn btn-danger btn-sm" title="حذف همه نتایج فیلتر فعلی" style="white-space:nowrap">🗑️ حذف نتایج فیلتر (<?= en_to_fa_digits((string)$total) ?>)</button>
+            </form>
+            <?php endif; ?>
         </div>
     </div>
     <div class="table-wrap">
