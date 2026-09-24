@@ -82,6 +82,122 @@
             "weights": {
                 "regular": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/lalezar/Lalezar-Regular.ttf"
             }
+        },
+        "sahel": {
+            "name": "ساحل",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "light": "https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel-Light.woff2",
+                "regular": "https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel.woff2",
+                "semibold": "https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel-SemiBold.woff2",
+                "bold": "https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel-Bold.woff2"
+            }
+        },
+        "tajawal": {
+            "name": "تجول",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "light": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/tajawal/Tajawal-Light.ttf",
+                "regular": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/tajawal/Tajawal-Regular.ttf",
+                "medium": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/tajawal/Tajawal-Medium.ttf",
+                "bold": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/tajawal/Tajawal-Bold.ttf",
+                "extrabold": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/tajawal/Tajawal-ExtraBold.ttf",
+                "black": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/tajawal/Tajawal-Black.ttf"
+            }
+        },
+        "katibeh": {
+            "name": "کتیبه",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/katibeh/Katibeh-Regular.ttf"
+            }
+        },
+        "rakkas": {
+            "name": "رقاص",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/rakkas/Rakkas-Regular.ttf"
+            }
+        },
+        "gulzar": {
+            "name": "گلزار",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/gulzar/Gulzar-Regular.ttf"
+            }
+        },
+        "mirza": {
+            "name": "میرزا",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/mirza/Mirza-Regular.ttf",
+                "medium": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/mirza/Mirza-Medium.ttf",
+                "semibold": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/mirza/Mirza-SemiBold.ttf",
+                "bold": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/mirza/Mirza-Bold.ttf"
+            }
+        },
+        "amiri": {
+            "name": "امیری",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/amiri/Amiri-Regular.ttf",
+                "bold": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/amiri/Amiri-Bold.ttf"
+            }
+        },
+        "arefruqaa": {
+            "name": "عرف رقعه",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/arefruqaa/ArefRuqaa-Regular.ttf",
+                "bold": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/arefruqaa/ArefRuqaa-Bold.ttf"
+            }
+        },
+        "scheherazade": {
+            "name": "شهرزاد",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/scheherazadenew/ScheherazadeNew-Regular.ttf",
+                "medium": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/scheherazadenew/ScheherazadeNew-Medium.ttf",
+                "semibold": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/scheherazadenew/ScheherazadeNew-SemiBold.ttf",
+                "bold": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/scheherazadenew/ScheherazadeNew-Bold.ttf"
+            }
+        },
+        "ruwudu": {
+            "name": "رودو",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/ruwudu/Ruwudu-Regular.ttf",
+                "medium": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/ruwudu/Ruwudu-Medium.ttf",
+                "bold": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/ruwudu/Ruwudu-Bold.ttf"
+            }
+        },
+        "vibes": {
+            "name": "وایبز",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/vibes/Vibes-Regular.ttf"
+            }
+        },
+        "blaka": {
+            "name": "بلاکا",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/blaka/Blaka-Regular.ttf"
+            }
+        },
+        "qahiri": {
+            "name": "قاهری",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/qahiri/Qahiri-Regular.ttf"
+            }
+        },
+        "jomhuria": {
+            "name": "جمهوریه",
+            "license": "OFL (متن‌باز)",
+            "weights": {
+                "regular": "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/jomhuria/Jomhuria-Regular.ttf"
+            }
         }
     },
     "en": {

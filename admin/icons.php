@@ -235,6 +235,89 @@ function iconCatFa(string $cat): string
     return $map[$cat] ?? $cat;
 }
 ?>
+<style>
+.icon-tile{text-align:center;border:1px solid var(--border);border-radius:11px;padding:13px 6px;cursor:pointer;transition:.15s;background:#fff}
+.icon-tile:hover{border-color:var(--primary);transform:translateY(-2px);box-shadow:0 6px 18px rgba(37,99,235,.13)}
+#iconPreviewModal{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.62);backdrop-filter:blur(4px)}
+#iconPreviewModal.open{display:flex}
+.icon-preview-box{background:#fff;border-radius:18px;width:min(480px,92vw);max-height:92vh;overflow:auto;padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.3);animation:popIn .18s ease}
+@keyframes popIn{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+.icon-preview-stage{display:flex;align-items:center;justify-content:center;min-height:230px;border-radius:13px;background:repeating-conic-gradient(#f1f5f9 0% 25%,#fff 0% 50%) 50%/22px 22px;border:1px solid var(--border);padding:18px}
+.icon-preview-stage img{filter:drop-shadow(0 4px 10px rgba(0,0,0,.18))}
+.icon-preview-size{display:flex;align-items:center;gap:12px;margin:16px 0 4px}
+.icon-preview-size input[type=range]{flex:1;accent-color:var(--primary);height:6px;cursor:pointer}
+.icon-preview-size .size-val{min-width:64px;text-align:center;font-weight:800;color:var(--primary);background:#eff6ff;border-radius:8px;padding:5px 8px;font-size:13px;direction:ltr}
+</style>
+
+<!-- 🔍 مودال پیش‌نمایش بزرگ آیکون -->
+<div id="iconPreviewModal" onclick="if(event.target===this)closeIconPreview()">
+    <div class="icon-preview-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px">
+            <div style="font-weight:800;font-size:15px" id="iconPreviewTitle">پیش‌نمایش آیکون</div>
+            <button type="button" class="btn btn-outline btn-sm" onclick="closeIconPreview()">✖ بستن</button>
+        </div>
+        <div class="icon-preview-stage">
+            <img id="iconPreviewImg" src="" alt="" style="width:128px;height:128px">
+        </div>
+        <div class="icon-preview-size">
+            <span style="font-size:12.5px;font-weight:700;white-space:nowrap">🔍 اندازه:</span>
+            <input type="range" id="iconSizeSlider" min="24" max="320" value="128" oninput="applyIconSize(this.value)">
+            <span class="size-val" id="iconSizeVal">128px</span>
+        </div>
+        <div class="hint" style="margin:4px 0 12px">💡 اسلایدر را بکشید تا اندازه واقعی آیکون را در ابعاد مختلف ببینید (۲۴ تا ۳۲۰ پیکسل).</div>
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;border-top:1px dashed var(--border);padding-top:12px">
+            <div>🏷️ نام: <b id="iconPreviewLabel"></b></div>
+            <div style="direction:ltr;text-align:right">🔤 <code id="iconPreviewName" dir="ltr"></code></div>
+            <div>📦 پک: <b id="iconPreviewPack"></b></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+            <button type="button" class="btn btn-outline btn-sm" onclick="copyIconPath()">📋 کپی مسیر</button>
+            <a id="iconPreviewLink" href="#" download class="btn btn-outline btn-sm" style="text-decoration:none">⬇️ دانلود SVG</a>
+        </div>
+    </div>
+</div>
+
+<script>
+/* 🔍 نمایش پیش‌نمایش بزرگ آیکون */
+function showIconPreview(tile) {
+    const src = tile.dataset.src;
+    document.getElementById('iconPreviewImg').src = src;
+    document.getElementById('iconPreviewTitle').textContent = tile.dataset.label || 'پیش‌نمایش آیکون';
+    document.getElementById('iconPreviewLabel').textContent = tile.dataset.label || '-';
+    document.getElementById('iconPreviewName').textContent = tile.dataset.name || '-';
+    document.getElementById('iconPreviewPack').textContent = tile.dataset.pack || '-';
+    const link = document.getElementById('iconPreviewLink');
+    link.href = src;
+    // ریست اسلایدر به ۱۲۸
+    const slider = document.getElementById('iconSizeSlider');
+    slider.value = 128;
+    applyIconSize(128);
+    document.getElementById('iconPreviewModal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeIconPreview() {
+    document.getElementById('iconPreviewModal').classList.remove('open');
+    document.body.style.overflow = '';
+}
+
+function applyIconSize(px) {
+    px = Math.max(24, Math.min(320, parseInt(px) || 128));
+    const img = document.getElementById('iconPreviewImg');
+    img.style.width = px + 'px';
+    img.style.height = px + 'px';
+    document.getElementById('iconSizeVal').textContent = px + 'px';
+}
+
+function copyIconPath() {
+    const src = document.getElementById('iconPreviewImg').src;
+    navigator.clipboard.writeText(src).then(() => alert('✅ مسیر آیکون کپی شد'));
+}
+
+/* بستن با کلید Esc */
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeIconPreview(); });
+</script>
+
 <div class="stats-grid">
     <?php foreach (array_slice($packs, 0, 6) as $pack): ?>
         <div class="stat-card">
@@ -257,7 +340,11 @@ function iconCatFa(string $cat): string
         <div class="card-header"><h3>🔎 نتایج جستجو «<?= e($searchIcon) ?>» (<?= en_to_fa_digits((string)count($searchResults)) ?>)</h3></div>
         <div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:12px">
             <?php foreach ($searchResults as $icon): ?>
-                <div style="text-align:center;border:1px solid var(--border);border-radius:11px;padding:13px 6px">
+                <div class="icon-tile" onclick="showIconPreview(this)"
+                     data-src="<?= BASE_URL ?>/assets/icons/<?= e($icon['pack']) ?>/<?= e($icon['file']) ?>"
+                     data-label="<?= e($icon['label_fa']) ?>"
+                     data-name="<?= e($icon['name']) ?>"
+                     data-pack="<?= e($icon['pack']) ?>">
                     <img src="<?= BASE_URL ?>/assets/icons/<?= e($icon['pack']) ?>/<?= e($icon['file']) ?>" alt="<?= e($icon['label_fa']) ?>" style="width:34px;height:34px" loading="lazy">
                     <div style="font-size:10.5px;margin-top:7px;font-weight:700"><?= e($icon['label_fa']) ?></div>
                     <div style="font-size:9px;color:var(--text-light);direction:ltr"><?= e($icon['name']) ?></div>
@@ -344,7 +431,11 @@ function iconCatFa(string $cat): string
         <!-- 🖼️ آیکون‌های صفحه جاری -->
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:10px">
             <?php foreach ($browse['icons'] as $icon): ?>
-                <div style="text-align:center;border:1px solid var(--border);border-radius:10px;padding:11px 5px" title="<?= e($icon['label_fa']) ?> · <?= e($icon['name']) ?>">
+                <div class="icon-tile" onclick="showIconPreview(this)" title="<?= e($icon['label_fa']) ?> · <?= e($icon['name']) ?>"
+                     data-src="<?= BASE_URL ?>/assets/icons/<?= e($browse['slug']) ?>/<?= e($icon['file']) ?>"
+                     data-label="<?= e($icon['label_fa']) ?>"
+                     data-name="<?= e($icon['name']) ?>"
+                     data-pack="<?= e($browse['slug']) ?>">
                     <img src="<?= BASE_URL ?>/assets/icons/<?= e($browse['slug']) ?>/<?= e($icon['file']) ?>" alt="<?= e($icon['label_fa']) ?>" style="width:30px;height:30px" loading="lazy">
                     <div style="font-size:10px;margin-top:6px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($icon['label_fa']) ?></div>
                     <div style="font-size:9px;color:var(--text-light);direction:ltr;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($icon['name']) ?></div>

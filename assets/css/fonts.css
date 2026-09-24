@@ -7,156 +7,7 @@
 
 /* ---------- فونت‌های فارسی ---------- */
 
-/* ایران‌سنس — وزن thin */
-@font-face {
-    font-family: 'ایران‌سنس';
-    src: url('../fonts/fa/iransans/iransans-thin.woff2') format('woff2'),
-         url('../fonts/fa/iransans/iransans-thin.ttf') format('truetype');
-    font-weight: 100;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* ایران‌سنس — وزن light */
-@font-face {
-    font-family: 'ایران‌سنس';
-    src: url('../fonts/fa/iransans/iransans-light.woff2') format('woff2'),
-         url('../fonts/fa/iransans/iransans-light.ttf') format('truetype');
-    font-weight: 300;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* ایران‌سنس — وزن regular */
-@font-face {
-    font-family: 'ایران‌سنس';
-    src: url('../fonts/fa/iransans/iransans-regular.woff2') format('woff2'),
-         url('../fonts/fa/iransans/iransans-regular.ttf') format('truetype');
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* ایران‌سنس — وزن medium */
-@font-face {
-    font-family: 'ایران‌سنس';
-    src: url('../fonts/fa/iransans/iransans-medium.woff2') format('woff2'),
-         url('../fonts/fa/iransans/iransans-medium.ttf') format('truetype');
-    font-weight: 500;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* ایران‌سنس — وزن bold */
-@font-face {
-    font-family: 'ایران‌سنس';
-    src: url('../fonts/fa/iransans/iransans-bold.woff2') format('woff2'),
-         url('../fonts/fa/iransans/iransans-bold.ttf') format('truetype');
-    font-weight: 700;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* ایران‌سنس — وزن black */
-@font-face {
-    font-family: 'ایران‌سنس';
-    src: url('../fonts/fa/iransans/iransans-black.woff2') format('woff2'),
-         url('../fonts/fa/iransans/iransans-black.ttf') format('truetype');
-    font-weight: 900;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* ایران‌سنس ایکس — وزن thin */
-@font-face {
-    font-family: 'ایران‌سنس ایکس';
-    src: url('../fonts/fa/iransansx/iransansx-thin.woff2') format('woff2'),
-         url('../fonts/fa/iransansx/iransansx-thin.ttf') format('truetype');
-    font-weight: 100;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* ایران‌سنس ایکس — وزن light */
-@font-face {
-    font-family: 'ایران‌سنس ایکس';
-    src: url('../fonts/fa/iransansx/iransansx-light.woff2') format('woff2'),
-         url('../fonts/fa/iransansx/iransansx-light.ttf') format('truetype');
-    font-weight: 300;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* ایران‌سنس ایکس — وزن regular */
-@font-face {
-    font-family: 'ایران‌سنس ایکس';
-    src: url('../fonts/fa/iransansx/iransansx-regular.woff2') format('woff2'),
-         url('../fonts/fa/iransansx/iransansx-regular.ttf') format('truetype');
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* ایران‌سنس ایکس — وزن medium */
-@font-face {
-    font-family: 'ایران‌سنس ایکس';
-    src: url('../fonts/fa/iransansx/iransansx-medium.woff2') format('woff2'),
-         url('../fonts/fa/iransansx/iransansx-medium.ttf') format('truetype');
-    font-weight: 500;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* ایران‌سنس ایکس — وزن demibold */
-@font-face {
-    font-family: 'ایران‌سنس ایکس';
-    src: url('../fonts/fa/iransansx/iransansx-demibold.woff2') format('woff2'),
-         url('../fonts/fa/iransansx/iransansx-demibold.ttf') format('truetype');
-    font-weight: 600;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* ایران‌سنس ایکس — وزن bold */
-@font-face {
-    font-family: 'ایران‌سنس ایکس';
-    src: url('../fonts/fa/iransansx/iransansx-bold.woff2') format('woff2'),
-         url('../fonts/fa/iransansx/iransansx-bold.ttf') format('truetype');
-    font-weight: 700;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* ایران‌سنس ایکس — وزن black */
-@font-face {
-    font-family: 'ایران‌سنس ایکس';
-    src: url('../fonts/fa/iransansx/iransansx-black.woff2') format('woff2'),
-         url('../fonts/fa/iransansx/iransansx-black.ttf') format('truetype');
-    font-weight: 900;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* ایران‌سنس ایکس — وزن extrablack */
-@font-face {
-    font-family: 'ایران‌سنس ایکس';
-    src: url('../fonts/fa/iransansx/iransansx-extrablack.woff2') format('woff2'),
-         url('../fonts/fa/iransansx/iransansx-extrablack.ttf') format('truetype');
-    font-weight: 900;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* ایران‌سنس ایکس — وزن heavy */
-@font-face {
-    font-family: 'ایران‌سنس ایکس';
-    src: url('../fonts/fa/iransansx/iransansx-heavy.woff2') format('woff2'),
-         url('../fonts/fa/iransansx/iransansx-heavy.ttf') format('truetype');
-    font-weight: 900;
-    font-style: normal;
-    font-display: swap;
-}
-
+/* ---------- فونت‌های فارسی ---------- */
 /* وزیر — وزن thin */
 @font-face {
     font-family: 'وزیر';
@@ -166,7 +17,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* وزیر — وزن light */
 @font-face {
     font-family: 'وزیر';
@@ -176,7 +26,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* وزیر — وزن regular */
 @font-face {
     font-family: 'وزیر';
@@ -186,7 +35,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* وزیر — وزن medium */
 @font-face {
     font-family: 'وزیر';
@@ -196,7 +44,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* وزیر — وزن bold */
 @font-face {
     font-family: 'وزیر';
@@ -206,7 +53,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* وزیر — وزن black */
 @font-face {
     font-family: 'وزیر';
@@ -216,7 +62,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* وزیرمتن — وزن thin */
 @font-face {
     font-family: 'وزیرمتن';
@@ -226,7 +71,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* وزیرمتن — وزن light */
 @font-face {
     font-family: 'وزیرمتن';
@@ -236,7 +80,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* وزیرمتن — وزن regular */
 @font-face {
     font-family: 'وزیرمتن';
@@ -246,7 +89,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* وزیرمتن — وزن medium */
 @font-face {
     font-family: 'وزیرمتن';
@@ -256,7 +98,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* وزیرمتن — وزن semibold */
 @font-face {
     font-family: 'وزیرمتن';
@@ -266,7 +107,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* وزیرمتن — وزن bold */
 @font-face {
     font-family: 'وزیرمتن';
@@ -276,7 +116,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* وزیرمتن — وزن extrabold */
 @font-face {
     font-family: 'وزیرمتن';
@@ -286,7 +125,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* وزیرمتن — وزن black */
 @font-face {
     font-family: 'وزیرمتن';
@@ -296,7 +134,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* صمیم — وزن regular */
 @font-face {
     font-family: 'صمیم';
@@ -306,7 +143,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* صمیم — وزن bold */
 @font-face {
     font-family: 'صمیم';
@@ -316,7 +152,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* شبنم — وزن thin */
 @font-face {
     font-family: 'شبنم';
@@ -326,7 +161,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* شبنم — وزن light */
 @font-face {
     font-family: 'شبنم';
@@ -336,7 +170,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* شبنم — وزن regular */
 @font-face {
     font-family: 'شبنم';
@@ -346,7 +179,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* شبنم — وزن medium */
 @font-face {
     font-family: 'شبنم';
@@ -356,7 +188,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* شبنم — وزن bold */
 @font-face {
     font-family: 'شبنم';
@@ -366,7 +197,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* گندم — وزن regular */
 @font-face {
     font-family: 'گندم';
@@ -376,7 +206,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* تنها — وزن regular */
 @font-face {
     font-family: 'تنها';
@@ -386,7 +215,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* تنها — وزن bold */
 @font-face {
     font-family: 'تنها';
@@ -396,7 +224,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* پرستو — وزن regular */
 @font-face {
     font-family: 'پرستو';
@@ -406,7 +233,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* پرستو — وزن bold */
 @font-face {
     font-family: 'پرستو';
@@ -416,187 +242,6 @@
     font-style: normal;
     font-display: swap;
 }
-
-/* یکان بخ — وزن thin */
-@font-face {
-    font-family: 'یکان بخ';
-    src: url('../fonts/fa/yekan-bakh/yekan-bakh-thin.woff2') format('woff2'),
-         url('../fonts/fa/yekan-bakh/yekan-bakh-thin.ttf') format('truetype');
-    font-weight: 100;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* یکان بخ — وزن light */
-@font-face {
-    font-family: 'یکان بخ';
-    src: url('../fonts/fa/yekan-bakh/yekan-bakh-light.woff2') format('woff2'),
-         url('../fonts/fa/yekan-bakh/yekan-bakh-light.ttf') format('truetype');
-    font-weight: 300;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* یکان بخ — وزن regular */
-@font-face {
-    font-family: 'یکان بخ';
-    src: url('../fonts/fa/yekan-bakh/yekan-bakh-regular.woff2') format('woff2'),
-         url('../fonts/fa/yekan-bakh/yekan-bakh-regular.ttf') format('truetype');
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* یکان بخ — وزن medium */
-@font-face {
-    font-family: 'یکان بخ';
-    src: url('../fonts/fa/yekan-bakh/yekan-bakh-medium.woff2') format('woff2'),
-         url('../fonts/fa/yekan-bakh/yekan-bakh-medium.ttf') format('truetype');
-    font-weight: 500;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* یکان بخ — وزن demibold */
-@font-face {
-    font-family: 'یکان بخ';
-    src: url('../fonts/fa/yekan-bakh/yekan-bakh-demibold.woff2') format('woff2'),
-         url('../fonts/fa/yekan-bakh/yekan-bakh-demibold.ttf') format('truetype');
-    font-weight: 600;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* یکان بخ — وزن bold */
-@font-face {
-    font-family: 'یکان بخ';
-    src: url('../fonts/fa/yekan-bakh/yekan-bakh-bold.woff2') format('woff2'),
-         url('../fonts/fa/yekan-bakh/yekan-bakh-bold.ttf') format('truetype');
-    font-weight: 700;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* یکان بخ — وزن extrabold */
-@font-face {
-    font-family: 'یکان بخ';
-    src: url('../fonts/fa/yekan-bakh/yekan-bakh-extrabold.woff2') format('woff2'),
-         url('../fonts/fa/yekan-bakh/yekan-bakh-extrabold.ttf') format('truetype');
-    font-weight: 800;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* یکان بخ — وزن black */
-@font-face {
-    font-family: 'یکان بخ';
-    src: url('../fonts/fa/yekan-bakh/yekan-bakh-black.woff2') format('woff2'),
-         url('../fonts/fa/yekan-bakh/yekan-bakh-black.ttf') format('truetype');
-    font-weight: 900;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* یکان بخ — وزن heavy */
-@font-face {
-    font-family: 'یکان بخ';
-    src: url('../fonts/fa/yekan-bakh/yekan-bakh-heavy.woff2') format('woff2'),
-         url('../fonts/fa/yekan-bakh/yekan-bakh-heavy.ttf') format('truetype');
-    font-weight: 900;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* دانا — وزن thin */
-@font-face {
-    font-family: 'دانا';
-    src: url('../fonts/fa/dana/dana-thin.woff2') format('woff2'),
-         url('../fonts/fa/dana/dana-thin.ttf') format('truetype');
-    font-weight: 100;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* دانا — وزن light */
-@font-face {
-    font-family: 'دانا';
-    src: url('../fonts/fa/dana/dana-light.woff2') format('woff2'),
-         url('../fonts/fa/dana/dana-light.ttf') format('truetype');
-    font-weight: 300;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* دانا — وزن regular */
-@font-face {
-    font-family: 'دانا';
-    src: url('../fonts/fa/dana/dana-regular.woff2') format('woff2'),
-         url('../fonts/fa/dana/dana-regular.ttf') format('truetype');
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* دانا — وزن medium */
-@font-face {
-    font-family: 'دانا';
-    src: url('../fonts/fa/dana/dana-medium.woff2') format('woff2'),
-         url('../fonts/fa/dana/dana-medium.ttf') format('truetype');
-    font-weight: 500;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* دانا — وزن demibold */
-@font-face {
-    font-family: 'دانا';
-    src: url('../fonts/fa/dana/dana-demibold.woff2') format('woff2'),
-         url('../fonts/fa/dana/dana-demibold.ttf') format('truetype');
-    font-weight: 600;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* دانا — وزن bold */
-@font-face {
-    font-family: 'دانا';
-    src: url('../fonts/fa/dana/dana-bold.woff2') format('woff2'),
-         url('../fonts/fa/dana/dana-bold.ttf') format('truetype');
-    font-weight: 700;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* دانا — وزن black */
-@font-face {
-    font-family: 'دانا';
-    src: url('../fonts/fa/dana/dana-black.woff2') format('woff2'),
-         url('../fonts/fa/dana/dana-black.ttf') format('truetype');
-    font-weight: 900;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* دانا — وزن heavy */
-@font-face {
-    font-family: 'دانا';
-    src: url('../fonts/fa/dana/dana-heavy.woff2') format('woff2'),
-         url('../fonts/fa/dana/dana-heavy.ttf') format('truetype');
-    font-weight: 900;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* استقلال — وزن regular */
-@font-face {
-    font-family: 'استقلال';
-    src: url('../fonts/fa/esteghlal/esteghlal-regular.woff2') format('woff2'),
-         url('../fonts/fa/esteghlal/esteghlal-regular.ttf') format('truetype');
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
-}
-
 /* میخک — وزن regular */
 @font-face {
     font-family: 'میخک';
@@ -606,7 +251,6 @@
     font-style: normal;
     font-display: swap;
 }
-
 /* میخک — وزن bold */
 @font-face {
     font-family: 'میخک';
@@ -616,37 +260,6 @@
     font-style: normal;
     font-display: swap;
 }
-
-/* فانتزی — وزن regular */
-@font-face {
-    font-family: 'فانتزی';
-    src: url('../fonts/fa/fantasy/fantasy-regular.woff2') format('woff2'),
-         url('../fonts/fa/fantasy/fantasy-regular.ttf') format('truetype');
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* آزاد — وزن regular */
-@font-face {
-    font-family: 'آزاد';
-    src: url('../fonts/fa/azad/azad-regular.woff2') format('woff2'),
-         url('../fonts/fa/azad/azad-regular.ttf') format('truetype');
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* آزاد — وزن bold */
-@font-face {
-    font-family: 'آزاد';
-    src: url('../fonts/fa/azad/azad-bold.woff2') format('woff2'),
-         url('../fonts/fa/azad/azad-bold.ttf') format('truetype');
-    font-weight: 700;
-    font-style: normal;
-    font-display: swap;
-}
-
 /* لاله‌زار — وزن regular */
 @font-face {
     font-family: 'لاله‌زار';
@@ -656,112 +269,290 @@
     font-style: normal;
     font-display: swap;
 }
-
-/* بهیج — وزن thin */
+/* ساحل — وزن light */
 @font-face {
-    font-family: 'بهیج';
-    src: url('../fonts/fa/bahij/bahij-thin.woff2') format('woff2'),
-         url('../fonts/fa/bahij/bahij-thin.ttf') format('truetype');
-    font-weight: 100;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* بهیج — وزن light */
-@font-face {
-    font-family: 'بهیج';
-    src: url('../fonts/fa/bahij/bahij-light.woff2') format('woff2'),
-         url('../fonts/fa/bahij/bahij-light.ttf') format('truetype');
+    font-family: 'ساحل';
+    src: url('../fonts/fa/sahel/sahel-light.woff2') format('woff2'),
+         url('../fonts/fa/sahel/sahel-light.ttf') format('truetype');
     font-weight: 300;
     font-style: normal;
     font-display: swap;
 }
-
-/* بهیج — وزن regular */
+/* ساحل — وزن regular */
 @font-face {
-    font-family: 'بهیج';
-    src: url('../fonts/fa/bahij/bahij-regular.woff2') format('woff2'),
-         url('../fonts/fa/bahij/bahij-regular.ttf') format('truetype');
+    font-family: 'ساحل';
+    src: url('../fonts/fa/sahel/sahel-regular.woff2') format('woff2'),
+         url('../fonts/fa/sahel/sahel-regular.ttf') format('truetype');
     font-weight: 400;
     font-style: normal;
     font-display: swap;
 }
-
-/* بهیج — وزن medium */
+/* ساحل — وزن semibold */
 @font-face {
-    font-family: 'بهیج';
-    src: url('../fonts/fa/bahij/bahij-medium.woff2') format('woff2'),
-         url('../fonts/fa/bahij/bahij-medium.ttf') format('truetype');
+    font-family: 'ساحل';
+    src: url('../fonts/fa/sahel/sahel-semibold.woff2') format('woff2'),
+         url('../fonts/fa/sahel/sahel-semibold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+/* ساحل — وزن bold */
+@font-face {
+    font-family: 'ساحل';
+    src: url('../fonts/fa/sahel/sahel-bold.woff2') format('woff2'),
+         url('../fonts/fa/sahel/sahel-bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+/* تجول — وزن light */
+@font-face {
+    font-family: 'تجول';
+    src: url('../fonts/fa/tajawal/tajawal-light.woff2') format('woff2'),
+         url('../fonts/fa/tajawal/tajawal-light.ttf') format('truetype');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+/* تجول — وزن regular */
+@font-face {
+    font-family: 'تجول';
+    src: url('../fonts/fa/tajawal/tajawal-regular.woff2') format('woff2'),
+         url('../fonts/fa/tajawal/tajawal-regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+/* تجول — وزن medium */
+@font-face {
+    font-family: 'تجول';
+    src: url('../fonts/fa/tajawal/tajawal-medium.woff2') format('woff2'),
+         url('../fonts/fa/tajawal/tajawal-medium.ttf') format('truetype');
     font-weight: 500;
     font-style: normal;
     font-display: swap;
 }
-
-/* بهیج — وزن bold */
+/* تجول — وزن bold */
 @font-face {
-    font-family: 'بهیج';
-    src: url('../fonts/fa/bahij/bahij-bold.woff2') format('woff2'),
-         url('../fonts/fa/bahij/bahij-bold.ttf') format('truetype');
+    font-family: 'تجول';
+    src: url('../fonts/fa/tajawal/tajawal-bold.woff2') format('woff2'),
+         url('../fonts/fa/tajawal/tajawal-bold.ttf') format('truetype');
     font-weight: 700;
     font-style: normal;
     font-display: swap;
 }
-
-/* بهیج — وزن extrabold */
+/* تجول — وزن extrabold */
 @font-face {
-    font-family: 'بهیج';
-    src: url('../fonts/fa/bahij/bahij-extrabold.woff2') format('woff2'),
-         url('../fonts/fa/bahij/bahij-extrabold.ttf') format('truetype');
+    font-family: 'تجول';
+    src: url('../fonts/fa/tajawal/tajawal-extrabold.woff2') format('woff2'),
+         url('../fonts/fa/tajawal/tajawal-extrabold.ttf') format('truetype');
     font-weight: 800;
     font-style: normal;
     font-display: swap;
 }
-
-/* نازنین — وزن regular */
+/* تجول — وزن black */
 @font-face {
-    font-family: 'نازنین';
-    src: url('../fonts/fa/nazanin/nazanin-regular.woff2') format('woff2'),
-         url('../fonts/fa/nazanin/nazanin-regular.ttf') format('truetype');
+    font-family: 'تجول';
+    src: url('../fonts/fa/tajawal/tajawal-black.woff2') format('woff2'),
+         url('../fonts/fa/tajawal/tajawal-black.ttf') format('truetype');
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}
+/* کتیبه — وزن regular */
+@font-face {
+    font-family: 'کتیبه';
+    src: url('../fonts/fa/katibeh/katibeh-regular.woff2') format('woff2'),
+         url('../fonts/fa/katibeh/katibeh-regular.ttf') format('truetype');
     font-weight: 400;
     font-style: normal;
     font-display: swap;
 }
-
-/* نازنین — وزن bold */
+/* رقاص — وزن regular */
 @font-face {
-    font-family: 'نازنین';
-    src: url('../fonts/fa/nazanin/nazanin-bold.woff2') format('woff2'),
-         url('../fonts/fa/nazanin/nazanin-bold.ttf') format('truetype');
-    font-weight: 700;
-    font-style: normal;
-    font-display: swap;
-}
-
-/* ترافیک — وزن regular */
-@font-face {
-    font-family: 'ترافیک';
-    src: url('../fonts/fa/traffic/traffic-regular.woff2') format('woff2'),
-         url('../fonts/fa/traffic/traffic-regular.ttf') format('truetype');
+    font-family: 'رقاص';
+    src: url('../fonts/fa/rakkas/rakkas-regular.woff2') format('woff2'),
+         url('../fonts/fa/rakkas/rakkas-regular.ttf') format('truetype');
     font-weight: 400;
     font-style: normal;
     font-display: swap;
 }
-
-/* ترافیک — وزن bold */
+/* گلزار — وزن regular */
 @font-face {
-    font-family: 'ترافیک';
-    src: url('../fonts/fa/traffic/traffic-bold.woff2') format('woff2'),
-         url('../fonts/fa/traffic/traffic-bold.ttf') format('truetype');
+    font-family: 'گلزار';
+    src: url('../fonts/fa/gulzar/gulzar-regular.woff2') format('woff2'),
+         url('../fonts/fa/gulzar/gulzar-regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+/* میرزا — وزن regular */
+@font-face {
+    font-family: 'میرزا';
+    src: url('../fonts/fa/mirza/mirza-regular.woff2') format('woff2'),
+         url('../fonts/fa/mirza/mirza-regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+/* میرزا — وزن medium */
+@font-face {
+    font-family: 'میرزا';
+    src: url('../fonts/fa/mirza/mirza-medium.woff2') format('woff2'),
+         url('../fonts/fa/mirza/mirza-medium.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+/* میرزا — وزن semibold */
+@font-face {
+    font-family: 'میرزا';
+    src: url('../fonts/fa/mirza/mirza-semibold.woff2') format('woff2'),
+         url('../fonts/fa/mirza/mirza-semibold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+/* میرزا — وزن bold */
+@font-face {
+    font-family: 'میرزا';
+    src: url('../fonts/fa/mirza/mirza-bold.woff2') format('woff2'),
+         url('../fonts/fa/mirza/mirza-bold.ttf') format('truetype');
     font-weight: 700;
     font-style: normal;
     font-display: swap;
 }
-
-/* مشق — وزن regular */
+/* امیری — وزن regular */
 @font-face {
-    font-family: 'مشق';
-    src: url('../fonts/fa/mashq/mashq-regular.woff2') format('woff2'),
-         url('../fonts/fa/mashq/mashq-regular.ttf') format('truetype');
+    font-family: 'امیری';
+    src: url('../fonts/fa/amiri/amiri-regular.woff2') format('woff2'),
+         url('../fonts/fa/amiri/amiri-regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+/* امیری — وزن bold */
+@font-face {
+    font-family: 'امیری';
+    src: url('../fonts/fa/amiri/amiri-bold.woff2') format('woff2'),
+         url('../fonts/fa/amiri/amiri-bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+/* عرف رقعه — وزن regular */
+@font-face {
+    font-family: 'عرف رقعه';
+    src: url('../fonts/fa/arefruqaa/arefruqaa-regular.woff2') format('woff2'),
+         url('../fonts/fa/arefruqaa/arefruqaa-regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+/* عرف رقعه — وزن bold */
+@font-face {
+    font-family: 'عرف رقعه';
+    src: url('../fonts/fa/arefruqaa/arefruqaa-bold.woff2') format('woff2'),
+         url('../fonts/fa/arefruqaa/arefruqaa-bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+/* شهرزاد — وزن regular */
+@font-face {
+    font-family: 'شهرزاد';
+    src: url('../fonts/fa/scheherazade/scheherazade-regular.woff2') format('woff2'),
+         url('../fonts/fa/scheherazade/scheherazade-regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+/* شهرزاد — وزن medium */
+@font-face {
+    font-family: 'شهرزاد';
+    src: url('../fonts/fa/scheherazade/scheherazade-medium.woff2') format('woff2'),
+         url('../fonts/fa/scheherazade/scheherazade-medium.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+/* شهرزاد — وزن semibold */
+@font-face {
+    font-family: 'شهرزاد';
+    src: url('../fonts/fa/scheherazade/scheherazade-semibold.woff2') format('woff2'),
+         url('../fonts/fa/scheherazade/scheherazade-semibold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+/* شهرزاد — وزن bold */
+@font-face {
+    font-family: 'شهرزاد';
+    src: url('../fonts/fa/scheherazade/scheherazade-bold.woff2') format('woff2'),
+         url('../fonts/fa/scheherazade/scheherazade-bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+/* رودو — وزن regular */
+@font-face {
+    font-family: 'رودو';
+    src: url('../fonts/fa/ruwudu/ruwudu-regular.woff2') format('woff2'),
+         url('../fonts/fa/ruwudu/ruwudu-regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+/* رودو — وزن medium */
+@font-face {
+    font-family: 'رودو';
+    src: url('../fonts/fa/ruwudu/ruwudu-medium.woff2') format('woff2'),
+         url('../fonts/fa/ruwudu/ruwudu-medium.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+/* رودو — وزن bold */
+@font-face {
+    font-family: 'رودو';
+    src: url('../fonts/fa/ruwudu/ruwudu-bold.woff2') format('woff2'),
+         url('../fonts/fa/ruwudu/ruwudu-bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+/* وایبز — وزن regular */
+@font-face {
+    font-family: 'وایبز';
+    src: url('../fonts/fa/vibes/vibes-regular.woff2') format('woff2'),
+         url('../fonts/fa/vibes/vibes-regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+/* بلاکا — وزن regular */
+@font-face {
+    font-family: 'بلاکا';
+    src: url('../fonts/fa/blaka/blaka-regular.woff2') format('woff2'),
+         url('../fonts/fa/blaka/blaka-regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+/* قاهری — وزن regular */
+@font-face {
+    font-family: 'قاهری';
+    src: url('../fonts/fa/qahiri/qahiri-regular.woff2') format('woff2'),
+         url('../fonts/fa/qahiri/qahiri-regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+/* جمهوریه — وزن regular */
+@font-face {
+    font-family: 'جمهوریه';
+    src: url('../fonts/fa/jomhuria/jomhuria-regular.woff2') format('woff2'),
+         url('../fonts/fa/jomhuria/jomhuria-regular.ttf') format('truetype');
     font-weight: 400;
     font-style: normal;
     font-display: swap;
