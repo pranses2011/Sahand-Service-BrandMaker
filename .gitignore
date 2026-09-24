@@ -6,6 +6,9 @@ cache/*.cache
 uploads/logos/*
 uploads/articles/*
 uploads/temp/*
+uploads/og/*
+uploads/test-out/*
+uploads/cache/*
 !uploads/logos/.gitkeep
 !uploads/articles/.gitkeep
 !uploads/temp/.gitkeep
