@@ -477,7 +477,7 @@ $categories = ErrorCodeEngine::CATEGORIES;
                     </td>
                     <td><span class="badge <?= $sevBadge ?>"><?= $sevLabel ?></span></td>
                     <td><?= $code['brand_name'] ? e($code['brand_name']) : '<span class="badge badge-secondary">عمومی</span>' ?></td>
-                    <td><small style="color:var(--text-light)"><?= $code['source'] === 'web' ? '🌐 وب' : ($code['source'] === 'manual' ? '✍️ دستی' : '📚 دانش') ?></small></td>
+                    <td><small style="color:var(--text-light)"><?= $code['source'] === 'web' ? '🌐 وب' : ($code['source'] === 'manual' ? '✍️ دستی' : ($code['source'] === 'kb' ? '📗 پایگاه دانش رسمی' : '📚 دانش')) ?></small></td>
                     <td style="white-space:nowrap">
                         <a href="error-codes.php?edit=<?= (int)$code['id'] ?>" class="btn btn-outline btn-sm" title="ویرایش ۱۴ فیلد">✏️</a>
                         <form method="post" style="display:inline" data-confirm="این کد خطا حذف شود؟">

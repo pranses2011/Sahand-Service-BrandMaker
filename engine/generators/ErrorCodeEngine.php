@@ -128,7 +128,9 @@ class ErrorCodeEngine
         /* ---------- ۲) درج در دیتابیس (بدون تکراری) ---------- */
         $inserted = 0;
         $skipped = 0;
+        $insertedCodes = []; // کدهای همین نوبت — برای جلوگیری از درج دوباره KB
         foreach ($records as $rec) {
+            $insertedCodes[] = strtoupper($rec['code']);
             $exists = $this->db->fetchValue(
                 'SELECT COUNT(*) FROM error_codes WHERE brand_id = ? AND device_key = ? AND UPPER(code) = ?',
                 [$brandId, $deviceKey, strtoupper($rec['code'])]
@@ -139,6 +141,54 @@ class ErrorCodeEngine
             }
             $this->db->insert('error_codes', $rec);
             $inserted++;
+        }
+
+        /* ---------- 🆕 v3.10: پشتیبانی پایگاه دانش تخصصی — کدهای معتبر curated که وب نیافت ----------
+         * ریشه‌یابی «فقط ۳ کد برای ظرفشویی ال‌جی»: سیاست فقط-وب کدهای معتبر و کاملِ
+         * پایگاه دانش تخصصی (که از مستندات رسمی سازنده گردآوری شده) را حذف می‌کرد!
+         * اکنون: هر کد معتبر KB که وب پیدا نکرد، با داده دقیق curated ثبت می‌شود —
+         * منبع: «پایگاه دانش تخصصی + مستندات رسمی» و اگر وب همان کد را با منبع دید،
+         * منبع وب هم به آن الصاق می‌شود (داده KB مقدم — دقت تضمینی؛ وب مکمل). */
+        $kbAdded = 0;
+        if ($brandKb) {
+            $kbCodes = $brandKb['devices'][$deviceKey]['codes'] ?? [];
+            foreach ($kbCodes as $kc) {
+                $kNorm = strtoupper(str_replace([' ', '-'], '', (string)$kc['code']));
+                if ($kNorm === '' || in_array($kNorm, $insertedCodes, true)) {
+                    continue;
+                }
+                $existsKb = $this->db->fetchValue(
+                    'SELECT COUNT(*) FROM error_codes WHERE brand_id = ? AND device_key = ? AND UPPER(code) = ?',
+                    [$brandId, $deviceKey, $kNorm]
+                );
+                if ($existsKb) {
+                    continue;
+                }
+                /* 🌐 منبع وب همان کد (در صورت یافته‌شدن در نتایج این نوبت) الصاق می‌شود */
+                $kbSourceUrls = [];
+                foreach ($records as $rec2) {
+                    if (strtoupper(str_replace([' ', '-'], '', (string)$rec2['code'])) === $kNorm && !empty($rec2['source_urls'])) {
+                        $kbSourceUrls = array_slice((array)$rec2['source_urls'], 0, 3);
+                    }
+                }
+                $kbRec = $this->buildRecord($brand, $deviceKey, $deviceFa, $deviceEn, [
+                    'code'        => $kc['code'],
+                    'title'       => $kc['title'] ?? ('خطای ' . $kc['code']),
+                    'part'        => $kc['part'] ?? '',
+                    'category'    => $kc['category'] ?? '',
+                    'severity'    => $kc['severity'] ?? 'medium',
+                    'causes'      => $kc['causes'] ?? [],
+                    'fixes_user'  => $kc['fixes_user'] ?? [],
+                    'fixes_tech'  => $kc['fixes_tech'] ?? [],
+                    'models'      => $kc['models'] ?? [],
+                    'specs'       => $kc['specs'] ?? '',
+                    'location'    => $kc['location'] ?? '',
+                    'source_urls' => $kbSourceUrls,
+                ], 'kb');
+                $this->db->insert('error_codes', $kbRec);
+                $insertedCodes[] = $kNorm;
+                $kbAdded++;
+            }
         }
 
         /* 🧠 خودیادگیر */
@@ -153,20 +203,26 @@ class ErrorCodeEngine
         }
 
         /* ---------- ۳) گزارش صادقانه ---------- */
-        if ($webCount === 0) {
+        if ($webCount === 0 && $kbAdded === 0) {
             $report = $useWeb
-                ? 'هیچ کدی از جستجوی اینترنتی تأیید نشد — چیزی ثبت نشد (طبق سیاست «فقط کدهای واقعی وب»؛ کد ساختگی اعتبار سایت را خراب می‌کند). کوئری دیگری یا اتصال اینترنت را بررسی کنید.'
-                : 'جستجوی آنلاین غیرفعال بود و منبع دیگری مجاز نیست — چیزی ثبت نشد.';
+                ? 'هیچ کدی از جستجوی اینترنتی تأیید نشد و پایگاه دانش هم برای این برند+دستگاه کدی ندارد — چیزی ثبت نشد (طبق سیاست «فقط کدهای واقعی»). کوئری دیگری یا اتصال اینترنت را بررسی کنید.'
+                : 'جستجوی آنلاین غیرفعال بود — کدهای معتبر پایگاه دانش تخصصی (در صورت وجود) ثبت شدند.';
+        } elseif ($webCount === 0 && $kbAdded > 0) {
+            $report = "جستجوی وب کد تأییدشده‌ای نیافت اما {$kbAdded} کد معتبر از «پایگاه دانش تخصصی» (مستندات رسمی سازنده) ثبت شد" . ($skipped > 0 ? " — {$skipped} کد از قبل موجود بود" : '') . '.';
         } else {
-            $report = "{$inserted} کد خطای واقعی وب ثبت شد از مجموع {$webCount} کد راستی‌آزمایی‌شده" . ($skipped > 0 ? " — {$skipped} کد از قبل موجود بود" : '');
+            $report = "{$inserted} کد خطای واقعی وب ثبت شد از مجموع {$webCount} کد راستی‌آزمایی‌شده";
+            if ($kbAdded > 0) {
+                $report .= " + {$kbAdded} کد معتبر تکمیلی از پایگاه دانش تخصصی";
+            }
+            $report .= ($skipped > 0 ? " — {$skipped} کد از قبل موجود بود" : '') . '.';
         }
 
         return [
-            'inserted' => $inserted,
+            'inserted' => $inserted + $kbAdded,
             'skipped'  => $skipped,
-            'total_known' => count($records),
+            'total_known' => count($records) + $kbAdded,
             'web_found' => $webCount,
-            'kb_added' => 0,
+            'kb_added' => $kbAdded,
             'sources'  => array_values(array_unique(array_filter($sources))),
             'report'   => $report,
         ];
@@ -908,28 +964,33 @@ class ErrorCodeEngine
             if ($kNorm !== $webCodeNorm) {
                 continue;
             }
-            /* عنوان: فقط وقتی عنوان وب عمومی/ناقص است (خطای X خالی) */
+            /* 🎯 v3.10: داده curated پایگاه دانش «مقدم» بر استخراج متنی وب است —
+               ریشه‌یابی «فیلدهای اشتباه»: پنجره متنی اطراف کد، معنای کدهای دیگر را
+               قاطی می‌کرد؛ KB از مستندات رسمی گردآوری شده و قطعاً درست است.
+               فقط منبع‌ها از وب حفظ می‌شوند. */
             if (!empty($kc['title'])) {
-                $wcTitle = trim((string)($wc['title'] ?? ''));
-                if (self::titleIsGeneric($wcTitle, (string)$wc['code'])) {
-                    $wc['title'] = $kc['title'];
-                }
+                $wc['title'] = $kc['title'];
             }
-            /* قطعه/دسته/شدت: فقط وقتی وب مقدار «ندارد» (v2.8 — بدون رونویسی) */
-            if ((empty($wc['part']) || $wc['part'] === 'قطعه مرتبط با کد') && !empty($kc['part'])) {
+            if (!empty($kc['part'])) {
                 $wc['part'] = $kc['part'];
             }
-            if (empty($wc['category']) && !empty($kc['category'])) {
+            if (!empty($kc['category'])) {
                 $wc['category'] = $kc['category'];
             }
-            if (empty($wc['severity']) && !empty($kc['severity'])) {
+            if (!empty($kc['severity'])) {
                 $wc['severity'] = $kc['severity'];
             }
-            /* دلایل و راه‌حل‌ها: ادغام بدون تکرار — وب اول، KB فقط تکمیل‌کننده */
+            /* دلایل و راه‌حل‌ها: KB (دقیق) اول، موارد وب فقط تکمیل‌کننده */
             foreach (['causes', 'fixes_user', 'fixes_tech'] as $field) {
                 $kbList = array_map('trim', (array)($kc[$field] ?? []));
-                $merged = array_merge((array)($wc[$field] ?? []), []);
+                $merged = [];
                 foreach ($kbList as $item) {
+                    if ($item !== '' && $item !== '—' && !in_array($item, $merged, true)) {
+                        $merged[] = $item;
+                    }
+                }
+                foreach ((array)($wc[$field] ?? []) as $item) {
+                    $item = trim((string)$item);
                     if ($item !== '' && !in_array($item, $merged, true)) {
                         $merged[] = $item;
                     }
@@ -1196,7 +1257,8 @@ class ErrorCodeEngine
     {
         $codes = [];
         // ۱) کدهای حرف‌دار: E18 / E-18 / F01 / CH05 / Er FF / UE / OE / LE / IE / dE / tE / nE / 4E / 5E / H1
-        if (preg_match_all('/\b(E-?\d{1,2}|F-?\d{1,2}|CH-?\d{1,2}|Er\s?[A-Z]{1,2}|[4n5d][Ee]|[UOILFf][Ee]|[dt][Ee]|[Hh]\d{1,2})\b/u', $text, $m)) {
+        //    🆕 v3.10: پوشش کامل حروف سازنده‌ها — 1E، PE، CE، AE، bE، nE (ال‌جی/سامسونگ/بوش)
+        if (preg_match_all('/\b(E-?\d{1,2}|F-?\d{1,2}|CH-?\d{1,2}|Er\s?[A-Z]{1,2}|[4n5d1][Ee]|[UOILFCAPb][Ee]|[dt][Ee]|[Hh]\d{1,2})\b/u', $text, $m)) {
             foreach ($m[1] as $raw) {
                 $c = $this->normalizeCode($raw);
                 if ($c !== null && !isset($codes[$c])) {
