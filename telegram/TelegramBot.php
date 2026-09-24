@@ -256,8 +256,8 @@ class TelegramBot
                 $names[$field] = (string)$path->getPostFilename();
             }
             $mimes[$field]  = $path instanceof CURLFile
-                ? (($path->getMime() ?: 'application/octet-stream'))
-                : (mime_content_type($realPath) ?: 'application/octet-stream');
+                ? (($path->getMimeType() ?: 'application/octet-stream'))
+                : ((function_exists('mime_content_type') ? (mime_content_type($realPath) ?: '') : '') ?: 'application/octet-stream');
         }
         $payload = [
             'secret'    => (string)($this->cfg['relay_secret'] ?? ''),
