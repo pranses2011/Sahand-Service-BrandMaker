@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-label="مقاله بدون تصویر شاخص">
+  <!-- 📰 تصویر شاخص پیش‌فرض مقالات — سایت‌های برند (بدون تصویر آپلودی) -->
+  <defs>
+    <linearGradient id="abg" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#16437e"/>
+      <stop offset="55%" stop-color="#1d5ba6"/>
+      <stop offset="100%" stop-color="#2f7bd0"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="60%" stop-color="#ffffff" stop-opacity="0.02"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.08"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="675" fill="url(#abg)"/>
+  <rect width="1200" height="675" fill="url(#sheen)"/>
+  <!-- شبکه نقطه‌ای ظریف -->
+  <g fill="#ffffff" opacity="0.07">
+    <circle cx="100" cy="90" r="3"/><circle cx="220" cy="90" r="3"/><circle cx="340" cy="90" r="3"/><circle cx="460" cy="90" r="3"/><circle cx="580" cy="90" r="3"/><circle cx="700" cy="90" r="3"/><circle cx="820" cy="90" r="3"/><circle cx="940" cy="90" r="3"/><circle cx="1060" cy="90" r="3"/>
+    <circle cx="100" cy="560" r="3"/><circle cx="220" cy="560" r="3"/><circle cx="340" cy="560" r="3"/><circle cx="460" cy="560" r="3"/><circle cx="580" cy="560" r="3"/><circle cx="700" cy="560" r="3"/><circle cx="820" cy="560" r="3"/><circle cx="940" cy="560" r="3"/><circle cx="1060" cy="560" r="3"/>
+  </g>
+  <!-- سند/مقاله -->
+  <g transform="translate(475,150)">
+    <rect width="250" height="320" rx="18" fill="#ffffff" opacity="0.97"/>
+    <rect x="28" y="34" width="194" height="16" rx="8" fill="#d3e2f4"/>
+    <rect x="28" y="70" width="160" height="10" rx="5" fill="#e2ecf8"/>
+    <rect x="28" y="92" width="184" height="10" rx="5" fill="#e2ecf8"/>
+    <rect x="28" y="114" width="140" height="10" rx="5" fill="#e2ecf8"/>
+    <rect x="28" y="152" width="90" height="70" rx="10" fill="#cfe0f3"/>
+    <path d="M 44 208 L 74 180 L 94 198 L 110 186 L 128 208 Z" fill="#9dc1e8"/>
+    <circle cx="66" cy="172" r="7" fill="#f9c74f"/>
+    <rect x="132" y="158" width="80" height="8" rx="4" fill="#dce8f6"/>
+    <rect x="132" y="174" width="80" height="8" rx="4" fill="#dce8f6"/>
+    <rect x="132" y="190" width="56" height="8" rx="4" fill="#dce8f6"/>
+    <rect x="28" y="246" width="184" height="10" rx="5" fill="#e2ecf8"/>
+    <rect x="28" y="268" width="166" height="10" rx="5" fill="#e2ecf8"/>
+    <rect x="28" y="290" width="120" height="10" rx="5" fill="#e2ecf8"/>
+  </g>
+  <!-- عنوان -->
+  <text x="600" y="580" text-anchor="middle" font-family="Vazirmatn, Tahoma, sans-serif" font-size="40" font-weight="700" fill="#ffffff">مقاله بدون تصویر شاخص</text>
+  <text x="600" y="620" text-anchor="middle" font-family="Vazirmatn, Tahoma, sans-serif" font-size="19" fill="#cfe2f6">نمایندگی خدمات پس از فروش لوازم خانگی</text>
+  <!-- خط تزئینی -->
+  <rect x="520" y="636" width="160" height="4" rx="2" fill="#ffffff" opacity="0.65"/>
+</svg>

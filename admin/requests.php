@@ -84,6 +84,7 @@ if (($viewId = (int)get_param('view')) > 0) {
                 <h3>📨 درخواست #<?= en_to_fa_digits((string)$req['id']) ?></h3>
                 <div class="tools">
                     <span class="badge <?= $statusMap[$req['status']][1] ?>"><?= $statusMap[$req['status']][0] ?></span>
+                    <a href="request-print.php?id=<?= (int)$req['id'] ?>" target="_blank" class="btn btn-outline btn-sm" title="نمای چاپی / ذخیره PDF">🖨️ چاپ</a>
                     <a href="requests.php" class="btn btn-outline btn-sm">بازگشت</a>
                 </div>
             </div>
@@ -255,7 +256,7 @@ $counts = ['new' => $db->count('service_requests', "status = 'new'"), 'all' => $
                     <td style="font-size:12px"><?= e($req['device_key']) ?><?= $req['device_other'] ? '<br><small style="color:var(--text-light)">' . e($req['device_other']) . '</small>' : '' ?></td>
                     <td><span class="badge <?= $statusMap[$req['status']][1] ?>"><?= $statusMap[$req['status']][0] ?></span></td>
                     <td style="font-size:11px;color:var(--text-light)"><?= time_ago_fa($req['created_at']) ?></td>
-                    <td><a href="requests.php?view=<?= (int)$req['id'] ?>" class="btn btn-outline btn-sm">👁️ مشاهده</a></td>
+                    <td><a href="requests.php?view=<?= (int)$req['id'] ?>" class="btn btn-outline btn-sm">👁️ مشاهده</a> <a href="request-print.php?id=<?= (int)$req['id'] ?>" target="_blank" class="btn btn-outline btn-sm" title="نمای چاپی">🖨️</a></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>

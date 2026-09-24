@@ -111,6 +111,7 @@ $deviceFa = ['mobile' => '📱 موبایل', 'desktop' => '🖥️ دسکتاپ
         <input type="date" name="to" class="form-control" style="max-width:160px" value="<?= e($dateTo) ?>">
     <?php endif; ?>
     <button type="submit" class="btn btn-primary">📊 اعمال</button>
+    <a href="analytics-report.php?brand=<?= $brandFilter ?>&amp;period=<?= e($period) ?>&amp;from=<?= e($dateFrom) ?>&amp;to=<?= e($dateTo) ?>" target="_blank" class="btn btn-outline" title="نمای چاپی گزارش / ذخیره PDF">🖨️ گزارش PDF</a>
     <a href="?<?= $brandFilter ? 'brand=' . $brandFilter . '&' : '' ?>export=csv" class="btn btn-outline" style="margin-inline-start:auto">📥 خروجی CSV</a>
 </form>
 

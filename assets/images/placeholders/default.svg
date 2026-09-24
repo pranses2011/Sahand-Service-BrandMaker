@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="تصویر پیش‌فرض">
+  <!-- 🖼️ تصویر پیش‌فرض سایت‌ساز برند سهند سرویس — بدون فایل اصلی -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#eef2f9"/>
+      <stop offset="50%" stop-color="#e3eaf6"/>
+      <stop offset="100%" stop-color="#d8e3f3"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1976d2"/>
+      <stop offset="100%" stop-color="#42a5f5"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <!-- الگوی هندسی ملایم -->
+  <g opacity="0.05" fill="#1976d2">
+    <circle cx="120" cy="120" r="180"/>
+    <circle cx="1100" cy="700" r="220"/>
+    <rect x="950" y="80" width="140" height="140" rx="28" transform="rotate(18 1020 150)"/>
+    <rect x="90" y="600" width="120" height="120" rx="24" transform="rotate(-14 150 660)"/>
+  </g>
+  <!-- قاب مرکزی -->
+  <rect x="430" y="250" width="340" height="300" rx="24" fill="#ffffff" stroke="#c9d7ea" stroke-width="2"/>
+  <!-- آیکون تصویر -->
+  <g transform="translate(505,320)">
+    <rect width="190" height="130" rx="14" fill="#f2f6fc" stroke="#b9cbe4" stroke-width="3"/>
+    <circle cx="45" cy="40" r="14" fill="#f9c74f"/>
+    <path d="M 20 108 L 65 63 L 95 93 L 125 66 L 172 108 Z" fill="#7fb2e5"/>
+    <path d="M 20 108 L 65 63 L 95 93 L 125 66 L 172 108 Z" fill="none" stroke="#5a9bd8" stroke-width="2"/>
+  </g>
+  <!-- متن فارسی -->
+  <text x="600" y="630" text-anchor="middle" font-family="Vazirmatn, Tahoma, sans-serif" font-size="34" font-weight="700" fill="#33475f">تصویر پیش‌فرض</text>
+  <text x="600" y="672" text-anchor="middle" font-family="Vazirmatn, Tahoma, sans-serif" font-size="20" fill="#7d8fa6">سایت ساز برند سهند سرویس</text>
+  <!-- نوار برند پایین -->
+  <rect x="0" y="784" width="1200" height="16" fill="url(#accent)"/>
+</svg>
