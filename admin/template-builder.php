@@ -271,7 +271,16 @@ foreach ($savedBlocks as $sb) {
 $totalBlockCount = array_sum(array_map('count', $blockLibrary));
 ?>
 <link rel="stylesheet" href="<?= asset_ver('assets/css/builder.css') ?>">
+<?= preview_font_html() /* 🔤 v2.14: فونت انتخابی سیستم برای بوم و کارت‌های عناصر */ ?>
 <style>
+/* 🔤 بوم و کارت‌های پیش‌نمایش با فونت انتخابی (مثل سایت نهایی) */
+.tb-live, .el-thumb-stage { font-family: var(--font-body, Vazirmatn, Tahoma, 'Segoe UI', sans-serif); }
+.tb-live .blk-title, .el-thumb-stage .blk-title, .tb-live .hero-title, .el-thumb-stage .hero-title,
+.tb-live .card-t, .el-thumb-stage .card-t, .tb-live .fake-cta, .el-thumb-stage .fake-cta,
+.tb-live .hero-btn, .el-thumb-stage .hero-btn, .tb-live .stat-n, .el-thumb-stage .stat-n,
+.tb-live .notif-bar, .el-thumb-stage .notif-bar, .tb-live .topbar-blk, .el-thumb-stage .topbar-blk,
+.tb-live .price-row b, .el-thumb-stage .price-row b, .tb-live .cta-num, .el-thumb-stage .cta-num,
+.tb-live .story-year, .el-thumb-stage .story-year, .tb-live .num-n, .el-thumb-stage .num-n { font-family: var(--font-heading, Vazirmatn, Tahoma, sans-serif); }
 /* ⚡ v3.0: استایل بوم طراحی زنده */
 .tb-block { position: relative; border-radius: 12px; }
 .tb-block > .block-tools {
@@ -604,7 +613,8 @@ function blockHtml(block, props) {
 /* استایل‌های درون‌بوم رندر زنده (تزریق یک‌بار) */
 (function injectLiveStyles() {
     const css = `
-.tb-live { font-family: Vazirmatn, Tahoma, sans-serif; background: #f8fafc; border-radius: 12px; overflow: hidden; color:#1e293b; direction: rtl; text-align: right; }
+.tb-live { font-family: var(--font-body, Vazirmatn, Tahoma, 'Segoe UI', sans-serif); background: #f8fafc; border-radius: 12px; overflow: hidden; color:#1e293b; direction: rtl; text-align: right; }
+.tb-live .blk-title, .tb-live .hero-title, .tb-live .card-t, .tb-live .fake-cta, .tb-live .hero-btn, .tb-live .stat-n, .tb-live .notif-bar, .tb-live .topbar-blk, .tb-live .price-row b, .tb-live .cta-num, .tb-live .story-year, .tb-live .num-n { font-family: var(--font-heading, Vazirmatn, Tahoma, sans-serif); }
 .blk { background:#fff; padding:24px 20px; border-bottom:1px dashed #e2e8f0; position: relative; }
 .blk:last-child { border-bottom: none; }
 .blk-pad-compact { padding: 12px 14px; } .blk-pad-roomy { padding: 42px 26px; } .blk-pad-none { padding: 0; }

@@ -39,11 +39,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'build_zip') {
         redirect('brand-build.php?id=' . $brandId);
     }
 
-    // 🎨 تولید CSS تم از پالت رنگ برند
+    // 🎨 تولید CSS تم از پالت رنگ برند + 🔤 فونت انتخابی سیستم (v2.14)
     $palette = $db->fetch('SELECT light_palette, dark_palette FROM color_palettes WHERE brand_id = ?', [$brandId]);
     $colorAnalyzer = new ColorAnalyzer();
     $lightCss = $palette ? $colorAnalyzer->toCss(json_decode($palette['light_palette'], true) ?: [], ':root') : '';
     $darkCss = $palette ? $colorAnalyzer->toCss(json_decode($palette['dark_palette'], true) ?: [], ':root') : '';
+    $fontVars = function_exists('site_font_vars_css') ? site_font_vars_css() : '';
+    $lightCss .= $fontVars;
+    $darkCss .= $fontVars;
 
     // 🔗 متغیرهای جایگذاری در قالب
     $paletteRow = $db->fetch('SELECT light_palette FROM color_palettes WHERE brand_id = ?', [$brandId]);

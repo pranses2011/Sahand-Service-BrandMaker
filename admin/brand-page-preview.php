@@ -88,6 +88,7 @@ header('Content-Type: text/html; charset=utf-8');
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>پیش‌نمایش — <?= e($pageTitle) ?></title>
+<?= preview_font_html() /* 🔤 v2.14: فونت انتخابی سیستم — مثل سایت نهایی */ ?>
 <style>
 :root {
     --primary: <?= e($primary) ?>;
@@ -99,7 +100,9 @@ header('Content-Type: text/html; charset=utf-8');
     --border: <?= e($border) ?>;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: Vazirmatn, Tahoma, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 2.05; font-size: 14.5px; }
+body { font-family: var(--font-body, Vazirmatn, Tahoma, 'Segoe UI', sans-serif); background: var(--bg); color: var(--text); line-height: 2.05; font-size: 14.5px; }
+/* 🔤 تیترها و عناصر تاکیدی با فونت تیتر انتخابی (مثل سایت واقعی) */
+.pv-brand, .pv-cta, .pv-hero h1, .pv-section h2, .pv-section h3, .pv-section th, b { font-family: var(--font-heading, Vazirmatn, Tahoma, sans-serif); }
 .pv-header { position:sticky; top:0; background:var(--surface); border-bottom:1px solid var(--border); padding:12px 22px; display:flex; align-items:center; gap:14px; z-index:5; box-shadow:0 2px 12px rgba(0,0,0,.05); }
 .pv-header img { height:44px; width:auto; }
 .pv-brand { font-weight:800; font-size:16px; }

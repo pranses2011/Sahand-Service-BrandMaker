@@ -250,9 +250,12 @@ if ((int)get_param('preview') > 0) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title><?= e($previewArticle['title']) ?> — پیش‌نمایش</title>
+<?= preview_font_html() /* 🔤 v2.14: فونت انتخابی سیستم — مثل سایت نهایی */ ?>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: Vazirmatn, Vazir, Tahoma, sans-serif; background: #f1f5f9; color: #1e293b; line-height: 1.95; font-size: 16px; }
+body { font-family: var(--font-body, Vazirmatn, Vazir, Tahoma, sans-serif); background: #f1f5f9; color: #1e293b; line-height: 1.95; font-size: 16px; }
+/* 🔤 تیترها و عناصر تاکیدی با فونت تیتر انتخابی (مثل سایت واقعی) */
+.pv-hero h1, .pv-content h2, .pv-content h3, .pv-content h4, .pv-tags span, .badge-preview, .pv-topbar b { font-family: var(--font-heading, Vazirmatn, Tahoma, sans-serif); }
 .pv-topbar { position: sticky; top: 0; z-index: 50; background: #0f172a; color: #fff; padding: 10px 18px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; }
 .pv-topbar .badge-preview { background: #f59e0b; color: #78350f; font-weight: 800; border-radius: 8px; padding: 3px 10px; font-size: 12px; }
 .pv-topbar a { color: #93c5fd; text-decoration: none; }

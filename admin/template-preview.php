@@ -283,13 +283,16 @@ header('Content-Type: text/html; charset=utf-8');
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>پیش‌نمایش قالب</title>
+<?= preview_font_html() /* 🔤 v2.14: فونت انتخابی سیستم — مثل سایت نهایی */ ?>
 <style>
 :root {
     --p: #1e40af; --p-light: #dbeafe; --s: #0ea5e9; --a: #f59e0b;
     --bg: #f8fafc; --card: #fff; --text: #1e293b; --muted: #64748b; --border: #e2e8f0;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: Vazirmatn, Tahoma, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.95; font-size: 14px; }
+body { font-family: var(--font-body, Vazirmatn, Tahoma, 'Segoe UI', sans-serif); background: var(--bg); color: var(--text); line-height: 1.95; font-size: 14px; }
+/* 🔤 تیترها و عناصر تاکیدی با فونت تیتر انتخابی (مثل سایت واقعی) */
+.blk-title, .hero-title, .card-t, .page-title, .topbar-blk, .notif-bar, .price-row b, .stat-n, .cta-num, .story-year, .num-n, .fake-cta, .hero-btn { font-family: var(--font-heading, Vazirmatn, Tahoma, sans-serif); }
 .preview-wrap { max-width: 100%; margin: 0 auto; }
 
 /* بلوک‌ها */

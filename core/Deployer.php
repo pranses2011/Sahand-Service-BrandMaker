@@ -895,7 +895,8 @@ class Deployer
      */
     public function buildSiteZip(array $brand): array
     {
-        // 🎨 CSS تم از پالت رنگ برند
+        // 🎨 CSS تم از پالت رنگ برند + 🔤 فونت انتخابی سیستم (v2.14 — سایت
+        //    مستقرشده هم با همان فونتی که در پیش‌نمایش دیده می‌شود رندر شود)
         $palette = $this->db->fetch('SELECT light_palette, dark_palette FROM color_palettes WHERE brand_id = ?', [(int)$brand['id']]);
         $lightCss = $darkCss = '';
         $themeColor = '#1e40af';
@@ -906,6 +907,9 @@ class Deployer
             $lightData = json_decode($palette['light_palette'], true) ?: [];
             $themeColor = (string)($lightData['--color-primary'] ?? '#1e40af');
         }
+        $fontVars = function_exists('site_font_vars_css') ? site_font_vars_css() : '';
+        $lightCss .= $fontVars;
+        $darkCss .= $fontVars;
 
         // 🔗 متغیرهای جایگذاری — دامنه = زیردامنه استقرار (نه دامنه ثبت‌شده قدیمی)
         $fullDomain = (string)($brand['full_domain'] ?: $brand['domain']);

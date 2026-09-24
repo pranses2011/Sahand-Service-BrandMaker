@@ -5,6 +5,85 @@
    اگر فایلی موجود نباشد، مرورگر به فونت بعدی لیست fallback می‌رود.
    ============================================================ */
 
+/* ---------- 🐛 v2.14: نام لاتین «Vazirmatn» ----------
+   admin.css، قالب سایت‌های مستقر (style.css) و همه پیش‌نمایش‌ها به
+   «Vazirmatn» (نام لاتین) ارجاع می‌دهند اما این فایل فقط «وزیرمتن»
+   تعریف می‌کرد → عملاً هیچ‌جا فونت وزیرمتن بارگذاری نمی‌شد و همه‌چیز
+   با Tahoma رندر می‌شد! این بلوک نام لاتین را به همان فایل‌ها متصل
+   می‌کند تا ارجاع‌های موجود واقعاً کار کنند. */
+/* Vazirmatn (نام لاتین) — وزن thin */
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/fa/vazirmatn/vazirmatn-thin.woff2') format('woff2'),
+         url('../fonts/fa/vazirmatn/vazirmatn-thin.ttf') format('truetype');
+    font-weight: 100;
+    font-style: normal;
+    font-display: swap;
+}
+/* Vazirmatn — وزن light */
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/fa/vazirmatn/vazirmatn-light.woff2') format('woff2'),
+         url('../fonts/fa/vazirmatn/vazirmatn-light.ttf') format('truetype');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+/* Vazirmatn — وزن regular */
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/fa/vazirmatn/vazirmatn-regular.woff2') format('woff2'),
+         url('../fonts/fa/vazirmatn/vazirmatn-regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+/* Vazirmatn — وزن medium */
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/fa/vazirmatn/vazirmatn-medium.woff2') format('woff2'),
+         url('../fonts/fa/vazirmatn/vazirmatn-medium.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+/* Vazirmatn — وزن semibold */
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/fa/vazirmatn/vazirmatn-semibold.woff2') format('woff2'),
+         url('../fonts/fa/vazirmatn/vazirmatn-semibold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+/* Vazirmatn — وزن bold */
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/fa/vazirmatn/vazirmatn-bold.woff2') format('woff2'),
+         url('../fonts/fa/vazirmatn/vazirmatn-bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+/* Vazirmatn — وزن extrabold */
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/fa/vazirmatn/vazirmatn-extrabold.woff2') format('woff2'),
+         url('../fonts/fa/vazirmatn/vazirmatn-extrabold.ttf') format('truetype');
+    font-weight: 800;
+    font-style: normal;
+    font-display: swap;
+}
+/* Vazirmatn — وزن black */
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/fa/vazirmatn/vazirmatn-black.woff2') format('woff2'),
+         url('../fonts/fa/vazirmatn/vazirmatn-black.ttf') format('truetype');
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}
+
 /* ---------- فونت‌های فارسی ---------- */
 
 /* ---------- فونت‌های فارسی ---------- */

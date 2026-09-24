@@ -490,3 +490,81 @@ function asset_ver(string $relPath): string
     $mtime = @filemtime($file);
     return $url . '?v=' . ($mtime ?: SAHAND_VERSION);
 }
+
+/**
+ * 🔤 فونت انتخابی سیستم برای پیش‌نمایش‌ها (v2.14)
+ * =========================================================
+ * طبق درخواست: «در تمامی پیش‌نمایش‌ها فونت انتخابی رو هم اعمال بکن تا
+ * نزدیک به واقعی دیده بشن» — این هلپر لینک فونت‌های سایت‌ساز (fonts.css)
+ * و متغیرهای CSS فونت تیتر/متن انتخاب‌شده (تنظیمات » فونت پیش‌فرض) را
+ * برمی‌گرداند تا پیش‌نمایش قالب‌ساز، مقاله و صفحات برند دقیقاً با همان
+ * فونتی که در سایت نهایی نمایش داده می‌شود رندر شود.
+ *
+ * خروجی داخل <head> قرار بگیرد. متغیرها:
+ *   --font-heading → فونت تیترها (h1..h4، عنوان بخش‌ها، دکمه‌های تاکیدی)
+ *   --font-body    → فونت متن (body و پاراگراف‌ها)
+ *
+ * @return string HTML (لینک + استایل)
+ */
+function preview_font_html(): string
+{
+    /* فونت‌های انتخاب‌شده از تنظیمات سیستم (تنظیمات » مدیریت فونت‌ها) */
+    $heading = '';
+    $body = '';
+    try {
+        $df = (array)(Config::get(Config::KEY_DEFAULT_FONT) ?: []);
+        $heading = trim((string)($df['heading_fa'] ?? ''));
+        $body = trim((string)($df['body_fa'] ?? ''));
+    } catch (Throwable $e) {
+        // تنظیمات خوانده نشد → فونت پیش‌فرض
+    }
+
+    /* فقط نام‌های امن (حروف فارسی/لاتین + فاصله) — جلوگیری از تزریق CSS */
+    $clean = static function (string $name): string {
+        $name = trim(preg_replace('/[\'"{};<>\\\\]/u', '', $name) ?? '');
+        return mb_strlen($name) > 1 && mb_strlen($name) < 60 ? $name : '';
+    };
+    $heading = $clean($heading);
+    $body = $clean($body);
+
+    $headingStack = $heading !== '' ? "'{$heading}', Vazirmatn, Tahoma, sans-serif" : "Vazirmatn, Tahoma, sans-serif";
+    $bodyStack = $body !== '' ? "'{$body}', Vazirmatn, Tahoma, 'Segoe UI', sans-serif" : "Vazirmatn, Tahoma, 'Segoe UI', sans-serif";
+
+    return '<link rel="stylesheet" href="' . e(asset_ver('assets/css/fonts.css')) . "\">\n"
+        . "<style>:root{--font-heading:{$headingStack};--font-body:{$bodyStack}}</style>\n";
+}
+
+/**
+ * 🔤 متغیرهای CSS فونت انتخابی — فقط متن قواعد (v2.14)
+ * برای تزریق در ZIP سایت برند (theme-light.css/theme-dark.css کنار پالت)
+ * تا سایت مستقرشده هم با همان فونت پیش‌نمایش رندر شود.
+ */
+function site_font_vars_css(): string
+{
+    $heading = '';
+    $body = '';
+    try {
+        $df = (array)(Config::get(Config::KEY_DEFAULT_FONT) ?: []);
+        $heading = trim((string)($df['heading_fa'] ?? ''));
+        $body = trim((string)($df['body_fa'] ?? ''));
+    } catch (Throwable $e) {
+        return '';
+    }
+    $clean = static function (string $name): string {
+        $name = trim(preg_replace('/[\'"{};<>\\\\]/u', '', $name) ?? '');
+        return mb_strlen($name) > 1 && mb_strlen($name) < 60 ? $name : '';
+    };
+    $heading = $clean($heading);
+    $body = $clean($body);
+    if ($heading === '' && $body === '') {
+        return '';
+    }
+    $css = '';
+    if ($heading !== '') {
+        $css .= "--font-heading: '{$heading}', Vazirmatn, Tahoma, sans-serif;";
+    }
+    if ($body !== '') {
+        $css .= "--font-body: '{$body}', Vazirmatn, Tahoma, 'Segoe UI', sans-serif;";
+    }
+    return "\n/* 🔤 فونت انتخابی سایت‌ساز */\n" . $css . "\n";
+}
