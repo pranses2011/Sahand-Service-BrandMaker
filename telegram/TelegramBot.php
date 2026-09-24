@@ -415,6 +415,14 @@ class TelegramBot
     /**
      * 📎 ارسال فایل (متن/سند) از محتوای رشته‌ای
      *
+     * 🆕 v2.9 — استراتژی «URL-اول» (رفع قطعی خطای «there is no document in the request"):
+     *   ۱) فایل در مسیر عمومی موقت (uploads/temp) ذخیره می‌شود و برای تلگرام
+     *      «آدرس URL» ارسال می‌شود — تلگرام خودش فایل را دانلود می‌کند.
+     *      این مسیر فقط JSON است و با «هر نسخه‌ای» از واسط گوگل کار می‌کند
+     *      (حتی اسکریپت‌های قدیمی که آپلود multipart ندارند).
+     *   ۲) اگر شکست خورد → آپلود multipart از طریق واسط (files_b64 — نیازمند GAS v2+)
+     *   ۳) اگر آن هم شکست خورد → آپلود مستقیم به تلگرام
+     *
      * @param string $filename نام فایل با پسوند
      * @param string $content  محتوای فایل
      * @param string $caption  کپشن (HTML)
@@ -422,17 +430,27 @@ class TelegramBot
      */
     public function sendDocumentFromString($chatId, string $filename, string $content, string $caption = ''): int
     {
+        $params = [
+            'chat_id' => $chatId,
+            'caption' => mb_substr($caption, 0, 1000),
+            'parse_mode' => 'HTML',
+        ];
+
+        /* --- مسیر ۱: آدرس عمومی — فقط JSON، سازگار با هر واسط --- */
+        $publicUrl = $this->stageTempFile($filename, $content);
+        if ($publicUrl !== null) {
+            try {
+                $msg = $this->api('sendDocument', $params + ['document' => $publicUrl]);
+                return (int)($msg['message_id'] ?? 0);
+            } catch (Throwable $e) {
+                @error_log('[TelegramBot] URL document failed → multipart: ' . $e->getMessage());
+            }
+        }
+
+        /* --- مسیر ۲/۳: آپلود multipart (واسط v2+ یا مستقیم) --- */
         $tmp = tempnam(sys_get_temp_dir(), 'tg_');
         file_put_contents($tmp, $content);
         try {
-            $params = [
-                'chat_id' => $chatId,
-                'caption' => $caption,
-                'parse_mode' => 'HTML',
-            ];
-            if (mb_strlen($caption) > 1000) {
-                $params['caption'] = mb_substr($caption, 0, 1000);
-            }
             $msg = $this->apiUpload('sendDocument', $params, ['document' => new CURLFile($tmp, 'application/octet-stream', $filename)]);
             return (int)($msg['message_id'] ?? 0);
         } finally {
@@ -441,7 +459,46 @@ class TelegramBot
     }
 
     /**
-     * 🖼️ ارسال آلبوم تصاویر (sendMediaGroup) از مسیرهای محلی
+     * 🗄 ذخیره فایل در مسیر عمومی موقت برای ارسال با URL — نام تصادفی و غیرقابل حدس
+     * فایل‌های قدیمی‌تر از ۶ ساعت خودکار پاک می‌شوند.
+     * @return string|null آدرس مطلق عمومی یا null (هاست عمومی نیست)
+     */
+    private function stageTempFile(string $filename, string $content): ?string
+    {
+        try {
+            $base = rtrim((string)BASE_URL, '/');
+            if ($base === '' || preg_match('#(localhost|127\.0\.0\.1|/var/www/html)$#', $base)) {
+                return null; // آدرس عمومی معتبر نیست
+            }
+            $dir = ROOT_PATH . '/uploads/temp';
+            if (!is_dir($dir) && !@mkdir($dir, 0755, true)) {
+                return null;
+            }
+            /* 🧹 پاک‌سازی فایل‌های قدیمی (>۶ ساعت) */
+            $now = time();
+            foreach (glob($dir . '/tg-*') ?: [] as $old) {
+                if (is_file($old) && ($now - (int)filemtime($old)) > 21600) {
+                    @unlink($old);
+                }
+            }
+            $safeExt = preg_replace('/[^a-z0-9.]/i', '', pathinfo($filename, PATHINFO_EXTENSION));
+            $name = 'tg-' . bin2hex(random_bytes(8)) . ($safeExt !== '' ? '.' . $safeExt : '.bin');
+            if (@file_put_contents($dir . '/' . $name, $content) === false) {
+                return null;
+            }
+            return $base . '/uploads/temp/' . $name;
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * 🖼️ ارسال آلبوم تصاویر (sendMediaGroup) — URL-اول (v2.9)
+     *
+     * 🆕 v2.9: تصاویری که مسیر عمومی دارند با «آدرس URL» ارسال می‌شوند —
+     * فقط JSON از واسط عبور می‌کند و با هر نسخه اسکریپت واسط کار می‌کند
+     * (رفع خطای there is no photo in the request در اسکریپت‌های قدیمی).
+     * تصاویر محلی/موقتی → آپلود multipart به‌عنوان جایگزین.
      *
      * @param array $items [['path' => '/abs/x.jpg', 'caption' => '...'], ...]
      * @return bool موفقیت
@@ -449,6 +506,47 @@ class TelegramBot
     public function sendImageAlbum($chatId, array $items): bool
     {
         if (!$items) { return false; }
+
+        /* --- مسیر ۱: URL عمومی — فقط JSON (سازگار با هر واسط) --- */
+        $base = rtrim((string)BASE_URL, '/');
+        $urlItems = [];
+        foreach (array_values($items) as $i => $item) {
+            $path = (string)($item['path'] ?? '');
+            if ($path === '' || !is_file($path)) { continue; }
+            /* فقط مسیرهای داخل ROOT_PATH قابل URL شدن‌اند */
+            $rel = null;
+            $normPath = str_replace('\\', '/', realpath($path) ?: $path);
+            $normRoot = str_replace('\\', '/', ROOT_PATH);
+            if (strpos($normPath, $normRoot) === 0) {
+                $rel = ltrim(substr($normPath, strlen($normRoot)), '/');
+            }
+            if ($rel === null || $base === '' || preg_match('#(localhost|127\.0\.0\.1)$#', $base)) {
+                continue;
+            }
+            $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) {
+                continue; // SVG قابل ارسال photo نیست (زیر در multipart رستر می‌شود)
+            }
+            $entry = ['type' => 'photo', 'media' => $base . '/' . $rel];
+            if ($i === 0 && !empty($item['caption'])) {
+                $entry['caption'] = mb_substr((string)$item['caption'], 0, 1000);
+                $entry['parse_mode'] = 'HTML';
+            }
+            $urlItems[] = $entry;
+        }
+        if (count($urlItems) >= 1) {
+            try {
+                $this->api('sendMediaGroup', [
+                    'chat_id' => $chatId,
+                    'media'   => json_encode($urlItems, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ]);
+                return true;
+            } catch (Throwable $e) {
+                @error_log('[TelegramBot] URL album failed → multipart: ' . $e->getMessage());
+            }
+        }
+
+        /* --- مسیر ۲: آپلود multipart (رفتار قبلی) --- */
         $media = [];
         $files = [];
         foreach (array_values($items) as $i => $item) {

@@ -425,7 +425,7 @@ $gsScript = <<<GAS
  */
 var SECRET = '{$relaySecret}';          // 🔐 راز مشترک با سایت‌ساز
 var SITE_WEBHOOK = '{$siteWebhook}';    // 📮 وب‌هوک سایت‌ساز برای آپدیت‌های ورودی
-var RELAY_VERSION = 2;                  // 🆕 v2: پشتیبانی آپلود فایل (files_b64) + گزارش نسخه
+var RELAY_VERSION = 3;                  // 🆕 v3 (سایت‌ساز v2.9): آپلود فایل files_b64 + پروب توانایی + وب‌هوک ورودی
 
 function doPost(e) {
   try {
