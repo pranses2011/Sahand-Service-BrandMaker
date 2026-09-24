@@ -25,7 +25,7 @@
 class SahandAI
 {
     /** 🔖 نسخه موتور */
-    public const ENGINE_VERSION = '3.8.0'; // ۳.۸.۰: خطایاب صددرصد وب‌محور (پارس جدول + گارد سازگاری قطعه) + تحویل سند تلگرام مقاوم + PersianGlyphs v2
+    public const ENGINE_VERSION = '3.9.0'; // ۳.۹.۰: PersianGlyphs v2 (رفع ریشه‌ای اتصال حروف) + OG پویا + تصاویر مقاله واقعی + خطایاب کامل‌فیلد
 
     /** @var Database دیتابیس */
     private $db;
