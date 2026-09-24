@@ -114,7 +114,21 @@ class AiImageGenerator
         $font = $this->findPersianFont();
         $title = trim($title);
 
-        /* 🥇 مسیر ۱: ImageMagick — رندر SVG با شکل‌دهی کامل متن فارسی (در صورت وجود) */
+        /* 🥇 مسیر ۱ (v2.7.1): GD + TTF فونت پیش‌فرض سایت — دقیق‌ترین مسیر؛
+           فونت همان فونت عنوان سایت‌هاست، لوگوها و واترمارک سر جای خودشان. */
+        if ($font !== null && function_exists('imagettftext')) {
+            $pngPath = ROOT_PATH . '/' . $fileBase . '.png';
+            try {
+                $ok = $this->renderOgPng($pngPath, $seed, $title, $palette, $brand, $w, $h, $font);
+                if ($ok) {
+                    return ['path' => $fileBase . '.png', 'url' => BASE_URL . '/' . $fileBase . '.png', 'format' => 'png'];
+                }
+            } catch (Throwable $e) {
+                @error_log('[AiImageGenerator] PNG OG failed → fallback: ' . $e->getMessage());
+            }
+        }
+
+        /* 🥈 مسیر ۲: ImageMagick — رندر SVG با فونت جاسازی‌شده (در صورت وجود) */
         if (class_exists('Imagick')) {
             try {
                 $svg = $this->buildArtworkSvg($seed, $title, $deviceKey, $palette, $brand, $w, $h, 'og');
@@ -133,20 +147,8 @@ class AiImageGenerator
             }
         }
 
-        /* 🥈 مسیر ۲: GD + شکل‌دهنده فارسی داخلی (PersianGlyphs) */
-        if ($font !== null && function_exists('imagettftext')) {
-            $pngPath = ROOT_PATH . '/' . $fileBase . '.png';
-            try {
-                $ok = $this->renderOgPng($pngPath, $seed, $title, $palette, $brand, $w, $h, $font);
-                if ($ok) {
-                    return ['path' => $fileBase . '.png', 'url' => BASE_URL . '/' . $fileBase . '.png', 'format' => 'png'];
-                }
-            } catch (Throwable $e) {
-                @error_log('[AiImageGenerator] PNG OG failed → SVG fallback: ' . $e->getMessage());
-            }
-        }
-
-        /* 🛟 مسیر ۳: SVG — متن فارسی توسط مرورگر شکل‌یابی می‌شود */
+        /* 🛟 مسیر ۳: SVG — فونت پیش‌فرض به‌صورت base64 جاسازی می‌شود تا
+           مرورگرها آن را دقیقاً با فونت سایت رندر کنند (v2.7.1) */
         $svg = $this->buildArtworkSvg($seed, $title, $deviceKey, $palette, $brand, $w, $h, 'og');
         $svgPath = ROOT_PATH . '/' . $fileBase . '.svg';
         @file_put_contents($svgPath, $svg);
@@ -207,8 +209,11 @@ class AiImageGenerator
         /* --- 🖼 v2.7: لوگوی برند در بالای تصویر (به‌جای/همراه آیکون) --- */
         $brandLogo = $this->brandLogoAsset($brand);
         $logoBottom = 120; // محل شروع محدوده عنوان بعد از لوگو
-        if ($brandLogo !== null && $brandLogo['kind'] === 'raster') {
-            $this->drawBrandLogo($img, $brandLogo['path'], 92);
+        if ($brandLogo !== null) {
+            $logoPath = $brandLogo['kind'] === 'svg' ? $this->rasterizeSvgLogo($brandLogo['path'], 320) : $brandLogo['path'];
+            if ($logoPath !== null) {
+                $this->drawBrandLogo($img, $logoPath, 92);
+            }
         }
 
         /* --- متن عنوان فارسی: شکل‌دهی + دو خط --- */
@@ -219,7 +224,7 @@ class AiImageGenerator
         $lineH = (int)($size * 1.55);
         $blockH = $lineH * count($lines);
         $centerY = (int)(($h - $blockH) / 2 + $size);
-        if ($brandLogo !== null && $brandLogo['kind'] === 'raster') {
+        if ($brandLogo !== null) {
             $centerY += 34; // جابه‌جایی جزئی برای جای لوگو
         }
         $y = $centerY;
@@ -246,8 +251,11 @@ class AiImageGenerator
 
         /* --- 🪧 v2.7: واترمارک لوگوی نمایندگی در گوشه (نیمه‌شفاف) --- */
         $agencyLogo = $this->agencyLogoAsset();
-        if ($agencyLogo !== null && $agencyLogo['kind'] === 'raster') {
-            $this->drawWatermark($img, $agencyLogo['path'], 110, 58);
+        if ($agencyLogo !== null) {
+            $wmPath = $agencyLogo['kind'] === 'svg' ? $this->rasterizeSvgLogo($agencyLogo['path'], 240) : $agencyLogo['path'];
+            if ($wmPath !== null) {
+                $this->drawWatermark($img, $wmPath, 110, 58);
+            }
         }
 
         $ok = imagepng($img, $destPath, 7);
@@ -268,6 +276,22 @@ class AiImageGenerator
         $angle = mt_rand(0, 360);
         $icon = $this->deviceEmoji($deviceKey);
         $pattern = mt_rand(0, 4);
+
+        /* 🆕 v2.7.1: برای OG — فونت پیش‌فرض سایت به‌صورت @font-face جاسازی می‌شود
+           تا رندر (مرورگر/Imagick-rsvg) دقیقاً با فونت عنوان سایت‌ها باشد */
+        $fontFamily = 'Vazirmatn,Vazir,Tahoma,sans-serif';
+        $fontFace = '';
+        if ($role === 'og') {
+            $emb = $this->embeddableFontFile();
+            if ($emb !== null && is_readable($emb['path'])) {
+                $fam = 'SahandOgFont';
+                $mime = $emb['format'] === 'woff2' ? 'font/woff2' : 'font/ttf';
+                $fontFamily = $fam . ',Vazirmatn,Tahoma,sans-serif';
+                $fontFace = '<style type="text/css">' .
+                    '@font-face{font-family:\'' . $fam . '\';src:url(data:' . $mime . ';base64,' . base64_encode(file_get_contents($emb['path'])) . ') format(\'' . $emb['format'] . '\');font-weight:bold;}' .
+                    '</style>';
+            }
+        }
 
         $p = [];
         $p[] = sprintf('<defs><linearGradient id="g%d" gradientTransform="rotate(%d .5 .5)">
@@ -346,8 +370,8 @@ class AiImageGenerator
         $lines = $this->wrapPersian($title, 30, 3);
         $ty = $h * .60;
         foreach ($lines as $i => $line) {
-            $p[] = sprintf('<text x="%d" y="%.0f" font-family="Vazirmatn,Vazir,Tahoma,sans-serif" font-size="%d" font-weight="800" fill="#fff" text-anchor="middle">%s</text>',
-                $w / 2, $ty + $i * 54, 38, htmlspecialchars($line, ENT_QUOTES));
+            $p[] = sprintf('<text x="%d" y="%.0f" font-family="%s" font-size="%d" font-weight="800" fill="#fff" text-anchor="middle">%s</text>',
+                $w / 2, $ty + $i * 54, $fontFamily, 38, htmlspecialchars($line, ENT_QUOTES));
         }
 
         /* نام برند + نشان */
@@ -355,11 +379,74 @@ class AiImageGenerator
         $p[] = sprintf('<rect x="%d" y="%d" rx="16" width="%d" height="34" fill="%s" opacity=".92"/>',
             $w / 2 - (mb_strlen($brandName) * 8 + 26), $h - 64, mb_strlen($brandName) * 16 + 52, $accent);
         if ($brandName !== '') {
-            $p[] = sprintf('<text x="%d" y="%d" font-family="Vazirmatn,Vazir,Tahoma,sans-serif" font-size="19" font-weight="700" fill="#fff" text-anchor="middle">🔧 %s</text>',
-                $w / 2, $h - 40, htmlspecialchars($brandName, ENT_QUOTES));
+            $p[] = sprintf('<text x="%d" y="%d" font-family="%s" font-size="19" font-weight="700" fill="#fff" text-anchor="middle">🔧 %s</text>',
+                $w / 2, $h - 40, $fontFamily, htmlspecialchars($brandName, ENT_QUOTES));
         }
 
-        return '<svg xmlns="http://www.w3.org/2000/svg" width="' . $w . '" height="' . $h . '" viewBox="0 0 ' . $w . ' ' . $h . '">' . implode('', $p) . '</svg>';
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="' . $w . '" height="' . $h . '" viewBox="0 0 ' . $w . ' ' . $h . '">' . $fontFace . implode('', $p) . '</svg>';
+    }
+
+    /**
+     * 📎 فایل فونت قابل جاسازی در SVG — اولویت فونت پیش‌فرض سایت (v2.7.1)
+     * TTF/OTF مستقیم؛ WOFF با تبدیل؛ WOFF2 به‌صورت مستقیم (SVG از آن پشتیبانی می‌کند)
+     * @return array{path:string, format:string}|null
+     */
+    private function embeddableFontFile(): ?array
+    {
+        try {
+            $df = (array)(Config::get(Config::KEY_DEFAULT_FONT) ?: []);
+            foreach (['heading_fa', 'body_fa'] as $k) {
+                $nameOrSlug = trim((string)($df[$k] ?? ''));
+                if ($nameOrSlug === '') {
+                    continue;
+                }
+                $slug = $this->fontSlugByName($nameOrSlug);
+                if ($slug === null) {
+                    continue;
+                }
+                $dir = ASSETS_PATH . '/fonts/fa/' . $slug;
+                if (!is_dir($dir)) {
+                    continue;
+                }
+                /* ۱) TTF/OTF محلی */
+                foreach (['bold', 'black', 'demibold', 'medium', 'regular'] as $wt) {
+                    foreach (['ttf'] as $ext) {
+                        foreach (glob($dir . '/' . $slug . '-' . $wt . '.' . $ext) ?: [] as $f) {
+                            if (is_readable($f) && filesize($f) > 2048 && filesize($f) < 1200000) {
+                                return ['path' => $f, 'format' => 'truetype'];
+                            }
+                        }
+                    }
+                }
+                foreach (glob($dir . '/*.ttf') ?: [] as $f) {
+                    if (is_readable($f) && filesize($f) > 2048 && filesize($f) < 1200000) {
+                        return ['path' => $f, 'format' => 'truetype'];
+                    }
+                }
+                /* ۲) WOFF → تبدیل به TTF (کش‌شده) */
+                foreach (glob($dir . '/*.woff') ?: [] as $f) {
+                    $ttf = $this->woffToTtf($f);
+                    if ($ttf !== null) {
+                        return ['path' => $ttf, 'format' => 'truetype'];
+                    }
+                }
+                /* ۳) WOFF2 مستقیم — SVG/مرورگر از آن پشتیبانی می‌کنند */
+                foreach (['bold', 'black', 'medium', 'regular'] as $wt) {
+                    foreach (glob($dir . '/' . $slug . '-' . $wt . '.woff2') ?: [] as $f) {
+                        if (is_readable($f) && filesize($f) > 2048 && filesize($f) < 900000) {
+                            return ['path' => $f, 'format' => 'woff2'];
+                        }
+                    }
+                }
+                foreach (glob($dir . '/*.woff2') ?: [] as $f) {
+                    if (is_readable($f) && filesize($f) > 2048 && filesize($f) < 900000) {
+                        return ['path' => $f, 'format' => 'woff2'];
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+        }
+        return null;
     }
 
     /* ==================================================
@@ -389,18 +476,35 @@ class AiImageGenerator
         return array_combine(['c1', 'c2', 'accent'], $palettes[abs($seed) % count($palettes)]);
     }
 
-    /** 🔎 فونت فارسی TTF — اولویت: فونت پیش‌فرض سایت‌ها (تنظیمات پنل فونت‌ها) → وزیرمتن → هر فونت موجود (v2.7) */
+    /**
+     * 🔎 فونت فارسی برای رندر — اولویت مطلق: فونت پیش‌فرض عنوان سایت‌ها (v2.7.1)
+     *
+     * زنجیره حل (قبلاً نام فونت را مستقیم به‌عنوان نام پوشه می‌گرفت و همیشه شکست می‌خورد):
+     *   نام فارسی ذخیره‌شده → نگاشت به اسلاگ (مانیفست + جدول فونت‌ها)
+     *   → TTF/OTF محلی با اولویت وزن‌های سنگین
+     *   → تبدیل WOFF محلی به TTF (pure-PHP + zlib، کش‌شده)
+     *   → تلاش یک‌باره برای دانلود TTF هم‌مسیر (dist/... .woff2 → .ttf)
+     *   → وزیرمتن و سایر فونت‌های نصب‌شده
+     */
     private function findPersianFont(): ?string
     {
-        $candidates = [];
+        $canRender = function_exists('imagettfbbox'); // 🛡 بدون FreeType، TTF قابل رندر نیست
 
-        /* 🅰 فونت پیش‌فرض سیستم — همان فونتی که سایت‌های برند استفاده می‌کنند */
+        /* 🅰 فونت پیش‌فرض سیستم — همان فونتی که عنوان سایت‌ها استفاده می‌کند */
+        $candidates = [];
         try {
             $df = (array)(Config::get(Config::KEY_DEFAULT_FONT) ?: []);
             foreach (['heading_fa', 'body_fa'] as $k) {
-                $slug = trim((string)($df[$k] ?? ''));
-                if ($slug !== '' && preg_match('/^[a-z0-9\-]+$/i', $slug)) {
-                    $candidates = array_merge($candidates, glob(ASSETS_PATH . '/fonts/fa/' . $slug . '/*bold*.ttf') ?: [], glob(ASSETS_PATH . '/fonts/fa/' . $slug . '/*.ttf') ?: []);
+                $nameOrSlug = trim((string)($df[$k] ?? ''));
+                if ($nameOrSlug === '') {
+                    continue;
+                }
+                $slug = $this->fontSlugByName($nameOrSlug);
+                if ($slug !== null) {
+                    $ttf = $this->fontTtfForSlug($slug);
+                    if ($ttf !== null) {
+                        $candidates[] = $ttf;
+                    }
                 }
             }
         } catch (Throwable $e) {
@@ -409,17 +513,254 @@ class AiImageGenerator
         /* 🅱 وزیرمتن (پیش‌فرض تاریخی) و بعد از آن هر فونت نصب‌شده */
         $candidates = array_merge(
             $candidates,
+            glob(ASSETS_PATH . '/fonts/fa/vazirmatn/*bold*.ttf') ?: [],
             glob(ASSETS_PATH . '/fonts/fa/vazirmatn/*.ttf') ?: [],
+            glob(ASSETS_PATH . '/fonts/fa/vazir/*bold*.ttf') ?: [],
             glob(ASSETS_PATH . '/fonts/fa/vazir/*.ttf') ?: [],
+            glob(ASSETS_PATH . '/fonts/fa/*/*bold*.ttf') ?: [],
             glob(ASSETS_PATH . '/fonts/fa/*/*regular*.ttf') ?: [],
             glob(ASSETS_PATH . '/fonts/fa/*/*.ttf') ?: []
         );
-        $canRender = function_exists('imagettfbbox'); // 🛡 بدون FreeType، TTF قابل رندر نیست
-        foreach ($candidates as $f) {
+        foreach (array_unique($candidates) as $f) {
             if (is_readable($f) && (!$canRender || @imagettfbbox(20, 0, $f, 'آ') !== false)) {
                 return $f;
             }
         }
+        return null;
+    }
+
+    /**
+     * 🔎 نگاشت نام فارسی فونت → اسلاگ پوشه (v2.7.1)
+     * default_font_settings نام فونت را ذخیره می‌کند («ایران‌سنس») نه اسلاگ را —
+     * این متد از مانیفست و جدول فونت‌ها اسلاگ را پیدا می‌کند.
+     */
+    private function fontSlugByName(string $name): ?string
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return null;
+        }
+        /* خودش اسلاگ معتبر پوشه است؟ */
+        if (preg_match('/^[a-z0-9\-]+$/i', $name) && is_dir(ASSETS_PATH . '/fonts/fa/' . $name)) {
+            return $name;
+        }
+        $norm = static function (string $s): string {
+            return str_replace(["\u{200c}", ' ', '‌'], '', trim($s)); // حذف نیم‌فاصله/فاصله
+        };
+        $target = $norm($name);
+        if ($target === '') {
+            return null;
+        }
+        /* ۱) مانیفست فونت‌های داخلی */
+        $manifest = json_decode((string)@file_get_contents(ASSETS_PATH . '/fonts/manifest.json'), true);
+        foreach ((array)(($manifest['fonts']['fa'] ?? [])) as $f) {
+            if (($f['slug'] ?? '') === $name || $norm((string)($f['name'] ?? '')) === $target) {
+                return (string)$f['slug'];
+            }
+        }
+        /* ۲) جدول فونت‌های آپلودی دیتابیس */
+        try {
+            $slug = Database::getInstance()->fetchValue(
+                "SELECT slug FROM fonts WHERE (name = ? OR slug = ?) AND type = 'fa' LIMIT 1",
+                [$name, $name]
+            );
+            if (is_string($slug) && $slug !== '') {
+                return $slug;
+            }
+        } catch (Throwable $e) {
+        }
+        /* ۳) تطبیق نرم با نام پوشه‌ها (ایران‌سنس ↔ iransans) */
+        foreach (glob(ASSETS_PATH . '/fonts/fa/*', GLOB_ONLYDIR) ?: [] as $dir) {
+            $slug = basename($dir);
+            if ($norm($slug) === $target || stripos($norm($slug), $target) === 0 || stripos($target, $norm($slug)) === 0) {
+                return $slug;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 📂 یافتن/آماده‌سازی TTF فونت با اسلاگ — اولویت وزن، تبدیل WOFF، دانلود هم‌مسیر (v2.7.1)
+     */
+    private function fontTtfForSlug(string $slug): ?string
+    {
+        if (!preg_match('/^[a-z0-9\-]+$/i', $slug)) {
+            return null;
+        }
+        $dir = ASSETS_PATH . '/fonts/fa/' . $slug;
+        if (!is_dir($dir)) {
+            return null;
+        }
+        /* ۱) TTF موجود با اولویت وزن‌های سنگین (عنوان) */
+        $found = [];
+        foreach (['bold', 'black', 'extrablack', 'extrabold', 'demibold', 'semibold', 'heavy', 'medium', 'regular', ''] as $w) {
+            $pattern = $w === '' ? $dir . '/*.ttf' : $dir . '/' . $slug . '-' . $w . '.ttf';
+            $found = array_merge($found, glob($pattern) ?: []);
+        }
+        $found = array_values(array_unique($found));
+        if ($found) {
+            return $found[0];
+        }
+        foreach (glob($dir . '/*.otf') ?: [] as $otf) {
+            return $otf;
+        }
+        /* ۲) تبدیل WOFF محلی → TTF (کش در uploads/cache/fonts) */
+        $woffs = array_merge(
+            glob($dir . '/' . $slug . '-bold.woff') ?: [],
+            glob($dir . '/' . $slug . '-*.woff') ?: [],
+            glob($dir . '/*.woff') ?: []
+        );
+        foreach ($woffs as $woff) {
+            $ttf = $this->woffToTtf($woff);
+            if ($ttf !== null) {
+                return $ttf;
+            }
+        }
+        /* ۳) تلاش دانلود TTF هم‌مسیر (dist/X.woff2 → dist/X.ttf) — یک‌بار، با کش منفی */
+        $webExt = array_merge(
+            glob($dir . '/' . $slug . '-bold.woff2') ?: [],
+            glob($dir . '/' . $slug . '-*.woff2') ?: []
+        );
+        foreach ($webExt as $i => $w2) {
+            if ($i >= 1) { break; } // فقط ۱ تلاش شبکه‌ای (کش منفی دارد)
+            $ttf = $this->fetchSiblingTtf($w2);
+            if ($ttf !== null) {
+                return $ttf;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 🔄 تبدیل WOFF → TTF با PHP خالص (zlib) — خروجی در کش (v2.7.1)
+     * ساختار WOFF: هدر ۴۴ بایتی + دایرکتوری جدول‌ها (هر رکورد ۲۰ بایت)
+     */
+    private function woffToTtf(string $woffPath): ?string
+    {
+        $cacheDir = ROOT_PATH . '/uploads/cache/fonts';
+        if (!is_dir($cacheDir) && !@mkdir($cacheDir, 0755, true)) {
+            return null;
+        }
+        $md5 = is_readable($woffPath) ? md5_file($woffPath) : '';
+        if ($md5 === '') {
+            return null;
+        }
+        $out = $cacheDir . '/w2t-' . $md5 . '.ttf';
+        if (is_file($out) && filesize($out) > 2048) {
+            return $out;
+        }
+        $data = @file_get_contents($woffPath);
+        if (!is_string($data) || strlen($data) < 64 || substr($data, 0, 4) !== 'wOFF') {
+            return null;
+        }
+        $hdr = @unpack('Vflavor/Vlength/vnumTables/vreserved/VtotalSfnt/vmajor/vminor', substr($data, 4, 20));
+        if (!$hdr || $hdr['numTables'] < 1 || $hdr['numTables'] > 80) {
+            return null;
+        }
+        $numTables = (int)$hdr['numTables'];
+        $tables = [];
+        for ($i = 0; $i < $numTables; $i++) {
+            $rec = substr($data, 44 + $i * 20, 20);
+            if (strlen($rec) < 20) {
+                return null;
+            }
+            $tag = substr($rec, 0, 4);
+            $f = @unpack('Voffset/VcompLen/VorigLen/Vchecksum', substr($rec, 4, 16));
+            if (!$f || $f['compLen'] < 1 || $f['offset'] + $f['compLen'] > strlen($data)) {
+                return null;
+            }
+            $raw = substr($data, $f['offset'], $f['compLen']);
+            if ($f['compLen'] < $f['origLen']) {
+                $inflated = @gzuncompress($raw, (int)$f['origLen']);
+                if ($inflated === false) {
+                    $inflated = @gzinflate($raw, (int)$f['origLen']);
+                }
+                if (!is_string($inflated) || strlen($inflated) !== (int)$f['origLen']) {
+                    return null;
+                }
+                $raw = $inflated;
+            }
+            $tables[] = ['tag' => $tag, 'data' => $raw, 'checksum' => (int)$f['checksum'], 'origLen' => (int)$f['origLen']];
+        }
+        /* ساخت SFNT (ترتیب رکوردها باید بر اساس تگ باشد — الزام قالب) */
+        usort($tables, static fn($a, $b) => strcmp($a['tag'], $b['tag']));
+        $searchRange = 16;
+        $entrySelector = 0;
+        while ($searchRange * 2 <= $numTables * 16) {
+            $searchRange *= 2;
+            $entrySelector++;
+        }
+        $rangeShift = $numTables * 16 - $searchRange;
+        $offset = 12 + 16 * $numTables;
+        foreach ($tables as &$t) {
+            $t['offset'] = $offset;
+            $t['pad'] = (4 - (strlen($t['data']) % 4)) % 4;
+            $offset += strlen($t['data']) + $t['pad'];
+        }
+        unset($t);
+        $out2 = pack('Nnnnn', 0x00010000, $numTables, $searchRange, $entrySelector, $rangeShift);
+        foreach ($tables as $t) {
+            $out2 .= $t['tag'] . pack('NNN', $t['checksum'], $t['offset'], $t['origLen']);
+        }
+        foreach ($tables as $t) {
+            $out2 .= $t['data'] . str_repeat("\0", $t['pad']);
+        }
+        if (strlen($out2) < 2048) {
+            return null;
+        }
+        if (@file_put_contents($out, $out2) === false) {
+            return null;
+        }
+        return $out;
+    }
+
+    /**
+     * ⬇️ تلاش برای دانلود نسخه TTF هم‌مسیر فایل وب‌فونت (v2.7.1)
+     * منبع‌های رستیکردار معمولاً ttf/woff/woff2 را کنار هم دارند؛
+     * تلاش‌های ناموفق کش منفی می‌شوند تا تکرار نشوند.
+     */
+    private function fetchSiblingTtf(string $webfontPath): ?string
+    {
+        $cacheDir = ROOT_PATH . '/uploads/cache/fonts';
+        if (!is_dir($cacheDir) && !@mkdir($cacheDir, 0755, true)) {
+            return null;
+        }
+        $fail = $cacheDir . '/sibfail-' . md5($webfontPath) . '.txt';
+        if (is_file($fail)) {
+            return null;
+        }
+        /* آدرس منبع از نام فایل ساخته نمی‌شود — فقط برای مسیرهای شناخته‌شده CDN */
+        $candidatesUrls = [];
+        $slug = basename(dirname($webfontPath));
+        $weight = preg_replace('/^' . preg_quote($slug, '/') . '[-_]|\.(woff2?|ttf)$/i', '', basename($webfontPath));
+        foreach (['https://cdn.jsdelivr.net/gh/rastikerdar/', 'https://raw.githubusercontent.com/rastikerdar/'] as $cdn) {
+            $name = str_replace(['-', '_'], '', $slug);
+            $name = ucfirst($name);
+            foreach (["{$name}-Bold.ttf", "{$name}-Regular.ttf", "{$name}.ttf"] as $file) {
+                $candidatesUrls[] = $cdn . $slug . '-font@latest/dist/' . $file;
+                $candidatesUrls[] = $cdn . $slug . '@latest/fonts/ttf/' . $file;
+            }
+        }
+        foreach (array_slice($candidatesUrls, 0, 3) as $url) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CONNECTTIMEOUT => 3,
+                CURLOPT_TIMEOUT        => 7,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_SSL_VERIFYPEER => true,
+            ]);
+            $body = curl_exec($ch);
+            $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if (is_string($body) && strlen($body) > 4096 && $http === 200 && substr($body, 0, 4) === "\x00\x01\x00\x00") {
+                $out = $cacheDir . '/sib-' . md5($url) . '.ttf';
+                if (@file_put_contents($out, $body) !== false) {
+                    return $out;
+                }
+            }
+        }
+        @file_put_contents($fail, date('c'));
         return null;
     }
 
@@ -520,6 +861,46 @@ class AiImageGenerator
         imagedestroy($cut);
         imagedestroy($tmp);
         imagedestroy($wm);
+    }
+
+    /**
+     * 🖼 رستر کردن لوگوی SVG به PNG با ImageMagick (v2.7.1)
+     * برای مسیر GD که SVG را مستقیم نمی‌خواند — خروجی کش می‌شود.
+     * @return string|null مسیر PNG یا null (اگر Imagick نبود/شکست خورد)
+     */
+    private function rasterizeSvgLogo(string $svgPath, int $maxPx = 320): ?string
+    {
+        if (!class_exists('Imagick')) {
+            return null;
+        }
+        $cacheDir = ROOT_PATH . '/uploads/cache/logos';
+        if (!is_dir($cacheDir) && !@mkdir($cacheDir, 0755, true)) {
+            return null;
+        }
+        $out = $cacheDir . '/svg-' . md5($svgPath . '|' . filemtime($svgPath)) . '.png';
+        if (is_file($out) && filesize($out) > 100) {
+            return $out;
+        }
+        try {
+            $im = new Imagick();
+            $im->setBackgroundColor(new ImagickPixel('transparent'));
+            $im->readImageBlob(file_get_contents($svgPath));
+            $im->setImageFormat('png');
+            $w = $im->getImageWidth();
+            $h = $im->getImageHeight();
+            if ($w > 0 && $h > 0) {
+                $scale = min($maxPx / $w, $maxPx / $h, 2);
+                $im->resizeImage((int)round($w * $scale), (int)round($h * $scale), Imagick::FILTER_LANCZOS, 1);
+            }
+            if (@file_put_contents($out, $im->getImageBlob()) === false) {
+                $im->clear();
+                return null;
+            }
+            $im->clear();
+            return $out;
+        } catch (Throwable $e) {
+            return null;
+        }
     }
 
     /**
