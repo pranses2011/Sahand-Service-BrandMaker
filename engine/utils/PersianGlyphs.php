@@ -11,7 +11,7 @@
  * خروجی: رشته‌ای آماده برای imagettftext (LTR فیزیکی که درست دیده می‌شود)
  *
  * @package SahandBrandMaker\Engine
- * @version 1.0
+ * @version 2.0
  */
 class PersianGlyphs
 {
@@ -55,11 +55,13 @@ class PersianGlyphs
         'م' => ['FEE1', 'FEE2', 'FEE3', 'FEE4'],
         'ن' => ['FEE5', 'FEE6', 'FEE7', 'FEE8'],
         'و' => ['FEED', 'FEEE', null, null],
-        'ؤ' => ['FEE5', 'FEE6', null, null],
+        'ؤ' => ['FE85', 'FE86', null, null],
+        'ئ' => ['FE89', 'FE8A', 'FE8B', 'FE8C'],
         'ه' => ['FEE9', 'FEEA', 'FEEB', 'FEEC'],
         'ۀ' => ['FEE9', 'FEEA', 'FEEB', 'FEEC'],
         'ی' => ['FBFC', 'FBFD', 'FBFE', 'FBFF'],
         'ي' => ['FBFE', 'FBFF', 'FBFE', 'FBFF'],
+        'ى' => ['FEFB', 'FEFC', null, null],
         'ة' => ['FE93', 'FE94', null, null],
     ];
 
@@ -101,7 +103,10 @@ class PersianGlyphs
             $form = 0; // مجزا
             if ($prevJoinable && $nextJoinable && $forms[3] !== null) {
                 $form = 3; // میانی
-            } elseif ($prevJoinable && !$nextJoinable && $forms[1] !== null) {
+            } elseif ($prevJoinable && $forms[1] !== null) {
+                /* 🐛 v2.9: شرط «!$nextJoinable» حذف شد — حرف یک‌جهته (ا/ر/د/و...)
+                   بین دو طرفِ قابلِ اتصال («ساید»: س-ا-ی) باید فرم «نهایی» بگیرد؛
+                   قبلاً به شرط نمی‌رسید و «مجزا» می‌شد → اتصال بصری می‌شکست */
                 $form = 1; // نهایی
             } elseif (!$prevJoinable && $nextJoinable && $forms[2] !== null) {
                 $form = 2; // اولیه
@@ -113,7 +118,14 @@ class PersianGlyphs
         return self::visualOrder($shaped);
     }
 
-    /** ↔ آیا عنصر قبلی اجازه اتصال می‌دهد؟ */
+    /** ↔ آیا عنصر قبلی اجازه اتصال می‌دهد؟
+     *
+     * 🐛 v2.9 — ریشه «حروف یک کلمه به هم چسبیده نیستند»:
+     * حرف فعلی می‌تواند به حرف «قبل» بچسبد فقط اگر حرف قبل «دوجهته» باشد و
+     * به سمت چپ خودش امتداد پیدا کند = باید فرم «اولیه» داشته باشد (TABLE[2]).
+     * قبلاً به‌اشتباه joinsFromLeft (دارا بودن فرم «نهایی» = پذیرش اتصال از راست)
+     * صدا زده می‌شد؛ برای حروف یک‌جهته (ا د ذ ر ز ژ و ء ة) جواب غلط می‌داد:
+     * «ساید» → ی فرم نهایی می‌گرفت و ا فرم مجزا → اتصال بصری می‌شکست. */
     private static function prevJoins(array $shaped, array $chars, int $i): bool
     {
         for ($j = count($shaped) - 1; $j >= 0; $j--) {
@@ -130,13 +142,18 @@ class PersianGlyphs
                 }
                 return false;
             }
-            /* حروفی که فقط فرم مجزا/نهایی دارند از «چپ» متصل نمی‌شوند */
-            return self::joinsFromLeft($chars[$i - (count($shaped) - $j)] ?? '');
+            /* حرف قبل باید «دوجهته» باشد و به سمت چپ (به سمت ما) امتداد یابد */
+            return self::joinsFromRight($chars[$i - (count($shaped) - $j)] ?? '');
         }
         return false;
     }
 
-    /** ↔ آیا حرف در موقعیت $i از چپ به بعدی می‌چسبد؟ */
+    /** ↔ آیا حرف در موقعیت $i به حرف بعدی می‌چسبد؟
+     *
+     * 🐛 v2.9 — قرینه رفع باگ prevJoins: حرف بعدی باید «از راست» اتصال را
+     * «بپذیرد» = فرم «نهایی» داشته باشد (TABLE[1]). قبلاً به‌اشتباه joinsFromRight
+     * (دوجهته بودن = داشتن فرم اولیه) صدا زده می‌شد؛ نتیجه: حرف قبل از «ا/د/ر/و»
+     * هرگز به آن نمی‌چسبید («ساید» → سِ مجزا به‌جای سـِـ!). */
     private static function nextJoins(array $chars, int $i): bool
     {
         $n = count($chars);
@@ -149,7 +166,7 @@ class PersianGlyphs
                 continue;
             }
             if (isset(self::TABLE[$ch])) {
-                return self::joinsFromRight($ch);
+                return self::joinsFromLeft($ch);
             }
             return false; // فاصله، لاتین/عدد و سایر نشانه‌ها
         }

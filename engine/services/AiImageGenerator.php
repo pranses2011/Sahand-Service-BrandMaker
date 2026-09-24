@@ -1,20 +1,25 @@
 <?php
 /**
- * 🎨 AiImageGenerator — مولد تصاویر هوشمند OG و مقاله (v1.0)
+ * 🎨 AiImageGenerator — مولد تصاویر هوشمند OG و مقاله (v3.0)
  * ==========================================================
- * برای هر مقاله/صفحه، تصویر یکتای مرتبط با «موضوع همان صفحه» تولید می‌کند:
+ * برای هر مقاله/صفحه، تصویر مرتبط با «موضوع همان صفحه» تولید می‌کند:
  *
- *   🖼️ ۲ تصویر درون‌متن مقاله (SVG یکتا — گرادیان + الگو + آیکون موضوعی + عنوان)
  *   📌 تصویر OG با نسبت ۱۲۰۰×۶۳۰ (PNG با متن فارسی شکل‌یافته؛ در نبود فونت → SVG)
+ *   🖼️ تصاویر درون‌متن مقاله — عکس‌های واقعی موضوعی + واترمارک دوتایی (v3.0)
  *
- * یکتایی: هر تصویر از هش (شناسه + عنوان + موضوع) بذر می‌گیرد → ترکیب رنگ،
- * الگو، آیکون و زاویه در هیچ دو مقاله‌ای یکسان نیست.
+ * 🆕 v3.0 (طبق درخواست کاربر):
+ *   🌈 پس‌زمینه پویا OG — ۱۰ سبک متفاوت (شبکه‌ای، موج، پرتو، حباب، شبکه‌ای،
+ *      راه‌راه، حلقه، نقطه‌موج، شفق، چندضلعی) که در «هر بار تولید» عوض می‌شود
+ *   🖼 لوگوی برند بزرگ و خوانا — نشان گردگوشه تا ۲۰۰px با سایه نرم
+ *   ✂️ عنوان هرگز ناقص نمی‌ماند — شکست هوشمند تا ۳ خط + کاهش خودکار اندازه
+ *      فونت تا جا شدن کامل (بدون برش کلمه)
+ *   🪧 واترمارک لوگوی برند (پایین-راست) + لوگوی نمایندگی (پایین-چپ) — شفاف
  *
  * متن فارسی در PNG: شکل‌دهی حروف (اتصال اولیه/میانی/نهایی/مجزا) + ترتیب بصری
  * RTL به‌صورت خالص PHP انجام می‌شود (بدون نیاز به اکستنشن intl/harfbuzz).
  *
  * @package SahandBrandMaker\Engine
- * @version 1.0
+ * @version 3.0
  */
 class AiImageGenerator
 {
@@ -160,16 +165,188 @@ class AiImageGenerator
         return ['path' => $fileBase . '.svg', 'url' => BASE_URL . '/' . $fileBase . '.svg', 'format' => 'svg'];
     }
 
-    /** 🖼️ رندر PNG او‌جی با GD — گرادیان + الگو + متن فارسی شکل‌یافته */
+    /** 🖼️ رندر PNG او‌جی با GD — پس‌زمینه پویا + لوگوی بزرگ + عنوان خودجا‌شو (v3.0) */
     private function renderOgPng(string $destPath, int $seed, string $title, array $palette, array $brand, int $w, int $h, string $font): bool
     {
-        mt_srand($seed);
+        /* 🌈 v3.0: بذر پویا — پس‌زمینه در هر بار تولید متفاوت است (رنگ از پالت برند می‌ماند) */
+        $styleSeed = crc32($seed . '|' . microtime(true) . '|' . random_int(1, 2147483647));
+        mt_srand($styleSeed);
         $img = imagecreatetruecolor($w, $h);
+        imagealphablending($img, true);
 
-        /* --- گرادیان پس‌زمینه (افقی یا عمودی — رسم خطی، بسیار سریع) --- */
         $c1 = $this->hexRgb($palette['c1']);
         $c2 = $this->hexRgb($palette['c2']);
-        $vertical = mt_rand(0, 1) === 1;
+        $accent = $this->hexRgb($palette['accent']);
+
+        /* --- پس‌زمینه پویا (۱۰ سبک — هر تولید یکی) --- */
+        $this->drawDynamicBackground($img, $w, $h, $c1, $c2, $accent, $styleSeed);
+
+        /* --- نوار رنگ تاکیدی --- */
+        $bar = imagecolorallocate($img, $accent[0], $accent[1], $accent[2]);
+        imagefilledrectangle($img, 0, 0, $w, 10, $bar);
+        $white = imagecolorallocate($img, 255, 255, 255);
+        $shadow = imagecolorallocate($img, 0, 0, 0);
+
+        /* --- 🖼 v3.0: لوگوی برند «بزرگ» روی نشان سفید گردگوشه (ارتفاع ۲۰۰px) --- */
+        $brandLogo = $this->brandLogoAsset($brand);
+        $logoBottom = 0; // انتهای عمودی لوگو — عنوان از اینجا شروع می‌شود
+        if ($brandLogo !== null) {
+            $logoRes = $brandLogo['kind'] === 'svg' ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($brandLogo['path'], 520) ?? '', 420) : ImageWatermark::loadResampled($brandLogo['path'], 420);
+            if ($logoRes !== null) {
+                $lw = imagesx($logoRes);
+                $lh = imagesy($logoRes);
+                /* لوگو تا ۱۵۶px ارتفاع / ۵۲۰px عرض — بزرگ و خوانا */
+                $scale = min(156 / $lh, 520 / $lw, 1.6);
+                $dw = max(1, (int)round($lw * $scale));
+                $dh = max(1, (int)round($lh * $scale));
+
+                $pad = 26;
+                $badgeW = $dw + $pad * 2;
+                $badgeH = 200;
+                $logoY = (int)(($badgeH - $dh) / 2);
+                $bx = (int)(($w - $badgeW) / 2);
+                $by = 30;
+                $logoBottom = $by + $badgeH;
+
+                /* سایه نرم زیر نشان */
+                $shCanvas = imagecreatetruecolor($badgeW + 60, $badgeH + 60);
+                imagealphablending($shCanvas, false);
+                imagesavealpha($shCanvas, true);
+                $shTr = imagecolorallocatealpha($shCanvas, 0, 0, 0, 127);
+                imagefill($shCanvas, 0, 0, $shTr);
+                imagealphablending($shCanvas, true);
+                $shCol = imagecolorallocatealpha($shCanvas, 0, 0, 0, 52);
+                imagefilledrectangle($shCanvas, 30, 32, 30 + $badgeW, 32 + $badgeH, $shCol);
+                imagefilter($shCanvas, IMG_FILTER_GAUSSIAN_BLUR);
+                imagefilter($shCanvas, IMG_FILTER_GAUSSIAN_BLUR);
+                ImageWatermark::compositeAlpha($img, $shCanvas, $bx - 30, $by - 18);
+                imagedestroy($shCanvas);
+
+                /* خود نشان — سفید گردگوشه */
+                $badge = imagecreatetruecolor($badgeW, $badgeH);
+                imagealphablending($badge, false);
+                imagesavealpha($badge, true);
+                $badgeTr = imagecolorallocatealpha($badge, 0, 0, 0, 127);
+                imagefill($badge, 0, 0, $badgeTr);
+                $whiteOpaque = imagecolorallocate($badge, 255, 255, 255);
+                $r = 28;
+                imagefilledrectangle($badge, $r, 0, $badgeW - $r, $badgeH, $whiteOpaque);
+                imagefilledrectangle($badge, 0, $r, $badgeW, $badgeH - $r, $whiteOpaque);
+                imagefilledellipse($badge, $r, $r, $r * 2, $r * 2, $whiteOpaque);
+                imagefilledellipse($badge, $badgeW - $r, $r, $r * 2, $r * 2, $whiteOpaque);
+                imagefilledellipse($badge, $r, $badgeH - $r, $r * 2, $r * 2, $whiteOpaque);
+                imagefilledellipse($badge, $badgeW - $r, $badgeH - $r, $r * 2, $r * 2, $whiteOpaque);
+                $scaled = imagecreatetruecolor($dw, $dh);
+                imagealphablending($scaled, false);
+                imagesavealpha($scaled, true);
+                $sTr = imagecolorallocatealpha($scaled, 0, 0, 0, 127);
+                imagefill($scaled, 0, 0, $sTr);
+                imagecopyresampled($scaled, $logoRes, 0, 0, 0, 0, $dw, $dh, $lw, $lh);
+                ImageWatermark::compositeAlpha($badge, $scaled, (int)(($badgeW - $dw) / 2), $logoY);
+                imagedestroy($scaled);
+                ImageWatermark::compositeAlpha($img, $badge, $bx, $by);
+                imagedestroy($badge);
+                imagedestroy($logoRes);
+            }
+        }
+        if ($logoBottom === 0 && $font !== null) {
+            /* مونوگرام دایره‌ای بزرگ با حرف اول برند — جایگزین وقتی لوگو نیست */
+            $brandName0 = trim((string)($brand['name_fa'] ?? ''));
+            if ($brandName0 !== '') {
+                $first = PersianGlyphs::shapeForImage(mb_substr($brandName0, 0, 1));
+                $cx = (int)($w / 2);
+                $cy = 128;
+                $r = 74;
+                $mono = imagecreatetruecolor($r * 2 + 12, $r * 2 + 12);
+                imagealphablending($mono, false);
+                imagesavealpha($mono, true);
+                $mTr = imagecolorallocatealpha($mono, 0, 0, 0, 127);
+                imagefill($mono, 0, 0, $mTr);
+                $circ = imagecolorallocate($mono, 255, 255, 255);
+                imagefilledellipse($mono, $r + 6, $r + 6, $r * 2, $r * 2, $circ);
+                ImageWatermark::compositeAlpha($img, $mono, $cx - $r - 6, $cy - $r - 6, 0.26);
+                imagedestroy($mono);
+                imagesetthickness($img, 3);
+                imagearc($img, $cx, $cy, $r * 2, $r * 2, 0, 360, $bar);
+                $box = imagettfbbox(64, 0, $font, $first);
+                $tw = abs($box[4] - $box[0]);
+                $th = abs($box[5] - $box[1]);
+                imagettftext($img, 64, 0, (int)($cx - $tw / 2), (int)($cy + $th / 2), $white, $font, $first);
+                $logoBottom = $cy + $r + 8;
+            }
+        }
+
+        /* --- ✂️ v3.0: عنوان — شکست هوشمند + جا شدن تضمینی (بدون برش) --- */
+        $titleTop = max($logoBottom + 26, 262);
+        $bottomLimit = $h - 86; // جای نام برند
+        $maxLines = 3;
+        [$lines, $size] = $this->fitTitleLines($title, $font, (int)($w * 0.88), $maxLines, 56, 26);
+        $lineH = (int)($size * 1.42);
+        $blockH = $lineH * count($lines);
+        /* مرکز عمودی ناحیه عنوان */
+        $centerY = (int)(($titleTop + $bottomLimit) / 2);
+        $y = (int)($centerY - $blockH / 2 + $size * 0.92);
+        foreach ($lines as $line) {
+            $shaped = PersianGlyphs::shapeForImage($line);
+            $box = imagettfbbox($size, 0, $font, $shaped);
+            $tw = abs($box[4] - $box[0]);
+            $x = (int)(($w - $tw) / 2);
+            imagettftext($img, $size, 0, $x + 2, $y + 3, $shadow, $font, $shaped); // سایه
+            imagettftext($img, $size, 0, $x, $y, $white, $font, $shaped);
+            $y += $lineH;
+        }
+
+        /* --- نام برند (پایین) --- */
+        $brandName = trim((string)($brand['name_fa'] ?? ''));
+        if ($brandName !== '') {
+            $bShaped = PersianGlyphs::shapeForImage($brandName);
+            $bs = 27;
+            $box = imagettfbbox($bs, 0, $font, $bShaped);
+            $tw = abs($box[4] - $box[0]);
+            imagettftext($img, $bs, 0, (int)(($w - $tw) / 2) + 1, $h - 36, $shadow, $font, $bShaped);
+            imagettftext($img, $bs, 0, (int)(($w - $tw) / 2), $h - 37, $bar, $font, $bShaped);
+        }
+
+        /* --- 🪧 واترمارک‌ها: لوگوی برند پایین-راست + لوگوی نمایندگی پایین-چپ (شفاف) --- */
+        if ($brandLogo !== null) {
+            $bwm = $brandLogo['kind'] === 'svg' ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($brandLogo['path']) ?? '', 170) : ImageWatermark::loadResampled($brandLogo['path'], 170);
+            if ($bwm !== null) {
+                ImageWatermark::drawAlpha($img, $bwm, $w - imagesx($bwm) - 24, $h - imagesy($bwm) - 22, 0.6);
+                imagedestroy($bwm);
+            }
+        }
+        $agencyLogo = $this->agencyLogoAsset();
+        if ($agencyLogo !== null) {
+            $wmRes = $agencyLogo['kind'] === 'svg'
+                ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($agencyLogo['path']) ?? '', 190)
+                : ImageWatermark::loadResampled($agencyLogo['path'], 190);
+            if ($wmRes !== null) {
+                ImageWatermark::drawAlpha($img, $wmRes, 24, $h - imagesy($wmRes) - 22, 0.62);
+                imagedestroy($wmRes);
+            }
+        }
+
+        $ok = imagepng($img, $destPath, 7);
+        imagedestroy($img);
+        return $ok;
+    }
+
+    /* ==================================================
+     * 🌈 پس‌زمینه پویا — ۱۰ سبک (v3.0)
+     * ================================================== */
+
+    /**
+     * 🌈 رسم پس‌زمینه پویا — سبک در هر تولید تصادفی؛ رنگ‌ها از پالت برند
+     *
+     * سبک‌ها: ۰ شبکه‌ای(mesh) ۱ موج ۲ پرتو ۳ حباب ۴ شبکه‌ای گرید
+     *         ۵ راه‌راه مورب ۶ حلقه‌ها ۷ نقطه‌موج ۸ شفق ۹ چندضلعی
+     */
+    private function drawDynamicBackground($img, int $w, int $h, array $c1, array $c2, array $accent, int $styleSeed): void
+    {
+        $style = abs($styleSeed) % 10;
+
+        /* --- گرادیان پایه (با زاویه تصادفی) --- */
+        $vertical = (abs($styleSeed >> 3) % 2) === 1;
         $steps = $vertical ? $h : $w;
         for ($i = 0; $i < $steps; $i++) {
             $t = $i / max(1, $steps - 1);
@@ -184,180 +361,224 @@ class AiImageGenerator
             }
         }
 
-        /* --- لکه‌های نرم نیمه‌شفاف (عمق بصری) --- */
-        imagealphablending($img, true);
-        $accent = $this->hexRgb($palette['accent']);
-        foreach ([[$w * .88, $h * .16, 260], [$w * .08, $h * .9, 300]] as [$cx, $cy, $r]) {
-            $blob = imagecreatetruecolor((int)$r * 2, (int)$r * 2);
-            $transparent = imagecolorallocatealpha($blob, 0, 0, 0, 127);
-            imagefill($blob, 0, 0, $transparent);
-            $soft = imagecolorallocatealpha($blob, 255, 255, 255, 110);
-            imagefilledellipse($blob, (int)$r, (int)$r, (int)$r * 2, (int)$r * 2, $soft);
-            imagecopymerge($img, $blob, (int)($cx - $r), (int)($cy - $r), 0, 0, (int)$r * 2, (int)$r * 2, 26);
-            imagedestroy($blob);
+        /* رنگ‌های کمکی: روشن/تیره‌شده پالت */
+        $light = [min(255, $c2[0] + 70), min(255, $c2[1] + 70), min(255, $c2[2] + 70)];
+        $dark = [max(0, (int)($c1[0] * 0.55)), max(0, (int)($c1[1] * 0.55)), max(0, (int)($c1[2] * 0.55))];
+
+        switch ($style) {
+            case 0: /* 🕸 شبکه‌ای mesh — لکه‌های نرم در چند نقطه */
+                $spots = [
+                    [mt_rand(0, $w), mt_rand(0, $h), mt_rand(220, 380), $accent],
+                    [mt_rand(0, $w), mt_rand(0, $h), mt_rand(180, 320), $light],
+                    [mt_rand(0, $w), mt_rand(0, $h), mt_rand(160, 300), $dark],
+                ];
+                foreach ($spots as [$cx, $cy, $rad, $col]) {
+                    $this->softGlow($img, $cx, $cy, $rad, $col, 14);
+                }
+                break;
+
+            case 1: /* 🌊 موج — نوارهای موجی نیمه‌شفاف */
+                foreach ([0.42, 0.58, 0.74] as $k => $base) {
+                    $col = $k % 2 === 0 ? $light : $accent;
+                    $amp = mt_rand(18, 34);
+                    $phase = mt_rand(0, 360);
+                    $yBase = (int)($h * $base);
+                    for ($x = 0; $x < $w; $x += 4) {
+                        $yy = $yBase + (int)round(sin(deg2rad($x / mt_rand(90, 140) + $phase)) * $amp);
+                        imagefilledrectangle($img, $x, $yy, $x + 4, $h, imagecolorallocatealpha($img, $col[0], $col[1], $col[2], 108 - $k * 14));
+                    }
+                }
+                break;
+
+            case 2: /* ☀️ پرتو — از گوشه بالا-راست */
+                $cx = $w - mt_rand(60, 200);
+                $cy = mt_rand(-60, 40);
+                for ($i = 0; $i < 14; $i++) {
+                    $ang = 180 + $i * (180 / 14) + mt_rand(-4, 4);
+                    $x2 = $cx + (int)round(cos(deg2rad($ang)) * $w * 1.5);
+                    $y2 = $cy + (int)round(sin(deg2rad($ang)) * $w * 1.5);
+                    imagefilledpolygon($img, [
+                        $cx, $cy,
+                        $x2, $y2,
+                        $cx + (int)round(cos(deg2rad($ang + 7)) * $w * 1.5), $cy + (int)round(sin(deg2rad($ang + 7)) * $w * 1.5),
+                    ], imagecolorallocatealpha($img, $light[0], $light[1], $light[2], 114));
+                }
+                break;
+
+            case 3: /* 🫧 حباب — دایره‌های شفاف پراکنده */
+                for ($i = 0; $i < 26; $i++) {
+                    $rad = mt_rand(14, 120);
+                    $col = $i % 3 === 0 ? $light : ($i % 3 === 1 ? $accent : [255, 255, 255]);
+                    imagefilledellipse($img, mt_rand(0, $w), mt_rand(0, $h), $rad * 2, $rad * 2, imagecolorallocatealpha($img, $col[0], $col[1], $col[2], 116));
+                }
+                break;
+
+            case 4: /* 🀫 شبکه پرسپکتیو */
+                $vpX = mt_rand((int)($w * 0.3), (int)($w * 0.7));
+                $lineCol = imagecolorallocatealpha($img, 255, 255, 255, 118);
+                for ($i = -10; $i <= 10; $i++) {
+                    imageline($img, $vpX, $h, $vpX + $i * (int)($w / 6), 0, $lineCol);
+                }
+                for ($i = 1; $i <= 8; $i++) {
+                    $yy = $h - (int)($h * ($i * $i) / 74);
+                    if ($yy < 0) { break; }
+                    imageline($img, 0, $yy, $w, $yy, $lineCol);
+                }
+                $this->softGlow($img, $vpX, $h - 30, 300, $accent, 16);
+                break;
+
+            case 5: /* 🦓 راه‌راه مورب */
+                $col = $light;
+                $gap = mt_rand(46, 74);
+                for ($i = -$h; $i < $w + $h; $i += $gap) {
+                    imagefilledpolygon($img, [$i, 0, $i + $gap / 2, 0, $i + $gap / 2 + $h, $h, $i + $h, $h], imagecolorallocatealpha($img, $col[0], $col[1], $col[2], 120));
+                }
+                break;
+
+            case 6: /* 🎯 حلقه‌های هم‌مرکز */
+                $cx = mt_rand((int)($w * 0.62), (int)($w * 0.9));
+                $cy = mt_rand((int)($h * 0.1), (int)($h * 0.5));
+                for ($rad = 60; $rad < $w; $rad += mt_rand(34, 58)) {
+                    imageellipse($img, $cx, $cy, $rad * 2, $rad * 2, imagecolorallocatealpha($img, 255, 255, 255, 104));
+                }
+                imageellipse($img, $cx, $cy, 190, 190, imagecolorallocatealpha($img, $accent[0], $accent[1], $accent[2], 66));
+                break;
+
+            case 7: /* ⠿ نقطه‌موج — ماتریس نقطه با اندازه موجی */
+                for ($x = 36; $x < $w; $x += 46) {
+                    for ($y = 36; $y < $h; $y += 46) {
+                        $rad = 1.6 + abs(sin(deg2rad(($x + $y) / 26))) * 3.4;
+                        imagefilledellipse($img, $x, $y, (int)($rad * 2), (int)($rad * 2), imagecolorallocatealpha($img, 255, 255, 255, 96));
+                    }
+                }
+                $this->softGlow($img, (int)($w * 0.15), (int)($h * 0.85), 260, $accent, 18);
+                break;
+
+            case 8: /* 🌌 شفق — نوارهای افقی نرم چندرنگ */
+                foreach ([$light, $accent, $dark, $light] as $k => $col) {
+                    $yBase = (int)($h * (0.14 + $k * 0.2)) + mt_rand(-16, 16);
+                    $bandH = mt_rand(52, 96);
+                    for ($yy = 0; $yy < $bandH; $yy += 3) {
+                        $alpha = (int)(104 * (1 - abs($yy - $bandH / 2) / ($bandH / 2)));
+                        imageline($img, 0, $yBase + $yy, $w, $yBase + $yy, imagecolorallocatealpha($img, $col[0], $col[1], $col[2], max(8, $alpha)));
+                    }
+                }
+                break;
+
+            default: /* 🔷 چندضلعی‌ها */
+                for ($i = 0; $i < 12; $i++) {
+                    $cx = mt_rand(0, $w);
+                    $cy = mt_rand(0, $h);
+                    $size = mt_rand(60, 220);
+                    $pts = [];
+                    $n = mt_rand(3, 6);
+                    $rot = mt_rand(0, 360);
+                    for ($p = 0; $p < $n; $p++) {
+                        $ang = $rot + $p * (360 / $n);
+                        $pts[] = $cx + (int)round(cos(deg2rad($ang)) * $size);
+                        $pts[] = $cy + (int)round(sin(deg2rad($ang)) * $size);
+                    }
+                    $col = $i % 3 === 0 ? $accent : ($i % 3 === 1 ? $light : $dark);
+                    imagefilledpolygon($img, $pts, imagecolorallocatealpha($img, $col[0], $col[1], $col[2], 118));
+                }
+                break;
         }
 
-        /* --- الگوی نقطه‌ای ملایم --- */
-        $dotCol = imagecolorallocatealpha($img, 255, 255, 255, 96);
-        for ($x = 30; $x < $w; $x += 44) {
-            for ($y = 30; $y < $h; $y += 44) {
-                if ((int)(($x + $y) / 44) % 7 !== ($seed % 5)) {
-                    imagefilledellipse($img, $x, $y, 3, 3, $dotCol);
+        /* پرده تیره ملایم پایین — خوانایی متن عنوان */
+        $bottomCurtain = imagecolorallocatealpha($img, 0, 0, 0, 84);
+        for ($yy = (int)($h * 0.5); $yy < $h; $yy++) {
+            $t = ($yy - $h * 0.5) / ($h * 0.5); // 0..1
+            $alpha = (int)(52 + 74 * $t);
+            imageline($img, 0, $yy, $w, $yy, imagecolorallocatealpha($img, 0, 0, 0, $alpha));
+        }
+        unset($bottomCurtain);
+    }
+
+    /** 💡 هاله نرم بدون فیلتر blur — دایره‌های هم‌مرکز با آلفای پلکانی */
+    private function softGlow($img, int $cx, int $cy, int $radius, array $rgb, int $steps = 12): void
+    {
+        for ($i = $steps; $i >= 1; $i--) {
+            $rad = (int)round($radius * $i / $steps);
+            $alpha = (int)round(110 * (1 - $i / ($steps + 1))); // بیرونی کم‌رنگ‌تر
+            imagefilledellipse($img, $cx, $cy, $rad * 2, $rad * 2, imagecolorallocatealpha($img, $rgb[0], $rgb[1], $rgb[2], max(4, $alpha)));
+        }
+    }
+
+    /**
+     * ✂️ عنوان خودجا‌شو (v3.0) — شکست واژه‌محور تا ۳ خط + کاهش اندازه فونت تا
+     * جا شدن کامل عرض؛ هیچ کلمه‌ای بریده نمی‌شود. فقط اگر عنوان فوق‌طولانی بود
+     * (بیش از ۳ خط حتی با فونت ۲۶) آخر خط سوم با «…» بسته می‌شود.
+     *
+     * @return array{0: string[], 1: int} [خطوط, اندازه فونت]
+     */
+    private function fitTitleLines(string $title, string $font, int $maxWidth, int $maxLines = 3, int $startSize = 56, int $minSize = 26): array
+    {
+        $title = trim(preg_replace('/\s+/u', ' ', $title));
+        if ($title === '') {
+            return [['—'], $startSize];
+        }
+        /* شکست واژه‌محور متوازن */
+        $lines = $this->wrapBalanced($title, $maxLines);
+
+        $size = $startSize;
+        while ($size > $minSize) {
+            $widest = 0;
+            foreach ($lines as $line) {
+                $box = @imagettfbbox($size, 0, $font, PersianGlyphs::shapeForImage($line));
+                if (is_array($box)) {
+                    $widest = max($widest, abs($box[4] - $box[0]));
                 }
             }
+            if ($widest <= $maxWidth) {
+                break;
+            }
+            $size -= 2;
         }
+        /* اگر حتی با فونت کمینه جا نشد → خط آخر در مرز واژه کوتاه می‌شود */
+        $box = @imagettfbbox($size, 0, $font, PersianGlyphs::shapeForImage(end($lines) ?: ''));
+        $widest = is_array($box) ? abs($box[4] - $box[0]) : 0;
+        if ($widest > $maxWidth) {
+            $last = $lines[count($lines) - 1];
+            while (mb_strlen($last) > 8) {
+                $last = mb_substr($last, 0, -1);
+                $box = @imagettfbbox($size, 0, $font, PersianGlyphs::shapeForImage($last . '…'));
+                if (is_array($box) && abs($box[4] - $box[0]) <= $maxWidth) {
+                    break;
+                }
+            }
+            $lines[count($lines) - 1] = rtrim($last, ' ،') . '…';
+        }
+        return [$lines, $size];
+    }
 
-        /* --- نوار رنگ تاکیدی --- */
-        $bar = imagecolorallocate($img, $accent[0], $accent[1], $accent[2]);
-        imagefilledrectangle($img, 0, 0, $w, 10, $bar);
-        $white = imagecolorallocate($img, 255, 255, 255);
-        $shadow = imagecolorallocate($img, 0, 0, 0);
-
-        /* --- 🖼 v2.8: لوگوی برند روی «نشان سفید گردگوشه» — زیبا و خوانا برای
-               هر لوگویی (تیره/روشن/JPG). JPGها زمینه خود را دارند که در نشان سفید
-               محو می‌شود؛ PNG/SVG شفاف دقیقاً روی نشان می‌نشینند (شفافیت حفظ می‌شود). --- */
-        $brandLogo = $this->brandLogoAsset($brand);
-        $brandDrawn = false;
-        if ($brandLogo !== null) {
-            $logoRes = $brandLogo['kind'] === 'svg' ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($brandLogo['path']) ?? '', 320) : ImageWatermark::loadResampled($brandLogo['path'], 320);
-            if ($logoRes !== null) {
-                $lw = imagesx($logoRes);
-                $lh = imagesy($logoRes);
-                $scale = min(78 / $lh, 240 / $lw, 1);
-                $dw = max(1, (int)round($lw * $scale));
-                $dh = max(1, (int)round($lh * $scale));
-
-                /* نشان سفید: حاشیه ۲۲px + ارتفاع ۱۲۲px + گوشه گرد ۲۴px + سایه نرم */
-                $pad = 22;
-                $badgeW = $dw + $pad * 2;
-                $badgeH = 122;
-                $logoY = (int)(($badgeH - $dh) / 2);
-                $bx = (int)(($w - $badgeW) / 2);
-                $by = 34;
-
-                /* سایه نرم زیر نشان */
-                imagealphablending($img, true);
-                $shCanvas = imagecreatetruecolor($badgeW + 40, $badgeH + 40);
-                imagealphablending($shCanvas, false);
-                imagesavealpha($shCanvas, true);
-                $shTr = imagecolorallocatealpha($shCanvas, 0, 0, 0, 127);
-                imagefill($shCanvas, 0, 0, $shTr);
-                imagealphablending($shCanvas, true);
-                $shCol = imagecolorallocatealpha($shCanvas, 0, 0, 0, 58);
-                imagefilledrectangle($shCanvas, 20, 22, 20 + $badgeW, 22 + $badgeH, $shCol);
-                imagefilter($shCanvas, IMG_FILTER_GAUSSIAN_BLUR);
-                imagefilter($shCanvas, IMG_FILTER_GAUSSIAN_BLUR);
-                ImageWatermark::compositeAlpha($img, $shCanvas, $bx - 20, $by - 12);
-                imagedestroy($shCanvas);
-
-                /* خود نشان — گردگوشه با آلفا */
-                $badge = imagecreatetruecolor($badgeW, $badgeH);
-                imagealphablending($badge, false);
-                imagesavealpha($badge, true);
-                $badgeTr = imagecolorallocatealpha($badge, 0, 0, 0, 127);
-                imagefill($badge, 0, 0, $badgeTr);
-                $whiteOpaque = imagecolorallocate($badge, 255, 255, 255);
-                $r = 24;
-                imagefilledrectangle($badge, $r, 0, $badgeW - $r, $badgeH, $whiteOpaque);
-                imagefilledrectangle($badge, 0, $r, $badgeW, $badgeH - $r, $whiteOpaque);
-                imagefilledellipse($badge, $r, $r, $r * 2, $r * 2, $whiteOpaque);
-                imagefilledellipse($badge, $badgeW - $r, $r, $r * 2, $r * 2, $whiteOpaque);
-                imagefilledellipse($badge, $r, $badgeH - $r, $r * 2, $r * 2, $whiteOpaque);
-                imagefilledellipse($badge, $badgeW - $r, $badgeH - $r, $r * 2, $r * 2, $whiteOpaque);
-                /* لوگو با مقیاس و آلفای حفظ‌شده، سپس ترکیب قطعی روی نشان */
-                $scaled = imagecreatetruecolor($dw, $dh);
-                imagealphablending($scaled, false);
-                imagesavealpha($scaled, true);
-                $sTr = imagecolorallocatealpha($scaled, 0, 0, 0, 127);
-                imagefill($scaled, 0, 0, $sTr);
-                imagecopyresampled($scaled, $logoRes, 0, 0, 0, 0, $dw, $dh, $lw, $lh);
-                ImageWatermark::compositeAlpha($badge, $scaled, (int)(($badgeW - $dw) / 2), $logoY);
-                imagedestroy($scaled);
-                ImageWatermark::compositeAlpha($img, $badge, $bx, $by);
-                imagedestroy($badge);
-                imagedestroy($logoRes);
-                $brandDrawn = true;
+    /** ⚖️ شکست متوازن عنوان به حداکثر N خط — خطوط هم‌قد می‌شوند */
+    private function wrapBalanced(string $text, int $maxLines): array
+    {
+        $words = explode(' ', $text);
+        if (count($words) <= 1) {
+            return [$text];
+        }
+        $target = (int)ceil(mb_strlen(implode(' ', $words)) / $maxLines) + 4;
+        $lines = [];
+        $cur = '';
+        foreach ($words as $wd) {
+            $try = $cur === '' ? $wd : $cur . ' ' . $wd;
+            if (mb_strlen($try) > $target && $cur !== '' && count($lines) < $maxLines - 1) {
+                $lines[] = $cur;
+                $cur = $wd;
+            } else {
+                $cur = $try;
             }
         }
-        if (!$brandDrawn && $font !== null) {
-            /* مونوگرام دایره‌ای با حرف اول برند — جایگزین زیبا وقتی لوگو نیست
-               (v2.8: دایره روی بوم جداگانه + ترکیب قطعی — مستقل از رفتار آلفای بیلد GD) */
-            $brandName0 = trim((string)($brand['name_fa'] ?? ''));
-            if ($brandName0 !== '') {
-                $first = mb_substr($brandName0, 0, 1);
-                $cx = (int)($w / 2);
-                $cy = 96;
-                $r = 46;
-                $mono = imagecreatetruecolor($r * 2 + 8, $r * 2 + 8);
-                imagealphablending($mono, false);
-                imagesavealpha($mono, true);
-                $mTr = imagecolorallocatealpha($mono, 0, 0, 0, 127);
-                imagefill($mono, 0, 0, $mTr);
-                $circ = imagecolorallocate($mono, 255, 255, 255);
-                imagefilledellipse($mono, $r + 4, $r + 4, $r * 2, $r * 2, $circ);
-                ImageWatermark::compositeAlpha($img, $mono, $cx - $r - 4, $cy - $r - 4, 0.24);
-                imagedestroy($mono);
-                imagesetthickness($img, 2);
-                imagearc($img, $cx, $cy, $r * 2, $r * 2, 0, 360, $bar);
-                $shapedM = PersianGlyphs::shapeForImage($first);
-                $box = imagettfbbox(44, 0, $font, $shapedM);
-                $tw = abs($box[4] - $box[0]);
-                $th = abs($box[5] - $box[1]);
-                imagettftext($img, 44, 0, (int)($cx - $tw / 2), (int)($cy + $th / 2), $white, $font, $shapedM);
-            }
+        if ($cur !== '') {
+            $lines[] = $cur;
         }
-
-        /* --- متن عنوان فارسی: شکل‌دهی + دو خط --- */
-        $lines = $this->wrapPersian($title, 26, 2);
-        $size = count($lines) > 1 ? 46 : 54;
-        $lineH = (int)($size * 1.55);
-        $blockH = $lineH * count($lines);
-        $centerY = (int)(($h - $blockH) / 2 + $size);
-        if ($brandLogo !== null) {
-            $centerY += 34; // جابه‌جایی جزئی برای جای لوگو
+        /* ادغام خط آخر خیلی کوتاه با قبلی اگر جا شد */
+        if (count($lines) > 1 && mb_strlen(end($lines)) < 8) {
+            $last = array_pop($lines);
+            $lines[count($lines) - 1] .= ' ' . $last;
         }
-        $y = $centerY;
-        foreach ($lines as $line) {
-            $shaped = PersianGlyphs::shapeForImage($line);
-            $box = imagettfbbox($size, 0, $font, $shaped);
-            $tw = abs($box[4] - $box[0]);
-            $x = (int)(($w - $tw) / 2);
-            imagettftext($img, $size, 0, $x + 2, $y + 2, $shadow, $font, $shaped); // سایه
-            imagettftext($img, $size, 0, $x, $y, $white, $font, $shaped);
-            $y += $lineH;
-        }
-
-        /* --- نام برند (پایین) --- */
-        $brandName = trim((string)($brand['name_fa'] ?? ''));
-        if ($brandName !== '') {
-            $bShaped = PersianGlyphs::shapeForImage($brandName);
-            $bs = 26;
-            $box = imagettfbbox($bs, 0, $font, $bShaped);
-            $tw = abs($box[4] - $box[0]);
-            imagettftext($img, $bs, 0, (int)(($w - $tw) / 2) + 1, $h - 38, $shadow, $font, $bShaped);
-            imagettftext($img, $bs, 0, (int)(($w - $tw) / 2), $h - 39, $bar, $font, $bShaped);
-        }
-
-        /* --- 🪧 v2.7.2: واترمارک لوگوی نمایندگی در گوشه — شفافیت واقعی
-               (رفع باگ زمینه مشکی: imagecopymerge آلفا را نادیده می‌گرفت) --- */
-        $agencyLogo = $this->agencyLogoAsset();
-        if ($agencyLogo !== null) {
-            $wmRes = $agencyLogo['kind'] === 'svg'
-                ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($agencyLogo['path']) ?? '', 240)
-                : ImageWatermark::loadResampled($agencyLogo['path'], 240);
-            if ($wmRes !== null) {
-                $ww = imagesx($img);
-                $wh = imagesy($img);
-                $dw = imagesx($wmRes);
-                $dh = imagesy($wmRes);
-                ImageWatermark::drawAlpha($img, $wmRes, 26, $wh - $dh - 26, 0.62);
-                imagedestroy($wmRes);
-            }
-        }
-
-        $ok = imagepng($img, $destPath, 7);
-        imagedestroy($img);
-        return $ok;
+        return $lines;
     }
 
     /* ==================================================
