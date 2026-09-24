@@ -13,11 +13,9 @@ require_once dirname(__DIR__) . '/config.php';
 
 $pageTitle = 'تگ‌های وبمستر';
 $activeMenu = 'webmaster';
-require __DIR__ . '/includes/header.php';
-
 $db = Database::getInstance();
 
-/* 💾 ذخیره تگ‌ها */
+/* 💾 ذخیره تگ‌ها — قبل از هدر (الگوی PRG — جلوگیری از شکست redirect) */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_webmaster') {
     Auth::enforceCsrf();
     $ids = (array)($_POST['tag_id'] ?? []);
@@ -51,6 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
     flash('success', '✅ تگ‌های وبمستر ذخیره شدند.');
     redirect('webmaster.php');
 }
+
+require __DIR__ . '/includes/header.php';
 
 $tags = $db->fetchAll('SELECT * FROM webmaster_tags ORDER BY id');
 ?>

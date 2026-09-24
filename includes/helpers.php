@@ -162,6 +162,11 @@ function mb_char_alternation(string $chars): string
 
 /**
  * ➡️ ریدایرکت امن (فقط مسیرهای داخلی جلوگیری از Open Redirect)
+ *
+ * 🛡️ ضدگلوله: اگر خروجی HTML از قبل شروع شده باشد (مثلاً هدر صفحه
+ * قبل از پردازش فریم لود شده)، هدر Location با خطای «headers already
+ * sent» شکست می‌خورد — در این حالت ریدایرکت جاوااسکریپتی جایگزین
+ * می‌شود تا فرآیند ذخیره/پاک‌سازی همیشه با بارگذاری مجدد صفحه تمام شود.
  */
 function redirect(string $path): void
 {
@@ -169,7 +174,24 @@ function redirect(string $path): void
     if (preg_match('#^https?://#i', $path) && strpos($path, BASE_URL) !== 0) {
         $path = '/'; // آدرس خارجی مجاز نیست
     }
-    header('Location: ' . $path);
+
+    // مسیر نسبی → مطلق (برای سازگاری با هدر Location)
+    if ($path !== '' && $path[0] === '/' && !preg_match('#^https?://#i', $path)) {
+        $path = BASE_URL . $path;
+    }
+
+    if (!headers_sent()) {
+        header('Location: ' . $path);
+        exit;
+    }
+
+    // 🔄 fallback — خروجی شروع شده؛ ریدایرکت سمت کلاینت
+    echo '<!doctype html><html><head><meta charset="utf-8">';
+    echo '<meta http-equiv="refresh" content="0;url=' . htmlspecialchars($path, ENT_QUOTES, 'UTF-8') . '">';
+    echo '<script>location.replace(' . json_encode($path) . ');</script></head>';
+    echo '<body style="font-family:Tahoma,sans-serif;direction:rtl;text-align:center;padding:40px">';
+    echo '⏳ در حال انتقال... <a href="' . htmlspecialchars($path, ENT_QUOTES, 'UTF-8') . '">اگر منتقل نشد کلیک کنید</a>';
+    echo '</body></html>';
     exit;
 }
 

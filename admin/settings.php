@@ -13,12 +13,14 @@ require_once dirname(__DIR__) . '/config.php';
 
 $pageTitle = 'تنظیمات عمومی';
 $activeMenu = 'settings';
-require __DIR__ . '/includes/header.php';
 
 $db = Database::getInstance();
 $fm = new FileManager();
 
-/* 💾 ذخیره تنظیمات */
+/* 💾 ذخیره تنظیمات — ⚠️ حتماً قبل از هدر پردازش شود (الگوی PRG:
+   قبلاً هدر قبل از این بلوک لود می‌شد → خروجی HTML ارسال شده بود و
+   redirect() با «headers already sent» شکست می‌خورد → تنظیمات ظاهراً
+   ذخیره نمی‌شد و صفحه اطلاعات قبلی را نشان می‌داد) */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_settings') {
     Auth::enforceCsrf();
 
@@ -173,6 +175,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
     flash('success', '✅ تنظیمات با موفقیت ذخیره شد.');
     redirect('settings.php');
 }
+
+require __DIR__ . '/includes/header.php';
 
 /* 📥 بارگذاری مقادیر فعلی */
 $nameFa   = (string)Config::get(Config::KEY_AGENCY_NAME_FA);

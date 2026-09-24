@@ -54,6 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         $db->update('brands', $update, 'id = ?', [$brandId]);
+        /* 🧹 کش صفحات برند پس از تغییر اطلاعات پایه پاک شود */
+        (new Cache())->delete('brand_' . $brandId . '_pages');
         Logger::activity((int)$_SESSION['user_id'], 'ویرایش برند', $brand['name_fa']);
         flash('success', '✅ اطلاعات برند بروزرسانی شد.');
         redirect('brand-edit.php?id=' . $brandId);
