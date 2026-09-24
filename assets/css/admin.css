@@ -291,7 +291,7 @@ body.no-scroll { overflow: hidden; }
 
 /* ---------- 📋 جدول‌ها ---------- */
 .table-wrap { overflow-x: auto; }
-table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
 table.table th {
     background: #f8fafc;
     padding: 12px 16px;
@@ -301,7 +301,10 @@ table.table th {
     border-bottom: 1px solid var(--border);
     white-space: nowrap;
 }
-table.table td { padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+table.table td { padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; overflow-wrap: break-word; }
+/* 🆕 v2.7.1: حداقل عرض متن برای ستون‌های متنی — جلوگیری از ستون‌های باریکِ غیرقابل‌خواندن */
+table.table td:not(.actions) { min-width: 72px; }
+table.table ul, table.table ol { margin: 4px 18px 4px 0; }
 table.table tr:last-child td { border-bottom: none; }
 table.table tr:hover td { background: #f8fafc; }
 table.table .actions { display: flex; gap: 6px; align-items: center; }
@@ -353,8 +356,11 @@ select.form-control { cursor: pointer; }
     .form-row, .form-row-3 { grid-template-columns: 1fr; }
 }
 
-/* متن‌های بلند بدون فاصله نباید چیدمان را بشکنند */
-td, .card-body, .alert, .card-header h3, .topbar-titles { overflow-wrap: anywhere; }
+/* متن‌های بلند بدون فاصله نباید چیدمان را بشکنند
+   ⚠️ v2.7.1: قبلاً overflow-wrap:anywhere بود که عرض ذاتی سلول‌ها را به یک حرف
+   می‌ریخت → ستون‌های جدول باریک و متن‌ها در ۲۰ سطر شکسته می‌شدند.
+   break-word همان محافظت را می‌دهد بدون خراب‌کردن عرض ستون‌ها. */
+td, .card-body, .alert, .card-header h3, .topbar-titles { overflow-wrap: break-word; word-break: normal; }
 .form-group, .form-control { min-width: 0; }
 
 /* چک‌باکس و سوییچ */
@@ -642,12 +648,12 @@ td, .card-body, .alert, .card-header h3, .topbar-titles { overflow-wrap: anywher
     .content { padding: 14px; }
     .card-body { padding: 16px; }
     .card-header { padding: 13px 16px; }
-    .card-header h3 { font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
+    .card-header h3 { font-size: 14px; min-width: 0; overflow-wrap: break-word; }
     .form-control { font-size: 13px; }
     input[type="file"].form-control { font-size: 11.5px; }
     .topbar { gap: 10px; }
     .topbar-titles { min-width: 0; }
-    .topbar h2 { overflow-wrap: anywhere; }
+    .topbar h2 { overflow-wrap: break-word; }
     .stats-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
     .stat-card { padding: 15px; gap: 11px; }
     .stat-card .icon { width: 44px; height: 44px; font-size: 20px; }

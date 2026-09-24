@@ -196,7 +196,7 @@ a { color: var(--color-primary); text-decoration: none; transition: var(--transi
 .article-content table { width: 100%; border-collapse: collapse; margin: 18px 0; display: block; overflow-x: auto; }
 .article-content th, .article-content td { border: 1px solid var(--color-border); padding: 9px 14px; font-size: 13px; }
 .article-content th { background: var(--color-surface); white-space: nowrap; }
-.article-content td { overflow-wrap: anywhere; }
+.article-content td { overflow-wrap: break-word; }
 .article-content img { border-radius: 11px; margin: 14px 0; }
 .article-cta { background: var(--color-surface); border-radius: var(--radius); padding: 25px; text-align: center; margin-top: 35px; }
 .related-articles { margin-top: 40px; }
