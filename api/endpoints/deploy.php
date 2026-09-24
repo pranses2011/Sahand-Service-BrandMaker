@@ -40,6 +40,9 @@ function api_deploy_require_permission(): void
 
 /**
  * 🚀 شروع استقرار جدید برند
+ *
+ * 🌐 v2.12: بدنه می‌تواند domain_type = 'subdomain' (پیش‌فرض) یا 'addon' باشد؛
+ *    در حالت addon، پارامتر addon_domain الزامی است (دامنه کامل مثل mybrand.ir)
  */
 function api_deploy_start(int $brandId): void
 {
@@ -54,6 +57,28 @@ function api_deploy_start(int $brandId): void
     $input = Router::jsonInput();
     $settings = PathResolver::getSettings();
     $rootDomain = (string)($settings['root_domain'] ?? '');
+    $domainType = ($input['domain_type'] ?? 'subdomain') === 'addon' ? 'addon' : 'subdomain';
+    $sslInstall = !isset($input['ssl_install']) ? true : (bool)$input['ssl_install'];
+
+    /* 🌐 مسیر دامنه الحاقی (Addon) */
+    if ($domainType === 'addon') {
+        $addonDomain = strtolower(trim((string)($input['addon_domain'] ?? '')));
+        $check = SubdomainValidator::validateFullDomain($addonDomain);
+        if (!$check['valid']) {
+            json_response(['success' => false, 'error' => $check['error']], 422);
+        }
+        $existing = $db->fetch('SELECT id, name_fa FROM brands WHERE full_domain = ? AND id != ? LIMIT 1', [$addonDomain, $brandId]);
+        if ($existing) {
+            json_response(['success' => false, 'error' => 'این دامنه قبلاً برای برند «' . $existing['name_fa'] . '» ثبت شده است.'], 409);
+        }
+        $deployer = new Deployer();
+        $result = $deployer->queueDeploy($brandId, strtok($addonDomain, '.'), $sslInstall, 'api', 'addon', $addonDomain);
+        json_response($result + [
+            'steps' => array_map(function ($s) {
+                return ['key' => $s[0], 'title' => $s[1]];
+            }, $deployer->stepsFor('deploy')),
+        ], $result['success'] ? 200 : 400);
+    }
 
     if ($rootDomain === '') {
         json_response(['success' => false, 'error' => 'دامنه اصلی در تنظیمات cPanel ثبت نشده است'], 400);
@@ -75,8 +100,6 @@ function api_deploy_start(int $brandId): void
             'suggestions' => $check['suggestions'],
         ], 422);
     }
-
-    $sslInstall = !isset($input['ssl_install']) ? true : (bool)$input['ssl_install'];
 
     $deployer = new Deployer();
     $result = $deployer->queueDeploy($brandId, $subdomain, $sslInstall, 'api');
