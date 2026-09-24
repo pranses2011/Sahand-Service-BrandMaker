@@ -162,6 +162,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         'default_nofollow'   => !empty($_POST['link_nofollow']),
     ]);
 
+    // 🔤 v2.12: فونت محیط سایت‌ساز (متن/عنوان/کد — از بین فونت‌های نصب‌شده)
+    Config::set('admin_ui_fonts', [
+        'body'    => clean_input($_POST['ui_font_body'] ?? ''),
+        'heading' => clean_input($_POST['ui_font_heading'] ?? ''),
+        'mono'    => clean_input($_POST['ui_font_mono'] ?? ''),
+    ]);
+
     Logger::activity((int)$_SESSION['user_id'], 'بروزرسانی تنظیمات', 'تنظیمات عمومی سایت ساز ذخیره شد');
     flash('success', '✅ تنظیمات با موفقیت ذخیره شد.');
     redirect('settings.php');
@@ -193,6 +200,17 @@ $smtp      = (array)(Config::get('smtp_settings') ?: []);
 $linking   = (array)(Config::get(Config::KEY_LINKING) ?: []);
 
 $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنبه', 'tue' => 'سه‌شنبه', 'wed' => 'چهارشنبه', 'thu' => 'پنجشنبه', 'fri' => 'جمعه'];
+
+/* 🔤 v2.12: فونت‌های فارسی نصب‌شده (فقط پوشه‌هایی که فایل فونت دارند) برای تنظیم محیط پنل */
+$uiFonts = (array)(Config::get('admin_ui_fonts') ?: []);
+$fontsManifest = is_file(ASSETS_PATH . '/fonts/manifest.json') ? (json_decode((string)file_get_contents(ASSETS_PATH . '/fonts/manifest.json'), true) ?: []) : [];
+$installedFaFonts = [];
+foreach (($fontsManifest['fonts']['fa'] ?? []) as $uiF) {
+    $uiDir = ASSETS_PATH . '/fonts/fa/' . ($uiF['slug'] ?? '');
+    if (is_dir($uiDir) && (glob($uiDir . '/*.woff2') || glob($uiDir . '/*.ttf') || glob($uiDir . '/*.woff'))) {
+        $installedFaFonts[] = $uiF;
+    }
+}
 ?>
 
 <form method="post" enctype="multipart/form-data">
@@ -209,6 +227,7 @@ $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنب�
             <button type="button" class="stab-btn" data-tab="cost">💰 هزینه و دامنه</button>
             <button type="button" class="stab-btn" data-tab="notify">📨 ارسال درخواست</button>
             <button type="button" class="stab-btn" data-tab="links">🔗 لینک‌دهی</button>
+            <button type="button" class="stab-btn" data-tab="uifonts">🔤 فونت محیط</button>
         </div>
         <div class="stab-actions">
             <button type="submit" class="btn btn-primary">💾 ذخیره همه تنظیمات</button>
@@ -561,10 +580,80 @@ $daysList = ['sat' => 'شنبه', 'sun' => 'یکشنبه', 'mon' => 'دوشنب�
         </div>
     </div>
 
+    <!-- 🔤 تب فونت محیط سایت‌ساز (v2.12) -->
+    <div id="pane-uifonts" class="stab-pane">
+        <div class="card">
+            <div class="card-header">
+                <h3>🔤 فونت محیط سایت‌ساز</h3>
+                <span class="badge badge-info">فقط فونت‌های نصب‌شده (<?= en_to_fa_digits((string)count($installedFaFonts)) ?> فونت)</span>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info" style="font-size:12.5px">
+                    فونت بخش‌های مختلف پنل مدیریت سایت‌ساز را از بین فونت‌های نصب‌شده انتخاب کنید — تغییرات پس از ذخیره روی همه صفحات پنل اعمال می‌شود و به سایت‌های برند سایز نمی‌زند.
+                </div>
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label>📝 فونت متن پنل (بدنه)</label>
+                        <select name="ui_font_body" id="ui-font-body" class="form-control" onchange="previewUiFont()">
+                            <option value="">پیش‌فرض (وزیرمتن)</option>
+                            <?php foreach ($installedFaFonts as $uiF): ?>
+                                <option value="<?= e($uiF['name']) ?>" <?= ($uiFonts['body'] ?? '') === $uiF['name'] ? 'selected' : '' ?>><?= e($uiF['name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>🅰️ فونت عنوان‌ها و هدرها</label>
+                        <select name="ui_font_heading" id="ui-font-heading" class="form-control" onchange="previewUiFont()">
+                            <option value="">پیش‌فرض (همان فونت متن)</option>
+                            <?php foreach ($installedFaFonts as $uiF): ?>
+                                <option value="<?= e($uiF['name']) ?>" <?= ($uiFonts['heading'] ?? '') === $uiF['name'] ? 'selected' : '' ?>><?= e($uiF['name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>💻 فونت اعداد و کدها</label>
+                        <select name="ui_font_mono" id="ui-font-mono" class="form-control" onchange="previewUiFont()">
+                            <option value="">پیش‌فرض (مونوسیستم)</option>
+                            <?php foreach ($installedFaFonts as $uiF): ?>
+                                <option value="<?= e($uiF['name']) ?>" <?= ($uiFonts['mono'] ?? '') === $uiF['name'] ? 'selected' : '' ?>><?= e($uiF['name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+                <!-- 👁 پیش‌نمایش زنده -->
+                <div class="card" style="margin-top:14px;border:1px dashed var(--border)">
+                    <div class="card-header"><h3 style="font-family:var(--font-heading,var(--font))">👁️ پیش‌نمایش زنده — عنوان بخش</h3></div>
+                    <div class="card-body">
+                        <p style="font-size:13px;line-height:2.2">این متن با فونت بدنه پنل نمایش داده می‌شود — پس از انتخاب فونت از فهرست بالا، همین لحظه نتیجه را اینجا ببینید. تعمیرات تخصصی لوازم خانگی با قطعات اصلی و ضمانت ۶ ماهه، پاسخگویی ۷ روز هفته از ۹ صبح تا ۸ شب.</p>
+                        <p style="direction:ltr;text-align:left;font-family:var(--font-mono,monospace);background:var(--bg-secondary,#f1f5f9);padding:8px 12px;border-radius:8px;font-size:12px">api_key = "sk-9f2c...e81a" | port: 2083 | /public_html/brands/lg</p>
+                        <button type="button" class="btn btn-primary btn-sm">🔘 دکمه نمونه</button>
+                        <span class="badge badge-success">✅ برچسب نمونه</span>
+                    </div>
+                </div>
+                <div class="hint" style="margin-top:10px">💡 فونت جدید از بخش «طراحی ← فونت‌ها» قابل دانلود/نصب است — پس از نصب، در این فهرست ظاهر می‌شود. برای برگشت به حالت پیش‌فرض، «پیش‌فرض» را انتخاب و ذخیره کنید.</div>
+            </div>
+        </div>
+    </div>
+
     <div style="text-align:center;padding:8px 0 20px">
         <button type="submit" class="btn btn-primary btn-lg">💾 ذخیره همه تنظیمات</button>
     </div>
 </form>
+
+<script>
+/* 🔤 v2.12: پیش‌نمایش زنده فونت محیط پنل */
+function previewUiFont() {
+    var body = document.getElementById('ui-font-body').value;
+    var heading = document.getElementById('ui-font-heading').value;
+    var mono = document.getElementById('ui-font-mono').value;
+    var bodyFont = body ? '"' + body + '", Vazirmatn, Tahoma, sans-serif' : 'Vazirmatn, Tahoma, "Segoe UI", Arial, sans-serif';
+    var headFont = heading ? '"' + heading + '", Vazirmatn, Tahoma, sans-serif' : bodyFont;
+    var monoFont = mono ? '"' + mono + '", monospace' : 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    document.documentElement.style.setProperty('--font', bodyFont);
+    document.documentElement.style.setProperty('--font-heading', headFont);
+    document.documentElement.style.setProperty('--font-mono', monoFont);
+}
+</script>
 
 <script>
 /* 🗂️ تب‌های مقاوم تنظیمات — خوداتکا (مستقل از admin.js)، پشتیبانی hash، بازگشت به بالا

@@ -26,10 +26,17 @@
     --radius: 12px;
     --shadow: 0 1px 3px rgba(0,0,0,.07), 0 4px 14px rgba(0,0,0,.05);
     --font: Vazirmatn, Tahoma, 'Segoe UI', Arial, sans-serif;
+    /* 🔤 v2.12: فونت بخش‌های مختلف پنل — از تنظیمات ← فونت محیط قابل تغییر */
+    --font-heading: Vazirmatn, Tahoma, 'Segoe UI', Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
+
+/* 🔤 v2.12: فونت عنوان‌ها و کدها — با متغیرهای قابل‌تنظیم از پنل */
+h1, h2, h3, h4, h5, h6, .topbar-titles h2, .card-header h3, .sidebar-brand h1 { font-family: var(--font-heading); }
+code, pre, kbd, samp, .mono, .ltr-code { font-family: var(--font-mono); }
 
 body {
     font-family: var(--font);
