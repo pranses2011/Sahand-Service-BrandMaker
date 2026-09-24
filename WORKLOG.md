@@ -1243,3 +1243,35 @@ docs-plugin-prompt → feat-deploy-core → feat-deploy-admin → feat-deploy-ap
 
 ### 📦 کامیت‌ها (۹ عدد + مستندات)
 fix-error-engine-web-flag → fix-brand-edit-forms → feat-favicon-api → feat-og-transparent-logo → feat-admin-ui-fonts → feat-builder-v3.1 → feat-menus-pro → feat-api-keys-and-addon-domain → (docs + release)
+
+---
+
+## مرحله ۳۷ — نسخه ۲.۱۴.۰: عکس واقعی AI مقاله + خطایاب ریشه‌ای + نوار پیشرفت زنده + فونت همه‌جا + قالب‌ساز ۸۶ عنصر — ۲۰۲۶/۰۹/۲۵
+
+### 🐛 باگ‌های ریشه‌یابی‌شده (۶ مورد — همه با تحقیق مستندات/تست واقعی)
+1. **Cron cPanel «Can't locate Cpanel/API/Cron.pm»**: مطالعه مستندات رسمی cPanel (api.docs.cpanel.net با مرورگر headless) نشان داد Cron **معادل UAPI ندارد**؛ پل UAPI→API2 در نسخه‌های جدید (پرل ۵.۴۲+) شکسته است → متد جدید callApi2() با فراخوانی مستقیم /json-api/cpanel + زنجیره سه‌لایه + ضدتکرار
+2. **«این برند هنوز استقرار خودکار ندارد»**: updateMode دیالوگ از پارامتر قدیمی می‌آمد نه واقعیت زنده؛ preview حالا is_deployed را از «پرچم + مسیر سرور» محاسبه می‌کند
+3. **کادر سفید OG در regen**: فایل سالم بود اما URL ثابت → کش مرورگر؛ cache-buster ?v=filemtime
+4. **فونت هیچ‌جا لود نمی‌شد (باگ تاریخی!)**: fonts.css فامیلی لاتین Vazirmatn نداشت اما همه‌جا به آن ارجاع بودند → ۸ @font-face لاتین اضافه شد
+5. **دکمه‌های نوع نمایش قالب‌ساز بی‌اثر**: ستون گرید ۲۵۰px ثابت بود؛ کلاس has-cards روی .builder
+6. **«مایکروویو ال‌جی هیچ کدی پیدا نشد»**: کدهای خط‌تیره‌دار (E-01/F-13) در parseCodeTable نمی‌گنجیدند → تست واقعی صفحه LG با curl، ۴ الگو اصلاح + تور ایمنی متن کامل + فیلتر نویز
+
+### ✨ قابلیت‌های جدید
+- سرویس AiPhotoService: عکس فوتورئال لحظه‌ای مرتبط با موضوع (Pollinations رایگان، ۴۲ دستگاه × ۲۵ سناریو، بذر یکتا، ۱ شاخص + ۲ درون‌متن، fallback بسته)
+- تولید مجدد تصاویر = جایگزینی (stripGeneratedFigures — آپلودی دستی کاربر محفوظ)
+- اعداد فارسی در تصاویر OG (persianDigits + requiredCodepoints)
+- واترمارک نمایندگی بزرگ‌تر از برند (۳۳٪ vs ۳۰٪ + wm4)
+- فونت انتخابی در ۴ پیش‌نمایش + تزریق در ZIP سایت‌های مستقر (preview_font_html + site_font_vars_css)
+- قالب‌ساز v3.4: ۱۲ عنصر جدید (۸۶) + سیستم تنظیمات اعلانی BLOCK_FIELDS (۱۰۰ کلید) + رفع عناصری که تنظیماتشان اثر نمی‌کرد
+- خطایاب v3.11: استخراج ساختاریافته Possible Causes/Troubleshooting + ترجمه فارسی فیلدها (واژه‌نامه ۲۵ قطعه × ۹ اقدام × ۶ حالت) + دیکشنری عنوان اینورتری
+- نوار پیشرفت زنده خطایاب: setProgressSink + ۷ مرحله + polling فایل کش + مودال گرادیانتی با لاگ تیک‌دار
+
+### 🔬 ابزارهای تست این مرحله
+- تست واقعی cPanel UAPI/API2 با مستندات رسمی (agent-browser + api.docs.cpanel.net)
+- تست جستجوی DuckDuckGo و استخراج صفحه واقعی LG Microwave (curl + شبیه‌سازی regex پایتونی الگوهای PHP)
+- تست سرویس Pollinations با ابعاد واقعی ۱۲۰۰×۶۷۵ (HTTP 200 + JPEG معتبر)
+- شبیه‌سازی regex جایگزینی تصاویر (AI/WM حذف، آپلود دستی محفوظ)
+- verify_blocks.py — پوشش BLOCK_FIELDS/blockHtml برای همه ۱۰۰ کلید کتابخانه
+
+### 📦 کامیت‌ها (۵ عدد + مستندات)
+fix-cron-deploy-v2.14a → feat-images-v2.14 → feat-font-previews-v2.14 → feat-builder-v3.4 → feat-error-finder-v3.11 → docs + release
