@@ -90,11 +90,15 @@ class ErrorCodeEngine
             $this->db->delete('error_codes', 'brand_id = ? AND device_key = ?', [$brandId, $deviceKey]);
         }
 
-        /* ⏱️ بودجه زمانی — درج‌ها بلافاصله پس از تحقیق اجرا می‌شوند */
+        /* ⏱️ بودجه زمانی — درج‌ها بلافاصله پس از تحقیق اجرا می‌شوند
+           🆕 v3.9: بودجه «تطبیقی» — تا ۳۴ ثانیه اگر محدودیت اجرای هاست اجازه دهد
+           (قبلاً ثابت ۲۶ ثانیه بود و در هاست‌های سریع نصف راه می‌ماندیم) */
         if (function_exists('set_time_limit')) {
             @set_time_limit(180);
         }
-        $deadline = microtime(true) + 26.0;
+        $maxExec = (int)@ini_get('max_execution_time');
+        $budget = ($maxExec > 0 && $maxExec <= 90) ? max(22.0, min(34.0, $maxExec - 8.0)) : 34.0;
+        $deadline = microtime(true) + $budget;
 
         $sources = [];
         $records = [];
@@ -195,6 +199,9 @@ class ErrorCodeEngine
             "{$brandEn} {$deviceEn} fault codes list troubleshooting manual",
             "کد خطا {$deviceFa} {$brandFa} علت و راه حل",
             "{$brandEn} {$deviceEn} display error code chart",
+            /* 🆕 v3.9: کوئری‌های بیشتر — پوشش منابع فنی و جدول‌های سازنده */
+            "{$brandEn} {$deviceEn} error code table all models",
+            "رفع خطای {$deviceFa} {$brandFa} نمایش کد",
         ];
 
         $found = [];      // code => record
@@ -224,7 +231,7 @@ class ErrorCodeEngine
                     continue;
                 }
                 /* 🎯 v2.8: صفحه‌های «فهرست/جدول کد» را برای پارس ساختاری ذخیره کن */
-                if (count($listUrls) < 4 && $url !== ''
+                if (count($listUrls) < 6 && $url !== ''
                     && preg_match('#(error|fault|code|خطا|کد)#iu', ($r['title'] ?? '') . $url)
                     && (stripos($text, $brandEn) !== false || mb_strpos($text, $brandFa) !== false)) {
                     $listUrls[] = $url;
@@ -268,7 +275,7 @@ class ErrorCodeEngine
          * یا «کد OE: خطای تخلیه آب». جدول هر صفحه → معنای دقیق تک‌تک کدها؛
          * کدهای جدید کشف‌شده از این مسیر «تأییدشده با شاهد جدول» حساب می‌شوند. */
         $tableMeanings = [];
-        foreach (array_slice($listUrls, 0, 3) as $lu) {
+        foreach (array_slice($listUrls, 0, 4) as $lu) {
             if (microtime(true) > $deadline - 6.0) { break; }
             try {
                 $page = $searcher->fetchPageText($lu, 9000);
@@ -345,20 +352,35 @@ class ErrorCodeEngine
          * شناخت KB یا شاهد بالا نگه داشته می‌شوند. */
         uasort($found, fn($a, $b) => $b['_evidence'] <=> $a['_evidence']);
         $deepBudget = 8;
+        /* 🆕 v3.9: بودجه ویژه غنی‌سازی کدهای جدول‌تأییدِ «نحیف» — کدهایی که از
+           جدول عنوان/قطعه دقیق دارند اما دلایل/راه‌حل استخراج‌شده از متن جدول
+           کمتر از ۲ مورد است، با جستجوی اختصاصی تکمیلی غنی می‌شوند تا همه
+           فیلدها کامل و بدون نقص باشند */
+        $tableEnrichBudget = 4;
         $i = 0;
         foreach ($found as $codeKey => &$f) {
-            /* 🎯 v2.8: کدهای تأییدشده با «جدول ساختاری» نیازی به تعمیق ندارند —
-               عنوان دقیق از خود جدول آمده؛ وقت برای کدهای دیگر صرفه‌جویی می‌شود */
+            /* 🎯 v2.8: کدهای تأییدشده با «جدول ساختاری» از تعمیق عبور می‌کنند —
+               عنوان دقیق از خود جدول آمده؛ وقت برای کدهای دیگر صرفه‌جویی می‌شود.
+               🆕 v3.9: مگر اینکه دلایل/راه‌حل‌هایشان نحیف باشد (کمتر از ۲) */
             if (!empty($f['_table_verified'])) {
-                continue;
+                $ctxAll = implode(' . ', array_slice($contextTexts[$codeKey] ?? [], 0, 8));
+                $thinCauses = count($this->extractCausesFromContext($ctxAll, $deviceKey, $f['category'] ?? 'سایر')) < 2;
+                if (!$thinCauses || $tableEnrichBudget <= 0) {
+                    continue;
+                }
+                $tableEnrichBudget--;
+                $f['_needs_enrich'] = true;
+            } elseif ($i++ >= $deepBudget) {
+                break;
             }
-            if ($i++ >= $deepBudget) { break; }
             if (microtime(true) > $deadline - 1.5) {
                 /* ⏱️ زمان تمام شد — کدهای باقی‌مانده فقط با شاهد بالا یا جدول می‌مانند */
                 $idx = 0;
                 foreach ($found as $ck2 => $f2info) {
-                    if ($idx++ < $i) { continue; } // کدهای بررسی‌شده
-                    if (($f2info['_evidence'] ?? 0) < 2 && empty($f2info['_table_verified'])) {
+                    $enrichQueued = !empty($f2info['_needs_enrich']);
+                    $tableOk = !empty($f2info['_table_verified']);
+                    if ($idx++ < $i && !$enrichQueued) { continue; } // کدهای بررسی‌شده
+                    if (($f2info['_evidence'] ?? 0) < 2 && !$tableOk) {
                         $found[$ck2]['_reject'] = true;
                     }
                 }
@@ -370,8 +392,12 @@ class ErrorCodeEngine
                 $deep = null;
             }
             if ($deep === null) {
-                /* هیچ شاهد اختصاصی و نه جدول → رد (سیاست فقط-وب v2.8: کد تأییدنشده ثبت نمی‌شود) */
-                $f['_reject'] = true;
+                /* هیچ شاهد اختصاصی و نه جدول → رد (سیاست فقط-وب v2.8)
+                   🛡 v3.9: کد «جدول‌تأییدشده» هرگز رد نمی‌شود — شاهد جدول قوی است؛
+                   فقط غنی‌سازی ناقص می‌ماند و فیلدها از متن جدول پر می‌شوند */
+                if (empty($f['_table_verified'])) {
+                    $f['_reject'] = true;
+                }
                 continue;
             }
             $f['_verified'] = true;
@@ -395,6 +421,23 @@ class ErrorCodeEngine
 
         /* 🧹 حذف کدهای رد‌شده در راستی‌آزمایی */
         $found = array_filter($found, fn($f) => empty($f['_reject']));
+
+        /* ---------- 🆕 v3.9: تکمیل نهایی همه فیلدها — «بدون نقص» ----------
+         * مشخصات فنی و محل قطعه از متن‌های ذخیره‌شده همین کد (جدول/صفحه) استخراج
+         * می‌شوند و مدل‌های سازگار از الگوی نام‌گذاری برند در متن پیدا می‌شوند. */
+        foreach ($found as $codeKey => &$f) {
+            if (empty($f['_specs_ctx']) && !empty($contextTexts[$codeKey])) {
+                $f['_specs_ctx'] = implode(' . ', array_slice($contextTexts[$codeKey], 0, 3));
+            }
+            if (empty($f['_location'])) {
+                $f['_location'] = $this->locationFromContext(implode(' ', array_slice($contextTexts[$codeKey] ?? [], 0, 4)));
+            }
+            if (empty($f['models']) || $f['models'] === []) {
+                $f['models'] = $this->modelsFromContext(implode(' ', array_slice($contextTexts[$codeKey] ?? [], 0, 6)), $brandEn);
+            }
+            unset($f['_needs_enrich']);
+        }
+        unset($f);
 
         /* 🧠 استخراج دلایل و راه‌حل‌ها از جمله‌های واقعی نتایج (v2.7) */
         foreach ($found as $codeKey => &$f) {
@@ -938,7 +981,41 @@ class ErrorCodeEngine
                 $wc['_part_fixed'] = true;
             }
         }
+        /* 🆕 v3.9: تطبیق عمومی «سیستم قطعه ↔ عنوان» — اگر عنوان به سیستمی مشخص
+           اشاره می‌کند (توازن/موتور/دما/قفل درب/...) اما قطعه از سیستمی دیگر
+           است (مثال واقعی: عنوان «عدم توازن» + قطعه «سنسور دما NTC»)، قطعه از
+           نگاشت معتبر عنوان اصلاح می‌شود. ریشه: پنجره زمینه شرح همه کدهای صفحه
+           را دارد و قطعه کدهای دیگر را می‌بلعد. */
+        $titlePart = $this->partFromTitle($title);
+        if ($titlePart !== '' && !$this->partsShareSystem((string)$wc['part'], $titlePart)) {
+            $wc['part'] = $titlePart;
+            $wc['_part_fixed'] = true;
+        }
         return $wc;
+    }
+
+    /** 🔗 آیا دو قطعه به یک «سیستم فنی» اشاره دارند؟ (v3.9) */
+    private function partsShareSystem(string $a, string $b): bool
+    {
+        if ($a === '' || $b === '') {
+            return true; // ناشناخته = دخالت نکن
+        }
+        /* سیستم‌های فنی با کلیدواژه‌های تفکیک‌کننده */
+        $systems = [
+            'موتور', 'پمپ', 'شیر', 'سنسور دما', 'سنسور فشار', 'سنسور توازن', 'سنسور تعادل',
+            'قفل', 'میکروسوئیچ', 'برد', 'فن', 'هیتر', 'المنت', 'کمپرسور', 'تخلیه', 'تعلیق',
+            'دیفراست', 'برفک', 'سرریز', 'منبع تغذیه', 'سیم‌کشی', 'نمایشگر', 'ماسوره', 'واشر',
+            'مدار گاز', 'شارژ', 'اواپراتور', 'کندانسور', 'درایور', 'EEPROM', 'حافظه',
+        ];
+        $ha = $hb = [];
+        foreach ($systems as $kw) {
+            if (mb_stripos($a, $kw) !== false) { $ha[$kw] = true; }
+            if (mb_stripos($b, $kw) !== false) { $hb[$kw] = true; }
+        }
+        if (empty($ha) || empty($hb)) {
+            return true; // سیستم شناسایی نشد = دخالت نکن
+        }
+        return (bool)array_intersect_key($ha, $hb);
     }
 
     /**
@@ -1004,6 +1081,9 @@ class ErrorCodeEngine
                 '/((?:بررسی|تمیز|باز|بستن|شست|قطع|اجرای|شارژ|ریست)[^۱۲۳۴۵۶۷۸۹۰.؛!؟]{5,60}\s+کنید)/u',
                 '/(برای\s+رفع[^.؛!؟]{5,60}(?:کنید|بایید|است))/u',
                 '/(?:شما\s+)?می‌?توانید\s+([^۱۲۳۴۵۶۷۸۹۰.؛!؟]{12,70}(?:کنید|بایید))/u',
+                /* 🆕 v3.9: دستور مستقیم انگلیسی مقالات راهنما */
+                '/((?:check|clean|open|close|reset|ensure|make sure)[^\n.؛!؟]{6,70})/i',
+                '/(to\s+fix[^.؛!؟\n]{6,80})/i',
             ];
             /* کلمات لازم برای پذیرش راه‌حل کاربر */
             $mustHave = ['بررسی', 'تمیز', 'باز', 'بستن', 'شست', 'قطع', 'برق', 'فشار', 'شیر', 'فیلتر', 'درب', 'ریست', 'تنظیم', 'check', 'clean', 'open', 'close', 'reset', 'replace', 'inspect', 'water', 'valve', 'filter', 'door', 'power'];
@@ -1012,6 +1092,8 @@ class ErrorCodeEngine
                 '/(?:نیاز\s+به|مستلزم)\s+((?:تست|تعویض|عیب‌یابی|تعمیر)[^.؛!؟]{0,50})/u',
                 '/((?:تست|اندازه‌گیری)\s+(?:مقاومت|ولتاژ|فشار)[^.؛!؟]{0,45})/u',
                 '/(?:should\s+be\s+(?:replaced|tested)|must\s+be\s+(?:replaced|tested)|requires?\s+a)\s+([a-zA-Z\s\-]{6,60})/i',
+                /* 🆕 v3.9: فعل دستوری رایج مقالات تعمیر */
+                '/(?:replace|test|inspect|measure|check|clean)\s+(?:the\s+|a\s+)?([a-z\s\-]{6,55})/i',
             ];
             $mustHave = ['تست', 'تعویض', 'عیب‌یابی', 'تعمیر', 'مولتی', 'اندازه‌گیری', 'سنسور', 'برد', 'کمپرسور', 'شارژ', 'replace', 'test', 'measure', 'multimeter', 'sensor', 'board', 'repair'];
         }
@@ -1036,6 +1118,32 @@ class ErrorCodeEngine
             }
         }
         return $fixes;
+    }
+
+    /**
+     * 🔢 استخراج مدل‌های سازگار از متن (v3.9) — الگوهای نام‌گذاری سازنده‌ها
+     * مانند «WF-8072T»، «JV1250H»، «GN-H702» از زمینه همان کد
+     * @return string[] حداکثر ۸ مدل یکتا
+     */
+    private function modelsFromContext(string $ctx, string $brandEn = ''): array
+    {
+        $models = [];
+        /* الگوی مدل: ۲-۴ حرف لاتین + خط تیره/فاصله اختیاری + ۲-۶ رقم + پسوند حرفی */
+        if (preg_match_all('/\b([A-Z]{1,4}[- ]?[0-9]{2,6}[A-Z]{0,3})\b/', $ctx, $m)) {
+            foreach ($m[1] as $mm) {
+                $mm = trim(str_replace(' ', '-', $mm));
+                if (mb_strlen($mm) < 4 || mb_strlen($mm) > 14) { continue; }
+                /* نام برند مدل نیست (LG/SAMSUNG/BOSCH...) */
+                $upperBrand = strtoupper($brandEn);
+                if ($upperBrand !== '' && stripos($mm, $upperBrand) === 0) { continue; }
+                if (in_array($mm, ['E1','E2','E3','E4','LED','LCD','HTTP','HTML'], true)) { continue; }
+                if (!in_array($mm, $models, true)) {
+                    $models[] = $mm;
+                }
+                if (count($models) >= 8) { break; }
+            }
+        }
+        return $models;
     }
 
     /**
@@ -1264,7 +1372,7 @@ class ErrorCodeEngine
             'severity'        => $severity,
             'needs_technician' => (int)($c['needs_technician'] ?? 1),
             'subtype'         => $this->subtypeLabel($c, $deviceKey),
-            'models'          => json_encode((array)($c['models'] ?? $this->fallbackModels($brandName, $deviceKey)), JSON_UNESCAPED_UNICODE),
+            'models'          => json_encode(!empty($c['models']) ? array_slice((array)$c['models'], 0, 8) : $this->fallbackModels($brandName, $deviceKey), JSON_UNESCAPED_UNICODE),
             'category'        => $this->normalizeCategory((string)($c['category'] ?? 'سایر')),
             'related_part'    => $this->partWithEn($c['part'] ?? ''),
             'tech_specs'      => $specs,
