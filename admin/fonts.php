@@ -28,6 +28,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('fonts.php');
     }
 
+    /* ⬇️⬇️ دانلود گروهی همه فونت‌های آزاد — یک کلیک برای نصب کامل */
+    if ($action === 'download_all_fonts') {
+        $result = $downloader->downloadAllFreeFonts(post('force') === '1');
+        flash($result['success'] ? 'success' : 'warning', $result['message']);
+        redirect('fonts.php');
+    }
+
     /* 📤 آپلود فایل فونت */
     if ($action === 'upload_font') {
         $slug = post('font_slug');
@@ -158,6 +165,34 @@ function fontFilesStatus(string $type, string $slug, array $weights): array
 <div class="card">
     <div class="card-header"><h3>⚙️ فونت پیش‌فرض برندهای جدید</h3></div>
     <div class="card-body">
+        <?php
+        /* شمارش فونت‌های آزاد هنوز-نصب‌نشده برای دکمه دانلود گروهی */
+        $freeFontsTotal = 0;
+        $freeFontsInstalled = 0;
+        foreach (['fa', 'en'] as $t) {
+            foreach ($fontsList[$t] ?? [] as $font) {
+                if (!$downloader->fontHasSource($t, $font['slug'])) { continue; }
+                $freeFontsTotal++;
+                $st = fontFilesStatus($t, $font['slug'], $font['weights']);
+                if (count(array_filter($st)) === count($font['weights'])) { $freeFontsInstalled++; }
+            }
+        }
+        $missingFree = $freeFontsTotal - $freeFontsInstalled;
+        ?>
+        <form method="post" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding:14px;border:1.5px dashed var(--border);border-radius:12px;background:linear-gradient(135deg,rgba(76,175,80,.06),rgba(33,150,243,.06))"
+              <?= $missingFree === 0 ? 'data-confirm="همه فونت‌های آزاد نصب شده‌اند؛ دوباره دانلود و جایگزینی شوند؟"' : 'data-confirm="دانلود گروهی ' . $freeFontsTotal . ' فونت آزاد آغاز شود؟ بسته به سرعت سرور ممکن است ۱ تا ۳ دقیقه طول بکشد — صفحه را نبندید."' ?>>
+            <?= Auth::csrfField() ?>
+            <input type="hidden" name="action" value="download_all_fonts">
+            <?php if ($missingFree === 0): ?><input type="hidden" name="force" value="1"><?php endif; ?>
+            <button type="submit" class="btn <?= $missingFree > 0 ? 'btn-success' : 'btn-outline' ?>" style="font-weight:700">
+                ⬇️⬇️ <?= $missingFree > 0 ? 'دانلود گروهی همه فونت‌های آزاد' : 'دانلود مجدد گروهی' ?>
+            </button>
+            <div style="font-size:12px;color:var(--text-light);line-height:1.9">
+                <?= $freeFontsInstalled ?> از <?= $freeFontsTotal ?> فونت آزاد کامل نصب شده
+                <?= $missingFree > 0 ? ' — <b style="color:var(--warning)">' . $missingFree . ' فونت ناقص/نصب‌نشده</b>' : ' ✅' ?><br>
+                فونت‌های تجاری (ایران‌سنس، دانا، یکان‌بخ و…) منبع آزاد ندارند و فقط با آپلود دستی نصب می‌شوند.
+            </div>
+        </form>
         <form method="post">
             <?= Auth::csrfField() ?>
             <input type="hidden" name="action" value="save_defaults">

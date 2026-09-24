@@ -182,6 +182,60 @@ class AssetDownloader
         ];
     }
 
+    /**
+     * ⬇️⬇️ دانلود گروهی «همه فونت‌های آزاد» روی سرور
+     * ==================================================
+     * همه فونت‌هایی که در sources.json منبع ثبت‌شده دارند را پشت‌سرهم
+     * نصب می‌کند (وزن‌های موجود رد می‌شوند — فقط غایب‌ها دانلود می‌شوند).
+     *
+     * @param bool $onlyMissing اگر true باشد فقط وزن‌های غایب دانلود می‌شوند
+     * @return array ['success'=>bool,'message'=>string,'installed'=>int,'failed'=>array]
+     */
+    public function downloadAllFreeFonts(bool $onlyMissing = true): array
+    {
+        @set_time_limit(0);          // 🧹 دانلود گروهی ممکن است طولانی شود
+        @ignore_user_abort(true);     // ادامه حتی اگر تب مرورگر بسته شد
+
+        $sources = self::fontSources();
+        $totalInstalled = 0;
+        $totalFailed = [];   // «فونت/وزن: خطا»
+        $fontsDone = 0;
+
+        foreach (['fa', 'en'] as $type) {
+            foreach ($sources[$type] ?? [] as $slug => $entry) {
+                if (empty($entry['weights'])) {
+                    continue;
+                }
+                $res = $this->downloadFont($type, $slug, $onlyMissing);
+                $fontsDone++;
+                foreach ($res['installed'] ?? [] as $weight => $bytes) {
+                    $totalInstalled++;
+                }
+                foreach ($res['failed'] ?? [] as $weight => $err) {
+                    $totalFailed[] = $type . '/' . $slug . '-' . $weight . ': ' . $err;
+                }
+            }
+        }
+
+        $n = $totalInstalled;
+        $f = count($totalFailed);
+        if ($n > 0 && $f === 0) {
+            $message = "✅ دانلود گروهی کامل شد: {$n} وزن فایل جدید از {$fontsDone} فونت آزاد، مستقیم روی سرور نصب شد.";
+        } elseif ($n > 0) {
+            $message = "⚠️ دانلود گروهی: {$n} وزن نصب شد؛ {$f} مورد ناموفق:\n" . implode("\n", array_slice($totalFailed, 0, 10));
+        } else {
+            $message = 'ℹ️ هیچ فایل جدیدی دانلود نشد — همه فونت‌های آزاد از قبل روی سرور نصب‌اند.' . ($f > 0 ? " ({$f} خطای جزئی)" : '');
+        }
+
+        return [
+            'success'  => $f === 0,
+            'message'  => $message,
+            'installed'=> $totalInstalled,
+            'failed'   => $totalFailed,
+            'fonts'    => $fontsDone,
+        ];
+    }
+
     /* ==================================================
      * 🖼️ نصب پک آیکون — دانلود آرشیو و استخراج SVG
      * ================================================== */
@@ -569,18 +623,28 @@ class AssetDownloader
             $dict = self::iconDictionary();
         }
         $name = strtolower($name);
-        // تطبیق کامل
-        if (isset($dict[$name])) {
-            return $dict[$name];
+        // نرمال‌سازی نام: زیرخط متریال → خط تیره + حذف پسوند -line/-fill رمیکس
+        $normalized = str_replace('_', '-', $name);
+        $normalized = preg_replace('/-(line|fill)$/', '', $normalized) ?? $normalized;
+        // تطبیق کامل (با نام اصلی و نرمال‌شده)
+        foreach ([$name, $normalized] as $candidate) {
+            if (isset($dict[$candidate])) {
+                return $dict[$candidate];
+            }
         }
         // حذف پیشوندهای رایج پک‌ها و تلاش مجدد
-        $stripped = preg_replace('/^(bx|bxs|bxl|ri|md|fa|hi|ph|tabler|icon)[-_]/', '', $name) ?? $name;
+        $stripped = preg_replace('/^(bx|bxs|bxl|ri|md|fa|hi|ph|tabler|icon)[-_]/', '', $normalized) ?? $normalized;
+        $stripped = preg_replace('/-(line|fill)$/', '', $stripped) ?? $stripped;
         if (isset($dict[$stripped])) {
             return $dict[$stripped];
         }
+        // 🏷️ قانون عمومی لوگوهای برند: brand-xxx → «لوگوی xxx»
+        if (preg_match('/^brand-([a-z0-9\-]+)/', $normalized, $m)) {
+            return 'لوگوی ' . $m[1];
+        }
         // تطبیق جزئی روی کلیدهای مرکب (مثل arrow-right)
         foreach ($dict as $key => $label) {
-            if (str_contains($key, '-') && str_contains($name, $key)) {
+            if (str_contains($key, '-') && str_contains($normalized, $key)) {
                 return $label;
             }
         }
@@ -703,6 +767,80 @@ class AssetDownloader
             'contract' => 'قرارداد', 'file-text' => 'متن/سند', 'file-check' => 'سند تأییدشده',
             'clipboard-check' => 'چک‌لیست', 'clipboard-list' => 'فهرست کار',
             'schedule' => 'برنامه زمانی', 'timeline' => 'خط زمانی', 'workflow' => 'گردش کار',
+            // 👇 مکمل‌های نسخه ۲.۱۰ — پوشش برچسب‌های باقی‌مانده پک‌های گسترشیافته
+            'plus-circle' => 'افزودن', 'minus-circle' => 'کم کردن',
+            'shopping-bag' => 'کیف خرید', 'battery-full' => 'باتری پر',
+            'info-circle' => 'اطلاعات', 'help-circle' => 'راهنما',
+            'circle-question' => 'سوال', 'question-circle' => 'سوال',
+            'log-in' => 'ورود', 'log-out' => 'خروج',
+            'thumbs-down' => 'نپسندیدن', 'paint-bucket' => 'سطل رنگ',
+            'badge-check' => 'تأییدشده', 'message-square' => 'پیام',
+            'external-link' => 'لینک خارجی', 'share-2' => 'اشتراک‌گذاری',
+            'device-desktop' => 'دسکتاپ', 'device-mobile' => 'موبایل',
+            'device-tablet' => 'تبلت', 'x-circle' => 'بستن', 'alert-circle' => 'هشدار',
+            'exclamation-circle' => 'هشدار', 'exclamation-triangle' => 'هشدار',
+            'calendar-days' => 'تقویم روزها', 'calendar-plus' => 'افزودن رویداد',
+            'calendar-minus' => 'حذف رویداد', 'calendar-xmark' => 'لغو رویداد',
+            'chart-bar' => 'نمودار ستونی', 'chart-line' => 'نمودار خطی',
+            'chart-pie' => 'نمودار دایرهای', 'flashlight' => 'چراغقوه',
+            'arrow-back' => 'فلش بازگشت', 'arrow-forward' => 'فلش جلو',
+            'arrow-up-right' => 'فلش مورب', 'arrow-down-right' => 'فلش مورب پایین',
+            'arrow-from-left' => 'از چپ', 'arrow-from-right' => 'از راست',
+            'arrow-from-top' => 'از بالا', 'arrow-from-bottom' => 'از پایین',
+            'arrow-to-bottom' => 'به پایین', 'more-horizontal' => 'بیشتر (افقی)',
+            'more-vertical' => 'بیشتر (عمودی)', 'rotate-ccw' => 'چرخش پادساعت‌گرد',
+            'rotate-cw' => 'چرخش ساعت‌گرد', 'circle-check' => 'تأیید',
+            'circle-xmark' => 'بستن', 'circle-play' => 'پخش', 'circle-pause' => 'توقف',
+            'circle-stop' => 'ایست', 'circle-user' => 'کاربر', 'circle-dot' => 'نقطه هدف',
+            'circle-down' => 'فلش پایین', 'circle-up' => 'فلش بالا',
+            'circle-left' => 'فلش چپ', 'circle-right' => 'فلش راست',
+            'file-audio' => 'فایل صوتی', 'file-video' => 'فایل ویدیو',
+            'file-image' => 'فایل تصویر', 'file-pdf' => 'فایل PDF',
+            'file-zipper' => 'فایل فشرده', 'file-code' => 'فایل کد',
+            'file-lines' => 'فایل متنی', 'file-word' => 'فایل Word',
+            'file-excel' => 'فایل Excel', 'file-powerpoint' => 'فایل PowerPoint',
+            'folder-open' => 'پوشه باز', 'folder-closed' => 'پوشه بسته',
+            'square-caret-down' => 'انتخاب پایین', 'square-caret-left' => 'انتخاب چپ',
+            'square-caret-right' => 'انتخاب راست', 'square-caret-up' => 'انتخاب بالا',
+            'square-check' => 'مربع تأیید', 'square-plus' => 'مربع افزودن',
+            'square-minus' => 'مربع کم کردن', 'square-xmark' => 'مربع بستن',
+            'bell-ring' => 'زنگ فعال', 'bell-off' => 'زنگ خاموش',
+            'bluetooth-on' => 'بلوتوث روشن', 'signal-bars' => 'قدرت سیگنال',
+            'washing-machine-2' => 'ماشین لباسشویی', 'air-conditioner-2' => 'کولر گازی',
+            // 👇 مکمل‌های دوم — پوشش الگوهای رمیکس/هیرو/متریال/فا
+            'arrow-drop-down' => 'فلش پایین', 'arrow-drop-left' => 'فلش چپ',
+            'arrow-drop-right' => 'فلش راست', 'arrow-drop-up' => 'فلش بالا',
+            'arrow-go-back' => 'بازگشت', 'arrow-go-forward' => 'جلو',
+            'arrow-turn-back' => 'بازگشت', 'arrow-turn-forward' => 'جلو',
+            'arrow-long-down' => 'فلش بلند پایین', 'arrow-long-up' => 'فلش بلند بالا',
+            'arrow-long-left' => 'فلش بلند چپ', 'arrow-long-right' => 'فلش بلند راست',
+            'arrow-small-down' => 'فلش کوچک پایین', 'arrow-small-up' => 'فلش کوچک بالا',
+            'arrow-small-left' => 'فلش کوچک چپ', 'arrow-small-right' => 'فلش کوچک راست',
+            'arrow-path' => 'مسیر چرخشی', 'arrow-uturn' => 'چرخش ۱۸۰ درجه',
+            'arrow-top-right-on-square' => 'باز کردن لینک',
+            'battery-0' => 'باتری خالی', 'battery-50' => 'باتری نیمه',
+            'battery-100' => 'باتری کامل', 'battery-2' => 'باتری',
+            'battery-saver' => 'صرفه‌جویی باتری', 'battery-std' => 'باتری استاندارد',
+            'battery-unknown' => 'باتری نامشخص', 'battery-low' => 'باتری ضعیف',
+            'battery-alert' => 'هشدار باتری', 'battery-charge' => 'شارژ باتری',
+            'calendar-date-range' => 'بازه تاریخ', 'calendar-close' => 'بستن تقویم',
+            'calendar-event' => 'رویداد تقویم', 'calendar-schedule' => 'زمان‌بندی تقویم',
+            'calendar-todo' => 'کارهای تقویم',
+            'check-double' => 'تأیید دوبل', 'check-badge' => 'نشان تأیید',
+            'cloud-off' => 'قطع ابر', 'cloud-windy' => 'باد و ابر',
+            'device' => 'دستگاه', 'device-recover' => 'بازیابی دستگاه',
+            'device-hub' => 'هاب دستگاه', 'device-thermostat' => 'ترموستات',
+            'devices' => 'دستگاه‌ها', 'devices-other' => 'سایر دستگاه‌ها',
+            'devices-fold' => 'دستگاه تاشو', 'android' => 'اندروید',
+            'file-add' => 'افزودن فایل', 'file-chart' => 'نمودار فایل',
+            'file-close' => 'بستن فایل', 'file-2' => 'فایل', 'file-3' => 'فایل', 'file-4' => 'فایل',
+            'star-half' => 'نیم‌ستاره', 'star-half-stroke' => 'نیم‌ستاره',
+            'square-full' => 'مربع پر', 'address-book' => 'دفترچه آدرس',
+            'address-card' => 'کارت شناسایی', 'bell-slash' => 'زنگ خاموش',
+            'chevron-double-down' => 'فلش دوبل پایین', 'chevron-double-up' => 'فلش دوبل بالا',
+            'chevron-double-left' => 'فلش دوبل چپ', 'chevron-double-right' => 'فلش دوبل راست',
+            'arrow-archery' => 'تیر و کمان', 'arrow-email-forward' => 'هدایت ایمیل',
+            'arrow-separate' => 'جداسازی', 'arrow-up-left' => 'فلش مورب چپ',
         ];
     }
 }
