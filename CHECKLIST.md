@@ -858,3 +858,4 @@
 - [x] نسخه سیستم 2.8.0 → 2.9.0 + موتور 3.8.0 → 3.9.0
 - [x] CHANGELOG [2.9.0] + WORKLOG مرحله ۳۲ + همین بخش + UPGRADE + README + AI-API-GUIDE 3.9.0
 - [x] رلیز v2.9.0: install.zip + update.zip + UPGRADE + AI-API-GUIDE + SHA256SUMS
+- [x] 📦 رلیز v2.9.0 منتشر شد: تگ + ۵ پیوست (install ۳.۲MB/۴۴۷f + update ۱.۳MB/۳۰f+۹عکس + ۲ راهنما + SHA256SUMS) — تست سلامت ZIP ✓

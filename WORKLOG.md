@@ -1111,3 +1111,7 @@
 
 ### 📦 رلیز v2.9.0
 - تگ `v2.9.0` + install.zip + update.zip + UPGRADE + AI-API-GUIDE 3.9.0 + SHA256SUMS
+- 📦 رلیز v2.9.0 منتشر شد: تگ `v2.9.0` + ۵ پیوست — [صفحه رلیز](https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/tag/v2.9.0)
+  - install.zip ۳.۲MB (۴۴۷ فایل) + update.zip ۱.۳MB (۳۰ فایل + ۹ عکس — ارتقا از 2.8.0 بدون تغییر دیتابیس)
+  - UPGRADE-v2.9.0.md (۹ اولویت + ۷ گام راستی‌آزمایی) + AI-API-GUIDE-v3.9.0.md + SHA256SUMS
+  - تست سلامت هر دو ZIP بدون خطا + تأیید حضور ۶ فایل کلیدی در update.zip
