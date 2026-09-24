@@ -155,10 +155,12 @@ class AiImageGenerator
             }
         }
 
-        /* 🥈 مسیر ۲: ImageMagick — رندر SVG با فونت جاسازی‌شده (در صورت وجود) */
+        /* 🥈 مسیر ۲: ImageMagick — رندر SVG با فونت جاسازی‌شده (در صورت وجود)
+           (v3.1: پالت بر اساس روشنایی لوگو تنظیم می‌شود — مثل مسیر GD) */
         if (class_exists('Imagick')) {
             try {
-                $svg = $this->buildArtworkSvg($seed, $title, $deviceKey, $palette, $brand, $w, $h, 'og');
+                $svgPalette = $this->paletteAdjustedForLogo($palette, $this->brandLogoAsset($brand));
+                $svg = $this->buildArtworkSvg($seed, $title, $deviceKey, $svgPalette, $brand, $w, $h, 'og');
                 $im = new Imagick();
                 $im->setBackgroundColor(new ImagickPixel('transparent'));
                 $im->readImageBlob($svg);
@@ -175,14 +177,16 @@ class AiImageGenerator
         }
 
         /* 🛟 مسیر ۳: SVG — فونت پیش‌فرض به‌صورت base64 جاسازی می‌شود تا
-           مرورگرها آن را دقیقاً با فونت سایت رندر کنند (v2.7.1) */
-        $svg = $this->buildArtworkSvg($seed, $title, $deviceKey, $palette, $brand, $w, $h, 'og');
+           مرورگرها آن را دقیقاً با فونت سایت رندر کنند (v2.7.1)
+           (v3.1: پالت بر اساس روشنایی لوگو تنظیم می‌شود) */
+        $svgPalette = $this->paletteAdjustedForLogo($palette, $this->brandLogoAsset($brand));
+        $svg = $this->buildArtworkSvg($seed, $title, $deviceKey, $svgPalette, $brand, $w, $h, 'og');
         $svgPath = ROOT_PATH . '/' . $fileBase . '.svg';
         @file_put_contents($svgPath, $svg);
         return ['path' => $fileBase . '.svg', 'url' => BASE_URL . '/' . $fileBase . '.svg', 'format' => 'svg'];
     }
 
-    /** 🖼️ رندر PNG او‌جی با GD — پس‌زمینه پویا + لوگوی بزرگ + عنوان خودجا‌شو (v3.0) */
+    /** 🖼️ رندر PNG او‌جی با GD — پس‌زمینه پویا + لوگوی بزرگ + عنوان خودجا‌شو (v3.1: لوگو بدون کادر) */
     private function renderOgPng(string $destPath, int $seed, string $title, array $palette, array $brand, int $w, int $h, string $font): bool
     {
         /* 🌈 v3.0: بذر پویا — پس‌زمینه در هر بار تولید متفاوت است (رنگ از پالت برند می‌ماند) */
@@ -195,6 +199,23 @@ class AiImageGenerator
         $c2 = $this->hexRgb($palette['c2']);
         $accent = $this->hexRgb($palette['accent']);
 
+        /* --- 🌗 v3.1: روشنایی لوگو → تنظیم رنگ‌های پس‌زمینه پویا برای کنتراست بهینه
+              (طبق درخواست: هیچ کادری زیر لوگو نیست؛ پس پس‌زمینه باید خودش رنگی
+               باشد که لوگو خوب دیده شود — لوگوی روشن → پس‌زمینه تیره‌تر،
+               لوگوی تیره → پس‌زمینه روشن‌تر) --- */
+        $brandLogo = $this->brandLogoAsset($brand);
+        $logoLuma = $this->logoMeanLuma($brandLogo);
+        if ($logoLuma !== null) {
+            if ($logoLuma >= 0.60) {
+                $c1 = $this->shadeRgb($c1, 0.52);
+                $c2 = $this->shadeRgb($c2, 0.62);
+                $accent = $this->shadeRgb($accent, 0.88);
+            } elseif ($logoLuma <= 0.34) {
+                $c1 = $this->tintWhite($c1, 0.44);
+                $c2 = $this->tintWhite($c2, 0.52);
+            }
+        }
+
         /* --- پس‌زمینه پویا (۱۰ سبک — هر تولید یکی) --- */
         $this->drawDynamicBackground($img, $w, $h, $c1, $c2, $accent, $styleSeed);
 
@@ -204,90 +225,48 @@ class AiImageGenerator
         $white = imagecolorallocate($img, 255, 255, 255);
         $shadow = imagecolorallocate($img, 0, 0, 0);
 
-        /* --- 🖼 v3.0: لوگوی برند «بزرگ» روی نشان سفید گردگوشه (ارتفاع ۲۰۰px) --- */
-        $brandLogo = $this->brandLogoAsset($brand);
+        /* --- 🖼 v3.1: لوگوی برند مستقیم روی پس‌زمینه — بدون هیچ کادر/نشان/سایه‌جعبه
+              (زمینه لوگو شفاف حفظ می‌شود؛ کنتراست را تنظیم پس‌زمینه تأمین می‌کند) --- */
         $logoBottom = 0; // انتهای عمودی لوگو — عنوان از اینجا شروع می‌شود
         if ($brandLogo !== null) {
-            $logoRes = $brandLogo['kind'] === 'svg' ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($brandLogo['path'], 520) ?? '', 420) : ImageWatermark::loadResampled($brandLogo['path'], 420);
+            $logoRes = $brandLogo['kind'] === 'svg' ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($brandLogo['path'], 560) ?? '', 440) : ImageWatermark::loadResampled($brandLogo['path'], 440);
             if ($logoRes !== null) {
                 $lw = imagesx($logoRes);
                 $lh = imagesy($logoRes);
-                /* لوگو تا ۱۵۶px ارتفاع / ۵۲۰px عرض — بزرگ و خوانا */
-                $scale = min(156 / $lh, 520 / $lw, 1.6);
+                /* لوگو تا ۱۶۶px ارتفاع / ۵۶۰px عرض — بزرگ، خوانا و بدون قاب */
+                $scale = min(166 / $lh, 560 / $lw, 1.7);
                 $dw = max(1, (int)round($lw * $scale));
                 $dh = max(1, (int)round($lh * $scale));
+                $dx = (int)(($w - $dw) / 2);
+                $dy = 34;
+                $logoBottom = $dy + $dh;
 
-                $pad = 26;
-                $badgeW = $dw + $pad * 2;
-                $badgeH = 200;
-                $logoY = (int)(($badgeH - $dh) / 2);
-                $bx = (int)(($w - $badgeW) / 2);
-                $by = 30;
-                $logoBottom = $by + $badgeH;
-
-                /* سایه نرم زیر نشان */
-                $shCanvas = imagecreatetruecolor($badgeW + 60, $badgeH + 60);
-                imagealphablending($shCanvas, false);
-                imagesavealpha($shCanvas, true);
-                $shTr = imagecolorallocatealpha($shCanvas, 0, 0, 0, 127);
-                imagefill($shCanvas, 0, 0, $shTr);
-                imagealphablending($shCanvas, true);
-                $shCol = imagecolorallocatealpha($shCanvas, 0, 0, 0, 52);
-                imagefilledrectangle($shCanvas, 30, 32, 30 + $badgeW, 32 + $badgeH, $shCol);
-                imagefilter($shCanvas, IMG_FILTER_GAUSSIAN_BLUR);
-                imagefilter($shCanvas, IMG_FILTER_GAUSSIAN_BLUR);
-                ImageWatermark::compositeAlpha($img, $shCanvas, $bx - 30, $by - 18);
-                imagedestroy($shCanvas);
-
-                /* خود نشان — سفید گردگوشه */
-                $badge = imagecreatetruecolor($badgeW, $badgeH);
-                imagealphablending($badge, false);
-                imagesavealpha($badge, true);
-                $badgeTr = imagecolorallocatealpha($badge, 0, 0, 0, 127);
-                imagefill($badge, 0, 0, $badgeTr);
-                $whiteOpaque = imagecolorallocate($badge, 255, 255, 255);
-                $r = 28;
-                imagefilledrectangle($badge, $r, 0, $badgeW - $r, $badgeH, $whiteOpaque);
-                imagefilledrectangle($badge, 0, $r, $badgeW, $badgeH - $r, $whiteOpaque);
-                imagefilledellipse($badge, $r, $r, $r * 2, $r * 2, $whiteOpaque);
-                imagefilledellipse($badge, $badgeW - $r, $r, $r * 2, $r * 2, $whiteOpaque);
-                imagefilledellipse($badge, $r, $badgeH - $r, $r * 2, $r * 2, $whiteOpaque);
-                imagefilledellipse($badge, $badgeW - $r, $badgeH - $r, $r * 2, $r * 2, $whiteOpaque);
                 $scaled = imagecreatetruecolor($dw, $dh);
                 imagealphablending($scaled, false);
                 imagesavealpha($scaled, true);
                 $sTr = imagecolorallocatealpha($scaled, 0, 0, 0, 127);
                 imagefill($scaled, 0, 0, $sTr);
                 imagecopyresampled($scaled, $logoRes, 0, 0, 0, 0, $dw, $dh, $lw, $lh);
-                ImageWatermark::compositeAlpha($badge, $scaled, (int)(($badgeW - $dw) / 2), $logoY);
+                ImageWatermark::compositeAlpha($img, $scaled, $dx, $dy, 1.0);
                 imagedestroy($scaled);
-                ImageWatermark::compositeAlpha($img, $badge, $bx, $by);
-                imagedestroy($badge);
                 imagedestroy($logoRes);
             }
         }
         if ($logoBottom === 0 && $font !== null) {
-            /* مونوگرام دایره‌ای بزرگ با حرف اول برند — جایگزین وقتی لوگو نیست */
+            /* مونوگرام حلقه‌ای بزرگ با حرف اول برند — جایگزین وقتی لوگو نیست
+               (v3.1: بدون دایره پرشده — فقط حلقه تاکیدی دور حرف) */
             $brandName0 = trim((string)($brand['name_fa'] ?? ''));
             if ($brandName0 !== '') {
                 $first = PersianGlyphs::shapeForImage(mb_substr($brandName0, 0, 1));
                 $cx = (int)($w / 2);
                 $cy = 128;
                 $r = 74;
-                $mono = imagecreatetruecolor($r * 2 + 12, $r * 2 + 12);
-                imagealphablending($mono, false);
-                imagesavealpha($mono, true);
-                $mTr = imagecolorallocatealpha($mono, 0, 0, 0, 127);
-                imagefill($mono, 0, 0, $mTr);
-                $circ = imagecolorallocate($mono, 255, 255, 255);
-                imagefilledellipse($mono, $r + 6, $r + 6, $r * 2, $r * 2, $circ);
-                ImageWatermark::compositeAlpha($img, $mono, $cx - $r - 6, $cy - $r - 6, 0.26);
-                imagedestroy($mono);
-                imagesetthickness($img, 3);
-                imagearc($img, $cx, $cy, $r * 2, $r * 2, 0, 360, $bar);
+                imagesetthickness($img, 4);
+                imagearc($img, $cx, $cy, $r * 2 + 10, $r * 2 + 10, 0, 360, $bar);
                 $box = imagettfbbox(64, 0, $font, $first);
                 $tw = abs($box[4] - $box[0]);
                 $th = abs($box[5] - $box[1]);
+                imagettftext($img, 64, 0, (int)($cx - $tw / 2) + 2, (int)($cy + $th / 2) + 3, $shadow, $font, $first);
                 imagettftext($img, 64, 0, (int)($cx - $tw / 2), (int)($cy + $th / 2), $white, $font, $first);
                 $logoBottom = $cy + $r + 8;
             }
@@ -324,21 +303,22 @@ class AiImageGenerator
             imagettftext($img, $bs, 0, (int)(($w - $tw) / 2), $h - 37, $bar, $font, $bShaped);
         }
 
-        /* --- 🪧 واترمارک‌ها: لوگوی برند پایین-راست + لوگوی نمایندگی پایین-چپ (شفاف) --- */
+        /* --- 🪧 واترمارک‌ها: لوگوی برند پایین-راست + لوگوی نمایندگی پایین-چپ (شفاف)
+              (v3.1: بزرگ‌تر و پررنگ‌تر برای دیده‌شدن بهتر) --- */
         if ($brandLogo !== null) {
-            $bwm = $brandLogo['kind'] === 'svg' ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($brandLogo['path']) ?? '', 170) : ImageWatermark::loadResampled($brandLogo['path'], 170);
+            $bwm = $brandLogo['kind'] === 'svg' ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($brandLogo['path']) ?? '', 200) : ImageWatermark::loadResampled($brandLogo['path'], 200);
             if ($bwm !== null) {
-                ImageWatermark::drawAlpha($img, $bwm, $w - imagesx($bwm) - 24, $h - imagesy($bwm) - 22, 0.6);
+                ImageWatermark::drawAlpha($img, $bwm, $w - imagesx($bwm) - 26, $h - imagesy($bwm) - 22, 0.72);
                 imagedestroy($bwm);
             }
         }
         $agencyLogo = $this->agencyLogoAsset();
         if ($agencyLogo !== null) {
             $wmRes = $agencyLogo['kind'] === 'svg'
-                ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($agencyLogo['path']) ?? '', 190)
-                : ImageWatermark::loadResampled($agencyLogo['path'], 190);
+                ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($agencyLogo['path']) ?? '', 220)
+                : ImageWatermark::loadResampled($agencyLogo['path'], 220);
             if ($wmRes !== null) {
-                ImageWatermark::drawAlpha($img, $wmRes, 24, $h - imagesy($wmRes) - 22, 0.62);
+                ImageWatermark::drawAlpha($img, $wmRes, 26, $h - imagesy($wmRes) - 22, 0.74);
                 imagedestroy($wmRes);
             }
         }
@@ -689,31 +669,30 @@ class AiImageGenerator
                 $mime = $brandLogo['kind'] === 'svg' ? 'image/svg+xml' : 'image/' . strtolower(pathinfo($brandLogo['path'], PATHINFO_EXTENSION));
                 if ($mime === 'image/jpg') { $mime = 'image/jpeg'; }
                 if ($isOg) {
-                    /* OG: لوگوی برند روی نشان سفید گردگوشه (v2.8 — هماهنگ با مسیر GD)
-                       تا لوگوهای JPG/کم‌کنتراست هم زیبا دیده شوند */
-                    $p[] = sprintf('<rect x="%d" y="30" rx="24" width="%d" height="122" fill="#ffffff" opacity=".96"/>',
-                        $w / 2 - 142, 284);
-                    $p[] = sprintf('<image x="%d" y="30" width="240" height="122" preserveAspectRatio="xMidYMid meet" href="data:%s;base64,%s"/>',
-                        $w / 2 - 120, $mime, base64_encode($data));
+                    /* OG (v3.1): لوگوی برند مستقیم روی پس‌زمینه — بدون کادر سفید
+                       (کنتراست را paletteAdjustedForLogo تأمین می‌کند) */
+                    $p[] = sprintf('<image x="%d" y="26" width="260" height="136" preserveAspectRatio="xMidYMid meet" href="data:%s;base64,%s"/>',
+                        $w / 2 - 130, $mime, base64_encode($data));
                 } else {
-                    /* تصویر مقاله: واترمارک لوگوی برند — گوشه پایین-راست، شفاف */
-                    $sz = (int)round(min($w, $h) * 0.15);
-                    $p[] = sprintf('<image x="%d" y="%d" width="%d" height="%d" preserveAspectRatio="xMidYMax meet" opacity=".85" href="data:%s;base64,%s"/>',
-                        $w - $sz - (int)round($w * 0.025), $h - $sz - (int)round($h * 0.035), $sz, $sz, $mime, base64_encode($data));
+                    /* تصویر مقاله: واترمارک لوگوی برند — گوشه پایین-راست، شفاف
+                       (v3.1: بزرگ‌تر برای دیده‌شدن بهتر طبق درخواست کاربر) */
+                    $sz = (int)round(min($w, $h) * 0.22);
+                    $p[] = sprintf('<image x="%d" y="%d" width="%d" height="%d" preserveAspectRatio="xMidYMax meet" opacity=".9" href="data:%s;base64,%s"/>',
+                        $w - $sz - (int)round($w * 0.022), $h - $sz - (int)round($h * 0.03), $sz, $sz, $mime, base64_encode($data));
                 }
             }
         }
 
-        /* 🪧 واترمارک لوگوی نمایندگی — گوشه پایین-چپ، شفاف */
+        /* 🪧 واترمارک لوگوی نمایندگی — گوشه پایین-چپ، شفاف (v3.1: بزرگ‌تر) */
         $agencyLogo = $this->agencyLogoAsset();
         if ($agencyLogo !== null) {
             $aData = @file_get_contents($agencyLogo['path']);
             if (is_string($aData) && $aData !== '') {
                 $aMime = $agencyLogo['kind'] === 'svg' ? 'image/svg+xml' : 'image/' . strtolower(pathinfo($agencyLogo['path'], PATHINFO_EXTENSION));
                 if ($aMime === 'image/jpg') { $aMime = 'image/jpeg'; }
-                $aSz = $isOg ? 104 : (int)round(min($w, $h) * 0.12);
-                $p[] = sprintf('<image x="%d" y="%d" width="%d" height="%d" preserveAspectRatio="xMidYMax meet" opacity=".5" href="data:%s;base64,%s"/>',
-                    (int)round($w * 0.022), $h - $aSz - (int)round($h * 0.035), $aSz, $aSz, $aMime, base64_encode($aData));
+                $aSz = $isOg ? 104 : (int)round(min($w, $h) * 0.17);
+                $p[] = sprintf('<image x="%d" y="%d" width="%d" height="%d" preserveAspectRatio="xMidYMax meet" opacity=".82" href="data:%s;base64,%s"/>',
+                    (int)round($w * 0.022), $h - $aSz - (int)round($h * 0.03), $aSz, $aSz, $aMime, base64_encode($aData));
             }
         }
 
@@ -840,6 +819,111 @@ class AiImageGenerator
         ];
         return array_combine(['c1', 'c2', 'accent'], $palettes[abs($seed) % count($palettes)]);
     }
+
+    /* ==================================================
+     * 🌗 ابزارهای کنتراست لوگو (v3.1) — پس‌زمینه پویا هماهنگ با روشنایی لوگو
+     * ================================================== */
+
+    /**
+     * 🌗 میانگین روشنایی لوگو (۰ = کاملاً تیره .. ۱ = کاملاً روشن)
+     * فقط پیکسل‌های نیمه‌مات به بالا شمرده می‌شوند (زمینه شفاف اثر ندارد)
+     * @param array|null $brandLogo خروجی brandLogoAsset
+     */
+    private function logoMeanLuma(?array $brandLogo): ?float
+    {
+        if ($brandLogo === null) {
+            return null;
+        }
+        try {
+            $res = $brandLogo['kind'] === 'svg'
+                ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($brandLogo['path'], 160) ?? '', 160)
+                : ImageWatermark::loadResampled($brandLogo['path'], 160);
+            if ($res === null) {
+                return null;
+            }
+            $w = imagesx($res);
+            $h = imagesy($res);
+            $sum = 0.0;
+            $weight = 0.0;
+            for ($y = 0; $y < $h; $y += 2) {
+                for ($x = 0; $x < $w; $x += 2) {
+                    $c = imagecolorat($res, $x, $y);
+                    $a = (127 - (($c >> 24) & 0x7F)) / 127.0; // ۰..۱ میزان مات بودن
+                    if ($a < 0.2) {
+                        continue; // پیکسل تقریباً شفاف
+                    }
+                    $r = ($c >> 16) & 0xFF;
+                    $g = ($c >> 8) & 0xFF;
+                    $b = $c & 0xFF;
+                    $sum += (0.2126 * $r + 0.7152 * $g + 0.0722 * $b) * $a;
+                    $weight += $a;
+                }
+            }
+            imagedestroy($res);
+            if ($weight < 2.0) {
+                return null; // محتوای مات بسیار کم — قضاوت قابل‌اعتماد نیست
+            }
+            return max(0.0, min(1.0, ($sum / $weight) / 255.0));
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    /** 🎨 تیره/روشن کردن RGB با ضریب (<۱ تیره می‌کند) */
+    private function shadeRgb(array $rgb, float $factor): array
+    {
+        return [
+            max(0, min(255, (int)round($rgb[0] * $factor))),
+            max(0, min(255, (int)round($rgb[1] * $factor))),
+            max(0, min(255, (int)round($rgb[2] * $factor))),
+        ];
+    }
+
+    /** 🤍 میکس RGB با سفید (۰..۱ — روشن‌تر می‌کند) */
+    private function tintWhite(array $rgb, float $mix): array
+    {
+        $mix = max(0.0, min(1.0, $mix));
+        return [
+            max(0, min(255, (int)round($rgb[0] + (255 - $rgb[0]) * $mix))),
+            max(0, min(255, (int)round($rgb[1] + (255 - $rgb[1]) * $mix))),
+            max(0, min(255, (int)round($rgb[2] + (255 - $rgb[2]) * $mix))),
+        ];
+    }
+
+    /**
+     * 🌗 تنظیم پالت (آرایه hex) بر اساس روشنایی لوگو — برای مسیرهای SVG/Imagick
+     * @return array پالت اصلاح‌شده (c1/c2/accent)
+     */
+    private function paletteAdjustedForLogo(array $palette, ?array $brandLogo): array
+    {
+        $luma = $this->logoMeanLuma($brandLogo);
+        if ($luma === null) {
+            return $palette;
+        }
+        $adj = static function (string $hex, bool $darken, float $f) use ($luma): string {
+            $rgb = [hexdec(substr($hex, 1, 2)), hexdec(substr($hex, 3, 2)), hexdec(substr($hex, 5, 2))];
+            $out = $darken
+                ? [(int)round($rgb[0] * $f), (int)round($rgb[1] * $f), (int)round($rgb[2] * $f)]
+                : [(int)round($rgb[0] + (255 - $rgb[0]) * $f), (int)round($rgb[1] + (255 - $rgb[1]) * $f), (int)round($rgb[2] + (255 - $rgb[2]) * $f)];
+            return sprintf('#%02x%02x%02x', ...$out);
+        };
+        if ($luma >= 0.60) {
+            return [
+                'c1' => $adj($palette['c1'], true, 0.55),
+                'c2' => $adj($palette['c2'], true, 0.64),
+                'accent' => $adj($palette['accent'], true, 0.88),
+            ];
+        }
+        if ($luma <= 0.34) {
+            return [
+                'c1' => $adj($palette['c1'], false, 0.42),
+                'c2' => $adj($palette['c2'], false, 0.50),
+                'accent' => $palette['accent'],
+            ];
+        }
+        return $palette;
+    }
+
 
     /**
      * 🔎 فونت فارسی برای رندر — اولویت مطلق: فونت پیش‌فرض عنوان سایت‌ها (v2.7.1)
