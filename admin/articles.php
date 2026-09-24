@@ -84,12 +84,12 @@ if (get_param('regen_images') === '1' && ($regenId = (int)get_param('edit')) > 0
     $article = $db->fetch('SELECT a.*, b.name_fa AS brand_name, b.logo AS brand_logo, b.extra_settings FROM brand_articles a JOIN brands b ON b.id = a.brand_id WHERE a.id = ?', [$regenId]);
     if ($article) {
         try {
-            $brand = ['name_fa' => $article['brand_name'] ?? '', 'extra_settings' => $article['extra_settings'] ?? '', 'logo' => $article['brand_logo'] ?? ''];
+            $brand = ['name_fa' => $article['brand_name'] ?? '', 'extra_settings' => $article['extra_settings'] ?? '', 'logo' => $article['brand_logo'] ?? '', 'id' => $article['brand_id'] ?? 0];
             $gen = new AiImageGenerator();
             $aiImages = $gen->generateForArticle(
                 $regenId,
                 $article['title'],
-                '',
+                (string)($article['device_key'] ?? ''),
                 'troubleshooting',
                 $brand,
                 ''

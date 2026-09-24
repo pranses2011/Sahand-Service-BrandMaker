@@ -201,7 +201,10 @@ class SmartPipeline
         $images = [];
         if ($withImages) {
             $imageService = new ArticleImageService();
-            $images = $imageService->pick($deviceKey, $topicType, (string)($article['title'] ?? ''), $focusKeyword);
+            /* v2: دستگاه از عنوان استنتاج می‌شود + واترمارک دو لوگو */
+            $pickKey = ArticleImageService::normalizeDeviceKey($deviceKey)
+                ?? ArticleImageService::inferDeviceKey((string)($article['title'] ?? ''), (string)($finalContent ?? ''));
+            $images = $imageService->pick($pickKey, $topicType, (string)($article['title'] ?? ''), $focusKeyword, $brand);
             $finalContent = $imageService->injectIntoContent($finalContent, $images);
             $trace[] = $this->step('images', 'درج ۳ تصویر مرتبط در مقاله', $t, [
                 'count' => count($images),

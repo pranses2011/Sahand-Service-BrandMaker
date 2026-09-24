@@ -243,7 +243,9 @@ class ArticleGenerator
 
         /* ---------- ۳.۷) 🖼️ تصاویر خودکار مقاله (فاز Q.8) ----------
          * ۳ تصویر مرتبط (شاخص + میان‌متن + پایانی) با alt و figcaption
-         * استاندارد سئو درج می‌شود — ریسک صفر چون از بسته داخلی است */
+         * استاندارد سئو درج می‌شود — ریسک صفر چون از بسته داخلی است
+         * v2: اگر دستگاه مقاله مشخص نیست از عنوان استنتاج می‌شود +
+         *     نسخه واترمارک‌شده (لوگوی برند + نمایندگی) تحویل می‌شود */
         $images = [];
         if (!empty($options['with_images'])) {
             try {
@@ -252,7 +254,8 @@ class ArticleGenerator
                     $device['device_key'] ?? null,
                     $topicType,
                     $title,
-                    $device['name_fa'] ?? ''
+                    $device['name_fa'] ?? '',
+                    $brand
                 );
                 $content = $imageService->injectIntoContent($content, $images);
             } catch (Throwable $e) {
