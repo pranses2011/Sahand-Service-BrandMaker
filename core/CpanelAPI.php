@@ -306,6 +306,95 @@ class CpanelAPI
     }
 
     /* ==================================================
+     * 🌐 دامنه‌های الحاقی — AddonDomain (v2.12)
+     * ================================================== */
+
+    /**
+     * ➕ ساخت دامنه الحاقی (Addon Domain) جدید
+     *
+     * @param string $newDomain دامنه کامل (مثلاً lg-service.ir)
+     * @param string $dir مسیر Document Root
+     * @param string|null $subdomain پیشوند زیردامنه خودکار (خالی = از نام دامنه)
+     * @return array [success => bool, message => string]
+     */
+    public function createAddonDomain(string $newDomain, string $dir, ?string $subdomain = null): array
+    {
+        $newDomain = strtolower(trim($newDomain));
+        if ($subdomain === null || $subdomain === '') {
+            // cPanel به‌طور خودکار زیردامنه‌ای با نام دامنه می‌سازد
+            $subdomain = $newDomain;
+        }
+        $data = $this->call('AddonDomain', 'add_addon_domain', [
+            'newdomain'  => $newDomain,
+            'subdomain'  => $subdomain,
+            'dir'        => $dir,
+        ]);
+        if ($data === false) {
+            return ['success' => false, 'message' => $this->lastError ?: 'ساخت دامنه الحاقی ناموفق بود.'];
+        }
+        return ['success' => true, 'message' => 'دامنه الحاقی ' . $newDomain . ' ایجاد شد.'];
+    }
+
+    /**
+     * 🗑️ حذف دامنه الحاقی
+     */
+    public function deleteAddonDomain(string $domain): array
+    {
+        $data = $this->call('AddonDomain', 'del_addon_domain', [
+            'domain' => strtolower(trim($domain)),
+        ]);
+        if ($data === false) {
+            return ['success' => false, 'message' => $this->lastError ?: 'حذف دامنه الحاقی ناموفق بود.'];
+        }
+        return ['success' => true, 'message' => 'دامنه الحاقی ' . $domain . ' حذف شد.'];
+    }
+
+    /**
+     * 📋 لیست دامنه‌های الحاقی
+     */
+    public function listAddonDomains(): array
+    {
+        $data = $this->call('AddonDomain', 'list_addon_domains');
+        if ($data === false) {
+            // روش جایگزین: DomainInfo::list_domains
+            $alt = $this->call('DomainInfo', 'list_domains');
+            if ($alt === false) {
+                return [];
+            }
+            $addons = $alt['addon_domains'] ?? [];
+            $list = [];
+            foreach ((array)$addons as $a) {
+                $list[] = is_array($a) ? ($a['domain'] ?? $a['servername'] ?? '') : (string)$a;
+            }
+            return array_values(array_filter($list));
+        }
+        $items = isset($data['addons']) ? $data['addons'] : $data;
+        $list = [];
+        foreach ((array)$items as $item) {
+            if (is_array($item)) {
+                $list[] = (string)($item['domain'] ?? $item['servername'] ?? $item['full_domain'] ?? '');
+            } else {
+                $list[] = (string)$item;
+            }
+        }
+        return array_values(array_filter($list));
+    }
+
+    /**
+     * ❓ بررسی وجود دامنه الحاقی
+     */
+    public function addonDomainExists(string $domain): bool
+    {
+        $needle = strtolower(trim($domain));
+        foreach ($this->listAddonDomains() as $item) {
+            if (strtolower(trim($item)) === $needle) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /* ==================================================
      * 📂 عملیات فایل — Fileman
      * ================================================== */
 

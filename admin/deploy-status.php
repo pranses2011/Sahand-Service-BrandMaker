@@ -40,6 +40,9 @@ switch ($action) {
         $subdomain = strtolower(trim((string)($input['subdomain'] ?? '')));
         $sslInstall = !empty($input['ssl_install']);
         $updateMode = !empty($input['update_mode']); // بروزرسانی به جای استقرار جدید
+        /* 🌐 v2.12: نوع دامنه — زیردامنه (پیش‌فرض) یا دامنه الحاقی Addon */
+        $domainType = ($input['domain_type'] ?? 'subdomain') === 'addon' ? 'addon' : 'subdomain';
+        $addonDomain = strtolower(trim((string)($input['addon_domain'] ?? '')));
 
         $brand = $db->fetch('SELECT * FROM brands WHERE id = ?', [$brandId]);
         if (!$brand) {
@@ -49,6 +52,18 @@ switch ($action) {
         $deployer = new Deployer();
         if ($updateMode) {
             $result = $deployer->queueUpdate($brandId, 'panel');
+        } elseif ($domainType === 'addon') {
+            // اعتبارسنجی دامنه الحاقی قبل از صف
+            $check = SubdomainValidator::validateFullDomain($addonDomain);
+            if (!$check['valid']) {
+                json_response(['success' => false, 'error' => $check['error']]);
+            }
+            // تکرار در دیتابیس (برند دیگر با همین دامنه)
+            $existing = $db->fetch('SELECT id, name_fa FROM brands WHERE full_domain = ? AND id != ? LIMIT 1', [$addonDomain, $brandId]);
+            if ($existing) {
+                json_response(['success' => false, 'error' => 'این دامنه قبلاً برای برند «' . $existing['name_fa'] . '» ثبت شده است.']);
+            }
+            $result = $deployer->queueDeploy($brandId, strtok($addonDomain, '.'), $sslInstall, 'panel', 'addon', $addonDomain);
         } else {
             // اعتبارسنجی نهایی نام زیردامنه قبل از صف
             $settings = PathResolver::getSettings();
@@ -93,10 +108,29 @@ switch ($action) {
         ], 'id = ?', [$deploymentId]);
         json_response(['success' => true, 'message' => 'عملیات لغو شد.']);
 
-    /* ✅ اعتبارسنجی زنده نام زیردامنه */
+    /* ✅ اعتبارسنجی زنده نام زیردامنه / دامنه الحاقی */
     case 'validate_subdomain':
         $name = strtolower(trim((string)($input['name'] ?? '')));
         $brandId = (int)($input['brand_id'] ?? 0);
+        $domainType = ($input['domain_type'] ?? 'subdomain') === 'addon' ? 'addon' : 'subdomain';
+
+        /* 🌐 v2.12: دامنه الحاقی — قالب دامنه کامل + تکرار */
+        if ($domainType === 'addon') {
+            $check = SubdomainValidator::validateFullDomain($name);
+            if (!$check['valid']) {
+                json_response(['available' => false, 'error' => $check['error'], 'suggestions' => []]);
+            }
+            $existing = $db->fetch('SELECT id, name_fa FROM brands WHERE full_domain = ? AND id != ? LIMIT 1', [$name, $brandId]);
+            if ($existing) {
+                json_response(['available' => false, 'error' => 'این دامنه قبلاً برای برند «' . $existing['name_fa'] . '» ثبت شده است.', 'suggestions' => []]);
+            }
+            $api = new CpanelAPI();
+            if ($api->addonDomainExists($name)) {
+                json_response(['available' => false, 'error' => 'دامنه «' . $name . '» در cPanel از قبل ثبت شده است.', 'suggestions' => []]);
+            }
+            json_response(['available' => true, 'error' => 'دامنه معتبر و آزاد است — مطمئن شوید DNS آن به این سرور اشاره می‌کند.', 'suggestions' => []]);
+        }
+
         $settings = PathResolver::getSettings();
         $rootDomain = (string)($settings['root_domain'] ?? '');
         if ($rootDomain === '') {
@@ -129,6 +163,7 @@ switch ($action) {
             'subdomain'  => $subdomain,
             'full_domain'=> $subdomain . '.' . $rootDomain,
             'root_domain'=> $rootDomain,
+            'domain_type'=> (string)($brand['domain_type'] ?? 'subdomain'), // 🌐 v2.12
             'server_path'=> $serverPath,
             'ssl_auto'   => (bool)($settings['ssl_auto'] ?? true),
             'settings_ok'=> !empty($settings['deploy_enabled']) && !empty($settings['cpanel_host']) && $rootDomain !== '',

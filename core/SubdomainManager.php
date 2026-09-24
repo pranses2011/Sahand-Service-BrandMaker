@@ -155,7 +155,7 @@ class SubdomainManager
     }
 
     /**
-     * 🗑️ حذف زیردامنه از cPanel + پاک‌سازی دیتابیس
+     * 🗑️ حذف زیردامنه/دامنه الحاقی از cPanel + پاک‌سازی دیتابیس (v2.12: addon)
      *
      * @param array $brand ردیف برند
      * @return array [success => bool, message => string]
@@ -164,6 +164,25 @@ class SubdomainManager
     {
         $rootDomain = (string)($this->getSettings()['root_domain'] ?? '');
         $name = (string)($brand['subdomain_name'] ?? '');
+        $fullDomain = (string)($brand['full_domain'] ?? '');
+
+        /* 🌐 v2.12: دامنه الحاقی — حذف با متد AddonDomain */
+        if (($brand['domain_type'] ?? 'subdomain') === 'addon' && $fullDomain !== '') {
+            $result = $this->api->deleteAddonDomain($fullDomain);
+            if (!$result['success']) {
+                return $result;
+            }
+            $this->db->update('brands', [
+                'is_deployed'    => 0,
+                'domain_type'   => 'subdomain',
+                'subdomain_name' => null,
+                'full_domain'    => null,
+                'server_path'    => null,
+                'deployed_at'    => null,
+                'ssl_status'     => 'none',
+            ], 'id = ?', [(int)$brand['id']]);
+            return ['success' => true, 'message' => 'دامنه الحاقی و اطلاعات استقرار حذف شد.'];
+        }
 
         if ($name === '' || $rootDomain === '') {
             return ['success' => false, 'message' => 'اطلاعات زیردامنه برای حذف کامل نیست.'];

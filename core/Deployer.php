@@ -93,9 +93,11 @@ class Deployer
      * @param string $subdomain نام زیردامنه (تأییدشده در دیالوگ پیش‌نمایش)
      * @param bool   $sslInstall نصب SSL؟
      * @param string $triggeredBy منبع (panel|api|cron)
+     * @param string $domainType نوع دامنه: subdomain (پیش‌فرض) یا addon (دامنه الحاقی — v2.12)
+     * @param string $addonDomain دامنه کامل الحاقی (وقتی domain_type=addon)
      * @return array [success => bool, deployment_id => int|null, message => string]
      */
-    public function queueDeploy(int $brandId, string $subdomain, bool $sslInstall = true, string $triggeredBy = 'panel'): array
+    public function queueDeploy(int $brandId, string $subdomain, bool $sslInstall = true, string $triggeredBy = 'panel', string $domainType = 'subdomain', string $addonDomain = ''): array
     {
         // 🔍 بررسی وضعیت برند
         $brand = $this->db->fetch('SELECT * FROM brands WHERE id = ?', [$brandId]);
@@ -115,10 +117,20 @@ class Deployer
             return ['success' => false, 'deployment_id' => null, 'message' => 'عملیات دیگری برای این برند در حال اجرا است — صبر کنید.'];
         }
 
-        // 🌐 مسیر و دامنه
+        // 🌐 مسیر و دامنه (v2.12: پشتیبانی دامنه الحاقی)
         $rootDomain = (string)($this->settings['root_domain'] ?? '');
         $serverPath = PathResolver::resolveDocumentRoot($brand);
-        $fullDomain = $subdomain . '.' . $rootDomain;
+        if ($domainType === 'addon') {
+            $addonDomain = strtolower(trim(str_replace(['https://', 'http://', '/'], '', $addonDomain)));
+            $check = SubdomainValidator::validateFullDomain($addonDomain);
+            if (!$check['valid']) {
+                return ['success' => false, 'deployment_id' => null, 'message' => $check['error']];
+            }
+            $subdomain = strtok($addonDomain, '.'); // پیشوند برای نمایش
+            $fullDomain = $addonDomain;
+        } else {
+            $fullDomain = $subdomain . '.' . $rootDomain;
+        }
 
         $deploymentId = $this->logger->start($brandId, 'deploy', [
             'subdomain'    => $subdomain,
@@ -128,9 +140,13 @@ class Deployer
             'triggered_by' => $triggeredBy,
         ]);
 
-        // ذخیره گزینه‌ها در details (ssl_install)
+        // ذخیره گزینه‌ها در details (ssl_install + domain_type)
         $this->db->update('deployments', [
-            'details' => json_encode(['ssl_install' => $sslInstall], JSON_UNESCAPED_UNICODE),
+            'details' => json_encode([
+                'ssl_install' => $sslInstall,
+                'domain_type' => $domainType === 'addon' ? 'addon' : 'subdomain',
+                'addon_domain' => $domainType === 'addon' ? $fullDomain : '',
+            ], JSON_UNESCAPED_UNICODE),
         ], 'id = ?', [$deploymentId]);
 
         return ['success' => true, 'deployment_id' => $deploymentId, 'message' => 'استقرار در صف قرار گرفت.'];
@@ -360,13 +376,28 @@ class Deployer
     }
 
     /**
-     * ۲️⃣ بررسی وجود زیردامنه
+     * ۲️⃣ بررسی وجود زیردامنه / دامنه الحاقی (v2.12)
      */
     private function stepSubdomainCheck(array $deployment, ?array $brand, array $state): array
     {
         $subdomain = (string)$deployment['subdomain'];
         $rootDomain = (string)($this->settings['root_domain'] ?? '');
-        $fullDomain = $subdomain . '.' . $rootDomain;
+        $fullDomain = (string)$deployment['full_domain'];
+
+        /* 🌐 v2.12: دامنه الحاقی — مسیر جداگانه */
+        $details = json_decode((string)($deployment['details'] ?? '{}'), true) ?: [];
+        if (($details['domain_type'] ?? 'subdomain') === 'addon') {
+            $exists = $this->api->addonDomainExists($fullDomain);
+            $owned = $brand && (string)($brand['full_domain'] ?? '') === $fullDomain;
+            if ($exists && !$owned) {
+                return ['ok' => false, 'error' => 'دامنه الحاقی «' . $fullDomain . '» در cPanel موجود است و متعلق به این برند نیست — دامنه دیگری انتخاب کنید.'];
+            }
+            return [
+                'ok'      => true,
+                'message' => $exists ? 'دامنه الحاقی موجود است (استقرار مجدد)' : 'دامنه الحاقی آزاد است',
+                'state'   => ['subdomain_exists' => $exists],
+            ];
+        }
 
         $exists = $this->api->subdomainExists($fullDomain);
 
@@ -384,18 +415,36 @@ class Deployer
     }
 
     /**
-     * ۳️⃣ ساخت زیردامنه
+     * ۳️⃣ ساخت زیردامنه / دامنه الحاقی (v2.12)
      */
     private function stepSubdomainCreate(array $deployment, ?array $brand, array $state): array
     {
         // اگر از قبل هست و مال برند است — رد شو
         if (!empty($state['subdomain_exists'])) {
-            return ['ok' => true, 'message' => 'زیردامنه از قبل موجود است — نیازی به ساخت نیست.'];
+            return ['ok' => true, 'message' => 'دامنه از قبل موجود است — نیازی به ساخت نیست.'];
         }
 
         $subdomain = (string)$deployment['subdomain'];
         $rootDomain = (string)($this->settings['root_domain'] ?? '');
         $serverPath = (string)$deployment['server_path'];
+        $fullDomain = (string)$deployment['full_domain'];
+
+        /* 🌐 v2.12: ساخت دامنه الحاقی — AddonDomain::add_addon_domain */
+        $details = json_decode((string)($deployment['details'] ?? '{}'), true) ?: [];
+        if (($details['domain_type'] ?? 'subdomain') === 'addon') {
+            $result = $this->api->createAddonDomain($fullDomain, $serverPath);
+            if (!$result['success']) {
+                return ['ok' => false, 'error' => 'ساخت دامنه الحاقی ناموفق: ' . $result['message']];
+            }
+            $this->db->update('brands', [
+                'domain_type'    => 'addon',
+                'subdomain_name' => null,
+                'full_domain'    => $fullDomain,
+                'server_path'    => $serverPath,
+                'custom_subdomain' => 1,
+            ], 'id = ?', [(int)$deployment['brand_id']]);
+            return ['ok' => true, 'message' => $result['message']];
+        }
 
         $result = $this->api->createSubdomain($subdomain, $rootDomain, $serverPath);
         if (!$result['success']) {
@@ -404,6 +453,7 @@ class Deployer
 
         // 💾 ثبت در برند (طبق سند — پرامپت تکمیلی بخش ۳)
         $this->db->update('brands', [
+            'domain_type'      => 'subdomain',
             'subdomain_name'   => $subdomain,
             'full_domain'      => $subdomain . '.' . $rootDomain,
             'server_path'      => $serverPath,

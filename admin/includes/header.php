@@ -172,6 +172,9 @@ try {
                 <a class="nav-link <?= $activeMenu === 'settings' ? 'active' : '' ?>" href="settings.php">
                     <span class="icon">⚙️</span> تنظیمات
                 </a>
+                <a class="nav-link <?= $activeMenu === 'api-keys' ? 'active' : '' ?>" href="api-keys.php">
+                    <span class="icon">🔑</span> کلیدهای API
+                </a>
                 <a class="nav-link <?= $activeMenu === 'webmaster' ? 'active' : '' ?>" href="webmaster.php">
                     <span class="icon">🔗</span> تگ‌های وبمستر
                 </a>

@@ -150,4 +150,32 @@ class SubdomainValidator
         // حذف خط تیره ابتدا/انتها
         return trim($slug, '-');
     }
+
+    /**
+     * 🌐 اعتبارسنجی دامنه کامل (Addon Domain) — v2.12
+     * قالب: example.com یا sub.example.com (حداقل یک نقطه، برچسب‌های DNS معتبر)
+     *
+     * @param string $domain دامنه کامل (بدون http)
+     * @return array [valid => bool, error => string|null]
+     */
+    public static function validateFullDomain(string $domain): array
+    {
+        $domain = strtolower(trim(str_replace(['https://', 'http://', '/'], '', $domain)));
+        if ($domain === '') {
+            return ['valid' => false, 'error' => 'دامنه الحاقی را وارد کنید (مثلاً mybrand.ir).'];
+        }
+        if (mb_strlen($domain) > 253) {
+            return ['valid' => false, 'error' => 'طول دامنه بیش از حد مجاز است.'];
+        }
+        // هر برچسب: ۱ تا ۶۳ کاراکتر از a-z 0-9 - (شروع/پایان با خط تیره ممنوع)
+        if (!preg_match('/^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/', $domain)) {
+            return ['valid' => false, 'error' => 'قالب دامنه معتبر نیست — مثال درست: mybrand.ir یا lg-service.com'];
+        }
+        // دامنه سطح‌بالا حداقل ۲ حرف و فقط حرف
+        $tld = substr($domain, strrpos($domain, '.') + 1);
+        if (!preg_match('/^[a-z]{2,24}$/', $tld)) {
+            return ['valid' => false, 'error' => 'پسوند دامنه (TLD) معتبر نیست — مثلاً ir، com، net'];
+        }
+        return ['valid' => true, 'error' => null];
+    }
 }

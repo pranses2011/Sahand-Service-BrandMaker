@@ -212,12 +212,33 @@ $csrf = e($_SESSION['csrf_token'] ?? '');
                     <span class="preview-label">🏷️ برند:</span>
                     <span id="pv-brand">—</span>
                 </div>
-                <div class="preview-row">
+                <!-- 🌐 v2.12: انتخاب نوع دامنه — زیردامنه / دامنه الحاقی -->
+                <div class="preview-row" id="pv-domain-type-row">
+                    <span class="preview-label">🌐 نوع دامنه:</span>
+                    <div style="display:flex;gap:14px;flex-wrap:wrap">
+                        <label style="display:inline-flex;gap:6px;align-items:center;cursor:pointer">
+                            <input type="radio" name="pv-domain-type" value="subdomain" checked onchange="switchDomainType()">
+                            <b>زیردامنه</b> <small style="color:var(--text-light)">(رایگان — روی دامنه اصلی)</small>
+                        </label>
+                        <label style="display:inline-flex;gap:6px;align-items:center;cursor:pointer">
+                            <input type="radio" name="pv-domain-type" value="addon" onchange="switchDomainType()">
+                            <b>دامنه الحاقی</b> <small style="color:var(--text-light)">(Addon — دامنه مستقل شما)</small>
+                        </label>
+                    </div>
+                </div>
+                <div class="preview-row" id="pv-subdomain-row">
                     <span class="preview-label">🌐 نام زیردامنه:</span>
                     <div class="subdomain-edit">
                         <input type="text" id="pv-subdomain" dir="ltr" oninput="liveValidateSubdomain()" autocomplete="off">
                         <span class="root-domain">. <span id="pv-root-domain">—</span></span>
                     </div>
+                </div>
+                <div class="preview-row" id="pv-addon-row" style="display:none">
+                    <span class="preview-label">🔗 دامنه الحاقی کامل:</span>
+                    <div class="subdomain-edit">
+                        <input type="text" id="pv-addon-domain" dir="ltr" placeholder="mybrand.ir" oninput="liveValidateSubdomain()" autocomplete="off" style="flex:1">
+                    </div>
+                    <div class="hint" style="width:100%;font-size:11.5px">⚠️ دامنه باید قبل از استقرار به سرور همین هاست اشاره (Point) شود — رکورد A یا NS در پنل ثبت‌کننده دامنه.</div>
                 </div>
                 <div class="preview-row">
                     <span class="preview-label">🔗 پیش‌نمایش کامل:</span>
@@ -351,13 +372,29 @@ async function openDeployDialog(brandId, isUpdate) {
     document.getElementById('pv-subdomain').value = body.subdomain;
     document.getElementById('pv-subdomain').disabled = body.is_deployed; // بعد از استقرار نام قابل تغییر نیست (حذف+ساخت لازم است)
     document.getElementById('pv-root-domain').textContent = body.root_domain;
-    document.getElementById('pv-full-url').textContent = 'https://' + body.full_domain;
+    document.getElementById('pv-addon-domain').value = body.domain_type === 'addon' ? body.full_domain : '';
     document.getElementById('pv-server-path').textContent = body.server_path;
     document.getElementById('pv-ssl').checked = body.ssl_auto;
     document.getElementById('pv-backup-note').textContent = body.is_deployed ? '✅ (اتوماتیک قبل از بروزرسانی)' : '➖ (نصب اولیه)';
     document.getElementById('pv-suggestions').style.display = 'none';
     document.getElementById('pv-validation').innerHTML = body.is_deployed ? 'ℹ️ این برند استقرار دارد — عملیات بروزرسانی انجام می‌شود.' : '';
     document.getElementById('pv-start-btn').textContent = body.is_deployed ? '🔄 شروع بروزرسانی' : '✅ تأیید و شروع';
+
+    /* 🌐 v2.12: نوع دامنه — در حالت بروزرسانی قفل، در استقرار جدید انتخابی */
+    const typeRow = document.getElementById('pv-domain-type-row');
+    if (body.is_deployed) {
+        typeRow.style.display = 'none';
+        document.getElementById('pv-addon-row').style.display = body.domain_type === 'addon' ? 'flex' : 'none';
+        document.getElementById('pv-subdomain-row').style.display = body.domain_type === 'subdomain' ? 'flex' : 'none';
+        if (body.domain_type === 'addon') document.getElementById('pv-addon-domain').disabled = true;
+    } else {
+        typeRow.style.display = 'flex';
+        document.querySelectorAll('input[name=pv-domain-type]').forEach(r => { r.disabled = false; r.checked = r.value === 'subdomain'; });
+        document.getElementById('pv-addon-domain').disabled = false;
+        switchDomainType();
+    }
+
+    document.getElementById('pv-full-url').textContent = 'https://' + body.full_domain;
 
     if (!body.settings_ok) {
         document.getElementById('pv-validation').innerHTML = '❌ <b>تنظیمات cPanel کامل نیست</b> — <a href="cpanel-settings.php">تنظیمات</a>';
@@ -370,23 +407,37 @@ async function openDeployDialog(brandId, isUpdate) {
     if (!body.is_deployed) liveValidateSubdomain();
 }
 
+/* 🌐 v2.12: جابجایی زیردامنه ↔ دامنه الحاقی */
+function switchDomainType() {
+    const isAddon = document.querySelector('input[name=pv-domain-type]:checked')?.value === 'addon';
+    document.getElementById('pv-addon-row').style.display = isAddon ? 'flex' : 'none';
+    document.getElementById('pv-subdomain-row').style.display = isAddon ? 'none' : 'flex';
+    liveValidateSubdomain(true);
+}
+
 function closeDeployDialog() {
     document.getElementById('deploy-dialog').style.display = 'none';
 }
 
-/* ✅ اعتبارسنجی زنده نام زیردامنه (۸ قانون + تکرار) */
+/* ✅ اعتبارسنجی زنده نام زیردامنه / دامنه الحاقی (۸ قانون + تکرار) */
 let validateTimer = null;
-function liveValidateSubdomain() {
+function liveValidateSubdomain(force = false) {
     clearTimeout(validateTimer);
     validateTimer = setTimeout(async () => {
-        const name = document.getElementById('pv-subdomain').value.trim();
+        const isAddon = document.querySelector('input[name=pv-domain-type]:checked')?.value === 'addon';
+        const name = (isAddon ? document.getElementById('pv-addon-domain') : document.getElementById('pv-subdomain')).value.trim();
         const msgEl = document.getElementById('pv-validation');
         const sugEl = document.getElementById('pv-suggestions');
-        if (name.length < 2) { msgEl.textContent = ''; sugEl.style.display = 'none'; return; }
+        if (name.length < 2) {
+            msgEl.textContent = '';
+            sugEl.style.display = 'none';
+            if (isAddon) updateFullUrlAddon(name);
+            return;
+        }
 
-        const body = await api({action: 'validate_subdomain', name, brand_id: currentBrandId});
+        const body = await api({action: 'validate_subdomain', name, brand_id: currentBrandId, domain_type: isAddon ? 'addon' : 'subdomain'});
         if (body.available) {
-            msgEl.innerHTML = '✅ ' + (body.error || 'نام معتبر و آزاد است') ;
+            msgEl.innerHTML = '✅ ' + (body.error || 'نام معتبر و آزاد است');
             msgEl.style.color = '#16a34a';
             sugEl.style.display = 'none';
         } else {
@@ -397,7 +448,13 @@ function liveValidateSubdomain() {
                 sugEl.style.display = 'block';
             }
         }
-    }, 400);
+        if (isAddon) updateFullUrlAddon(name);
+    }, force ? 150 : 400);
+}
+
+/* 🌐 بروزرسانی پیش‌نمایش URL در حالت دامنه الحاقی */
+function updateFullUrlAddon(domain) {
+    document.getElementById('pv-full-url').textContent = domain.length >= 2 ? 'https://' + domain : '—';
 }
 
 function pickSuggestion(name) {
@@ -409,6 +466,14 @@ function pickSuggestion(name) {
 async function startDeployment() {
     const subdomain = document.getElementById('pv-subdomain').value.trim();
     const sslInstall = document.getElementById('pv-ssl').checked;
+    /* 🌐 v2.12: نوع دامنه — زیردامنه یا دامنه الحاقی */
+    const domainType = document.querySelector('input[name=pv-domain-type]:checked')?.value || 'subdomain';
+    const addonDomain = document.getElementById('pv-addon-domain')?.value.trim() || '';
+
+    if (domainType === 'addon' && addonDomain.length < 4) {
+        alert('دامنه الحاقی را وارد کنید (مثلاً mybrand.ir)');
+        return;
+    }
 
     const body = await api({
         action: 'start',
@@ -416,6 +481,8 @@ async function startDeployment() {
         subdomain,
         ssl_install: sslInstall,
         update_mode: updateMode,
+        domain_type: domainType,
+        addon_domain: addonDomain,
     });
 
     if (!body.success) {
