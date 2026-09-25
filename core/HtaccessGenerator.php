@@ -12,22 +12,43 @@
  *   - هدرهای امنیتی (X-Frame-Options و ...)
  *   - صفحه ۴۰۴ سفارشی
  *
+ * 🆕 v2.20.0 — سه سطح سازگاری (compatLevel):
+ *   ریشه‌یابی خطای «تست نهایی ناموفق: پاسخ HTTP: 500»:
+ *   ① «Require all denied» فقط سینتکس Apache 2.4 است — روی Apache 2.2
+ *      (سرورهای cPanel قدیمی) «Invalid command 'Require'» → خطای 500 قطعی!
+ *      → بلوک‌های دوسینتکس: IfModule mod_authz_core.c (2.4) + !mod_authz_core.c (2.2: Order/Allow/Deny)
+ *   ② «Options -Indexes» روی هاست‌هایی که AllowOverride شامل Options نیست → 500
+ *   ③ سطوح تنزل‌پذیر: full (کامل) / safe (بدون Options و بلوک‌های Files — برای
+ *      هاست‌های سخت‌گیر) / minimal (فقط DirectoryIndex + ErrorDocument + URLهای تمیز)
+ *      — Deployer در صورت شکست تست نهایی، خودکار سطح پایین‌تر را امتحان می‌کند
+ *      (مکانیزم خوددرمانی — دیگر .htaccess هرگز باعث شکست استقرار نمی‌شود)
+ *
  * @package SahandBrandMaker
- * @version 1.0.0
+ * @version 2.0.0
  */
 class HtaccessGenerator
 {
+    /** سطح کامل — همه بهینه‌سازی‌ها (پیش‌فرض) */
+    public const LEVEL_FULL    = 'full';
+    /** سطح امن — بدون Options و بلوک‌های Files/FilesMatch (هاست‌های سخت‌گیر) */
+    public const LEVEL_SAFE    = 'safe';
+    /** سطح حداقلی — فقط فایل پیش‌فرض + 404 + URLهای تمیز */
+    public const LEVEL_MINIMAL = 'minimal';
+
     /**
      * ⚙️ تولید محتوای .htaccess سایت برند
      *
      * @param string $fullDomain دامنه کامل (برای ریدایرکت www و HTTPS)
      * @param array  $pageTypes لیست اسلاگ صفحات فعال برند (اختیاری)
+     * @param string $compatLevel سطح سازگاری: full | safe | minimal (پیش‌فرض full)
      * @return string محتوای .htaccess
      */
-    public static function generate(string $fullDomain, array $pageTypes = []): string
+    public static function generate(string $fullDomain, array $pageTypes = [], string $compatLevel = self::LEVEL_FULL): string
     {
         $domain = preg_replace('/[^a-zA-Z0-9\.\-]/', '', strtolower($fullDomain));
         $wwwDomain = 'www.' . $domain;
+        $level = in_array($compatLevel, [self::LEVEL_FULL, self::LEVEL_SAFE, self::LEVEL_MINIMAL], true)
+            ? $compatLevel : self::LEVEL_FULL;
 
         // 📄 قوانین بازنویسی صفحات — از صفحات فعال برند یا مجموعه استاندارد
         $rewriteRules = self::buildRewriteRules($pageTypes);
@@ -35,24 +56,14 @@ class HtaccessGenerator
         // 📅 تاریخ تولید برای سربرگ (شمسی)
         $generationDate = ShamsiDate::forDisplay();
 
-        return <<<HTACCESS
-# ⚙️ تنظیمات Apache سایت برند — تولید خودکار توسط افزونه استقرار سایت ساز سهند سرویس
-# =================================================================================
-# برند: {$domain}
-# تاریخ تولید: {$generationDate}
-# ⚠️ ویرایش دستی توصیه نمی‌شود — با هر بروزرسانی بازنویسی می‌شود.
-# =================================================================================
+        // 🏷️ برچسب سطح در سربرگ (به‌جز full — رفتار پیش‌فرض تغییری نکرده)
+        $levelNote = $level === self::LEVEL_FULL
+            ? ''
+            : "# ⚠️ سطح سازگاری: {$level} — سرور شما با دایرکتیوهای کامل سازگار نیست (تنزل خودکار)\n";
 
-# 🚫 غیرفعال‌سازی فهرست پوشه‌ها
-Options -Indexes
-
-# 📌 فایل پیش‌فرض
-DirectoryIndex index.php
-
-# 🔀 URL Rewriting — آدرس‌های تمیز
-<IfModule mod_rewrite.c>
-    RewriteEngine On
-
+        // 🧩 بخش‌های مشروط بر اساس سطح
+        $optionsBlock    = $level === self::LEVEL_FULL ? "# 🚫 غیرفعال‌سازی فهرست پوشه‌ها\nOptions -Indexes\n\n" : '';
+        $redirectsBlock  = $level === self::LEVEL_MINIMAL ? '' : <<<BLOCK
     # 🔒 ریدایرکت HTTP → HTTPS
     RewriteCond %{HTTPS} off
     RewriteRule ^(.*)$ https://{$domain}/$1 [R=301,L]
@@ -61,15 +72,16 @@ DirectoryIndex index.php
     RewriteCond %{HTTP_HOST} ^{$wwwDomain}$ [NC]
     RewriteRule ^(.*)$ https://{$domain}/$1 [R=301,L]
 
-{$rewriteRules}
-
+BLOCK;
+        $sensitiveBlock  = <<<'BLOCK'
     # 🚫 جلوگیری از دسترسی مستقیم به فایل‌های حساس
     RewriteRule ^config\.php$ - [F,L]
     RewriteRule ^\.htaccess$ - [F,L]
     RewriteRule ^includes/ - [F,L]
     RewriteRule ^cache/ - [F,L]
     RewriteRule ^\.env - [F,L]
-</IfModule>
+BLOCK;
+        $deflateBlock    = $level === self::LEVEL_MINIMAL ? '' : <<<'BLOCK'
 
 # 📦 فشرده‌سازی Gzip — کاهش حجم انتقال
 <IfModule mod_deflate.c>
@@ -77,6 +89,8 @@ DirectoryIndex index.php
     AddOutputFilterByType DEFLATE application/javascript application/json application/xml
     AddOutputFilterByType DEFLATE image/svg+xml
 </IfModule>
+BLOCK;
+        $expiresBlock    = $level === self::LEVEL_MINIMAL ? '' : <<<'BLOCK'
 
 # ⏱️ کش مرورگر (Browser Caching)
 <IfModule mod_expires.c>
@@ -97,6 +111,8 @@ DirectoryIndex index.php
     # HTML: ۱ ساعت
     ExpiresByType text/html "access plus 1 hour"
 </IfModule>
+BLOCK;
+        $headersBlock    = $level === self::LEVEL_MINIMAL ? '' : <<<'BLOCK'
 
 # 🛡️ هدرهای امنیتی
 <IfModule mod_headers.c>
@@ -106,16 +122,58 @@ DirectoryIndex index.php
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
 </IfModule>
+BLOCK;
 
-# 🚫 جلوگیری از نمایش فایل‌های مخفی (شروع با نقطه)
+        // 🧊 بلوک‌های محروم‌سازی — فقط در سطح full + با دوسینتکس Apache 2.2/2.4
+        //    («Require all denied» در Apache 2.2 وجود ندارد و خطای 500 قطعی می‌دهد!)
+        $denyBlocks = '';
+        if ($level === self::LEVEL_FULL) {
+            $denyBlocks = <<<'BLOCK'
+
+# 🚫 جلوگیری از نمایش فایل‌های مخفی (شروع با نقطه) — سازگار با Apache 2.2 و 2.4
 <FilesMatch "^\.">
-    Require all denied
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
 </FilesMatch>
 
-# 🔒 محافظت ویژه config.php
+# 🔒 محافظت ویژه config.php — سازگار با Apache 2.2 و 2.4
 <Files "config.php">
-    Require all denied
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
 </Files>
+BLOCK;
+        }
+
+        return <<<HTACCESS
+# ⚙️ تنظیمات Apache سایت برند — تولید خودکار توسط افزونه استقرار سایت ساز سهند سرویس
+# =================================================================================
+# برند: {$domain}
+# تاریخ تولید: {$generationDate}
+# ⚠️ ویرایش دستی توصیه نمی‌شود — با هر بروزرسانی بازنویسی می‌شود.
+{$levelNote}# =================================================================================
+
+{$optionsBlock}# 📌 فایل پیش‌فرض
+DirectoryIndex index.php
+
+# 🔀 URL Rewriting — آدرس‌های تمیز
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+{$redirectsBlock}{$rewriteRules}
+
+{$sensitiveBlock}
+</IfModule>
+{$deflateBlock}{$expiresBlock}{$headersBlock}{$denyBlocks}
 
 # ⛔ صفحه ۴۰۴ سفارشی
 ErrorDocument 404 /404.php

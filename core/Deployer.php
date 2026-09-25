@@ -691,15 +691,8 @@ class Deployer
      */
     private function stepHtaccess(array $deployment, ?array $brand, array $state): array
     {
-        // صفحات فعال برند برای قوانین بازنویسی دقیق
-        $pageTypes = [];
-        if ($brand) {
-            $rows = $this->db->fetchAll(
-                'SELECT page_type FROM brand_pages WHERE brand_id = ? AND is_active = 1',
-                [(int)$brand['id']]
-            );
-            $pageTypes = array_column($rows, 'page_type');
-        }
+        // صفحات فعال برند برای قوانین بازنویسی دقیق (هلپر مشترک)
+        $pageTypes = $this->brandPageTypes($brand);
 
         $content = HtaccessGenerator::generate((string)$deployment['full_domain'], $pageTypes);
         $serverPath = (string)$deployment['server_path'];
@@ -769,8 +762,10 @@ class Deployer
 
         if (!$isDelete) {
             // 🧪 تست خودکار پس از استقرار (طبق تنظیمات — پیش‌فرض فعال)
+            //    v2.20.0: با خوددرمانی .htaccess — در صورت 500، سطح سازگارتر
+            //    امتحان می‌شود و فقط بعد از ناکامی همه سطوح، شکست نهایی اعلام می‌شود
             if (!empty($this->settings['auto_test'])) {
-                $test = $this->runFinalTest($domain);
+                $test = $this->runFinalTestWithHealing($deployment, $brand);
                 if (!$test['ok']) {
                     // ↩️ Rollback خودکار (طبق سند: خطای تست نهایی → بازگشت به بکاپ)
                     if (!empty($state['backup_id'])) {
@@ -922,53 +917,215 @@ class Deployer
      * ================================================== */
 
     /**
-     * 🧪 تست نهایی استقرار
-     * بررسی: HTTP 200 + محتوای صفحه اصلی + اتصال API
+     * 🧪 تست نهایی استقرار — با مکانیزم خوددرمانی .htaccess
+     *
+     * v2.20.0 — ریشه‌یابی «تست نهایی ناموفق: پاسخ HTTP: 500»:
+     *   ① جستجوی دوسکیم هوشمند: HTTPS اول، و در صورت «هر» پاسخ غیرقابل‌قبول
+     *      (نه فقط قطعی اتصال) HTTP هم امتحان می‌شود — زیردامنه تازه‌ساخته هنوز
+     *      SSL ندارد و HTTPS روی vhost پیش‌فرض می‌افتد (404/500 کاذب در حالی که
+     *      HTTP سالم است)
+     *   ۲ ۳ تلاش با فاصله ۵ ثانیه (گرم‌شدن vhost جدید / صدور SSL)
+     *   ③ خوددرمانی: در صورت شکست، .htaccess به سطح سازگارتر تنزل و دوباره تست
+     *      (Options -Indexes و Require all denied و ... روی سرورهای قدیمی/سخت‌گیر
+     *      خطای 500 می‌دهند — دیگر .htaccess هرگز استقرار را متوقف نمی‌کند)
+     *   ④ دیاگنوستیک: در صورت شکست نهایی — نمونه پاسخ سرور + انتهای error_log
+     *      (تا ریشه واقعی برای اپراتور لو برود: PHP فاتال؟ htaccess؟ vhost؟)
      */
-    private function runFinalTest(string $domain): array
+    private function runFinalTestWithHealing(array $deployment, ?array $brand): array
+    {
+        $domain = (string)$deployment['full_domain'];
+        $serverPath = (string)$deployment['server_path'];
+        $deploymentId = (int)$deployment['id'];
+
+        $test = $this->runFinalTest($domain);
+
+        if (!$test['ok']) {
+            // 🔧 خوددرمانی: تنزل تدریجی سطح سازگاری .htaccess و تست مجدد
+            foreach ([HtaccessGenerator::LEVEL_SAFE, HtaccessGenerator::LEVEL_MINIMAL] as $level) {
+                $this->logger->step($deploymentId, 'final_test',
+                    'تست نهایی ناموفق (' . $test['error'] . ') — سازگارسازی .htaccess (سطح «' . $level . '») و تلاش مجدد...');
+
+                $content = HtaccessGenerator::generate($domain, $this->brandPageTypes($brand), $level);
+                if ($this->api->writeFile($serverPath . '/.htaccess', $content)) {
+                    $this->api->setPermissions($serverPath . '/.htaccess', '0644');
+                    $test = $this->runFinalTest($domain, false);
+                    if ($test['ok']) {
+                        $test['message'] .= ' — .htaccess در سطح «' . $level . '» فعال شد (سرور با دایرکتیوهای کامل سازگار نیست)';
+                        $this->logger->step($deploymentId, 'final_test',
+                            'خوددرمانی موفق: .htaccess در سطح «' . $level . '» (سازگار با سرور) فعال شد');
+                        return $test;
+                    }
+                }
+            }
+            // ❌ همه سطوح ناموفق → پیوست دیاگنوستیک برای تشخیص ریشه واقعی
+            $diag = $this->collectHttpDiagnostics($domain, $serverPath);
+            if ($diag !== '') {
+                $test['error'] .= $diag;
+            }
+        }
+        return $test;
+    }
+
+    /**
+     * 🧪 تست نهایی استقرار
+     * بررسی: HTTP 200 + محتوای صفحه اصلی (دوسکیم + چندتلاش)
+     *
+     * @param string $domain دامنه کامل
+     * @param bool   $withWarmup صبر اولیه برای راه‌اندازی Apache (اولین فراخوانی)
+     */
+    private function runFinalTest(string $domain, bool $withWarmup = true): array
     {
         // 🔒 صبر کوتاه برای راه‌اندازی Apache روی زیردامنه جدید
-        sleep(5);
+        if ($withWarmup) {
+            $this->wait(5);
+        }
 
-        // ۱. HTTP 200
-        $ch = curl_init('https://' . $domain);
+        $lastCode = 0;
+        $lastBody = '';
+
+        // 🔄 تا ۳ تلاش — vhost تازه / صدور SSL / فشار لحظه‌ای سرور
+        for ($i = 1; $i <= 3; $i++) {
+            if ($i > 1) {
+                $this->wait(5);
+            }
+
+            // ۱️⃣ HTTPS (SSL شاید هنوز صادر نشده — تأیید خاموش)
+            $https = $this->httpProbe('https', $domain);
+            if ($https['ok']) {
+                return ['ok' => true, 'message' => 'HTTP ' . $https['code'] . ' — صفحه اصلی سالم'];
+            }
+
+            // ۲️⃣ fallback HTTP — روی «هر» پاسخ غیرقابل‌قبول HTTPS (نه فقط قطعی):
+            //    زیردامنه بدون SSL → HTTPS به vhost پیش‌فرض سقوط می‌کند و 404/500
+            //    کاذب می‌گیرد، در حالی که HTTP سالم است!
+            $http = $this->httpProbe('http', $domain);
+            if ($http['ok']) {
+                return ['ok' => true, 'message' => 'HTTP ' . $http['code'] . ' — صفحه اصلی سالم (SSL هنوز فعال نیست — بعداً فعال می‌شود)'];
+            }
+
+            $lastCode = $https['code'] ?: $http['code'];
+            $lastBody = $https['body'] !== '' ? $https['body'] : $http['body'];
+        }
+
+        // 🩺 نمونه پاسخ سرور در خود خطا (صفحه 500 اغلب دلیل را می‌گوید)
+        $error = 'پاسخ HTTP: ' . ($lastCode ?: 'بدون پاسخ');
+        $snippet = trim(preg_replace('/\\s+/u', ' ', strip_tags((string)$lastBody)));
+        if ($snippet !== '') {
+            $snippet = mb_substr($snippet, 0, 140);
+            $error .= ' | پاسخ سرور: «' . $snippet . '»';
+        }
+        return ['ok' => false, 'error' => $error];
+    }
+
+    /**
+     * 🌐 درخواست سبک HTTP/HTTPS با پیگیری ریدایرکت + اعتبارسنجی محتوا
+     *
+     * @param string $scheme https یا http
+     * @param string $domain دامنه کامل
+     * @return array{ok: bool, code: int, body: string, error: ?string}
+     */
+    private function httpProbe(string $scheme, string $domain): array
+    {
+        $res = $this->httpFetch($scheme . '://' . $domain);
+
+        if ($res['errno'] !== 0 || $res['code'] < 200 || $res['code'] >= 400) {
+            return ['ok' => false, 'code' => $res['code'], 'body' => $res['body'],
+                     'error' => $res['errno'] !== 0 ? $res['error'] : null];
+        }
+        if (mb_strlen($res['body']) < 200 || stripos($res['body'], '<html') === false) {
+            return ['ok' => false, 'code' => $res['code'], 'body' => $res['body'], 'error' => 'محتوای نامعتبر'];
+        }
+        return ['ok' => true, 'code' => $res['code'], 'body' => $res['body'], 'error' => null];
+    }
+
+    /**
+     * ⏳ صبر قابل‌تزریق (seam تست) — پیاده‌سازی واقعی: sleep
+     */
+    protected function wait(int $seconds): void
+    {
+        sleep($seconds);
+    }
+
+    /**
+     * 🌐 لایه HTTP قابل‌تزریق (seam تست) — پیاده‌سازی واقعی cURL
+     * تست‌ها این متد را override می‌کنند و کل زنجیره تصمیم‌گیری واقعی
+     * (دوسکیم + retry + خوددرمانی + دیاگنوستیک) با پاسخ‌های مصنوعی اجرا می‌شود
+     *
+     * @param string $url آدرس کامل
+     * @return array{body: string, code: int, errno: int, error: string}
+     */
+    protected function httpFetch(string $url): array
+    {
+        $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 30,
-            CURLOPT_CONNECTTIMEOUT => 15,
+            CURLOPT_TIMEOUT        => 20,
+            CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_SSL_VERIFYHOST => 0,
             CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 5,
         ]);
-        $body = (string)curl_exec($ch);
-        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $body  = (string)curl_exec($ch);
+        $code  = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $errno = curl_errno($ch);
+        $err   = (string)curl_error($ch);
         curl_close($ch);
+        return ['body' => $body, 'code' => $code, 'errno' => $errno, 'error' => $err];
+    }
 
-        // 🔄 fallback HTTP (SSL شاید هنوز صادر نشده)
-        if ($errno !== 0 || $code === 0) {
-            $ch2 = curl_init('http://' . $domain);
-            curl_setopt_array($ch2, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT        => 30,
-                CURLOPT_CONNECTTIMEOUT => 15,
-                CURLOPT_FOLLOWLOCATION => true,
-            ]);
-            $body = (string)curl_exec($ch2);
-            $code = (int)curl_getinfo($ch2, CURLINFO_HTTP_CODE);
-            curl_close($ch2);
+    /**
+     * 🩺 جمع‌آوری دیاگنوستیک پس از شکست تست نهایی
+     * نمونه پاسخ هر دو اسکیم + انتهای error_log سایت (خطاهای PHP/Apache
+     * در پوشه سایت ثبت می‌شوند) — تا ریشه واقعی برای اپراتور لو برود
+     */
+    private function collectHttpDiagnostics(string $domain, string $serverPath): string
+    {
+        $parts = [];
+
+        // ۱. نمونه پاسخ هر دو اسکیم
+        foreach (['https', 'http'] as $scheme) {
+            $probe = $this->httpProbe($scheme, $domain);
+            if ($probe['code'] > 0) {
+                $snippet = trim(preg_replace('/\\s+/u', ' ', strip_tags($probe['body'])));
+                $snippet = mb_substr($snippet, 0, 140);
+                $parts[] = $scheme . '=' . $probe['code'] . ($snippet !== '' ? ' «' . $snippet . '»' : '');
+                if ($probe['code'] >= 500) {
+                    break; // همان پاسخ 5xx کافی است
+                }
+            }
         }
 
-        if ($code < 200 || $code >= 400) {
-            return ['ok' => false, 'error' => 'پاسخ HTTP: ' . ($code ?: 'بدون پاسخ')];
+        // ۲. انتهای error_log سایت (از طریق cPanel API)
+        $log = $this->api->readFile($serverPath . '/error_log');
+        if ($log !== '') {
+            $lines = array_values(array_filter(array_map('trim',
+                explode("\n", str_replace(["\r\n", "\r"], "\n", $log)))));
+            $tail = implode(' | ', array_slice($lines, -3));
+            if ($tail !== '') {
+                $parts[] = 'error_log: ' . mb_substr($tail, -300);
+            }
         }
 
-        // ۲. بررسی محتوای صفحه اصلی (حداقل HTML معتبر)
-        if (mb_strlen($body) < 200 || stripos($body, '<html') === false) {
-            return ['ok' => false, 'error' => 'محتوای صفحه اصلی نامعتبر است'];
+        if (empty($parts)) {
+            return '';
         }
+        return ' | 🩺 تشخیص: ' . implode(' | ', $parts);
+    }
 
-        return ['ok' => true, 'message' => 'HTTP ' . $code . ' — صفحه اصلی سالم'];
+    /**
+     * 📄 صفحات فعال برند برای قوانین بازنویسی (مشترک بین stepHtaccess و خوددرمانی)
+     */
+    private function brandPageTypes(?array $brand): array
+    {
+        if (!$brand) {
+            return [];
+        }
+        $rows = $this->db->fetchAll(
+            'SELECT page_type FROM brand_pages WHERE brand_id = ? AND is_active = 1',
+            [(int)$brand['id']]
+        );
+        return array_column($rows, 'page_type');
     }
 
     /* ==================================================
