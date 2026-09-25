@@ -74,16 +74,19 @@ class BackupManager
         $filename = $brand['slug'] . '_' . ShamsiDate::forFilename() . '.zip';
         $remotePath = $brandBackupDir . '/' . $filename;
 
-        // ۴. فشرده‌سازی پوشه سایت برند روی سرور میزبان (Fileman::fileop op=compress)
-        $compressed = $this->api->call('Fileman', 'fileop', [
-            'op'          => 'compress',
-            'sourcefiles' => json_encode([$brand['server_path']]),
-            'destfiles'   => $remotePath,
-            'double_decode' => 1,
-        ]);
-        if ($compressed === false) {
+        // ۴. فشرده‌سازی پوشه سایت برند روی سرور میزبان — v2.18
+        //    ✅ API2 رسمی Fileman::fileop (op=compress + metadata=zip + destfiles)
+        //    🔴 قبلاً از UAPI صدا زده می‌شد — fileop در UAPI وجود ندارد!
+        if (!$this->api->compressToZip($brand['server_path'], $remotePath)) {
             $msg = 'فشرده‌سازی بکاپ ناموفق بود: ' . $this->api->getLastError();
             if ($logger) { $logger->stepFailed($deploymentId, 'backup_compress', $msg); }
+            return ['success' => false, 'message' => $msg, 'backup_id' => null, 'filename' => null];
+        }
+
+        // ۴.۵ ✅ راستی‌آمایی — فایل ZIP واقعا ساخته شده؟
+        if (!$this->api->entryExists($remotePath)) {
+            $msg = 'فشرده‌سازی گزارش موفقیت داد اما فایل بکاپ یافت نشد: ' . $remotePath;
+            if ($logger) { $logger->stepFailed($deploymentId, 'backup_verify', $msg); }
             return ['success' => false, 'message' => $msg, 'backup_id' => null, 'filename' => null];
         }
 
@@ -234,7 +237,8 @@ class BackupManager
         // ۳. ساخت مجدد پوشه
         $this->api->createDirectory($serverPath);
 
-        // ۴. استخراج بکاپ در مسیر سایت
+        // ۴. استخراج بکاپ در مسیر سایت — v2.18: extractZip خودش ZIP خارج از مقصد را
+        //    ابتدا به داخل مقصد کپی می‌کند، استخراج می‌کند و کپی را پاک می‌کند
         if ($logger) { $logger->step($deploymentId, 'rollback_extract', 'استخراج بکاپ...'); }
         if (!$this->api->extractZip((string)$backup['file_path'], $serverPath)) {
             $msg = 'استخراج بکاپ ناموفق بود: ' . $this->api->getLastError();
@@ -243,8 +247,7 @@ class BackupManager
         }
 
         // ۵. اصلاح ساختار — ZIP شامل خود پوشه برند است؛ فایل‌ها باید داخل serverPath باشند
-        $inner = $serverPath . '/' . basename(rtrim($serverPath, '/'));
-        $this->flattenExtracted($serverPath);
+        $this->api->flattenSingleChildDir($serverPath);
 
         Logger::info('[Backup] بازیابی انجام شد', ['backup_id' => $backupId]);
         return ['success' => true, 'message' => 'سایت از بکاپ «' . $backup['filename'] . '» بازیابی شد.'];
@@ -314,31 +317,9 @@ class BackupManager
 
     /**
      * 🔧 انتقال فایل‌های استخراج‌شده از زیرپوشه به ریشه مسیر
-     * (رفع مشکل ساختار ZIP که خود پوشه را شامل می‌شود)
+     * v2.18: به CpanelAPI::flattenSingleChildDir منتقل شد (پیاده‌سازی قبلی fileop
+     * op=move با wildcard را از UAPI صدا می‌زد — تابع و wildcard هر دو نامعتبر بودند)
      */
-    private function flattenExtracted(string $serverPath): void
-    {
-        $inner = rtrim($serverPath, '/') . '/' . basename(rtrim($serverPath, '/'));
-        $files = $this->api->listFiles($serverPath);
-        $onlyInner = true;
-        foreach ($files as $f) {
-            $name = (string)($f['file'] ?? $f['name'] ?? '');
-            if ($name !== basename(rtrim($serverPath, '/'))) {
-                $onlyInner = false;
-                break;
-            }
-        }
-        // اگر فقط پوشه داخلی هست — محتویات را به بالا منتقل کن (fileop op=move)
-        if ($onlyInner && count($files) === 1) {
-            $this->api->call('Fileman', 'fileop', [
-                'op'          => 'move',
-                'sourcefiles' => json_encode([$inner . '/*']),
-                'destfiles'   => $serverPath,
-                'double_decode' => 1,
-            ]);
-            $this->api->deleteFile($inner);
-        }
-    }
 
     /**
      * 🏷️ برچسب فارسی نوع بکاپ

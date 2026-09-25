@@ -294,11 +294,13 @@ class CpanelAPI
     public function connect(): array
     {
         // 🎯 ماژول‌های امتحانی به‌ترتیب — اولین موفقیت = اتصال سالم
+        // 📌 v2.18: همه‌ی توابع واقعاً موجود در UAPI (طبق فهرست رسمی cpanel.openapi):
+        //    Version/version و Quota/get_disk_info و Branding/get_application_name در UAPI نیستند!
         $probes = [
-            ['module' => 'Version',     'function' => 'version',                  'label' => 'نسخه cPanel'],
-            ['module' => 'Variables',   'function' => 'get_server_information',    'label' => 'اطلاعات سرور'],
-            ['module' => 'Quota',       'function' => 'get_disk_info',             'label' => 'اطلاعات دیسک'],
-            ['module' => 'Branding',    'function' => 'get_application_name',      'label' => 'نام پنل'],
+            ['module' => 'Variables',   'function' => 'get_server_information', 'label' => 'اطلاعات سرور'],
+            ['module' => 'Quota',       'function' => 'get_local_quota_info',   'label' => 'اطلاعات دیسک'],
+            ['module' => 'Branding',    'function' => 'get_applications',       'label' => 'پنل'],
+            ['module' => 'DomainInfo',  'function' => 'list_domains',           'label' => 'دامنه‌ها'],
         ];
 
         $errors = [];
@@ -643,8 +645,10 @@ class CpanelAPI
     }
 
     /**
-     * 📤 آپلود فایل (مثلاً ZIP سایت)
-     * نام فیلدهای multipart طبق مستندات cPanel: upload-0، upload-1، ...
+     * 📤 آپلود فایل (مثلاً ZIP سایت) — v2.18
+     * نام فیلدهای multipart طبق مستندات رسمی cPanel: file-0، file-1، ...
+     * (سامانه فایل را بر اساس ویژگی filename همان part ذخیره می‌کند)
+     * 🛡️ دو قرارداد امتحان می‌شود: file-0 (مستندات) سپس upload-0 (اثبات‌شده)
      *
      * @param string $localFile مسیر محلی فایل
      * @param string $remoteDir پوشه مقصد (مثلاً /public_html/brands/samsung)
@@ -655,44 +659,177 @@ class CpanelAPI
             $this->lastError = 'فایل محلی برای آپلود یافت نشد: ' . basename($localFile);
             return false;
         }
-        $data = $this->call('Fileman', 'upload_files', ['dir' => $this->normalizePath($remoteDir)], [
-            'upload-0' => $localFile,
-        ]);
-        return $data !== false;
+        foreach (['file-0', 'upload-0'] as $field) {
+            $data = $this->call('Fileman', 'upload_files', ['dir' => $this->normalizePath($remoteDir)], [
+                $field => $localFile,
+            ]);
+            if ($data !== false) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
-     * 📦 استخراج ZIP در مسیر مقصد
+     * ⚙️ fileOp — هلپر مرکزی عملیات فایل (v2.18 — بازنویسی ریشه‌ای)
+     * ============================================================
+     * 🔴 ریشه‌یابی خطای «The system could not find the function “fileop” in the module “Fileman”»:
+     *    طبق مستندات رسمی cPanel (api.docs.cpanel.net — API2 Fileman::fileop):
+     *    «We strongly recommend that you use UAPI instead of cPanel API 2.
+     *     However, no equivalent UAPI function exists.»
+     *    یعنی fileop فقط در API2 وجود دارد — فراخوانی /execute/Fileman/fileop (UAPI)
+     *    روی همه سرورها با خطای «تابع پیدا نشد» شکست می‌خورد.
+     *
+     * 🐛 سه باگ هم‌زمان در پیاده‌سازی قبلی:
+     *    ① فراخوانی از UAPI به‌جای API2
+     *    ② sourcefiles به‌صورت JSON ارسال می‌شد — مستندات: لیست جداشده با کاما
+     *    ③ نام پارامتر double_decode بود — مستندات: doubledecode
+     *
+     * ✅ امضای رسمی (API2 Fileman::fileop):
+     *    op           = extract | compress | copy | move | rename | chmod | link | unlink | trash | restorefile
+     *    sourcefiles  = لیست فایل‌ها جداشده با کاما (الزامی)
+     *    destfiles    = مقصد (برای copy/move/rename)
+     *    doubledecode = 0/1 (الزامی)
+     *    metadata     = برای compress: نوع آرشیو (zip) — برای chmod: مجوز هشتایی (0755)
+     *    پاسخ: data[0] = {dest, src, output, err, result}
+     *
+     * 🛡️ دو تلاش: مسیر مطلق (/home/user/...) سپس مسیر نسبی از home (طبق مثال‌های رسمی)
+     *
+     * @return array [موفق(bool), ردیف پاسخ data[0] یا null]
+     */
+    private function fileOp(string $op, array $sourcefiles, string $destfiles = '', string $metadata = ''): array
+    {
+        $sourcefiles = array_values(array_filter(array_map('strval', $sourcefiles)));
+        if ($sourcefiles === []) {
+            $this->lastError = 'فایلی برای عملیات «' . $op . '» مشخص نشده است.';
+            return [false, null];
+        }
+
+        /* 🛡️ دو قالب مسیر — مطلق سپس نسبی از home (طبق مثال‌های رسمی) */
+        $user = (string)($this->settings['cpanel_username'] ?? '');
+        $attempts = [array_map(function ($p) {
+            return $this->normalizePath($p);
+        }, $sourcefiles)];
+        if ($user !== '') {
+            $attempts[] = array_map(function ($p) use ($user) {
+                $abs = $this->normalizePath($p);
+                $rel = preg_replace('#^/home/' . preg_quote($user, '#') . '/?#', '', $abs);
+                return ($rel !== '' && $rel !== $abs) ? $rel : $abs;
+            }, $sourcefiles);
+        }
+
+        $lastErr = '';
+        foreach ($attempts as $files) {
+            $params = [
+                'op'           => $op,
+                'sourcefiles'  => implode(',', $files),
+                'doubledecode' => 1,
+            ];
+            if ($destfiles !== '') {
+                $params['destfiles'] = $this->normalizePath($destfiles);
+            }
+            if ($metadata !== '') {
+                $params['metadata'] = $metadata;
+            }
+
+            $data = $this->callApi2('Fileman', 'fileop', $params);
+            if ($data !== false) {
+                /* ✅ API2 موفق — بررسی نتیجه سطح فایل (result/err داخل data[0]) */
+                $row = is_array($data[0] ?? null) ? $data[0] : [];
+                if ((int)($row['result'] ?? 1) === 1 && trim((string)($row['err'] ?? '')) === '') {
+                    return [true, $row];
+                }
+                $lastErr = trim((string)($row['err'] ?? ''));
+                if ($lastErr === '') {
+                    $lastErr = 'نتیجه عملیات صفر بود';
+                }
+                continue; /* تلاش با قالب مسیر دیگر */
+            }
+            $lastErr = $this->getLastError() ?: 'ناموفق';
+        }
+
+        $this->lastError = 'cPanel (API2 Fileman::fileop op=' . $op . '): ' . $lastErr;
+        return [false, null];
+    }
+
+    /**
+     * 📦 استخراج ZIP در مسیر مقصد — v2.18 بازنویسی ریشه‌ای
+     * ================================================
+     * ✅ تنها مسیر رسمی: API2 Fileman::fileop (op=extract) — طبق مستندات cPanel
+     *    «no equivalent UAPI function exists»
+     *
+     * 📌 استخراج در محل ZIP انجام می‌شود؛ اگر ZIP خارج از پوشه مقصد باشد
+     *    (مثل بکاپ در /brands/backups)، ابتدا کپی داخل مقصد انجام و پس از
+     *    استخراج، کپی پاک می‌شود — خروجی در همه حالات قطعی است.
      *
      * @param string $remoteZip مسیر ZIP روی سرور
      * @param string $destDir پوشه مقصد استخراج
      */
     public function extractZip(string $remoteZip, string $destDir): bool
     {
-        $data = $this->call('Fileman', 'fileop', [
-            'op'          => 'extract',
-            'sourcefiles' => json_encode([$this->normalizePath($remoteZip)]),
-            'destfiles'   => $this->normalizePath($destDir),
-            'double_decode' => 1,
-        ]);
-        return $data !== false;
+        $remoteZip = $this->normalizePath($remoteZip);
+        $destDir   = rtrim($this->normalizePath($destDir), '/');
+        $zipDir    = rtrim(dirname($remoteZip), '/');
+
+        /* ① ZIP از قبل داخل مقصد است — استخراج مستقیم */
+        if (strcasecmp($zipDir, $destDir) === 0) {
+            [$ok] = $this->fileOp('extract', [$remoteZip], $destDir);
+            return $ok;
+        }
+
+        /* ② ZIP بیرون از مقصد است — کپی داخل مقصد، استخراج، پاک‌سازی کپی */
+        if (!$this->copyFile($remoteZip, $destDir)) {
+            $this->lastError = 'کپی بسته به پوشه مقصد ناموفق بود (برای استخراج ایمن): ' . $this->lastError;
+            return false;
+        }
+        $staged = $destDir . '/' . basename($remoteZip);
+        [$ok] = $this->fileOp('extract', [$staged], $destDir);
+        $this->deleteFile($staged); /* 🧹 کپی موقت — شکست حذف بحرانی نیست */
+        return $ok;
     }
 
     /**
-     * 🗑️ حذف فایل یا پوشه
+     * 🗑️ حذف فایل یا پوشه — v2.18 سه‌لایه
+     * ① UAPI Fileman::delete_file (path — حذف بازگشتی پوشه‌ها طبق مستندات؛ مطلق سپس نسبی)
+     * ② API2 fileop op=unlink
+     * ③ API2 fileop op=trash (انتقال به سطل بازیافت — حداقل از سایت حذف می‌شود)
      */
     public function deleteFile(string $path): bool
     {
-        $data = $this->call('Fileman', 'fileop', [
-            'op'          => 'unlink',
-            'sourcefiles' => json_encode([$this->normalizePath($path)]),
-            'double_decode' => 1,
-        ]);
-        return $data !== false;
+        $path = $this->normalizePath($path);
+        $user = (string)($this->settings['cpanel_username'] ?? '');
+        $relative = $user !== ''
+            ? (string)preg_replace('#^/home/' . preg_quote($user, '#') . '/?#', '', $path)
+            : $path;
+
+        /* ① UAPI delete_file — مطلق سپس نسبی */
+        $candidates = array_unique(array_filter([$path, $relative]));
+        foreach ($candidates as $p) {
+            if ($this->call('Fileman', 'delete_file', ['path' => $p]) !== false) {
+                return true;
+            }
+        }
+        $uapiError = $this->getLastError();
+
+        /* ② API2 fileop unlink */
+        [$ok] = $this->fileOp('unlink', [$path]);
+        if ($ok) {
+            return true;
+        }
+
+        /* ③ fileop trash — سطل بازیافت */
+        [$ok] = $this->fileOp('trash', [$path]);
+        if ($ok) {
+            return true;
+        }
+
+        $this->lastError = 'حذف ناموفق — UAPI delete_file: ' . $uapiError . ' | fileop: ' . $this->lastError;
+        return false;
     }
 
     /**
      * 🗑️ حذف کامل پوشه (بازگشتی)
+     * UAPI delete_file مستنداً پوشه‌ها را بازگشتی حذف می‌کند
      */
     public function deleteDirectory(string $path): bool
     {
@@ -700,24 +837,129 @@ class CpanelAPI
     }
 
     /**
-     * 📋 لیست فایل‌های یک پوشه
+     * 🚚 جابجایی فایل/پوشه به داخل پوشه مقصد — v2.18 دولایه
+     * ① UAPI Fileman::move_file (source + destination — مستندات رسمی؛
+     *    «If the destination is an existing directory, the source is moved into it»)
+     * ② API2 fileop op=move (sourcefiles جداشده با کاما + destfiles)
+     */
+    public function moveFile(string $source, string $destDir): bool
+    {
+        $source = $this->normalizePath($source);
+        $destDir = rtrim($this->normalizePath($destDir), '/');
+
+        /* ① UAPI move_file */
+        if ($this->call('Fileman', 'move_file', [
+            'source'      => $source,
+            'destination' => $destDir,
+        ]) !== false) {
+            return true;
+        }
+        $uapiError = $this->getLastError();
+
+        /* ② API2 fileop move */
+        [$ok] = $this->fileOp('move', [$source], $destDir);
+        if ($ok) {
+            return true;
+        }
+
+        $this->lastError = 'جابجایی ناموفق — UAPI move_file: ' . $uapiError . ' | fileop: ' . $this->lastError;
+        return false;
+    }
+
+    /**
+     * 📄 کپی فایل به داخل پوشه مقصد — v2.18
+     * API2 fileop op=copy (sourcefiles + destfiles — مقصد = پوشه؛ نام فایل حفظ می‌شود)
+     */
+    public function copyFile(string $source, string $destDir): bool
+    {
+        [$ok] = $this->fileOp('copy', [$source], rtrim($this->normalizePath($destDir), '/'));
+        return $ok;
+    }
+
+    /**
+     * 🗜️ فشرده‌سازی فایل/پوشه به ZIP — v2.18
+     * API2 fileop op=compress + metadata=zip (طبق مستندات رسمی)
+     */
+    public function compressToZip(string $source, string $destZip): bool
+    {
+        [$ok] = $this->fileOp('compress', [$source], $this->normalizePath($destZip), 'zip');
+        return $ok;
+    }
+
+    /**
+     * 🔧 مسطح‌کردن تک‌پوشه — v2.18 (جایگزین fileop op=move با wildcard)
+     * اگر داخل $dir فقط یک پوشه باشد، محتویاتش را تک‌به‌تک به بالا می‌آورد
+     * و پوشه را حذف می‌کند (رفع ZIPهای دارای پوشه ریشه — بدون wildcard غیرقطعی)
+     *
+     * @return bool آیا مسطح‌سازی انجام شد؟
+     */
+    public function flattenSingleChildDir(string $dir): bool
+    {
+        $dir = rtrim($this->normalizePath($dir), '/');
+        $entries = $this->listFiles($dir);
+
+        if (count($entries) !== 1) {
+            return false;
+        }
+        $only = (string)($entries[0]['file'] ?? $entries[0]['name'] ?? '');
+        if ($only === '' || ($entries[0]['type'] ?? '') !== 'dir') {
+            return false;
+        }
+
+        $inner = $dir . '/' . $only;
+        $moved = 0;
+        foreach ($this->listFiles($inner) as $entry) {
+            $name = (string)($entry['file'] ?? $entry['name'] ?? '');
+            if ($name === '' || $name === '.' || $name === '..') {
+                continue;
+            }
+            if ($this->moveFile($inner . '/' . $name, $dir)) {
+                $moved++;
+            }
+        }
+        $this->deleteFile($inner);
+        return $moved > 0;
+    }
+
+    /**
+     * 📋 لیست فایل‌های یک پوشه — v2.18
+     * 📌 طبق مستندات رسمی، پاسخ در دو آرایه جدا برمی‌گردد:
+     *    data.files (فایل‌ها) + data.dirs (پوشه‌ها) → هر دو ادغام و یکتا می‌شوند
+     *    و فیلد type هر مدخل تضمین می‌شود ('file' یا 'dir')
      */
     public function listFiles(string $dir): array
     {
         $data = $this->call('Fileman', 'list_files', [
-            'dir'    => $this->normalizePath($dir),
-            'types'  => 'file,dir',
-            'checkleaf' => 1,
+            'dir'         => $this->normalizePath($dir),
+            'show_hidden' => 1,
         ]);
         if ($data === false) {
             return [];
         }
-        // ساختار پاسخ: data => [files => [...]] یا مستقیم آرایه
-        return isset($data['files']) && is_array($data['files']) ? $data['files'] : [];
+        $out = [];
+        $seen = [];
+        foreach (['files', 'dirs'] as $key) {
+            foreach ((array)($data[$key] ?? []) as $entry) {
+                if (!is_array($entry)) {
+                    continue;
+                }
+                $name = (string)($entry['file'] ?? $entry['name'] ?? '');
+                if ($name === '' || isset($seen[$name])) {
+                    continue;
+                }
+                $seen[$name] = true;
+                $entry['type'] = ($entry['type'] ?? '') !== '' ? (string)$entry['type'] : ($key === 'dirs' ? 'dir' : 'file');
+                $out[] = $entry;
+            }
+        }
+        return $out;
     }
 
     /**
-     * 🔐 تنظیم مجوز (chmod)
+     * 🔐 تنظیم مجوز (chmod) — v2.18 بازنویسی ریشه‌ای
+     * 🔴 UAPI تابع Fileman::chmod ندارد (در فهرست رسمی cpanel.openapi نیست) —
+     *    فراخوانی قبلی /execute/Fileman/chmod با خطای «تابع پیدا نشد» شکست می‌خورد.
+     * ✅ تنها مسیر مستند: API2 fileop (op=chmod + metadata=مجوز هشتایی)
      *
      * @param string $path مسیر فایل/پوشه
      * @param string $mode مجوز هشتایی (مثلاً 0755)
@@ -730,20 +972,23 @@ class CpanelAPI
             $this->lastError = 'مجوز نامعتبر: ' . $mode;
             return false;
         }
-        $data = $this->call('Fileman', 'chmod', [
-            'file' => $this->normalizePath($path),
-            'mode' => $mode,
-        ]);
-        return $data !== false;
+        if (strlen($mode) === 3) {
+            $mode = '0' . $mode; /* مستندات: 0755 / 0700 */
+        }
+        [$ok] = $this->fileOp('chmod', [$path], '', $mode);
+        return $ok;
     }
 
     /**
-     * ✍️ نوشتن محتوا در فایل (تولید config.php و .htaccess)
+     * ✍️ نوشتن محتوا در فایل (تولید config.php و .htaccess) — v2.18 اصلاح پارامترها
      *
-     * 🛡️ v2.16 زنجیره دو-لایه:
-     *    ① UAPI Fileman::save_file_content (روش اصلی — در UAPI موجود است)
-     *    ② API2 Fileman::savefile (جایگزین — برای هاست‌هایی که UAPI فایل را محدود کرده‌اند)
-     *       پارامترها طبق مستندات: path=مسیر مطلق پوشه، filename=نام فایل، content=محتوا
+     * 🐛 قبلاً پارامتر file مسیر کامل می‌گرفت و fallback_list ارسال می‌شد —
+     *    طبق مستندات رسمی UAPI save_file_content:
+     *    file = فقط نام فایل | dir = پوشه | fallback = 0/1 (نه fallback_list)
+     *
+     * 🛡️ زنجیره دو-لایه:
+     *    ① UAPI Fileman::save_file_content (file + dir + content + charsetها + fallback=1)
+     *    ② API2 Fileman::savefile (path=مسیر مطلق پوشه، filename=نام فایل، content=محتوا)
      *
      * @param string $path مسیر کامل فایل مقصد
      * @param string $content محتوا
@@ -751,14 +996,17 @@ class CpanelAPI
     public function writeFile(string $path, string $content): bool
     {
         $path = $this->normalizePath($path);
+        $dir  = rtrim(dirname($path), '/');
+        $name = basename($path);
 
-        /* ① UAPI — روش اصلی */
+        /* ① UAPI — روش اصلی (file = نام فایل + dir = پوشه — طبق مستندات) */
         $data = $this->call('Fileman', 'save_file_content', [
-            'file'          => $path,
-            'content'       => $content,
-            'from_charset'  => 'UTF-8',
-            'to_charset'    => 'UTF-8',
-            'fallback_list' => 'UTF-8',
+            'file'         => $name,
+            'dir'          => $dir,
+            'content'      => $content,
+            'from_charset' => 'UTF-8',
+            'to_charset'   => 'UTF-8',
+            'fallback'     => 1,
         ]);
         if ($data !== false) {
             return true;
@@ -766,8 +1014,6 @@ class CpanelAPI
         $uapiError = $this->lastError;
 
         /* ② API2 savefile — جایگزین (path + filename + content) */
-        $dir  = rtrim(dirname($path), '/');
-        $name = basename($path);
         $api2 = $this->callApi2('Fileman', 'savefile', [
             'path'     => $dir,
             'filename' => $name,
@@ -782,27 +1028,33 @@ class CpanelAPI
     }
 
     /**
-     * 📖 خواندن محتوای فایل (برای حفظ config.php هنگام بروزرسانی)
+     * 📖 خواندن محتوای فایل (برای حفظ config.php هنگام بروزرسانی) — v2.18 اصلاح پارامترها
+     * 🐛 قبلاً پارامتر file مسیر کامل می‌گرفت — طبق مستندات رسمی:
+     *    dir = پوشه (الزامی) + file = نام فایل (الزامی) + to_charset=utf-8 برای JSON
      *
      * @return string محتوا (خالی در خطا)
      */
     public function readFile(string $path): string
     {
+        $path = $this->normalizePath($path);
         $data = $this->call('Fileman', 'get_file_content', [
-            'file' => $this->normalizePath($path),
+            'dir'        => rtrim(dirname($path), '/'),
+            'file'       => basename($path),
+            'to_charset' => 'utf-8',
         ]);
         if ($data === false) {
             return '';
         }
-        // محتوا ممکن است base64 باشد یا مستقیم
         $content = (string)($data['content'] ?? '');
-        if (!empty($data['base64']) || preg_match('/^[A-Za-z0-9+\/=\s]+$/', $content) === 1) {
-            $decoded = base64_decode($content, true);
-            if ($decoded !== false && mb_check_encoding($decoded, 'UTF-8')) {
-                return $decoded;
-            }
+        if ($content === '') {
+            return '';
         }
-        return $content;
+        /* محتوای UTF-8 معتبر → مستقیم؛ در غیر این صورت تلاش base64 */
+        if (mb_check_encoding($content, 'UTF-8')) {
+            return $content;
+        }
+        $decoded = base64_decode($content, true);
+        return $decoded !== false ? $decoded : $content;
     }
 
     /* ==================================================
@@ -810,16 +1062,19 @@ class CpanelAPI
      * ================================================== */
 
     /**
-     * 📋 لیست گواهی‌های SSL نصب‌شده
+     * 📋 لیست گواهی‌های SSL نصب‌شده — v2.18 بازنویسی
+     * 🔴 UAPI تابع SSL::list_ssl_certificates ندارد (مربوط به API1 است) →
+     * ✅ معادل رسمی UAPI: SSL::list_ssl_items (item=crt — فهرست گواهی‌های نصب‌شده)
      */
     public function listSSLCertificates(): array
     {
-        $data = $this->call('SSL', 'list_ssl_certificates');
+        $data = $this->call('SSL', 'list_ssl_items', ['item' => 'crt']);
         return $data === false ? [] : (array)$data;
     }
 
     /**
-     * ❓ بررسی وجود SSL فعال برای یک دامنه
+     * ❓ بررسی وجود SSL فعال برای یک دامنه — v2.18 (سازگار با ساختار list_ssl_items)
+     * هر مدخل فیلد host دارد؛ گواهی‌های wildcard (*.domain) هم پوشش داده می‌شوند.
      *
      * @param string $domain دامنه کامل (مثلاً samsung.ea-fixer.ir)
      * @return array [active => bool, expiry => string|null, issuer => string|null]
@@ -829,58 +1084,55 @@ class CpanelAPI
         $certs = $this->listSSLCertificates();
         $domain = strtolower(trim($domain));
 
-        // جستجو در همه گواهی‌ها — دامنه‌ها یا در cpcert/domains هستند
         foreach ($certs as $cert) {
             if (!is_array($cert)) {
                 continue;
             }
-            $domains = [];
-            foreach (['domains', 'cpcert', 'domains_on_cert'] as $key) {
-                if (isset($cert[$key]) && is_array($cert[$key])) {
-                    foreach ($cert[$key] as $d) {
-                        $domains[] = strtolower((string)(is_array($d) ? ($d['servername'] ?? $d['domain'] ?? '') : $d));
-                    }
-                }
+            /* دامنه‌های گواهی — فیلد host و در صورت وجود آرایه domains */
+            $hosts = [strtolower(trim((string)($cert['host'] ?? '')))];
+            foreach ((array)($cert['domains'] ?? []) as $d) {
+                $hosts[] = strtolower((string)(is_array($d) ? ($d['servername'] ?? $d['domain'] ?? '') : $d));
             }
-            if (in_array($domain, array_filter($domains), true)) {
-                return [
-                    'active' => true,
-                    'expiry' => $cert['not_after'] ?? null,
-                    'issuer' => $cert['issuer']['organizationName'] ?? ($cert['issuer_common_name'] ?? null),
-                ];
+            foreach (array_filter($hosts) as $h) {
+                $wildcard = $h[0] === '*' && strlen($h) > 1
+                    && substr($domain, -(strlen($h) - 1)) === substr($h, 1);
+                if ($h === $domain || $wildcard) {
+                    return [
+                        'active' => true,
+                        'expiry' => $cert['not_after'] ?? $cert['expires'] ?? null,
+                        'issuer' => $cert['issuer']['organizationName'] ?? ($cert['issuer_common_name'] ?? null),
+                    ];
+                }
             }
         }
         return ['active' => false, 'expiry' => null, 'issuer' => null];
     }
 
     /**
-     * 🔒 فعال‌سازی AutoSSL (فراهم‌کننده: cpanel یا letsencrypt)
-     *
-     * @param string $provider فراهم‌کننده (letsencrypt اگر در دسترس باشد، وگرنه cpanel)
+     * 🔒 فعال‌سازی AutoSSL — v2.18
+     * 🔴 UAPI توابع enable_autossl و start_autossl_scan را ندارد (enable متعلق به API1 است) →
+     * ✅ معادل رسمی UAPI: SSL::start_autossl_check («Start AutoSSL for current user»)
+     *    فراهم‌کننده (Let's Encrypt یا cPanel) را تنظیمات سرور تعیین می‌کند.
      */
     public function enableAutoSSL(string $provider = 'letsencrypt'): bool
     {
-        $ok = $this->call('SSL', 'enable_autossl', ['provider' => $provider]);
-        if ($ok === false && $provider !== 'cpanel') {
-            // 🔄 fallback به فراهم‌کننده داخلی cPanel
-            $ok = $this->call('SSL', 'enable_autossl', ['provider' => 'cpanel']);
-        }
-        return $ok !== false;
+        return $this->startAutoSSLScan();
     }
 
     /**
-     * 🚀 اجرای اسکن AutoSSL برای صدور گواهی دامنه‌های جدید
+     * 🚀 شروع بررسی AutoSSL برای صدور گواهی دامنه‌های جدید — v2.18
+     * ✅ UAPI SSL::start_autossl_check (بدون پارامتر — مستندات رسمی)
      */
     public function startAutoSSLScan(): bool
     {
-        return $this->call('SSL', 'start_autossl_scan') !== false;
+        return $this->call('SSL', 'start_autossl_check') !== false;
     }
 
     /**
-     * 🔒 نصب گواهی SSL (Let's Encrypt از طریق AutoSSL)
+     * 🔒 نصب گواهی SSL (AutoSSL) — v2.18 بازنویسی با توابع واقعی UAPI
      *
      * @param string $domain دامنه کامل
-     * @param string $provider فراهم‌کننده
+     * @param string $provider فراهم‌کننده (اطلاعاتی — سرور تعیین می‌کند)
      * @return array [success => bool, message => string]
      */
     public function installSSL(string $domain, string $provider = 'letsencrypt'): array
@@ -891,14 +1143,13 @@ class CpanelAPI
             return ['success' => true, 'message' => 'SSL از قبل برای این دامنه فعال است.'];
         }
 
-        // ۲. فعال‌سازی AutoSSL
-        if (!$this->enableAutoSSL($provider)) {
-            return ['success' => false, 'message' => 'فعال‌سازی AutoSSL ناموفق بود: ' . $this->lastError];
-        }
-
-        // ۳. اجرای اسکن صدور
+        // ۲. شروع بررسی AutoSSL — صدور برای همه دامنه‌های سالم کاربر
         if (!$this->startAutoSSLScan()) {
-            return ['success' => false, 'message' => 'شروع اسکن AutoSSL ناموفق بود: ' . $this->lastError];
+            return [
+                'success' => false,
+                'message' => 'شروع AutoSSL ناموفق: ' . $this->getLastError()
+                    . ' — اگر AutoSSL در هاست غیرفعال است، از میزبان فعال‌سازی آن را بخواهید.',
+            ];
         }
 
         return ['success' => true, 'message' => 'درخواست صدور SSL ثبت شد — صدور معمولاً تا ۵ دقیقه طول می‌کشد.'];
@@ -1147,8 +1398,10 @@ class CpanelAPI
         }
 
         // مسیر نسبی — پیشوند home کاربر اضافه شود
+        // ⚠️ v2.18: فقط مسیرهایی که با «/» شروع می‌شوند (مثل /public_html/...)
+        //    نام فایل تنها (مثل config.php در پارامتر file) نباید تغییر کند!
         $user = (string)($this->settings['cpanel_username'] ?? '');
-        if ($user !== '') {
+        if ($user !== '' && isset($path[0]) && $path[0] === '/') {
             return '/home/' . $user . $path;
         }
         return $path;

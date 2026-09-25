@@ -45,10 +45,22 @@ class SSLManager
      */
     public function checkSSL(string $domain): array
     {
-        // ۱. از cPanel API
+        // ۱. از cPanel API — v2.18: SSL::list_ssl_items (معادل رسمی UAPI)
         $cert = $this->api->checkSSL($domain);
         if ($cert['active']) {
-            return $this->normalizeCert($cert, $domain);
+            $normalized = $this->normalizeCert($cert, $domain);
+
+            /* ✍️ v2.18: list_ssl_items تاریخ انقضا/صادرکننده نمی‌دهد —
+               جزئیات از اتصال مستقیم HTTPS تکمیل می‌شود (در صورت برقراری) */
+            if (empty($normalized['expiry']) || empty($normalized['issuer'])) {
+                $direct = $this->checkViaHttps($domain);
+                if ($direct['active']) {
+                    $normalized['expiry']    = $normalized['expiry'] ?: $direct['expiry'];
+                    $normalized['issuer']    = $normalized['issuer'] ?: $direct['issuer'];
+                    $normalized['days_left'] = $direct['days_left'] ?? $normalized['days_left'];
+                }
+            }
+            return $normalized;
         }
 
         // ۲. بررسی مستقیم HTTPS (اگر cPanel پاسخ نداد)

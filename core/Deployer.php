@@ -579,7 +579,9 @@ class Deployer
     }
 
     /**
-     * ۶️⃣ استخراج ZIP + حذف فایل فشرده
+     * ۶️⃣ استخراج ZIP + حذف فایل فشرده — v2.18
+     * ✅ استخراج با API2 رسمی Fileman::fileop (op=extract) — UAPI معادل ندارد
+     * ✅ راستی‌آمایی نهایی: index.php باید در مسیر سایت موجود باشد
      */
     private function stepExtract(array $deployment, ?array $brand, array $state): array
     {
@@ -589,19 +591,26 @@ class Deployer
             return ['ok' => false, 'error' => 'مسیر ZIP آپلودشده ثبت نشده است.'];
         }
 
-        // 📦 استخراج
+        // 📦 استخراج — v2.18: API2 رسمی (fileop op=extract + sourcefiles کاما-جدا + doubledecode)
         if (!$this->api->extractZip($remoteZip, $serverPath)) {
             return ['ok' => false, 'error' => 'استخراج ZIP ناموفق: ' . $this->api->getLastError()];
         }
 
-        // 🧹 حذف ZIP بعد از استخراج (طبق سند)
-        $this->api->deleteFile($remoteZip);
+        // 🧹 حذف ZIP بعد از استخراج (طبق سند) — v2.18: سه‌لایه UAPI delete_file؛ شکست بحرانی نیست
+        if (!$this->api->deleteFile($remoteZip)) {
+            $this->logger->stepSkipped(
+                (int)$deployment['id'],
+                'zip_cleanup',
+                'حذف فایل ZIP پس از استخراج ناموفق بود: ' . $this->api->getLastError() . ' — بعداً از فایل‌منیجر حذف کنید.'
+            );
+        }
 
         // 🔧 اگر ZIP شامل پوشه ریشه بود — مسطح کن (فایل‌ها باید مستقیم داخل serverPath باشند)
-        $zipName = (string)($state['zip_name'] ?? '');
-        if ($zipName !== '') {
-            $inner = $serverPath . '/' . preg_replace('/\-site\-.*$/', '', $zipName);
-            $this->flattenIfNeeded($serverPath, $inner);
+        $this->api->flattenSingleChildDir($serverPath);
+
+        // ✅ راستی‌آمایی نهایی — فایل ریشه سایت باید موجود باشد
+        if (!$this->api->entryExists($serverPath . '/index.php')) {
+            return ['ok' => false, 'error' => 'استخراج کامل نشد — index.php در مسیر سایت یافت نشد' . ($this->api->getLastError() ? ' (' . $this->api->getLastError() . ')' : '')];
         }
 
         return ['ok' => true, 'message' => 'فایل‌ها استخراج و ZIP حذف شد'];
@@ -1046,25 +1055,10 @@ class Deployer
      * ================================================== */
 
     /**
-     * 🔧 مسطح‌کردن ساختار استخراج‌شده (اگر ZIP پوشه ریشه دارد)
+     * 🔧 مسطح‌کردن ساختار استخراج‌شده — v2.18: به CpanelAPI::flattenSingleChildDir منتقل شد
+     *    (پیاده‌سازی قبلی از fileop op=move با wildcard استفاده می‌کرد که هم در UAPI وجود
+     *    نداشت و هم توسط cPanel توسعه نمی‌یافت — حالا انتقال‌ها تک‌به‌تک و قطعی‌اند)
      */
-    private function flattenIfNeeded(string $serverPath, string $innerDir): void
-    {
-        $files = $this->api->listFiles($serverPath);
-        // اگر فقط یک پوشه داخل هست — محتویاتش را بیاور بالا
-        if (count($files) === 1) {
-            $only = (string)($files[0]['file'] ?? $files[0]['name'] ?? '');
-            if ($only !== '' && ($files[0]['type'] ?? '') === 'dir') {
-                $this->api->call('Fileman', 'fileop', [
-                    'op'            => 'move',
-                    'sourcefiles'   => json_encode([$serverPath . '/' . $only . '/*']),
-                    'destfiles'     => $serverPath,
-                    'double_decode' => 1,
-                ]);
-                $this->api->deleteFile($serverPath . '/' . $only);
-            }
-        }
-    }
 
     /**
      * 🍪 روش سوم آپلود: Session cPanel (کمتر پایدار — طبق سند fallback نهایی)
