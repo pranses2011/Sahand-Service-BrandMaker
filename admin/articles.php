@@ -79,7 +79,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'gen_og') {
     }
 }
 
-/* 🖼️ تولید مجدد ۲ تصویر یکتای AI مقاله (v2.14 — جایگزینی، نه افزودن) */
+/* 🖼️ تولید مجدد ۲ تصویر یکتای AI مقاله (v2.15 — AJAX با نوار پیشرفت زنده + جایگزینی)
+ * الگوی یکسان با خطایاب: کلید یکتا از فرانت → پیشرفت موتور در فایل کش → polling هر ۸۰۰ms.
+ * سشن زود بسته می‌شود تا قفل سشن، درخواست‌های polling را مسدود نکند. */
 if (get_param('regen_images') === '1' && ($regenId = (int)get_param('edit')) > 0) {
     $article = $db->fetch('SELECT a.*, b.name_fa AS brand_name, b.logo AS brand_logo, b.extra_settings FROM brand_articles a JOIN brands b ON b.id = a.brand_id WHERE a.id = ?', [$regenId]);
     if ($article) {
@@ -114,6 +116,94 @@ if (get_param('regen_images') === '1' && ($regenId = (int)get_param('edit')) > 0
         }
     }
     redirect('articles.php?edit=' . $regenId);
+}
+
+/* 🖼️ v2.15 — همان جریان به‌صورت AJAX + نوار پیشرفت زنده (مسیر اصلی دکمه) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'regen_images') {
+    Auth::enforceCsrf();
+    header('Content-Type: application/json; charset=utf-8');
+    $regenId = (int)post('article_id');
+    $progressKey = preg_replace('/[^a-z0-9]/i', '', (string)post('progress_key', '')) ?: (uniqid('ig') . random_int(100, 999));
+    $progressFile = CACHE_PATH . '/imggen-' . $progressKey . '.json';
+    if (!is_dir(CACHE_PATH)) { @mkdir(CACHE_PATH, 0755, true); }
+    @file_put_contents($progressFile, json_encode(['pct' => 1, 'title' => 'آماده‌سازی...', 'detail' => '', 'ts' => time()], JSON_UNESCAPED_UNICODE));
+    session_write_close(); /* 🔓 قفل سشن باز — polling آزاد است */
+
+    try {
+        $article = $db->fetch('SELECT a.*, b.name_fa AS brand_name, b.logo AS brand_logo, b.extra_settings FROM brand_articles a JOIN brands b ON b.id = a.brand_id WHERE a.id = ?', [$regenId]);
+        if (!$article) {
+            @unlink($progressFile);
+            json_response(['success' => false, 'error' => 'مقاله یافت نشد.'], 404);
+        }
+        $brand = ['name_fa' => $article['brand_name'] ?? '', 'extra_settings' => $article['extra_settings'] ?? '', 'logo' => $article['brand_logo'] ?? '', 'id' => $article['brand_id'] ?? 0];
+
+        $gen = new AiImageGenerator();
+        $gen->setProgressSink(static function (int $pct, string $title, string $detail) use ($progressFile) : void {
+            @file_put_contents($progressFile, json_encode(['pct' => max(1, min(96, $pct)), 'title' => $title, 'detail' => $detail, 'ts' => time()], JSON_UNESCAPED_UNICODE));
+        });
+
+        /* ⏱ زمان بیشتری برای جبران سرویس‌های تصویر */
+        if (function_exists('set_time_limit')) { @set_time_limit(300); }
+
+        $aiImages = $gen->generateForArticle(
+            $regenId,
+            $article['title'],
+            (string)($article['device_key'] ?? ''),
+            'troubleshooting',
+            $brand,
+            '',
+            strip_tags((string)($article['content'] ?? ''))
+        );
+
+        $injector = new ArticleImageService();
+        $stripped = $injector->stripGeneratedFigures((string)$article['content']);
+        $rich = $injector->injectIntoContent($stripped, $aiImages['images']);
+        $upd = ['content' => $rich, 'og_image' => $aiImages['og']['path'], 'updated_at' => date('Y-m-d H:i:s')];
+        if (!empty($aiImages['featured'])) {
+            $upd['featured_image'] = $aiImages['featured']['path'];
+        }
+        $db->update('brand_articles', $upd, 'id = ?', [$regenId]);
+        (new Cache())->delete('brand_articles_all');
+
+        @unlink($progressFile);
+        $isAi = ($aiImages['photo_source'] ?? '') === 'ai_photo';
+        $svcLabel = $isAi && !empty($aiImages['service']) && class_exists('AiPhotoService')
+            ? (AiPhotoService::SERVICES[$aiImages['service']][0] ?? '') : '';
+        json_response([
+            'success'    => true,
+            'photo_source' => $aiImages['photo_source'] ?? 'package',
+            'service'    => $aiImages['service'] ?? '',
+            'service_label' => $svcLabel,
+            'og'         => ['path' => $aiImages['og']['path'], 'url' => asset_url($aiImages['og']['path']) . '?t=' . time()],
+            'featured'   => isset($aiImages['featured']) ? ['path' => $aiImages['featured']['path'], 'url' => asset_url($aiImages['featured']['path']) . '?t=' . time()] : null,
+            'images'     => array_map(static function ($im) {
+                return ['path' => $im['path'], 'url' => asset_url($im['path']) . '?t=' . time()];
+            }, $aiImages['images']),
+        ]);
+    } catch (Throwable $e) {
+        @unlink($progressFile);
+        json_response(['success' => false, 'error' => 'خطای تولید تصویر: ' . $e->getMessage()], 200);
+    }
+}
+
+/* 📊 v2.15 — روند پیشرفت تولید تصاویر مقاله (AJAX polling — الگوی خطایاب) */
+if (($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'imggen_progress')
+    || ($_SERVER['REQUEST_METHOD'] === 'GET' && get_param('action') === 'imggen_progress')) {
+    header('Content-Type: application/json; charset=utf-8');
+    session_write_close(); // بدون قفل سشن — فایل مستقل خوانده می‌شود
+    $key = preg_replace('/[^a-z0-9]/i', '', (string)post('progress_key', get_param('progress_key', '')));
+    $file = CACHE_PATH . '/imggen-' . $key . '.json';
+    if ($key === '' || !is_file($file)) {
+        json_response(['success' => false, 'done' => true]);
+    }
+    /* 🧹 فایل‌های رهاشده قدیمی (بیش از ۶ دقیقه) پاک شوند — نه فایل فعال */
+    foreach (glob(CACHE_PATH . '/imggen-*.json') ?: [] as $old) {
+        if (is_file($old) && (time() - (int)filemtime($old)) > 360 && $old !== $file) {
+            @unlink($old);
+        }
+    }
+    $data = json_decode((string)@file_get_contents($file), true);
+    json_response(['success' => true, 'done' => false, 'progress' => is_array($data) ? $data : ['pct' => 0, 'title' => '', 'detail' => '']]);
 }
 
 /* 🤖 تولید مقاله با AI */
@@ -440,9 +530,9 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
                     <input type="text" name="og_image" class="form-control" style="direction:ltr;text-align:left;flex:1;min-width:230px" value="<?= e($ogImage) ?>" placeholder="مسیر یا URL تصویر OG (خالی = بدون OG)">
                     <button type="button" id="btn-gen-og" class="btn btn-success btn-sm" title="تصویر OG یکتای مرتبط با همین مقاله با AI ساخته می‌شود">🎨 تولید OG با AI</button>
-                    <a href="?edit=<?= (int)$editArticle['id'] ?>&regen_images=1" class="btn btn-outline btn-sm" data-confirm-link="۲ تصویر یکتای AI برای همین مقاله دوباره تولید و در متن درج شوند؟">🖼️ تولید مجدد تصاویر مقاله</a>
+                    <button type="button" id="btn-regen-images" class="btn btn-outline btn-sm" title="۳ تصویر واقعی AI مرتبط با موضوع مقاله در همان لحظه ساخته، واترمارک‌دار و جایگزین تصاویر قبلی می‌شود">🖼️ تولید مجدد تصاویر مقاله</button>
                 </div>
-                <div class="hint">🎨 با دکمه «تولید OG با AI» تصویری یکتا و مرتبط با موضوع همین مقاله ساخته می‌شود؛ می‌توانید مسیر را دستی عوض کنید یا فایل خودتان را جایگزین کنید.</div>
+                <div class="hint">🎨 «تولید OG با AI» تصویری یکتا و مرتبط با موضوع همین مقاله می‌سازد (فقط واترمارک نمایندگی)؛ «تولید مجدد تصاویر مقاله» ۳ عکس واقعی لحظه‌ای مرتبط با موضوع می‌سازد (واترمارک برند + نمایندگی) و جایگزین قبلی‌ها می‌کند — با نوار پیشرفت زنده. سرویس تولید از «تنظیمات ← تولید تصویر مقاله» انتخاب می‌شود.</div>
             </div>
 
             <?php
@@ -498,6 +588,47 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
         </form>
     </div>
 </div>
+
+<!-- 🖼️ v2.15 — مودال پیشرفت زنده تولید تصاویر مقاله (الگوی خطایاب: گرادیانت + درصد فارسی + لاگ مرحله‌به‌مرحله) -->
+<div class="modal-overlay" id="imggen-modal" style="display:none">
+    <div class="modal-box" style="max-width:560px">
+        <div class="modal-header">
+            <h3>🖼️ تولید تصاویر واقعی مقاله با AI</h3>
+        </div>
+        <div class="modal-body" style="padding:22px">
+            <div class="imggen-bar">
+                <div class="imggen-bar-fill" id="imggen-bar">
+                    <span id="imggen-percent">۰٪</span>
+                </div>
+            </div>
+            <div class="imggen-title" id="imggen-title">آماده‌سازی...</div>
+            <div class="imggen-detail" id="imggen-detail">در حال اتصال به سرویس تولید تصویر...</div>
+            <div class="imggen-log" id="imggen-log"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" id="imggen-close" style="display:none" onclick="document.getElementById('imggen-modal').style.display='none';window.location.reload()">بستن و بروزرسانی</button>
+        </div>
+    </div>
+</div>
+<style>
+/* 🖼️ v2.15 — مودال پیشرفت تولید تصاویر (خوداتکا — مستقل از صفحات دیگر) */
+#imggen-modal.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.58);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+#imggen-modal .modal-box{background:var(--card-bg,#fff);border-radius:15px;max-width:560px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 22px 60px rgba(0,0,0,.28)}
+#imggen-modal .modal-header{padding:16px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+#imggen-modal .modal-header h3{margin:0;font-size:16px}
+#imggen-modal .modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+.imggen-bar{height:24px;border-radius:14px;background:var(--bg-secondary,#e2e8f0);overflow:hidden;box-shadow:inset 0 2px 5px rgba(0,0,0,.08)}
+.imggen-bar-fill{height:100%;width:0%;border-radius:14px;background:linear-gradient(90deg,#7c3aed,#2563eb 55%,#0ea5e9);transition:width .6s ease;position:relative;display:flex;align-items:center;justify-content:center;min-width:44px}
+.imggen-bar-fill::after{content:'';position:absolute;inset:0;border-radius:14px;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.5) 50%,transparent 70%);background-size:220% 100%;animation:imggenShine 1.6s linear infinite}
+@keyframes imggenShine{from{background-position:200% 0}to{background-position:-60% 0}}
+.imggen-bar-fill span{font-size:12.5px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.35);position:relative;z-index:1}
+.imggen-title{font-weight:800;font-size:15px;margin:14px 0 4px}
+.imggen-detail{font-size:12.5px;color:var(--text-light);margin-bottom:12px;min-height:19px}
+.imggen-log{max-height:200px;overflow:auto;font-size:12px;line-height:2;border:1px dashed var(--border);border-radius:10px;padding:8px 12px;background:rgba(0,0,0,.02)}
+.imggen-log .lg{display:flex;gap:8px;align-items:flex-start;border-bottom:1px dashed rgba(0,0,0,.06);padding:2px 0}
+.imggen-log .lg:last-child{border-bottom:none}
+.imggen-log .lg .ic{min-width:18px;text-align:center}
+</style>
 
 <?php else: ?>
 
@@ -779,6 +910,132 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
             };
             if (window.sahandConfirm) {
                 sahandConfirm({ title: 'تولید تصویر OG با AI', message: 'تصویر OG یکتای مرتبط با موضوع همین مقاله ساخته و جایگزین فعلی شود؟ (هر بار کلیک = ترکیب بصری جدید)', type: 'question', confirmText: 'بله، بساز', confirmIcon: '🎨' }).then(function (ok) { if (ok) { run(); } });
+            } else { run(); }
+        });
+    }
+
+    /* ---------- 🖼️ تولید مجدد تصاویر مقاله (v2.15 — AJAX + نوار پیشرفت زنده) ---------- */
+    var regenBtn = document.getElementById('btn-regen-images');
+    if (regenBtn) {
+        regenBtn.addEventListener('click', function () {
+            var run = function () {
+                var csrf = document.querySelector('input[name="csrf_token"]');
+                var articleId = document.querySelector('input[name="article_id"]');
+                var aid = articleId ? articleId.value : '0';
+                var progressKey = 'ig' + Date.now() + Math.random().toString(36).slice(2, 10);
+
+                /* 🎬 مودال پیشرفت */
+                var modal = document.getElementById('imggen-modal');
+                var bar = document.getElementById('imggen-bar');
+                var pctEl = document.getElementById('imggen-percent');
+                var titleEl = document.getElementById('imggen-title');
+                var detailEl = document.getElementById('imggen-detail');
+                var logEl = document.getElementById('imggen-log');
+                var closeBtn = document.getElementById('imggen-close');
+                logEl.innerHTML = '';
+                closeBtn.style.display = 'none';
+                bar.style.width = '2%';
+                pctEl.textContent = '۲٪';
+                titleEl.textContent = 'آماده‌سازی...';
+                detailEl.textContent = 'در حال اتصال به سرویس تولید تصویر...';
+                modal.style.display = 'flex';
+                regenBtn.disabled = true;
+                regenBtn.textContent = '⏳ در حال تولید...';
+
+                var faDig = function (n) { return String(n).replace(/[0-9]/g, function (x) { return '۰۱۲۳۴۵۶۷۸۹'[+x]; }); };
+                var lastLog = '';
+                function addLog(icon, text) {
+                    if (!text || text === lastLog) { return; }
+                    lastLog = text;
+                    var div = document.createElement('div');
+                    div.className = 'lg';
+                    div.innerHTML = '<span class="ic">' + icon + '</span><span>' + text + '</span>';
+                    logEl.insertBefore(div, logEl.firstChild);
+                }
+
+                /* 🔄 polling روند پیشرفت از فایل کش (۸۰۰ms — الگوی خطایاب) */
+                var pollTimer = setInterval(function () {
+                    var pb = new URLSearchParams();
+                    pb.append('action', 'imggen_progress');
+                    pb.append('progress_key', progressKey);
+                    fetch('articles.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+                        body: pb.toString(),
+                        credentials: 'same-origin'
+                    }).then(function (r) { return r.json(); }).then(function (res) {
+                        if (res.success && res.progress) {
+                            var p = res.progress;
+                            if (typeof p.pct === 'number' && p.pct > 0) {
+                                bar.style.width = Math.max(2, Math.min(96, p.pct)) + '%';
+                                pctEl.textContent = faDig(Math.max(2, Math.min(96, p.pct))) + '٪';
+                            }
+                            if (p.title) { titleEl.textContent = p.title; }
+                            if (p.detail) { detailEl.textContent = p.detail; addLog('🔄', (p.title || '') + (p.detail ? ' — ' + p.detail : '')); }
+                        }
+                    }).catch(function () { /* polling بی‌صدا رد می‌شود */ });
+                }, 800);
+
+                /* 🚀 اجرای تولید (درخواست اصلی) */
+                var body = new URLSearchParams();
+                body.append('action', 'regen_images');
+                body.append('article_id', aid);
+                body.append('progress_key', progressKey);
+                if (csrf) { body.append('csrf_token', csrf.value); }
+
+                fetch('articles.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrf ? csrf.value : '', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: body.toString(),
+                    credentials: 'same-origin'
+                }).then(function (r) { return r.json(); }).then(function (res) {
+                    clearInterval(pollTimer);
+                    regenBtn.disabled = false;
+                    regenBtn.textContent = '🖼️ تولید مجدد تصاویر مقاله';
+                    if (!res.success) {
+                        bar.style.width = '100%';
+                        bar.style.background = 'linear-gradient(90deg,#dc2626,#ef4444)';
+                        titleEl.textContent = '❌ تولید ناموفق بود';
+                        detailEl.textContent = res.error || 'خطای نامشخص';
+                        addLog('❌', res.error || 'خطای نامشخص');
+                        closeBtn.style.display = '';
+                        return;
+                    }
+                    bar.style.width = '100%';
+                    pctEl.textContent = '۱۰۰٪';
+                    var isAi = res.photo_source === 'ai_photo';
+                    var svc = res.service_label ? ('با سرویس «' + res.service_label + '»') : '';
+                    titleEl.textContent = isAi ? '✅ تصاویر واقعی AI تولید و جایگزین شد' : '⚠️ تصاویر بسته دستگاه جایگزین شد';
+                    var count = (res.images || []).length + (res.featured ? 1 : 0);
+                    detailEl.textContent = isAi
+                        ? faDig(count) + ' تصویر واقعی مرتبط با موضوع ' + svc + ' ساخته شد — واترمارک برند + نمایندگی مهر خورد و تصویر OG تازه شد.'
+                        : 'سرویس‌های تولید تصویر پاسخ ندادند — بسته عکس‌های دستگاه (آماده) با واترمارک جایگزین شد. از «تنظیمات ← تولید تصویر مقاله» سرویس را تست/تغییر دهید.';
+                    addLog(isAi ? '✅' : '⚠️', detailEl.textContent);
+                    if (res.og && res.og.url) {
+                        var pv = document.getElementById('og-preview');
+                        if (pv) { pv.src = res.og.url; pv.style.display = 'block'; }
+                        var ogInput = document.querySelector('input[name="og_image"]');
+                        if (ogInput) { ogInput.value = res.og.path; }
+                    }
+                    addLog('📌', 'تصویر OG جدید ساخته شد (فقط واترمارک نمایندگی)');
+                    closeBtn.style.display = '';
+                }).catch(function (err) {
+                    clearInterval(pollTimer);
+                    regenBtn.disabled = false;
+                    regenBtn.textContent = '🖼️ تولید مجدد تصاویر مقاله';
+                    bar.style.width = '100%';
+                    bar.style.background = 'linear-gradient(90deg,#dc2626,#ef4444)';
+                    titleEl.textContent = '❌ خطای ارتباط با سرور';
+                    detailEl.textContent = err.message || 'ارتباط قطع شد';
+                    closeBtn.style.display = '';
+                });
+            };
+            if (window.sahandConfirm) {
+                sahandConfirm({
+                    title: 'تولید مجدد تصاویر مقاله',
+                    message: '۳ تصویر واقعی AI (۱ شاخص + ۲ درون‌متن) مرتبط با موضوع همین مقاله، در همان لحظه با سرویس انتخابی تنظیمات ساخته و واترمارک‌دار جایگزین تصاویر قبلی شوند؟',
+                    type: 'question', confirmText: 'بله، بساز', confirmIcon: '🖼️'
+                }).then(function (ok) { if (ok) { run(); } });
             } else { run(); }
         });
     }

@@ -31,6 +31,27 @@ class AiImageGenerator
     const ART_W = 1200;
     const ART_H = 675;
 
+    /** 📊 گیرنده گزارش پیشرفت (v2.15 — نوار پیشرفت تولید تصاویر مقاله) */
+    private $progressSink = null;
+
+    /** 📊 نصب گیرنده گزارش پیشرفت — به AiPhotoService هم هدایت می‌شود */
+    public function setProgressSink(?callable $fn): void
+    {
+        $this->progressSink = $fn;
+    }
+
+    /** 📊 ارسال گزارش پیشرفت (بی‌اثر اگر گیرنده‌ای نصب نباشد) */
+    private function progress(int $pct, string $title, string $detail = ''): void
+    {
+        if ($this->progressSink !== null) {
+            try {
+                ($this->progressSink)($pct, $title, $detail);
+            } catch (Throwable $e) {
+                // گیرنده هرگز جریان اصلی را نمی‌شکند
+            }
+        }
+    }
+
     /* ==================================================
      * 🎯 API اصلی
      * ================================================== */
@@ -72,6 +93,7 @@ class AiImageGenerator
         $safeId = preg_replace('/[^a-z0-9\-]/i', '', (string)$articleId) ?: '0';
 
         /* --- 📌 تصویر OG --- */
+        $this->progress(3, 'تولید تصویر OG مقاله', 'پس‌زمینه پویا + عنوان فارسی شکل‌یافته + واترمارک نمایندگی');
         $og = $this->buildOg($seed, $title, $deviceKey, $palette, $brand, $dir . '/og-article-' . $safeId, self::OG_W, self::OG_H);
         $result['og'] = $og;
 
@@ -83,6 +105,7 @@ class AiImageGenerator
         $photoSource = 'package';
         try {
             $photoGen = new AiPhotoService();
+            $photoGen->setProgressSink($this->progressSink); /* 📊 هدایت گزارش پیشرفت به فرانت */
             $aiPhotos = $photoGen->generateForArticle($articleId, $title, $deviceKey, $topicType, $brand, 3);
             if ($aiPhotos) {
                 $photoSource = 'ai_photo';
@@ -141,6 +164,8 @@ class AiImageGenerator
         }
 
         $result['photo_source'] = $photoSource;
+        $result['service'] = (string)($aiFeatured['service'] ?? ''); /* 🆕 v2.15: سرویسی که واقعاً ساخت (خالی = بسته آماده) */
+        $this->progress(93, 'درج تصاویر در محتوای مقاله', count($result['images']) . ' تصویر درون‌متن + تصویر شاخص آماده درج است');
         return $result;
     }
 
@@ -338,15 +363,11 @@ class AiImageGenerator
             imagettftext($img, $bs, 0, (int)(($w - $tw) / 2), $h - 37, $bar, $font, $bShaped);
         }
 
-        /* --- 🪧 واترمارک‌ها: لوگوی برند پایین-راست + لوگوی نمایندگی پایین-چپ (شفاف)
-              (v3.2: بزرگ‌تر و پررنگ‌تر + پس‌زمینه JPG هم هوشمندانه پاک می‌شود) --- */
-        if ($brandLogo !== null) {
-            $bwm = $brandLogo['kind'] === 'svg' ? ImageWatermark::loadResampled($this->rasterizeSvgLogo($brandLogo['path'], 320) ?? '', 300) : ImageWatermark::loadResampledClean($brandLogo['path'], 300);
-            if ($bwm !== null) {
-                ImageWatermark::drawAlpha($img, $bwm, $w - imagesx($bwm) - 26, $h - imagesy($bwm) - 22, 0.82);
-                imagedestroy($bwm);
-            }
-        }
+        /* --- 🪧 واترمارک‌ها در OG (v2.15 طبق درخواست کاربر):
+              فقط لوگوی نمایندگی (پایین-چپ) — واترمارک لوگوی برند در OG حذف شد؛
+              لوگوی برند به‌صورت «لوگوی اصلی بزرگ» بالای تصویر حاضر است و
+              واترمارک دوباره آن تکرار بی‌معنا بود. (واترمارک دوتایی فقط
+              روی تصاویر داخل مقاله مهر می‌خورد) --- */
         $agencyLogo = $this->agencyLogoAsset();
         if ($agencyLogo !== null) {
             $wmRes = $agencyLogo['kind'] === 'svg'

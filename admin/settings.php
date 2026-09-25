@@ -171,9 +171,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         'mono'    => clean_input($_POST['ui_font_mono'] ?? ''),
     ]);
 
+    // 🖼️ v2.15: سرویس تولید تصویر مقاله (انتخاب از لیست سرویس‌های رایگان + کلیدها)
+    $photoService = clean_input($_POST['photo_service'] ?? 'pollinations_flux');
+    if (!array_key_exists($photoService, AiPhotoService::SERVICES)) {
+        $photoService = 'pollinations_flux';
+    }
+    $photoKeys = [];
+    foreach (array_keys(AiPhotoService::SERVICES) as $svcKey) {
+        $savedKey = trim((string)($_POST['photo_key_' . $svcKey] ?? ''));
+        if ($savedKey !== '') {
+            $photoKeys[$svcKey] = $savedKey;
+        }
+    }
+    Config::set('article_photo_settings', [
+        'service' => $photoService,
+        'keys'    => $photoKeys,
+        'timeout' => max(20, min(120, (int)clean_input($_POST['photo_timeout'] ?? 45))),
+    ]);
+
     Logger::activity((int)$_SESSION['user_id'], 'بروزرسانی تنظیمات', 'تنظیمات عمومی سایت ساز ذخیره شد');
     flash('success', '✅ تنظیمات با موفقیت ذخیره شد.');
     redirect('settings.php');
+}
+
+/* 🧪 v2.15 — تست سرویس تولید تصویر مقاله (AJAX — با مقدار فعلی فرم حتی قبل از ذخیره) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'test_photo_service') {
+    Auth::enforceCsrf();
+    header('Content-Type: application/json; charset=utf-8');
+    try {
+        $svc = clean_input($_POST['service'] ?? '');
+        if (!array_key_exists($svc, AiPhotoService::SERVICES)) {
+            json_response(['success' => false, 'error' => 'سرویس ناشناخته است.'], 400);
+        }
+        $keyOverride = isset($_POST['key']) ? trim((string)$_POST['key']) : null; /* مقدار فرم — بدون ذخیره */
+        if (function_exists('set_time_limit')) { @set_time_limit(90); }
+        $health = (new AiPhotoService())->healthCheck($svc, $keyOverride);
+        json_response(['success' => true, 'data' => $health]);
+    } catch (Throwable $e) {
+        json_response(['success' => false, 'error' => $e->getMessage()], 400);
+    }
 }
 
 require __DIR__ . '/includes/header.php';
@@ -215,6 +251,10 @@ foreach (($fontsManifest['fonts']['fa'] ?? []) as $uiF) {
         $installedFaFonts[] = $uiF;
     }
 }
+
+/* 🖼️ v2.15: سرویس‌های تولید تصویر مقاله برای تب تنظیمات */
+$photoSettings = AiPhotoService::settings();
+$photoServices = AiPhotoService::servicesList();
 ?>
 
 <form method="post" enctype="multipart/form-data">
@@ -232,6 +272,7 @@ foreach (($fontsManifest['fonts']['fa'] ?? []) as $uiF) {
             <button type="button" class="stab-btn" data-tab="notify">📨 ارسال درخواست</button>
             <button type="button" class="stab-btn" data-tab="links">🔗 لینک‌دهی</button>
             <button type="button" class="stab-btn" data-tab="uifonts">🔤 فونت محیط</button>
+            <button type="button" class="stab-btn" data-tab="photosvc">🖼️ تولید تصویر</button>
         </div>
         <div class="stab-actions">
             <button type="submit" class="btn btn-primary">💾 ذخیره همه تنظیمات</button>
@@ -639,6 +680,55 @@ foreach (($fontsManifest['fonts']['fa'] ?? []) as $uiF) {
         </div>
     </div>
 
+    <!-- 🖼️ تب تولید تصویر مقاله (v2.15 — انتخاب سرویس از لیست سرویس‌های رایگان) -->
+    <div id="pane-photosvc" class="stab-pane">
+        <div class="card">
+            <div class="card-header">
+                <h3>🖼️ سرویس تولید تصویر مقاله</h3>
+                <span class="badge badge-info"><?= en_to_fa_digits((string)count($photoServices)) ?> سرویس</span>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info" style="font-size:12.5px">
+                    سرویسی که تصاویر واقعی مقالات (شاخص + درون‌متن) را می‌سازد از این‌جا انتخاب می‌شود — <b>سرویس انتخابی همیشه اول استفاده می‌شود</b> و اگر موقتاً قطع باشد، سرویس‌های جایگزین رایگان به‌صورت خودکار امتحان می‌شوند. دکمه «تولید مجدد تصاویر مقاله» در ویرایش مقاله با همین سرویس کار می‌کند و نوار پیشرفت زنده دارد.
+                </div>
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label>🚀 سرویس تولید تصویر</label>
+                        <select name="photo_service" id="photo-service" class="form-control" onchange="togglePhotoKeyFields()">
+                            <?php foreach ($photoServices as $svcKey => $svc): ?>
+                                <option value="<?= e($svcKey) ?>" <?= $photoSettings['service'] === $svcKey ? 'selected' : '' ?>>
+                                    <?= e($svc['label']) ?><?= $svc['needs_key'] ? ($svc['has_key'] ? ' — کلید ثبت شده ✔' : ' — نیازمند کلید') : ' — بدون کلید 🆓' ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="hint" id="photo-service-hint" style="margin-top:6px"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>⏱ مهلت هر تولید (ثانیه — ۲۰ تا ۱۲۰)</label>
+                        <input type="number" name="photo_timeout" class="form-control" min="20" max="120" value="<?= (int)$photoSettings['timeout'] ?>">
+                        <div class="hint" style="margin-top:6px">سرویس‌های رایگان گاهی ۲۰ تا ۴۰ ثانیه برای هر تصویر زمان می‌خواهند — مقدار پیش‌فرض ۴۵ ثانیه است.</div>
+                    </div>
+                </div>
+
+                <?php foreach ($photoServices as $svcKey => $svc): if (!$svc['needs_key']) { continue; } ?>
+                    <div class="form-group photo-key-field" data-service="<?= e($svcKey) ?>" style="display:none">
+                        <label>🔑 کلید API «<?= e($svc['label']) ?>»</label>
+                        <input type="text" name="photo_key_<?= e($svcKey) ?>" class="form-control" style="direction:ltr;text-align:left" value="<?= e((string)($photoSettings['keys'][$svcKey] ?? '')) ?>" placeholder="<?= e($svc['hint']) ?>">
+                        <div class="hint" style="margin-top:6px"><?= e($svc['hint']) ?> — کلید فقط برای همین سرویس استفاده می‌شود؛ اگر خالی بماند سرویس در زنجیره تلاش قرار نمی‌گیرد.</div>
+                    </div>
+                <?php endforeach; ?>
+
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px">
+                    <button type="button" id="btn-test-photo-service" class="btn btn-success">🧪 تست سرویس انتخابی</button>
+                    <span id="photo-test-result" style="font-size:12.5px"></span>
+                </div>
+                <div class="hint" style="margin-top:12px">
+                    💡 سرویس‌های «پولینیشنز» (Flux و Turbo) کاملاً رایگان و بدون کلید هستند و برای شروع کافی‌اند. سرویس‌های Hugging Face / DeepAI / Together با کلید رایگان حساب کاربری‌شان فعال می‌شوند؛ Stability و OpenAI اشتراکی هستند. تست سرویس یک تصویر نمونه کوچک می‌سازد و وضعیت اتصال را نشان می‌دهد.
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div style="text-align:center;padding:8px 0 20px">
         <button type="submit" class="btn btn-primary btn-lg">💾 ذخیره همه تنظیمات</button>
     </div>
@@ -657,6 +747,73 @@ function previewUiFont() {
     document.documentElement.style.setProperty('--font-heading', headFont);
     document.documentElement.style.setProperty('--font-mono', monoFont);
 }
+</script>
+
+<script>
+/* 🖼️ v2.15: تب سرویس تولید تصویر مقاله — نمایش/مخفی‌سازی کلید سرویس انتخابی + تست زنده */
+(function () {
+    'use strict';
+    var svcSelect = document.getElementById('photo-service');
+    if (!svcSelect) { return; }
+
+    var hints = <?= json_encode(array_combine(array_keys($photoServices), array_column($photoServices, 'hint')), JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
+    var needsKey = <?= json_encode(array_combine(array_keys($photoServices), array_column($photoServices, 'needs_key')), JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
+
+    window.togglePhotoKeyFields = function () {
+        var svc = svcSelect.value;
+        var hintEl = document.getElementById('photo-service-hint');
+        if (hintEl && hints[svc]) { hintEl.textContent = 'ℹ️ ' + hints[svc]; }
+        document.querySelectorAll('.photo-key-field').forEach(function (f) {
+            f.style.display = (f.getAttribute('data-service') === svc && needsKey[svc]) ? '' : 'none';
+        });
+    };
+    togglePhotoKeyFields();
+
+    var testBtn = document.getElementById('btn-test-photo-service');
+    var resultEl = document.getElementById('photo-test-result');
+    if (testBtn) {
+        testBtn.addEventListener('click', function () {
+            var csrf = document.querySelector('input[name="csrf_token"]');
+            var svc = svcSelect.value;
+            var keyInput = document.querySelector('.photo-key-field[data-service="' + svc + '"] input');
+            var faDig = function (n) { return String(n).replace(/[0-9]/g, function (x) { return '۰۱۲۳۴۵۶۷۸۹'[+x]; }); };
+            testBtn.disabled = true;
+            testBtn.textContent = '⏳ در حال تست...';
+            resultEl.textContent = 'در حال ساخت یک تصویر نمونه کوچک با سرویس انتخابی...';
+            resultEl.style.color = 'var(--text-light)';
+
+            var body = new URLSearchParams();
+            body.append('action', 'test_photo_service');
+            body.append('service', svc);
+            if (keyInput && keyInput.value.trim() !== '') { body.append('key', keyInput.value.trim()); }
+            if (csrf) { body.append('csrf_token', csrf.value); }
+
+            fetch('settings.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+                body: body.toString(),
+                credentials: 'same-origin'
+            }).then(function (r) { return r.json(); }).then(function (res) {
+                testBtn.disabled = false;
+                testBtn.textContent = '🧪 تست سرویس انتخابی';
+                if (!res.success) {
+                    resultEl.textContent = '❌ ' + (res.error || 'تست ناموفق بود');
+                    resultEl.style.color = '#dc2626';
+                    return;
+                }
+                var d = res.data;
+                resultEl.style.color = d.ok ? '#16a34a' : '#dc2626';
+                resultEl.innerHTML = (d.ok ? '✅ «' + d.label + '» پاسخ داد — ' : '❌ «' + d.label + '» پاسخ نداد — ')
+                    + (d.message || '') + (d.latency ? ' (' + faDig(d.latency) + ' میلی‌ثانیه)' : '');
+            }).catch(function (err) {
+                testBtn.disabled = false;
+                testBtn.textContent = '🧪 تست سرویس انتخابی';
+                resultEl.textContent = '❌ خطای ارتباط: ' + err.message;
+                resultEl.style.color = '#dc2626';
+            });
+        });
+    }
+})();
 </script>
 
 <script>

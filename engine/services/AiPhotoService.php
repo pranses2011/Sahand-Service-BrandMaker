@@ -1,24 +1,35 @@
 <?php
 /**
- * 📸 AiPhotoService — تولید عکس واقعی مرتبط با موضوع مقاله (v1.0)
- * =================================================================
- * طبق درخواست کاربر: «برای تصاویر مقاله از تصاویر آماده استفاده نکن و
- * تصویر واقعی رو در همان لحظه و مرتبط با موضوع مقاله بساز»
+ * 📸 AiPhotoService — تولید عکس واقعی مرتبط با موضوع مقاله (v2.0 — چند-سرویسی)
+ * =========================================================================
+ * طبق درخواست کاربر: «همه سرویس‌های تولید تصویر رایگان رو داخل تنظیمات قرار
+ * بده تا از لیستشون انتخاب بکنیم. و مطمئن شو که سرویس مربوطه استفاده بشه.»
  *
- * روش: تولید عکس فوتورئال با سرویس رایگان Pollinations (بدون کلید API)
- *      → ذخیره در uploads/articles/ai/
- *      → مهر واترمارک دوتایی (لوگوی برند پایین-راست + لوگوی نمایندگی پایین-چپ)
+ * 🆕 v2.0 — معماری درایور چند-سرویسی (۷ سرویس رایگان/کلید-رایگان):
+ *   🆓 بدون کلید:
+ *     • pollinations_flux   — Pollinations مدل Flux (کیفیت بالا)
+ *     • pollinations_turbo  — Pollinations مدل Turbo (سریع‌تر)
+ *   🔑 با کلید رایگان (از تنظیمات ← تب «تولید تصویر مقاله»):
+ *     • huggingface         — Stable Diffusion XL (توکن رایگان)
+ *     • deepai              — Text2Img (کلید رایگان)
+ *     • together            — FLUX.1-schnell (کلید رایگان)
+ *   🔑 با کلید اشتراکی:
+ *     • stability           — Stability AI SD3 Core
+ *     • openai              — DALL·E 3
  *
- * ویژگی‌ها:
- *   🎯 پرامپت انگلیسی دقیق از «عنوان + دستگاه + نوع مقاله» ساخته می‌شود
+ * زنجیره اجرا: «سرویس انتخابی تنظیمات» همیشه اول تلاش می‌شود؛ در صورت شکست
+ * سرویس‌های بدون کلید بعدی → در نهایت بسته عکس دستگاه (آخرین پناهگاه).
+ * سرویسی که واقعاً عکس را ساخت در نتیجه (`service`) گزارش می‌شود.
+ *
+ * v1.0:
+ *   🎯 پرامپت انگلیسی دقیق از «عنوان + دستگاه + نوع مقاله»
  *   🌱 بذر یکتا (زمان + شناسه مقاله) → هر بار تولید، تصویر جدید
- *   🛡 اعتبارسنجی خروجی (JPEG واقعی + حداقل حجم) قبل از پذیرش
- *   🔁 تلاش مجدد با پرامپت ساده‌شده در صورت شکست
- *   🪧 واترمارک‌های بزرگ و شفاف روی تصویر نهایی
- *   🛟 در صورت قطعی سرویس → فراخواننده به بسته تصاویر برمی‌گردد
+ *   🛡 اعتبارسنجی خروجی (JPEG/PNG واقعی + حداقل حجم)
+ *   🪧 واترمارک دوتایی بزرگ روی تصویر نهایی (برند + نمایندگی)
+ *   📊 v2.15: setProgressSink برای نوار پیشرفت زنده (مثل خطایاب)
  *
  * @package SahandBrandMaker\Engine
- * @version 1.0
+ * @version 2.0
  */
 class AiPhotoService
 {
@@ -29,11 +40,26 @@ class AiPhotoService
     /** ⏱ مهلت هر دانلود (ثانیه) */
     const TIMEOUT = 45;
 
-    /** 🌐 آدرس سرویس تولید تصویر */
-    const ENDPOINT = 'https://image.pollinations.ai/prompt/';
-
     /** 🔢 حداکثر تعداد عکس هر مقاله (۱ شاخص + ۲ درون‌متن) */
     const MAX_PER_ARTICLE = 3;
+
+    /** 📊 گیرنده گزارش پیشرفت (v2.15 — نوار پیشرفت تولید تصاویر مقاله) */
+    private $progressSink = null;
+
+    /**
+     * 🌐 رجیستری سرویس‌های تولید تصویر — لیست تنظیمات از همین جا خوانده می‌شود
+     *
+     * کلید => [برچسب فارسی، نیاز به کلید؟، توضیح کلید]
+     */
+    const SERVICES = [
+        'pollinations_flux'  => ['پولینیشنز — Flux',            false, 'رایگان و بدون کلید — کیفیت بالا (پیش‌فرض)'],
+        'pollinations_turbo' => ['پولینیشنز — Turbo',            false, 'رایگان و بدون کلید — سریع‌تر، کیفیت متوسط'],
+        'huggingface'        => ['Hugging Face — SDXL',          true,  'توکن رایگان از huggingface.co/settings/tokens'],
+        'deepai'             => ['DeepAI — Text2Img',            true,  'کلید رایگان از deepai.org/dashboard/profile'],
+        'together'           => ['Together AI — FLUX schnell',   true,  'کلید رایگان از api.together.ai'],
+        'stability'          => ['Stability AI — SD3 Core',      true,  'کلید از platform.stability.ai'],
+        'openai'             => ['OpenAI — DALL·E 3',            true,  'کلید از platform.openai.com'],
+    ];
 
     /** 🗺️ نام انگلیسی دستگاه‌ها برای پرامپت (کلید دانش → عبارت پرامپت) */
     const DEVICE_PROMPTS = [
@@ -113,6 +139,98 @@ class AiPhotoService
     /** 🌍 پسوند کیفیت پرامپت */
     const STYLE_SUFFIX = 'professional photography, photorealistic, high detail, natural lighting, sharp focus, 16:9 aspect, no text, no words, no watermark, no logo';
 
+    /* ==================================================
+     * 📊 پیشرفت زنده (v2.15)
+     * ================================================== */
+
+    /** 📊 نصب گیرنده گزارش پیشرفت — الگوی یکسان با ErrorCodeEngine */
+    public function setProgressSink(?callable $fn): void
+    {
+        $this->progressSink = $fn;
+    }
+
+    /** 📊 ارسال گزارش پیشرفت (بی‌اثر اگر گیرنده‌ای نصب نباشد) */
+    private function progress(int $pct, string $title, string $detail = ''): void
+    {
+        if ($this->progressSink !== null) {
+            try {
+                ($this->progressSink)($pct, $title, $detail);
+            } catch (Throwable $e) {
+                // گیرنده هرگز جریان اصلی را نمی‌شکند
+            }
+        }
+    }
+
+    /* ==================================================
+     * ⚙️ تنظیمات سرویس (v2.0 — «سرویس انتخابی همیشه استفاده می‌شود»)
+     * ================================================== */
+
+    /** ⚙️ خواندن تنظیمات تولید تصویر مقاله (از جدول settings) */
+    public static function settings(): array
+    {
+        $saved = Config::get('article_photo_settings');
+        $saved = is_array($saved) ? $saved : [];
+        $cfg = array_merge([
+            'service' => 'pollinations_flux', // سرویس انتخابی — همیشه اول تلاش می‌شود
+            'keys'    => [],                  // کلید سرویس‌های کلیددار: ['huggingface' => 'hf_...', ...]
+            'timeout' => 45,                  // مهلت هر تولید (ثانیه)
+        ], $saved);
+        /* سرویس نامعتبر → پیش‌فرض */
+        if (!isset(self::SERVICES[$cfg['service']])) {
+            $cfg['service'] = 'pollinations_flux';
+        }
+        $cfg['keys'] = is_array($cfg['keys']) ? $cfg['keys'] : [];
+        return $cfg;
+    }
+
+    /** 📋 فهرست سرویس‌ها برای رابط کاربری تنظیمات */
+    public static function servicesList(): array
+    {
+        $cfg = self::settings();
+        $list = [];
+        foreach (self::SERVICES as $key => [$label, $needsKey, $hint]) {
+            $list[$key] = [
+                'label'     => $label,
+                'needs_key' => $needsKey,
+                'hint'      => $hint,
+                'has_key'   => $needsKey ? trim((string)($cfg['keys'][$key] ?? '')) !== '' : true,
+            ];
+        }
+        return $list;
+    }
+
+    /** 🔑 کلید یک سرویس از تنظیمات (خالی اگر ندارد) */
+    private function serviceKey(string $service): string
+    {
+        $cfg = self::settings();
+        return trim((string)($cfg['keys'][$service] ?? ''));
+    }
+
+    /**
+     * 🔗 زنجیره تلاش سرویس‌ها — «سرویس انتخابی» همیشه اول؛ سپس بقیه به‌ترتیب:
+     * بدون‌کلیدها (flux → turbo) و کلیددارهایی که کلیدشان ثبت شده.
+     */
+    private function serviceChain(): array
+    {
+        $cfg = self::settings();
+        $chain = [$cfg['service']];
+        foreach (['pollinations_flux', 'pollinations_turbo'] as $free) {
+            if (!in_array($free, $chain, true)) {
+                $chain[] = $free;
+            }
+        }
+        foreach (array_keys(self::SERVICES) as $svc) {
+            if (!in_array($svc, $chain, true) && self::SERVICES[$svc][1] && $this->serviceKey($svc) !== '') {
+                $chain[] = $svc;
+            }
+        }
+        return $chain;
+    }
+
+    /* ==================================================
+     * 📸 API اصلی
+     * ================================================== */
+
     /**
      * 📸 تولید عکس‌های واقعی مرتبط با مقاله + واترمارک
      *
@@ -121,12 +239,16 @@ class AiPhotoService
      * @param string $deviceKey کلید دستگاه (خالی = از عنوان استنتاج)
      * @param string $topicType نوع مقاله
      * @param array  $brand     رکورد برند (لوگو برای واترمارک)
-     * @param int    $count     تعداد عکس (۱ تا ۲)
-     * @return array ['path','url','alt','caption'] × N — خالی در صورت شکست کامل
+     * @param int    $count     تعداد عکس (۱ تا ۳)
+     * @return array ['path','url','alt','caption','service'] × N — خالی در صورت شکست کامل
      */
     public function generateForArticle(int $articleId, string $title, string $deviceKey, string $topicType, array $brand, int $count = self::MAX_PER_ARTICLE): array
     {
         $count = max(1, min(self::MAX_PER_ARTICLE, $count));
+        $cfg = self::settings();
+        $chain = $this->serviceChain();
+
+        $this->progress(2, 'آماده‌سازی پرامپت تصویر', 'سرویس انتخابی: ' . self::SERVICES[$cfg['service']][0]);
 
         /* 🎯 دستگاه معتبر — مستقیم یا استنتاج از عنوان/محتوا */
         $norm = ArticleImageService::normalizeDeviceKey($deviceKey);
@@ -156,6 +278,7 @@ class AiPhotoService
         $deviceFa = $devices[$norm]['name_fa'] ?? 'لوازم خانگی';
 
         $images = [];
+        $usedService = '';
         for ($i = 1; $i <= $count; $i++) {
             /* 🌱 بذر یکتا — هر تولید تصویر جدید می‌سازد */
             $seed = crc32($articleId . '|' . $title . '|' . $timeSlice . '|' . $i . '|' . random_int(1, 999999));
@@ -172,17 +295,30 @@ class AiPhotoService
             $rel = $dir . '/art-' . $safeId . '-' . $i . '-' . $timeSlice . '.jpg';
             $abs = ROOT_PATH . '/' . $rel;
 
-            $ok = $this->download($prompt, $seed, $abs);
-            if (!$ok) {
-                /* 🔁 تلاش دوم — پرامپت ساده‌شده (سرویس گاهی با پرامپت طولانی مشکل دارد) */
-                $simple = $devicePrompt . ' ' . $angle . ', professional product photography, photorealistic, high detail, no text, no watermark';
-                $ok = $this->download($simple, $seed + 7, $abs);
+            /* 🚀 تلاش زنجیره‌ای سرویس‌ها — سرویس انتخابی تنظیمات همیشه اول */
+            $ok = false;
+            $svcIdx = 0;
+            foreach ($chain as $svc) {
+                $svcIdx++;
+                $this->progress(
+                    (int)round(6 + 82 * (($i - 1 + $svcIdx / max(2, count($chain))) / $count)),
+                    'تولید تصویر ' . $i . ' از ' . $count,
+                    'سرویس: ' . self::SERVICES[$svc][0] . ($svcIdx > 1 ? ' (تلاش جایگزین ' . $svcIdx . ')' : ' (سرویس انتخابی)')
+                );
+                $ok = $this->downloadViaService($svc, $prompt, $seed, $abs);
+                if ($ok) {
+                    $usedService = $usedService ?: $svc;
+                    break; // ✅ موفق — سرویس بعدی لازم نیست
+                }
+                /* پرامپت ساده برای تلاش بعدی (سرویس‌ها گاهی با پرامپت طولانی مشکل دارند) */
+                $prompt = $devicePrompt . ' ' . $angle . ', professional product photography, photorealistic, high detail, no text, no watermark';
             }
             if (!$ok) {
-                continue; // این عکس رد شد — بقیه ادامه
+                continue; // این عکس در هیچ سرویسی نشد — بقیه ادامه
             }
 
             /* 🪧 واترمارک دوتایی بزرگ و شفاف روی عکس واقعی */
+            $this->progress((int)round(6 + 82 * ($i / $count)) - 1, 'مهر واترمارک‌ها', 'تصویر ' . $i . ' از ' . $count . ' — لوگوی برند + نمایندگی');
             $this->stampWatermarks($abs, $brand);
 
             $images[] = [
@@ -192,21 +328,118 @@ class AiPhotoService
                 'caption' => mb_substr($deviceFa . ' — ' . ($i === 1 ? 'نمای اصلی مرتبط با موضوع مقاله' : ($i === 2 ? 'نمای نزدیک و جزئیات فنی' : 'نمای کارشناسی و صحنه خدمات')), 0, 160),
                 'role'    => $i === 1 ? 'featured' : 'inline',
                 'source'  => 'ai_photo',
+                'service' => $usedService,
             ];
+        }
+        if ($images) {
+            $this->progress(90, 'تصاویر آماده شد', count($images) . ' تصویر واقعی با سرویس «' . self::SERVICES[$usedService][0] . '» تولید شد');
         }
         return $images;
     }
 
+    /* ==================================================
+     * 🌐 درایورهای سرویس‌ها (v2.0)
+     * ================================================== */
+
     /**
-     * ⬇️ دانلود عکس از سرویس تولید + اعتبارسنجی
+     * ⬇️ دانلود عکس از سرویس مشخص + اعتبارسنجی
      * @return bool موفقیت ذخیره فایل
      */
-    private function download(string $prompt, int $seed, string $destAbs): bool
+    private function downloadViaService(string $service, string $prompt, int $seed, string $destAbs): bool
     {
-        $url = self::ENDPOINT . rawurlencode($prompt)
-            . '?width=' . self::W . '&height=' . self::H
-            . '&nologo=true&enhance=false&model=flux&seed=' . ($seed % 2147483647);
+        $timeout = max(20, (int)self::settings()['timeout']);
+        $key = $this->serviceKey($service);
 
+        switch ($service) {
+            case 'pollinations_flux':
+            case 'pollinations_turbo':
+                $model = $service === 'pollinations_turbo' ? 'turbo' : 'flux';
+                $url = 'https://image.pollinations.ai/prompt/' . rawurlencode($prompt)
+                    . '?width=' . self::W . '&height=' . self::H
+                    . '&nologo=true&enhance=false&model=' . $model . '&seed=' . ($seed % 2147483647);
+                return $this->httpDownload($url, $destAbs, $timeout, []);
+
+            case 'huggingface':
+                if ($key === '') { return false; }
+                $url = 'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0';
+                $body = $this->httpPost($url, json_encode(['inputs' => $prompt]), $timeout, [
+                    'Authorization: Bearer ' . $key,
+                    'Content-Type: application/json',
+                    'Accept: image/png',
+                ]);
+                return $body !== null && $this->saveValidatedBinary($body, $destAbs);
+
+            case 'deepai':
+                if ($key === '') { return false; }
+                /* DeepAI خروجی JSON با آدرس عکس می‌دهد → دو مرحله */
+                $json = $this->httpPost('https://api.deepai.org/api/text2img', http_build_query(['text' => $prompt]), $timeout, [
+                    'api-key: ' . $key,
+                    'Content-Type: application/x-www-form-urlencoded',
+                ]);
+                if ($json === null) { return false; }
+                $data = json_decode($json, true);
+                $imgUrl = is_array($data) ? trim((string)($data['output_url'] ?? '')) : '';
+                if ($imgUrl === '' || !preg_match('#^https?://#i', $imgUrl)) { return false; }
+                return $this->httpDownload($imgUrl, $destAbs, $timeout, []);
+
+            case 'together':
+                if ($key === '') { return false; }
+                $json = $this->httpPost('https://api.together.xyz/v1/images/generations', json_encode([
+                    'model'  => 'black-forest-labs/FLUX.1-schnell',
+                    'prompt' => $prompt,
+                    'width'  => self::W,
+                    'height' => self::H,
+                    'steps'  => 4,
+                    'n'      => 1,
+                ]), $timeout, [
+                    'Authorization: Bearer ' . $key,
+                    'Content-Type: application/json',
+                ]);
+                if ($json === null) { return false; }
+                $data = json_decode($json, true);
+                $b64 = is_array($data) ? (string)($data['data'][0]['b64_json'] ?? '') : '';
+                if ($b64 === '') { return false; }
+                $bin = base64_decode($b64, true);
+                return $bin !== false && $this->saveValidatedBinary($bin, $destAbs);
+
+            case 'stability':
+                if ($key === '') { return false; }
+                $body = $this->httpPostMultipart('https://api.stability.ai/v2beta/stable-image/generate/core', [
+                    'prompt'        => $prompt,
+                    'output_format' => 'jpeg',
+                    'aspect_ratio'  => '16:9',
+                ], $timeout, [
+                    'Authorization: Bearer ' . $key,
+                    'Accept: image/jpeg',
+                ]);
+                return $body !== null && $this->saveValidatedBinary($body, $destAbs);
+
+            case 'openai':
+                if ($key === '') { return false; }
+                $json = $this->httpPost('https://api.openai.com/v1/images/generations', json_encode([
+                    'model'           => 'dall-e-3',
+                    'prompt'          => $prompt,
+                    'size'            => '1792x1024',
+                    'quality'         => 'standard',
+                    'response_format' => 'b64_json',
+                    'n'               => 1,
+                ]), $timeout, [
+                    'Authorization: Bearer ' . $key,
+                    'Content-Type: application/json',
+                ]);
+                if ($json === null) { return false; }
+                $data = json_decode($json, true);
+                $b64 = is_array($data) ? (string)($data['data'][0]['b64_json'] ?? '') : '';
+                if ($b64 === '') { return false; }
+                $bin = base64_decode($b64, true);
+                return $bin !== false && $this->saveValidatedBinary($bin, $destAbs);
+        }
+        return false;
+    }
+
+    /** ⬇️ دانلود مستقیم فایل از URL با اعتبارسنجی تصویر */
+    private function httpDownload(string $url, string $destAbs, int $timeout, array $headers): bool
+    {
         $ch = curl_init($url);
         $fh = @fopen($destAbs, 'wb');
         if (!$fh) {
@@ -214,14 +447,14 @@ class AiPhotoService
         }
         curl_setopt_array($ch, [
             CURLOPT_FILE           => $fh,
-            CURLOPT_TIMEOUT        => self::TIMEOUT,
+            CURLOPT_TIMEOUT        => $timeout,
             CURLOPT_CONNECTTIMEOUT => 12,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS      => 3,
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_SSL_VERIFYHOST => 0,
-            CURLOPT_USERAGENT      => 'Mozilla/5.0 (compatible; SahandBrandMaker/2.14)',
-            CURLOPT_HTTPHEADER     => ['Accept: image/jpeg,image/png,image/*'],
+            CURLOPT_USERAGENT      => 'Mozilla/5.0 (compatible; SahandBrandMaker/2.15)',
+            CURLOPT_HTTPHEADER     => array_merge(['Accept: image/jpeg,image/png,image/*'], $headers),
         ]);
         curl_exec($ch);
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -239,6 +472,64 @@ class AiPhotoService
             return false;
         }
         return true;
+    }
+
+    /** 📤 POST با بدنه خام — بدنه پاسخ یا null */
+    private function httpPost(string $url, string $body, int $timeout, array $headers): ?string
+    {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $body,
+            CURLOPT_TIMEOUT        => $timeout,
+            CURLOPT_CONNECTTIMEOUT => 12,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_USERAGENT      => 'Mozilla/5.0 (compatible; SahandBrandMaker/2.15)',
+            CURLOPT_HTTPHEADER     => $headers,
+        ]);
+        $res = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        return (is_string($res) && $httpCode >= 200 && $httpCode < 300) ? $res : null;
+    }
+
+    /** 📤 POST چندبخشی (multipart) — بدنه پاسخ یا null */
+    private function httpPostMultipart(string $url, array $fields, int $timeout, array $headers): ?string
+    {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $fields, // آرایه → multipart خودکار
+            CURLOPT_TIMEOUT        => $timeout,
+            CURLOPT_CONNECTTIMEOUT => 12,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_HTTPHEADER     => $headers,
+        ]);
+        $res = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $type = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        curl_close($ch);
+        /* Stability گاهی خطای JSON با کد 200 می‌دهد — فقط پاسخ تصویری قبول */
+        if (is_string($res) && $httpCode >= 200 && $httpCode < 300 && str_contains($type, 'image/')) {
+            return $res;
+        }
+        return null;
+    }
+
+    /** 💾 ذخیره اعتبارسنجی‌شده باینری تصویر */
+    private function saveValidatedBinary(string $bin, string $destAbs): bool
+    {
+        if (strlen($bin) < 15000) {
+            return false;
+        }
+        if (!(str_starts_with($bin, "\xFF\xD8\xFF") || str_starts_with($bin, "\x89PNG\r\n\x1A\n"))) {
+            return false; // JSON خطا یا HTML — نه تصویر
+        }
+        return @file_put_contents($destAbs, $bin) !== false;
     }
 
     /** 🔎 بررسی امضای باینری تصویر (JPEG/PNG) */
@@ -282,27 +573,94 @@ class AiPhotoService
     }
 
     /**
-     * 🩺 بررسی سلامت/دسترسی سرویس (برای پنل سلامت)
+     * 🩺 بررسی سلامت/دسترسی سرویس (برای پنل سلامت + دکمه تست تنظیمات)
+     * @param string|null $service سرویس مشخص، یا null = سرویس انتخابی تنظیمات
+     * @param string|null $keyOverride کلید تستی فرم (بدون ذخیره) — اولویت با آن است
      */
-    public function healthCheck(): array
+    public function healthCheck(?string $service = null, ?string $keyOverride = null): array
     {
+        $cfg = self::settings();
+        $service = $service ?? $cfg['service'];
+        if (!isset(self::SERVICES[$service])) {
+            return ['ok' => false, 'status' => 'unknown', 'latency' => 0, 'service' => $service, 'message' => 'سرویس ناشناخته است.'];
+        }
         $t0 = microtime(true);
-        $ch = curl_init(self::ENDPOINT . rawurlencode('a red apple on a table') . '?width=64&height=64&nologo=true&seed=1');
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 20,
-            CURLOPT_CONNECTTIMEOUT => 8,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => 0,
-        ]);
-        $body = curl_exec($ch);
-        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        $ok = $code === 200 && is_string($body) && strlen($body) > 1000 && str_starts_with($body, "\xFF\xD8\xFF");
+        $testAbs = null;
+        $ok = false;
+        $message = '';
+        try {
+            /* تست سبک: تصویر ریز ۶۴×۶۴ با پرامپت کوتاه */
+            $tmpDir = sys_get_temp_dir() ?: ROOT_PATH . '/cache';
+            $testAbs = $tmpDir . '/aiphoto-test-' . substr(md5((string)mt_rand()), 0, 8) . '.jpg';
+            $timeout = 25;
+            $key = ($keyOverride !== null && trim($keyOverride) !== '') ? trim($keyOverride) : $this->serviceKey($service);
+            switch ($service) {
+                case 'pollinations_flux':
+                case 'pollinations_turbo':
+                    $model = $service === 'pollinations_turbo' ? 'turbo' : 'flux';
+                    $url = 'https://image.pollinations.ai/prompt/' . rawurlencode('a red apple on a table')
+                        . '?width=64&height=64&nologo=true&model=' . $model . '&seed=1';
+                    $ok = $this->httpDownload($url, $testAbs, $timeout, []);
+                    $message = $ok ? 'سرویس پاسخ داد و تصویر ساخت.' : 'سرویس در مهلت ' . $timeout . ' ثانیه تصویر برنگرداند.';
+                    break;
+                case 'huggingface':
+                    if ($key === '') {
+                        $message = 'کلید Hugging Face در تنظیمات ثبت نشده است.';
+                        break;
+                    }
+                    $body = $this->httpPost('https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0',
+                        json_encode(['inputs' => 'a red apple']), $timeout,
+                        ['Authorization: Bearer ' . $key, 'Content-Type: application/json', 'Accept: image/png']);
+                    $ok = $body !== null && str_starts_with($body, "\x89PNG");
+                    $message = $ok ? 'سرویس پاسخ داد.' : ($body === null ? 'پاسخی دریافت نشد — کلید یا اتصال را بررسی کنید.' : 'پاسخ سرویس تصویر نبود.');
+                    break;
+                case 'deepai':
+                    if ($key === '') {
+                        $message = 'کلید DeepAI در تنظیمات ثبت نشده است.';
+                        break;
+                    }
+                    $json = $this->httpPost('https://api.deepai.org/api/text2img', http_build_query(['text' => 'a red apple']), $timeout,
+                        ['api-key: ' . $key, 'Content-Type: application/x-www-form-urlencoded']);
+                    $data = $json !== null ? json_decode($json, true) : null;
+                    $ok = is_array($data) && !empty($data['output_url']);
+                    $message = $ok ? 'سرویس پاسخ داد.' : 'پاسخ معتبر نگرفتیم — کلید را بررسی کنید.';
+                    break;
+                case 'together':
+                case 'openai':
+                case 'stability':
+                    if ($key === '') {
+                        $message = 'کلید این سرویس در تنظیمات ثبت نشده است.';
+                        break;
+                    }
+                    /* برای سرویس‌های کلیددار پولی، فقط اعتبار کلید با درخواست حداقلی بررسی می‌شود */
+                    if ($service === 'together') {
+                        $json = $this->httpPost('https://api.together.xyz/v1/models', '', 15, ['Authorization: Bearer ' . $key]);
+                        $ok = $json !== null;
+                    } elseif ($service === 'openai') {
+                        $json = $this->httpPost('https://api.openai.com/v1/models', '', 15, ['Authorization: Bearer ' . $key]);
+                        $ok = $json !== null;
+                    } else {
+                        $body = $this->httpPostMultipart('https://api.stability.ai/v2beta/stable-image/generate/core',
+                            ['prompt' => 'a red apple', 'output_format' => 'jpeg'], 25,
+                            ['Authorization: Bearer ' . $key, 'Accept: image/jpeg']);
+                        $ok = $body !== null && str_starts_with($body, "\xFF\xD8\xFF");
+                    }
+                    $message = $ok ? 'کلید معتبر و سرویس در دسترس است.' : 'کلید یا اتصال سرویس معتبر نیست.';
+                    break;
+            }
+        } catch (Throwable $e) {
+            $message = 'خطای تست: ' . $e->getMessage();
+        }
+        if ($testAbs !== null && is_file($testAbs)) {
+            @unlink($testAbs);
+        }
         return [
             'ok'      => $ok,
             'status'  => $ok ? 'online' : 'offline',
             'latency' => (int)round((microtime(true) - $t0) * 1000),
+            'service' => $service,
+            'label'   => self::SERVICES[$service][0],
+            'message' => $message,
         ];
     }
 }
