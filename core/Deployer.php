@@ -579,12 +579,16 @@ class Deployer
     }
 
     /**
-     * ۶️⃣ استخراج ZIP + مکان‌یابی + راستی‌آزمایی + حذف ZIP — v2.19
+     * ۶️⃣ استخراج ZIP + مکان‌یابی + راستی‌آزمایی + حذف ZIP — v2.19.1
      * ✅ استخراج API2 رسمی بدون destfiles (مستندات: فقط برای copy/move/rename)
      * ✅ بازیابی خودکار: اگر cPanel داخل زیرپوشه هم‌نام آرشیو استخراج کرد،
      *    محتویات به بالا منتقل می‌شود (settleExtractedFiles)
      * ✅ راستی‌آمایی قبل از حذف ZIP (تا تلاش مجدد ممکن بماند)
-     * ✅ دیاگنوستیک کامل در خطا: محتوای واقعی مسیر سایت + جزئیات مرحله شکست
+     * ✅ دیاگنوستیک کامل در خطا (v2.19.1):
+     *    • محتوای واقعی مسیر سایت (تا ۱۵ مدخل)
+     *    • وجود ZIP روی سرور (استعلام مستقیم — تفکیک «آپلود دروغگو» از «استخراج ناموفق»)
+     *    • وضعیت لیست پوشه (ok / ok-empty / unparsed / error) + نمونه پاسخ خام
+     *      اگر قالب پاسخ سرور شناخته نشد — عیب‌یابی نسل بعدی قطعی می‌شود
      */
     private function stepExtract(array $deployment, ?array $brand, array $state): array
     {
@@ -599,7 +603,7 @@ class Deployer
             $extractError = $this->api->getLastError();
             $stage = $this->api->getLastExtractStage();
 
-            // 🔍 دیاگنوستیک — محتوای واقعی مسیر سایت گزارش شود تا عیب‌یابی قطعی باشد
+            // 🔍 دیاگنوستیک ۱ — محتوای واقعی مسیر سایت گزارش شود تا عیب‌یابی قطعی باشد
             $listing = [];
             foreach ($this->api->listFiles($serverPath) as $e) {
                 $n = (string)($e['file'] ?? $e['name'] ?? '?');
@@ -609,6 +613,22 @@ class Deployer
                 ? 'خالی'
                 : implode('، ', array_slice($listing, 0, 15)) . (count($listing) > 15 ? ' و ' . (count($listing) - 15) . ' مورد دیگر' : '');
 
+            // 🔍 دیاگنوستیک ۲ — وجود خودِ ZIP روی سرور (استعلام مستقیم، مستقل از لیست):
+            //    اگر ZIP موجود باشد یعنی آپلود واقعی بوده و مشکل در استخراج/لیست است؛
+            //    اگر ناموجود باشد یعنی آپلود دروغگو بوده است
+            $zipOnServer = $this->api->entryExists($remoteZip, 'file') ? 'موجود' : 'ناموجود';
+
+            // 🔍 دیاگنوستیک ۳ — وضعیت لیست پوشه + نمونه پاسخ خام در صورت ناشناخته‌بودن قالب
+            $listStatus = $this->api->getListStatus();
+            $statusMap = [
+                'ok'        => 'سالم',
+                'ok-empty'  => 'سالم (پوشه خالی)',
+                'unparsed'  => 'قالب پاسخ ناشناخته',
+                'error'     => 'خطای API',
+            ];
+            $listView = $statusMap[$listStatus] ?? $listStatus;
+            $rawSnippet = $this->api->getListRawSnippet(160);
+
             $headline = $stage === 'api'
                 ? 'استخراج ZIP ناموفق'
                 : 'استخراج کامل نشد — index.php در مسیر سایت یافت نشد';
@@ -617,6 +637,9 @@ class Deployer
                 'ok'    => false,
                 'error' => $headline
                     . ' | محتوای مسیر سایت: ' . $dirView
+                    . ' | وضعیت لیست: ' . $listView
+                    . ' | ZIP روی سرور: ' . $zipOnServer
+                    . ($rawSnippet !== '' ? ' | نمونه پاسخ لیست: ' . $rawSnippet : '')
                     . ($extractError !== '' ? ' | جزئیات: ' . $extractError : ''),
             ];
         }

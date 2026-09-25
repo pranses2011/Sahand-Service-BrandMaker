@@ -12,7 +12,7 @@
  * 📡 اندپوینت: https://{host}:{port}/execute/{Module}/{Function}
  *
  * @package SahandBrandMaker
- * @version 2.19.0
+ * @version 2.19.1
  */
 class CpanelAPI
 {
@@ -33,6 +33,20 @@ class CpanelAPI
 
     /** @var string مرحله شکست آخرین استخراج — 'api' (فراخوانی cPanel) یا 'settle' (مکان‌یابی/راستی‌آزمایی) — v2.19 */
     private $lastExtractStage = '';
+
+    /** @var string وضعیت آخرین listFiles — v2.19.1:
+     *    'ok' (پارس موفق و غیرخالی) | 'ok-empty' (پوشه واقعاً خالی) |
+     *    'unparsed' (پاسخ با هیچ قالب شناخته‌شده پارس نشد) | 'error' (خطای API) */
+    private $lastListStatus = 'ok';
+
+    /** @var array|null نمونه خام آخرین پاسخ لیست که پارس نشد — برای دیاگنوستیک v2.19.1 */
+    private $lastListRaw = null;
+
+    /** @var int نسل کش لیست — با هر جهش فایل‌سیستم (استخراج/حذف/جابجایی/آپلود) افزایش می‌یابد — v2.19.1 */
+    private $fsGeneration = 0;
+
+    /** @var array کش درون‌درخواستی لیست پوشه‌ها: [نسل => [مسیر => مدخل‌ها]] — v2.19.1 */
+    private $listCache = [];
 
     /**
      * 🔧 سازنده — دریافت تنظیمات اتصال
@@ -622,31 +636,57 @@ class CpanelAPI
             $this->lastError = 'نام پوشه نامعتبر است.';
             return false;
         }
-        return $this->callApi2('Fileman', 'mkdir', [
+        $ok = $this->callApi2('Fileman', 'mkdir', [
             'path'        => rtrim(dirname($fullPath), '/'),
             'name'        => $name,
             'permissions' => '0755',
         ]) !== false;
+        if ($ok) {
+            $this->fsGeneration++; /* 🗂️ جهش فایل‌سیستم — کش لیست باطل شود (v2.19.1) */
+        }
+        return $ok;
     }
 
     /**
-     * ❓ بررسی وجود فایل/پوشه در مسیر (از طریق لیست پوشه والد — UAPI list_files)
+     * ❓ بررسی وجود فایل/پوشه در مسیر — v2.19.1 دو لایه
+     * ====================================================
+     *  ① استعلام مستقیم UAPI Fileman::get_file_information — بدون نیاز به لیست
+     *    پوشه والد؛ روی هر دو نسل cPanel قطعی است و پاسخ نوع (file/dir) می‌دهد.
+     *    اگر فایل موجود نباشد خطا برمی‌گردد → لایه ۲ تصمیم نهایی را می‌گیرد.
+     *  ② fallback — لیست پوشه والد با پارس چندقالبی v2.19.1
+     *
+     * 🔴 چرا دو لایه؟ در ریشه‌یابی خطای «محتوای مسیر سایت: خالی» معلوم شد
+     *    وجود فایل فقط از مسیر لیست پوشه بررسی می‌شد — اگر لیست به هر دلیلی
+     *    (قالب قدیمی/خطای API) خالی برگردد، فایل‌های واقعاً موجود «ناموجود»
+     *    تلقی می‌شدند و راستی‌آمایی استقرار شکست کاذب می‌خورد.
      *
      * @param string      $path مسیر مطلق موردنظر
      * @param string|null $type محدود کردن به نوع ('dir' یا 'file') — null = هر دو
      */
     public function entryExists(string $path, ?string $type = null): bool
     {
-        $path   = $this->normalizePath($path);
-        $parent = $this->normalizePath(dirname($path));
-        $name   = basename(rtrim($path, '/'));
+        $path = $this->normalizePath($path);
+        $name = basename(rtrim($path, '/'));
 
         if ($name === '' || $name === '/') {
             return false;
         }
 
-        $files = $this->listFiles($parent);
-        foreach ($files as $f) {
+        /* ① استعلام مستقیم — پاسخ قطعی بدون وابستگی به لیست پوشه */
+        $info = $this->call('Fileman', 'get_file_information', ['path' => $path]);
+        if (is_array($info) && $info !== []) {
+            $t = (string)($info['type'] ?? '');
+            if ($t === '' && isset($info['file']) && is_array($info['file'])) {
+                $t = (string)($info['file']['type'] ?? '');
+            }
+            if ($t !== '') {
+                return $type === null || $t === $type;
+            }
+        }
+
+        /* ② fallback — لیست پوشه والد (پارس چندقالبی v2.19.1) */
+        $parent = $this->normalizePath(dirname($path));
+        foreach ($this->listFiles($parent) as $f) {
             $fname = (string)($f['file'] ?? $f['name'] ?? '');
             if ($fname === $name) {
                 return $type === null || (string)($f['type'] ?? '') === $type;
@@ -656,10 +696,20 @@ class CpanelAPI
     }
 
     /**
-     * 📤 آپلود فایل (مثلاً ZIP سایت) — v2.18
-     * نام فیلدهای multipart طبق مستندات رسمی cPanel: file-0، file-1، ...
-     * (سامانه فایل را بر اساس ویژگی filename همان part ذخیره می‌کند)
-     * 🛡️ دو قرارداد امتحان می‌شود: file-0 (مستندات) سپس upload-0 (اثبات‌شده)
+     * 📤 آپلود فایل (مثلاً ZIP سایت) — v2.19.1 (overwrite + راستی‌آزمایی واقعی)
+     * ============================================================================
+     *  • نام فیلدهای multipart طبق مستندات رسمی cPanel: file-0، file-1، ...
+     *    (سامانه فایل را بر اساس ویژگی filename همان part ذخیره می‌کند)
+     *  • 🆕 v2.19.1 — پارامتر overwrite=1:
+     *    مستندات رسمی: پیش‌فرض overwrite صفر است و فایل تکراری با دلیل
+     *    «already exists» رد می‌شود! چون v2.19 حذف ZIP را فقط بعد از استقرار
+     *    موفق انجام می‌دهد، هر استقرار ناموفق یک ZIP قدیمی باقی می‌گذاشت و
+     *    تلاش بعدی بی‌صدا شکست می‌خورد — overwrite=1 این سناریو را حذف می‌کند.
+     *  • 🆕 v2.19.1 — راستی‌آزمایی پاسخ: شمارنده‌های رسمی succeeded/failed
+     *    (data.failed > 0 و data.succeeded < 1 → آپلود واقعاً انجام نشده).
+     *    برخی سرورهای قدیمی status کلی را ۱ برمی‌گردانند حتی وقتی فایل رد شده!
+     *  • دو قرارداد فیلد: file-0 (مستندات) سپس upload-0 (اثبات‌شده)
+     *  • دو قالب مسیر: مطلق + نسبی از home
      *
      * @param string $localFile مسیر محلی فایل
      * @param string $remoteDir پوشه مقصد (مثلاً /public_html/brands/samsung)
@@ -670,19 +720,65 @@ class CpanelAPI
             $this->lastError = 'فایل محلی برای آپلود یافت نشد: ' . basename($localFile);
             return false;
         }
-        /* 🛡️ v2.19: دو قرارداد فیلد (file-0 مستندات + upload-0 اثبات‌شده)
-         *    × دو قالب مسیر (مطلق + نسبی از home — مثال‌های رسمی نسبی‌اند) */
+
+        $lastErr = '';
         foreach ([$this->normalizePath($remoteDir), $this->homeRelative($remoteDir)] as $dir) {
             foreach (['file-0', 'upload-0'] as $field) {
-                $data = $this->call('Fileman', 'upload_files', ['dir' => $dir], [
+                $data = $this->call('Fileman', 'upload_files', [
+                    'dir'       => $dir,
+                    'overwrite' => 1, /* 🆕 v2.19.1 — ZIP قدیمی مانده از تلاش قبلی جایگزین شود */
+                ], [
                     $field => $localFile,
                 ]);
-                if ($data !== false) {
+                if ($this->uploadVerified($data)) {
+                    $this->fsGeneration++; /* 🗂️ جهش فایل‌سیستم — کش لیست باطل شود */
                     return true;
+                }
+                if ($this->getLastError() !== '') {
+                    $lastErr = $this->getLastError();
                 }
             }
         }
+        $this->lastError = $lastErr !== '' ? $lastErr : 'آپلود فایل تأیید نشد — سرور موفقیت آن را تأیید نکرد';
         return false;
+    }
+
+    /**
+     * ✅ راستی‌آزمایی پاسخ upload_files — v2.19.1
+     * مستندات رسمی: data.succeeded (تعداد ذخیره‌شده) + data.failed (تعداد ردشده)
+     * + data.uploads[] (جزئیات هر فایل با reason).
+     * سرورهای قدیمی ممکن است این کلیدها را نفرستند — در نبود شمارنده‌ها،
+     * موفقیت سطح فراخوانی (status=1) پذیرفته می‌شود (سازگاری رو به عقب).
+     */
+    private function uploadVerified($data): bool
+    {
+        if ($data === false) {
+            return false;
+        }
+        if (!is_array($data)) {
+            return true;
+        }
+
+        $succeeded = array_key_exists('succeeded', $data) ? (int)$data['succeeded'] : null;
+        $failed    = array_key_exists('failed', $data) ? (int)$data['failed'] : null;
+
+        /* شمارنده‌ها حاضرند و فایل ذخیره نشده → شکست واقعی (حتی اگر status=1) */
+        if ($succeeded !== null && $succeeded < 1) {
+            $reason = '';
+            foreach ((array)($data['uploads'] ?? []) as $u) {
+                if (is_array($u)) {
+                    $r = trim((string)($u['reason'] ?? ''));
+                    if ($r !== '') {
+                        $reason = $r;
+                        break;
+                    }
+                }
+            }
+            $this->lastError = 'آپلود فایل توسط سرور رد شد'
+                . ($reason !== '' ? ' — دلیل: ' . $reason : ' (succeeded=0, failed=' . (int)$failed . ')');
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -747,7 +843,16 @@ class CpanelAPI
             if ($data !== false) {
                 /* ✅ API2 موفق — بررسی نتیجه سطح فایل (result/err داخل data[0]) */
                 $row = is_array($data[0] ?? null) ? $data[0] : [];
+                if ($row === []) {
+                    /* ⚠️ v2.19.1: data[0] غایب است — event.result=1 توسط callApi2 تأیید
+                     * شده اما جزئیات عملیات موجود نیست؛ «موفقیت تأییدنشده» شمرده می‌شود
+                     * (راستی‌آمایی پسینی — مثل settleExtractedFiles — حکم نهایی می‌دهد
+                     * تا خطای گزارش‌شده دقیق بماند نه موفقیت کاذب بی‌شرط) */
+                    $this->fsGeneration++;
+                    return [true, []];
+                }
                 if ((int)($row['result'] ?? 1) === 1 && trim((string)($row['err'] ?? '')) === '') {
+                    $this->fsGeneration++;
                     return [true, $row];
                 }
                 $lastErr = trim((string)($row['err'] ?? ''));
@@ -815,14 +920,22 @@ class CpanelAPI
     }
 
     /**
-     * 🧭 مکان‌یابی فایل‌های استخراج‌شده + بازیابی خودکار — v2.19
-     * =========================================================
+     * 🧭 مکان‌یابی فایل‌های استخراج‌شده + بازیابی خودکار — v2.19.1
+     * ==========================================================
      * بعد از استخراج، فایل‌ها ممکن است در یکی از این مکان‌ها باشند:
      *   ① مستقیم داخل $destDir (حالت استاندارد)
      *   ② داخل زیرپوشه هم‌نام آرشیو (رفتار cPanel قدیمی: site.zip → site/…)
      *   ③ داخل تک‌پوشه ریشه (ZIP دارای پوشه ریشه — مثل بکاپ برند)
      * اگر index.php در زیرپوشه پیدا شد، کل محتویاتش به $destDir منتقل و
      * پوشه حذف می‌شود — در همه حالات خروجی قطعی است: index.php در $destDir.
+     *
+     * 🆕 v2.19.1:
+     *   • بررسی ① حالت استاندارد حالتاً از استعلام مستقیم get_file_information
+     *     پاسخ می‌گیرد (داخل entryExists) — حتی وقتی لیست پوشه خراب/قدیمی است
+     *   • کاندید زیرپوشه هم‌نام آرشیو علاوه بر اسکن لیست، مستقیم هم بررسی می‌شود
+     *   • نشانگرهای ریشه بیشتر: js/ و includes/ و manifest.json هم پذیرفته می‌شوند
+     *   • پیام خطا وضعیت لیست (ok/unparsed/error) را افشا می‌کند تا
+     *     «خالی واقعی» از «لیست خراب» تفکیک شود
      *
      * @return bool آیا index.php نهایتاً در مسیر مقصد موجود است؟
      */
@@ -854,12 +967,19 @@ class CpanelAPI
             }
         }
 
+        /* 🎯 v2.19.1: اگر لیست پوشه خالی/خراب برگشت، کاندید اصلی (زیرپوشه هم‌نام
+         *    آرشیو — رفتار cPanel قدیمی) مستقیماً با استعلام قطعی بررسی شود */
+        if ($priority === [] && $others === [] && $zipBase !== ''
+            && $this->entryExists($destDir . '/' . $zipBase, 'dir')) {
+            $priority[] = $zipBase;
+        }
+
         foreach (array_merge($priority, $others) as $sub) {
             $inner = $destDir . '/' . $sub;
 
             /* 🎯 فقط پوشه‌ای که واقعاً «ریشه سایت» است جابجا شود:
-             *    index.php + حداقل یک نشانگر ریشه (robots.txt/.htaccess/config.php/404.php/css)
-             *    — پوشه‌های بخشی مثل pages/ یا includes/ اشتباهی انتخاب نمی‌شوند */
+             *    index.php + حداقل یک نشانگر ریشه — پوشه‌های بخشی مثل pages/
+             *    یا includes/ اشتباهی انتخاب نمی‌شوند */
             if (!$this->entryExists($inner . '/index.php', 'file')) {
                 continue;
             }
@@ -867,15 +987,19 @@ class CpanelAPI
                 || $this->entryExists($inner . '/.htaccess')
                 || $this->entryExists($inner . '/config.php', 'file')
                 || $this->entryExists($inner . '/404.php', 'file')
-                || $this->entryExists($inner . '/css', 'dir');
+                || $this->entryExists($inner . '/css', 'dir')
+                || $this->entryExists($inner . '/js', 'dir')
+                || $this->entryExists($inner . '/includes', 'dir')
+                || $this->entryExists($inner . '/manifest.json', 'file');
             if (!$hasRootMarker) {
                 continue;
             }
 
             /* 🚚 انتقال تک‌به‌تک محتویات به بالا — با ادغام هوشمند:
              * پوشه‌های هم‌نام موجود (مثل css/ که stepFolders از قبل ساخته)
-             * بازگشتی ادغام می‌شوند نه تودرتو — v2.19.1 */
+             * بازگشتی ادغام می‌شوند نه تودرتو — v2.19 */
             $moved = $this->mergeMoveUp($inner, $destDir) ? 1 : 0;
+            $this->fsGeneration++; /* 🗂️ جهش فایل‌سیستم */
             $this->deleteFile($inner); /* 🧹 پوشه خالی‌شده */
 
             if ($moved > 0 && $this->entryExists($destDir . '/index.php', 'file')) {
@@ -883,7 +1007,16 @@ class CpanelAPI
             }
         }
 
-        $this->lastError = 'پس از استخراج، index.php نه در مسیر مقصد و نه در زیرپوشه‌های کاندید یافت نشد';
+        /* 🧭 دیاگنوستیک — وضعیت لیست را در خطا افشا کن تا «خالی واقعی» از
+         *    «لیست خراب/قدیمی» تفکیک شود (دنباله ریشه‌یابی v2.19.1) */
+        $listStatus = $this->getListStatus();
+        $detail = 'پس از استخراج، index.php نه در مسیر مقصد و نه در زیرپوشه‌های کاندید یافت نشد';
+        if ($listStatus === 'unparsed') {
+            $detail .= ' — هشدار: پاسخ list_files سرور با هیچ قالب شناخته‌شده‌ای (files/dirs یا آرایه تخت یا API2) پارس نشد';
+        } elseif ($listStatus === 'error') {
+            $detail .= ' — هشدار: خود لیست پوشه خطا داد: ' . $this->getLastError();
+        }
+        $this->lastError = $detail;
         return false;
     }
 
@@ -951,6 +1084,7 @@ class CpanelAPI
         $candidates = array_unique(array_filter([$path, $relative]));
         foreach ($candidates as $p) {
             if ($this->call('Fileman', 'delete_file', ['path' => $p]) !== false) {
+                $this->fsGeneration++; /* 🗂️ جهش فایل‌سیستم — کش لیست باطل شود (v2.19.1) */
                 return true;
             }
         }
@@ -1002,6 +1136,7 @@ class CpanelAPI
                 'source'      => $src,
                 'destination' => $dst,
             ]) !== false) {
+                $this->fsGeneration++; /* 🗂️ جهش فایل‌سیستم — کش لیست باطل شود (v2.19.1) */
                 return true;
             }
         }
@@ -1073,51 +1208,190 @@ class CpanelAPI
     }
 
     /**
-     * 📋 لیست فایل‌های یک پوشه — v2.19 دو قالب مسیر
-     * 📌 طبق مستندات رسمی، پاسخ در دو آرایه جدا برمی‌گردد:
-     *    data.files (فایل‌ها) + data.dirs (پوشه‌ها) → هر دو ادغام و یکتا می‌شوند
-     *    و فیلد type هر مدخل تضمین می‌شود ('file' یا 'dir')
-     * 🛡️ مسیر پوشه با هر دو قالب امتحان می‌شود (مطلق + نسبی از home —
-     *    مثال‌های رسمی نسبی‌اند؛ اولین نتیجه غیرخالی برنده است)
+     * 📋 لیست فایل‌های یک پوشه — v2.19.1 بازنویسی ریشه‌ای (پارس چندقالبی + fallback سه‌لایه)
+     * ============================================================================
+     * 🔴 ریشه‌یابی خطای «محتوای مسیر سایت: خالی» (بازخورد کاربر روی ۲.۱۹):
+     *    زنجیره استقرار همیشه موفق بود (آپلود + استخراج API2 هر دو OK) اما
+     *    راستی‌آمایی index.php شکست می‌خورد و دیاگنوستیک مسیر سایت را «خالی» نشان
+     *    می‌داد — در حالی که حداقل خودِ ZIP باید در آن لیست می‌بود!
+     *    یعنی listFiles خطا/قالب ناشناخته را بی‌صدا به «پوشه خالی» ترجمه می‌کرد.
+     *
+     * 🐛 باگ: کد فقط قالب جدید پاسخ UAPI (data.files + data.dirs — مستندات 11.138)
+     *    را می‌شناخت؛ سرورهای قدیمی قالب‌های دیگری برمی‌گردانند:
+     *    ① جدید (11.138+): {files: [...], dirs: [...]} — هر مدخل با فیلد type
+     *    ② قدیمی: آرایه تخت مدخل‌ها [{file, type, size, ...}, ...]
+     *    ③ API2 Fileman::listfiles: cpanelresult.data = آرایه تخت ردیف‌ها
+     *
+     * ✅ زنجیره v2.19.1 (اولین نتیجه «قالب‌شناسی‌شده» برنده است):
+     *    UAPI list_files مطلق → UAPI list_files نسبی → API2 listfiles مطلق → API2 نسبی
+     *    + وضعیت هر لیست در lastListStatus ثبت می‌شود (ok / ok-empty / unparsed / error)
+     *    + پاسخ ناشناخته در lastListRaw برای دیاگنوستیک حفظ می‌شود
+     *    + کش درون‌درخواستی با ابطال خودکار پس از هر جهش فایل‌سیستم
      */
     public function listFiles(string $dir): array
     {
-        $formats = [$this->normalizePath($dir)];
+        $dir = rtrim($this->normalizePath($dir), '/');
+        $this->lastListRaw = null;
+
+        /* ⚡ کش — فقط تا جهش بعدی فایل‌سیستم معتبر است */
+        if (isset($this->listCache[$this->fsGeneration][$dir])) {
+            $this->lastListStatus = 'ok';
+            return $this->listCache[$this->fsGeneration][$dir];
+        }
+
+        $formats = [$dir];
         $rel = $this->homeRelative($dir);
-        if ($rel !== $formats[0]) {
+        if ($rel !== $dir) {
             $formats[] = $rel;
         }
 
+        $lastApiError = '';
+        $lastRawUapi  = null;
+        $lastRawApi2  = null;
+
+        /* 🥇 زنجیره ۱: UAPI Fileman::list_files (قالب رسمی فعلی) */
         foreach ($formats as $dirPath) {
             $data = $this->call('Fileman', 'list_files', [
                 'dir'         => $dirPath,
                 'show_hidden' => 1,
             ]);
             if ($data === false) {
-                continue; /* قالب مسیر دیگر امتحان شود */
+                $lastApiError = $this->getLastError();
+                continue;
             }
-            $out = [];
+            $entries = $this->parseListEntries($data);
+            if ($entries !== null) {
+                /* ✅ قالب شناسایی شد — حتی خالی، نتیجه قطعی است */
+                $this->lastListStatus = $entries === [] ? 'ok-empty' : 'ok';
+                $this->listCache[$this->fsGeneration][$dir] = $entries;
+                return $entries;
+            }
+            $lastRawUapi = $data; /* قالب ناشناخته — نگه‌داری برای دیاگنوستیک */
+        }
+
+        /* 🥈 زنجیره ۲: API2 Fileman::listfiles — سرورهای قدیمی که UAPI را
+         *    درست جواب نمی‌دهند (cpanelresult.data = آرایه تخت ردیف‌ها) */
+        foreach ($formats as $dirPath) {
+            $data = $this->callApi2('Fileman', 'listfiles', ['dir' => $dirPath]);
+            if ($data === false) {
+                if ($lastApiError === '') {
+                    $lastApiError = $this->getLastError();
+                }
+                continue;
+            }
+            $entries = $this->parseListEntries($data);
+            if ($entries !== null) {
+                $this->lastListStatus = $entries === [] ? 'ok-empty' : 'ok';
+                $this->listCache[$this->fsGeneration][$dir] = $entries;
+                return $entries;
+            }
+            $lastRawApi2 = $data;
+        }
+
+        /* ❌ هیچ زنجیره‌ای قالب شناخته‌شده برنگرداند — وضعیت ثبت شود تا
+         *    دیاگنوستیک خطای استقرار، «خالی» را از «خراب/خطا» تفکیک کند.
+         *    نمونه خام هر دو زنجیره (UAPI + API2) حفظ می‌شود تا عیب‌یابی
+         *    نسل بعدی قطعی باشد. */
+        $raws = array_filter(['uapi' => $lastRawUapi, 'api2' => $lastRawApi2], function ($v) {
+            return $v !== null;
+        });
+        $this->lastListRaw    = $raws !== [] ? $raws : null;
+        $this->lastListStatus = $lastApiError !== '' ? 'error' : 'unparsed';
+        if ($lastApiError !== '') {
+            $this->lastError = 'لیست پوشه ناموفق: ' . $lastApiError;
+        }
+        return [];
+    }
+
+    /**
+     * 🧩 پارس مدخل‌های لیست پوشه — هر سه قالب رسمی/تاریخی — v2.19.1
+     * ==========================================================
+     *  ① قالب جدید UAPI (11.138+): {files: [...], dirs: [...]}
+     *  ② قالب قدیمی UAPI: آرایه تخت مدخل‌ها [{file, type, ...}, ...]
+     *  ③ قالب API2 listfiles: آرایه تخت ردیف‌ها (همان ۲)
+     *
+     * @return array|null مدخل‌های نرمال‌شده، یا null اگر قالب پاسخ شناخته نشد
+     *                    (null = قطعی «ناشناخته»، [] = قطعی «پوشه خالی»)
+     */
+    private function parseListEntries($data): ?array
+    {
+        if (!is_array($data)) {
+            return null;
+        }
+
+        /* ① قالب جدید — کلیدهای files/dirs (کافی است یکی حاضر باشد) */
+        $hasFiles = array_key_exists('files', $data) && is_array($data['files']);
+        $hasDirs  = array_key_exists('dirs', $data) && is_array($data['dirs']);
+        if ($hasFiles || $hasDirs) {
+            $out  = [];
             $seen = [];
-            foreach (['files', 'dirs'] as $key) {
-                foreach ((array)($data[$key] ?? []) as $entry) {
+            foreach (['dirs' => 'dir', 'files' => 'file'] as $key => $typeDefault) {
+                foreach ($data[$key] as $entry) {
                     if (!is_array($entry)) {
                         continue;
                     }
                     $name = (string)($entry['file'] ?? $entry['name'] ?? '');
-                    if ($name === '' || isset($seen[$name])) {
+                    if ($name === '' || $name === '.' || $name === '..' || isset($seen[$name])) {
                         continue;
                     }
                     $seen[$name] = true;
-                    $entry['type'] = ($entry['type'] ?? '') !== '' ? (string)$entry['type'] : ($key === 'dirs' ? 'dir' : 'file');
+                    $entry['type'] = ($entry['type'] ?? '') !== '' ? (string)$entry['type'] : $typeDefault;
                     $out[] = $entry;
                 }
             }
-            if ($out !== []) {
-                return $out; /* ✅ اولین قالب با نتیجه غیرخالی */
-            }
-            /* نتیجه خالی — قالب بعدی هم امتحان شود (شاید قالب مسیر اشتباه بود) */
+            return $out;
         }
-        return [];
+
+        /* ②/③ قالب تخت — آرایه ترتیبی از مدخل‌ها */
+        if ($data === [] || array_keys($data) === range(0, count($data) - 1)) {
+            $out = [];
+            foreach ($data as $entry) {
+                if (!is_array($entry)) {
+                    return null; /* ترتیبی اما غیرمدخلی — قالب ناشناخته */
+                }
+                $name = (string)($entry['file'] ?? $entry['name'] ?? '');
+                if ($name === '' || $name === '.' || $name === '..') {
+                    continue;
+                }
+                if (!isset($entry['type']) && !isset($entry['file']) && !isset($entry['name'])) {
+                    return null; /* ردیف بدون هیچ نشانگر مدخل — ناشناخته */
+                }
+                $entry['type'] = (string)($entry['type'] ?? 'file');
+                $out[] = $entry;
+            }
+            return $out;
+        }
+
+        /* ③ دفاعی — data[0] خودش قالب جدید/تخت دارد؟ (برخی لایه‌های واسط تو-در-تو می‌کنند) */
+        if (isset($data[0]) && is_array($data[0])) {
+            return $this->parseListEntries($data[0]);
+        }
+
+        return null;
+    }
+
+    /**
+     * 🧭 وضعیت آخرین listFiles — v2.19.1 (برای دیاگنوستیک دقیق خطای استقرار)
+     * 'ok' | 'ok-empty' | 'unparsed' | 'error'
+     */
+    public function getListStatus(): string
+    {
+        return $this->lastListStatus;
+    }
+
+    /**
+     * 🔬 نمونه خام پاسخ لیست ناشناخته — v2.19.1 (فقط وقتی قالب پارس نشد پر است)
+     */
+    public function getListRawSnippet(int $maxChars = 200): string
+    {
+        if (!is_array($this->lastListRaw)) {
+            return '';
+        }
+        $json = json_encode($this->lastListRaw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (strlen($json) > $maxChars) {
+            $json = substr($json, 0, $maxChars) . '…';
+        }
+        return (string)$json;
     }
 
     /**
@@ -1174,6 +1448,7 @@ class CpanelAPI
             'fallback'     => 1,
         ]);
         if ($data !== false) {
+            $this->fsGeneration++; /* 🗂️ جهش فایل‌سیستم — کش لیست باطل شود (v2.19.1) */
             return true;
         }
         $uapiError = $this->lastError;
@@ -1185,6 +1460,7 @@ class CpanelAPI
             'content'  => $content,
         ]);
         if ($api2 !== false) {
+            $this->fsGeneration++; /* 🗂️ جهش فایل‌سیستم — کش لیست باطل شود (v2.19.1) */
             return true;
         }
 
