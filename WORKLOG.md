@@ -18,6 +18,19 @@
 
 ---
 
+### [۴۱] — نسخه ۲.۱۸.۰: ممیزی کامل cPanel + رفع ۸ خانواده باگ fileop 📅 ۲۰۲۶-۰۹-۲۵
+
+- ✅ ریشه‌یابی خطای استقرار «function fileop not found in Fileman» — همان الگوی mkdir در ۲.۱۶: fileop فقط در API2 وجود دارد («no equivalent UAPI function exists» — تأیید مستندات رسمی) اما از UAPI صدا زده می‌شد + sourcefiles به‌جای کاما-جدا JSON بود + نام پارامتر double_decode نه doubledecode
+- ✅ ممیزی زنده با مستندات رسمی (sitemap + مارک‌داون api.docs.cpanel.net): کشف ۷ باگ پنهان بعدی که به‌ترتیب می‌شکستند: writeFile (file=مسیر کامل + fallback_list ناموجود) + readFile (بدون dir) + setPermissions (UAPI اصلاً chmod ندارد!) + listFiles (آرایه dirs گم می‌شد) + SSL (سه تابع ناموجود در UAPI) + probes اتصال (سه تابع ناموجود)
+- ✅ CpanelAPI بازنویسی بخش Fileman: هلپر مرکزی fileOp (امضای رسمی + دو تلاش مطلق/نسبی + بررسی data[0].result/err) + extractZip قطعی (کپی داخل مقصد اگر ZIP بیرون است) + deleteFile سه‌لایه (delete_file → unlink → trash) + moveFile/copyFile/compressToZip/flattenSingleChildDir (بدون wildcard) + uploadFile دو قرارداد (file-0/upload-0) + normalizePath گارد نام فایل
+- ✅ Deployer::stepExtract: راستی‌آمایی index.php پس از استخراج + حذف ZIP غیربحرانی (لاگ) + flatten از API
+- ✅ BackupManager: فشرده‌سازی با fileop op=compress + metadata=zip + راستی‌آمایی وجود فایل + restore با کپی-استخراج-پاک‌سازی خودکار
+- ✅ SSL: list_ssl_items (item=crt) + start_autossl_check + پوشش wildcard + تکمیل انقضا/صادرکننده از HTTPS مستقیم
+- 🔧 تصمیم‌ها: همه لایه‌ها فقط از توابع تأییدشده در فهرست رسمی cpanel.openapi؛ بدون تغییر دیتابیس؛ موتور AI در 3.13.0 ماند
+- 📦 کامیت: ef9a236 (fix-deploy-fileop-v2.18) + docs-v2.18.0 — رلیز v2.18.0 با پکیج نصب/بروزرسانی
+
+---
+
 ### [۴۰] — نسخه ۲.۱۷.۰: خطایاب ریشه‌ای (سه باگ تاریخی + پل jina) + قالب‌ساز ۱۳۰ عنصر 📅 ۲۰۲۶-۰۹-۲۵
 
 - ✅ ریشه‌یابی نهایی «خطایاب هیچ کدی پیدا نکرد» — سه ریشه واقعی با تست زنده: ① باگ تاریخی httpGet (static closure از v2.2 — fetchPageText و ۵ ارائه‌دهنده کاملاً مرده!) ② بلاک IP هاست‌ها توسط همه موتورها و سایت‌های مرجع ③ کدهای تلویزیون عددی سه‌رقمی نبودند

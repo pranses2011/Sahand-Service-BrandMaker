@@ -5,6 +5,48 @@
 
 ---
 
+## [2.18.0] — 2026-09-25 «استقرار خودکار: ممیزی کامل cPanel با مستندات رسمی — رفع ۸ خانواده باگ»
+
+> 🎯 **زمینه**: بازخورد کاربر روی ۲.۱۷ — استقرار خودکار بعد از تأیید، در مرحله استخراج ZIP با خطای «The system could not find the function "fileop" in the module "Fileman"» متوقف می‌شد. رفع mkdir در ۲.۱۶ کار کرده بود (استقرار از پوشه‌ها رد شد) اما لایه‌های بعدی همین خطا را داشتند.
+
+### 🚨 ریشه اصلی — همان الگوی mkdir، این‌بار در ۵ نقطه (Fixed)
+
+- **🔴 `Fileman::fileop` فقط در API2 وجود دارد** — طبق مستندات رسمی cPanel (api.docs.cpanel.net — API2 Fileman::fileop): «We strongly recommend that you use UAPI instead of cPanel API 2. However, no equivalent UAPI function exists.» — کد قبلی آن را از **UAPI** صدا می‌زد → خطای «تابع پیدا نشد»
+- **سه باگ هم‌زمان در هر فراخوانی**: ① فراخوانی از UAPI به‌جای API2 ② `sourcefiles` به‌صورت JSON ارسال می‌شد — مستندات: **لیست جداشده با کاما** ③ نام پارامتر `double_decode` بود — مستندات: **`doubledecode`**
+- **۵ نقطه آلوده**: استخراج ZIP (خطای فعلی کاربر) + حذف فایل (می‌بایست بلافاصله بعد از استخراج دوباره خطا می‌داد!) + فشرده‌سازی بکاپ + دو تابع flatten (جابجایی)
+
+### 🛡 ممیزی کامل همه فراخوانی‌های cPanel — ۷ باگ پنهان بعدی هم ریشه‌کن شد (Fixed)
+
+بررسی تک‌تک فراخوانی‌ها با فهرست رسمی `cpanel.openapi` نشان داد اگر استخراج هم موفق می‌شد، مراحل بعدی به‌ترتیب می‌شکستند:
+
+| # | تابع | باگ | روش صحیح (مستند) |
+|---|------|-----|-------------------|
+| 1 | `writeFile` (config.php/.htaccess) | `file` مسیر کامل می‌گرفت + `fallback_list` ناموجود | `file`=نام + `dir`=پوشه + `fallback`=1 |
+| 2 | `readFile` (حفظ config در بروزرسانی) | `file` مسیر کامل، بدون `dir` | `dir` + `file` + `to_charset=utf-8` |
+| 3 | `setPermissions` | **UAPI اصلاً chmod ندارد!** | API2 fileop `op=chmod` + `metadata`=مجوز |
+| 4 | `listFiles` | پوشه‌ها در آرایه `dirs` جدا برمی‌گردند و گم می‌شدند | ادغام `files`+`dirs` + `show_hidden` |
+| 5 | SSL: `list_ssl_certificates` | در UAPI وجود ندارد (API1 است) | `SSL::list_ssl_items` (item=crt) |
+| 6 | SSL: `enable_autossl`/`start_autossl_scan` | در UAPI وجود ندارند | `SSL::start_autossl_check` |
+| 7 | probes اتصال | `Version/version` و `Quota/get_disk_info` و `Branding/get_application_name` در UAPI نیستند | فقط توابع واقعی (Variables و...) |
+
+### ✨ بهبودهای معماری استقرار (Added/Changed)
+
+- **هلپر مرکزی `fileOp()`**: امضای رسمی (op + sourcefiles کاما-جدا + destfiles + doubledecode + metadata) + دو تلاش مسیر مطلق/نسبی + بررسی نتیجه سطح فایل (`data[0].result/err`) با خطای دقیق فارسی
+- **`extractZip` قطعی‌شده**: ZIP خارج از پوشه مقصد (مثل بکاپ در backups/) ابتدا با `fileop copy` داخل مقصد کپی، استخراج و کپی پاک می‌شود — نتیجه مستقل از رفتار سرور
+- **`deleteFile` سه‌لایه**: UAPI `delete_file` (حذف بازگشتی پوشه‌ها) → API2 `unlink` → `trash` (سطل بازیافت)
+- **flatten بدون wildcard**: انتقال تک‌به‌تک محتویات به‌جای `move path/*` (wildcard توسط cPanel توسعه نمی‌یافت)
+- **راستی‌آمایی پس از استخراج**: `index.php` باید در مسیر سایت موجود باشد وگرنه خطای شفاف
+- **راستی‌آمایی پس از فشرده‌سازی بکاپ**: فایل ZIP واقعا ساخته شده؟
+- **uploadFile دو قرارداد**: `file-0` (مستندات رسمی) سپس `upload-0` (اثبات‌شده روی سرور کاربر)
+- **normalizePath ایمن**: نام فایل تنها (config.php) دیگر به `/home/userconfig.php` خراب نمی‌شود
+- **SSLManager**: جزئیات انقضا/صادرکننده از اتصال مستقیم HTTPS تکمیل می‌شود (list_ssl_items این اطلاعات را نمی‌دهد)
+
+### 📦 فایل‌های تغییر‌یافته
+
+`core/CpanelAPI.php` (بازنویسی بخش Fileman + SSL) + `core/Deployer.php` (stepExtract) + `core/BackupManager.php` (فشرده‌سازی/بازیابی) + `core/SSLManager.php` (checkSSL) — **بدون تغییر دیتابیس**
+
+---
+
 ## [2.17.0] — 2026-09-25 «خطایاب ریشه‌ای: سه باگ تاریخی + پل jina + قالب‌ساز ۱۳۰ عنصر»
 
 > 🎯 **زمینه**: بازخورد کاربر روی ۲.۱۶ — خطایاب هنوز برای مایکروویو/تلویزیون ال‌جی هیچ کدی پیدا نمی‌کرد و کدهای پیدا‌شده فیلدهای ناقص/نامربوط داشتند؛ تنظیمات عناصر قالب‌ساز هنوز ناقص بودند؛ سرویس‌های تصویر در تنظیمات.
