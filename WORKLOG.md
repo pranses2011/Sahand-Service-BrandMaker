@@ -18,6 +18,19 @@
 
 ---
 
+### [۳۹] — نسخه ۲.۱۶.۰: ریشه‌یابی نهایی خطای mkdir استقرار + مستندات + رلیز کامل 📅 ۲۰۲۶-۰۹-۲۵
+
+- ✅ ریشه‌یابی خطای «ساخت پوشه‌های حیاتی ناموفق — The system could not find the function mkdir in the module Fileman»: مطالعه مستندات رسمی api.docs.cpanel.net نشان داد Fileman::mkdir در UAPI هرگز وجود نداشته («no equivalent UAPI function exists») → فراخوانی /execute/Fileman/mkdir روی همه سرورها می‌شکند
+- ✅ CpanelAPI::createDirectory بازنویسی — API2 Fileman::mkdir با امضای رسمی (path والد + name + permissions=0755) + ساخت بازگشتی تودرتو (والد→فرزند برای مسیر بکاپ) + راستی‌آزمایی وجود از طریق list_files (پوشه موجود = موفق)
+- ✅ هلپرهای جدید mkdirApi2 + entryExists؛ writeFile زنجیره دولایه (UAPI save_file_content → API2 savefile با path+filename+content)
+- ✅ Deployer::stepFolders سه‌لایه: API2 → FTP fallback (اتصال یک‌باره + مسیر نسبی از ریشه home) → استخراج ZIP ساختار را کامل می‌کند (توقف فقط در نبود ZIP؛ pages/includes حیاتی)
+- ✅ مستندات کامل: CHANGELOG بخش [2.16.0] + CHECKLIST بخش ۲.۱۶ + README (بج + تازه‌ها + اصلاح شمارنده عناصر قالب‌ساز به ۱۱۴) + UPGRADE بازنویسی + AI-API-GUIDE ردیف نگاشت
+- ✅ رلیز v2.16.0 — ۵ پیوست: install.zip + update.zip (تغییرات از 2.15.0) + UPGRADE-v2.16.0.md + AI-API-GUIDE + SHA256SUMS
+- 🔧 تصمیم‌ها: موتور AI در 3.12.0 ماند (رفع mkdir زیرساخت استقرار است نه موتور)؛ الگوی API2 که در کرون (v2.14) جواب داد این‌بار روی Fileman اعمال شد
+- 📦 کامیت: 2b7d6a8 (fix-deploy-mkdir) — docs-v2.16.0 (این مستندات + رلیز)
+
+---
+
 ### [۳۸] — نسخه ۲.۱۵.۰: رفع نهایی استقرار + خطایاب ۱۱ ارائه‌دهنده + ۷ سرویس تصویر + قالب‌ساز ۱۱۴ عنصر 📅 ۲۰۲۶-۰۹-۲۵
 
 - ✅ استقرار خودکار — سه لایه ضدگلوله: مهاجرت خودترمیمی v2.15 (پرچم بدون مسیر → ریست) + تصمیم سرورمحور در start + fallback خودکار queueUpdate → queueDeploy

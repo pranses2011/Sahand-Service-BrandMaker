@@ -19,7 +19,7 @@ if (!defined('SAHAND_INIT')) {
 /* --------------------------------------------------
  * 🌍 تنظیمات عمومی
  * -------------------------------------------------- */
-define('SAHAND_VERSION', '2.15.0');             // نسخه سیستم (۲.۱۵.۰ — رفع نهایی باگ استقرار خودکار (سه لایه ضدگلوله) + واترمارک OG فقط نمایندگی + تولید تصاویر مقاله با نوار پیشرفت زنده + ۷ سرویس رایگان تولید تصویر در تنظیمات + قالب‌ساز ۱۱۴ عنصر با ۵ نوع نمایش و تنظیمات کامل (رنگ/گرادیانت/تایمر/عکس/آیتم) + خطایاب ۱۱ ارائه‌دهنده جستجو با راند نجات و کوئری‌های مترادف)
+define('SAHAND_VERSION', '2.16.0');             // نسخه سیستم (۲.۱۶.۰ — ریشه‌یابی نهایی خطای استقرار «The system could not find the function mkdir in the module Fileman»: تابع Fileman::mkdir در UAPI هرگز وجود نداشته (تأیید مستندات رسمی) → CpanelAPI::createDirectory با API2 رسمی (path+name+permissions) + ساخت بازگشتی تودرتو + راستی‌آزمایی وجود + writeFile دولایه (UAPI save_file_content → API2 savefile) + Deployer::stepFolders سه‌لایه (API2 → FTP → استخراج ZIP))
 define('SAHAND_NAME_FA', 'سایت ساز برند سهند سرویس'); // نام فارسی سیستم
 define('SAHAND_NAME_EN', 'Sahand BrandMaker');   // نام انگلیسی سیستم
 date_default_timezone_set('Asia/Tehran');        // ⏰ منطقه زمانی ایران
