@@ -79,8 +79,9 @@ $steps = [
 
         <!-- 🎬 دکمه شروع -->
         <div style="text-align:center;margin-top:20px" id="start-area">
-            <button type="button" class="btn btn-primary btn-lg" id="btn-start" onclick="startBuild()">🚀 شروع فرآیند ساخت</button>
+            <button type="button" class="btn btn-primary btn-lg" id="btn-start">🚀 شروع فرآیند ساخت</button>
             <a href="brands.php" class="btn btn-outline btn-lg">انصراف</a>
+            <!-- 🆕 v2.21: ناحیه کنترل شکست — «⏭️ رد کردن مرحله و ادامه» اینجا تزریق می‌شود -->
         </div>
 
         <!-- 🎁 ناحیه نتیجه نهایی -->
@@ -117,6 +118,7 @@ function setStepState(step, state, details) {
     const icon = el.querySelector('.step-icon');
     const det = el.querySelector('.step-details');
     el.style.borderColor = 'var(--border)';
+    el.style.background = '';
     icon.style.background = 'var(--bg)';
     if (state === 'running') {
         el.style.borderColor = 'var(--primary)';
@@ -135,6 +137,19 @@ function setStepState(step, state, details) {
         el.style.background = 'rgba(220,38,38,.04)';
         icon.style.background = 'var(--danger-light)';
         status.textContent = '❌';
+        if (details) {
+            det.style.display = 'block';
+            det.innerHTML = details;
+        }
+    } else if (state === 'skipped') { /* 🆕 v2.21: مرحله رد‌شده */
+        el.style.borderColor = 'var(--warning, #d97706)';
+        el.style.background = 'rgba(217,119,6,.05)';
+        icon.style.background = 'rgba(217,119,6,.12)';
+        status.textContent = '⏭️';
+        if (details) {
+            det.style.display = 'block';
+            det.innerHTML = details;
+        }
     }
 }
 
@@ -193,21 +208,23 @@ async function runStep(step) {
     }
 }
 
-/* شروع و اجرای زنجیره‌ای مراحل */
-async function startBuild() {
+/* 🎬 شروع و اجرای زنجیره‌ای مراحل */
+let startBtn = null;
+async function startBuild(fromStep) {
     if (running) return;
     running = true;
-    const btn = document.getElementById('btn-start');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> در حال ساخت...';
+    const from = fromStep || 1;
+    startBtn = document.getElementById('btn-start');
+    const skipArea = document.getElementById('skip-area');
+    if (skipArea) { skipArea.style.display = 'none'; }
+    startBtn.disabled = true;
+    startBtn.innerHTML = '<span class="spinner"></span> در حال ساخت...';
 
-    for (let s = 1; s <= TOTAL; s++) {
+    for (let s = from; s <= TOTAL; s++) {
         const ok = await runStep(s);
         if (!ok) {
             running = false;
-            btn.disabled = false;
-            btn.innerHTML = '🔄 تلاش مجدد از مرحله ' + s;
-            btn.onclick = async () => { for (let r = s; r <= TOTAL; r++) { if (!await runStep(r)) return; } finish(); };
+            showFailureControls(s);
             return;
         }
         // مکث کوتاه بین مراحل برای نمایش روان
@@ -215,6 +232,56 @@ async function startBuild() {
     }
     finish();
 }
+
+/* 🆕 v2.21: کنترل‌های شکست — «تلاش مجدد» + «رد کردن مرحله و ادامه» */
+function bindSkipButton(skipBtn, failedStep) {
+    skipBtn.disabled = false;
+    skipBtn.innerHTML = '⏭️ رد کردن مرحله ' + failedStep + ' و ادامه مراحل بعد';
+    skipBtn.onclick = async function () {
+        skipBtn.disabled = true;
+        skipBtn.innerHTML = '<span class="spinner"></span> در حال ادامه...';
+        setStepState(failedStep, 'skipped', '<div style="color:var(--warning,#d97706)">⏭️ این مرحله رد شد — مراحل بعدی ادامه می‌یابد. می‌توانید بعداً از ویرایش برند این بخش را تکمیل کنید.</div>');
+        setProgress(failedStep / TOTAL * 100, '⏭️ مرحله ' + failedStep + ' رد شد — ادامه از مرحله ' + (failedStep + 1));
+        await new Promise(r => setTimeout(r, 350));
+        await startBuild(failedStep + 1);
+    };
+}
+
+function showFailureControls(failedStep) {
+    const btn = startBtn || document.getElementById('btn-start');
+    btn.disabled = false;
+    btn.innerHTML = '🔄 تلاش مجدد از مرحله ' + failedStep;
+    btn.onclick = function () { startBuild(failedStep); };
+
+    let skipArea = document.getElementById('skip-area');
+    if (!skipArea) {
+        skipArea = document.createElement('div');
+        skipArea.id = 'skip-area';
+        skipArea.style.cssText = 'text-align:center;margin-top:14px;padding:14px;border:1.5px dashed var(--warning,#d97706);border-radius:12px;background:rgba(217,119,6,.06)';
+        const hint = document.createElement('div');
+        hint.style.cssText = 'font-size:12.5px;color:var(--text-light);margin-bottom:10px';
+        hint.innerHTML = 'مرحله ' + failedStep + ' با خطا متوقف شد — می‌توانید دوباره تلاش کنید یا این مرحله را رد کرده و بقیه مراحل را ادامه دهید.';
+        const skipBtn = document.createElement('button');
+        skipBtn.type = 'button';
+        skipBtn.className = 'btn btn-outline';
+        skipArea.appendChild(hint);
+        skipArea.appendChild(skipBtn);
+        const startArea = document.getElementById('start-area');
+        (startArea || btn.parentElement).appendChild(skipArea);
+    }
+    /* بروزرسانی متن دکمه برای مرحله جدید و اتصال مجدد هندلر */
+    const hintEl = skipArea.querySelector('div');
+    if (hintEl) { hintEl.innerHTML = 'مرحله ' + failedStep + ' با خطا متوقف شد — می‌توانید دوباره تلاش کنید یا این مرحله را رد کرده و بقیه مراحل را ادامه دهید.'; }
+    bindSkipButton(skipArea.querySelector('button'), failedStep);
+    skipArea.style.display = 'block';
+    skipArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/* 🎯 شروع اولیه */
+document.addEventListener('DOMContentLoaded', function () {
+    const b = document.getElementById('btn-start');
+    if (b) { b.onclick = function () { startBuild(1); }; }
+});
 
 /* پایان موفق */
 function finish() {

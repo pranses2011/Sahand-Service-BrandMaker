@@ -35,6 +35,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save_template')
         flash('danger', 'چیدمان نامعتبر است.');
         redirect('templates.php');
     }
+    /* 🆕 v2.21: حالت ویرایش صفحه برند — ذخیره مستقیم روی brand_pages */
+    $brandPageId = (int)post('brand_page_id');
+    if ($brandPageId > 0) {
+        $bp = $db->fetch('SELECT id, brand_id, page_type FROM brand_pages WHERE id = ?', [$brandPageId]);
+        if ($bp) {
+            $db->update('brand_pages', ['layout_json' => $layoutJson], 'id = ?', [$brandPageId]);
+            Logger::activity((int)$_SESSION['user_id'], 'ویرایش چیدمان صفحه برند در قالب‌ساز', ($bp['page_type'] ?? '') . ' (صفحه #' . $brandPageId . ')');
+            $bpName = TemplateLibrary::pageTypeLabels()[$bp['page_type']] ?? $bp['page_type'];
+            flash('success', '✅ چیدمان صفحه «' . $bpName . '» ذخیره شد — تغییری در قالب‌های عمومی داده نشد.');
+            redirect('brand-edit.php?id=' . (int)$bp['brand_id'] . '&tab=pages');
+        }
+        flash('danger', 'صفحه برند یافت نشد.');
+        redirect('templates.php');
+    }
     if ($id > 0) {
         $db->update('templates', ['name' => $name, 'page_type' => $pageType, 'layout_json' => $layoutJson], 'id = ?', [$id]);
     } else {
@@ -128,7 +142,29 @@ if ($templateId > 0) {
 }
 $layout = $template ? (json_decode($template['layout_json'] ?? '[]', true) ?: []) : [];
 
-$pageTitle = $template ? 'ویرایش قالب: ' . $template['name'] : 'قالب جدید';
+/* 🆕 v2.21: حالت ویرایش صفحه برند — چیدمان brand_pages در بوم قالب‌ساز
+   ورودی: ?brand_page=<id> — ذخیره مستقیم روی همان صفحه (نه جدول templates) */
+$brandPageId = (int)get_param('brand_page');
+$brandPage = null;
+if ($brandPageId > 0) {
+    $brandPage = $db->fetch(
+        'SELECT p.*, b.name_fa AS brand_name, b.id AS bid FROM brand_pages p JOIN brands b ON b.id = p.brand_id WHERE p.id = ?',
+        [$brandPageId]
+    );
+    if ($brandPage) {
+        $newPageType = $brandPage['page_type'];
+        $layout = json_decode($brandPage['layout_json'] ?? '[]', true) ?: [];
+    } else {
+        flash('danger', 'صفحه برند یافت نشد.');
+        redirect('templates.php');
+    }
+}
+
+$allPageTypes = TemplateLibrary::pageTypeLabels(); /* 🆕 v2.21: همه ۱۷ نوع صفحه */
+$bpTypeName = $brandPage ? ($allPageTypes[$brandPage['page_type']] ?? $brandPage['page_type']) : '';
+$pageTitle = $brandPage
+    ? ('قالب‌ساز — صفحه «' . $bpTypeName . '» برند ' . $brandPage['brand_name'])
+    : ($template ? 'ویرایش قالب: ' . $template['name'] : 'قالب جدید');
 $activeMenu = 'template-builder';
 require __DIR__ . '/includes/header.php';
 
@@ -422,16 +458,35 @@ $totalBlockCount = array_sum(array_map('count', $blockLibrary));
     <?= Auth::csrfField() ?>
     <input type="hidden" name="action" value="save_template">
     <input type="hidden" name="template_id" value="<?= (int)($template['id'] ?? 0) ?>">
+    <?php if ($brandPage): /* 🆕 v2.21: ذخیره مستقیم روی صفحه برند */ ?>
+    <input type="hidden" name="brand_page_id" value="<?= (int)$brandPage['id'] ?>">
+    <?php endif; ?>
     <input type="hidden" name="layout_json" id="layout-json" value="<?= e(json_encode($layout, JSON_UNESCAPED_UNICODE)) ?>">
+
+    <?php if ($brandPage): ?>
+    <!-- 🆕 v2.21: نوار اطلاع حالت ویرایش صفحه برند -->
+    <div class="alert alert-info" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <span style="font-size:20px">🎯</span>
+        <div style="flex:1;min-width:200px">
+            <b>حالت ویرایش صفحه برند</b> — چیدمان این قالب مستقیماً روی صفحه «<?= $bpTypeName ?>» برند <b><?= e($brandPage['brand_name']) ?></b> ذخیره می‌شود (نه در کتابخانه قالب‌های عمومی).
+        </div>
+        <a href="brand-edit.php?id=<?= (int)$brandPage['bid'] ?>&tab=pages" class="btn btn-outline btn-sm">↩ بازگشت به تب صفحه‌های برند</a>
+    </div>
+    <?php endif; ?>
 
     <div class="card" style="margin-bottom:16px">
         <div class="card-body" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:14px 18px">
-            <input type="text" name="name" class="form-control" style="max-width:240px" placeholder="نام قالب..." value="<?= e($template['name'] ?? '') ?>" required>
-            <select name="page_type" class="form-control" style="max-width:170px">
-                <?php foreach (['home' => 'صفحه اصلی', 'services' => 'خدمات', 'blog' => 'مقالات', 'contact' => 'تماس', 'about' => 'درباره', 'custom' => 'سفارشی'] as $key => $label): ?>
+            <?php if ($brandPage): ?>
+                <div style="font-weight:800;font-size:14px;display:flex;align-items:center;gap:8px;flex-shrink:0"><?= $bpTypeName ?> <span class="badge badge-info"><?= e($brandPage['brand_name']) ?></span></div>
+            <?php else: ?>
+                <input type="text" name="name" class="form-control" style="max-width:240px" placeholder="نام قالب..." value="<?= e($template['name'] ?? '') ?>" required>
+            <?php endif; ?>
+            <select name="page_type" class="form-control" style="max-width:200px" <?= $brandPage ? 'disabled' : '' ?> title="نوع صفحه‌ای که این قالب برای آن طراحی می‌شود">
+                <?php foreach ($allPageTypes as $key => $label): ?>
                     <option value="<?= $key ?>" <?= $newPageType === $key ? 'selected' : '' ?>><?= $label ?></option>
                 <?php endforeach; ?>
             </select>
+            <?php if ($brandPage): ?><input type="hidden" name="page_type" value="<?= e((string)$newPageType) ?>"><?php endif; ?>
             <div class="device-tabs">
                 <button type="button" class="device-tab active" onclick="setDevice(this,'desktop')" title="دسکتاپ">🖥️</button>
                 <button type="button" class="device-tab" onclick="setDevice(this,'tablet')" title="تبلت">📱</button>
@@ -442,8 +497,13 @@ $totalBlockCount = array_sum(array_map('count', $blockLibrary));
                 <button type="button" class="btn btn-outline" onclick="uiuxReview()" id="btn-uiux-review" title="ممیزی UX چیدمان فعلی">🔍 بررسی UX</button>
                 <button type="button" class="btn btn-info" onclick="openLivePreview()">👁️ پیش‌نمایش زنده</button>
                 <button type="button" class="btn btn-outline" onclick="clearLayout()" title="خالی کردن بوم">🗑️ خالی‌کردن</button>
-                <a href="templates.php" class="btn btn-outline">بازگشت</a>
-                <button type="submit" class="btn btn-primary">💾 ذخیره قالب</button>
+                <?php if ($brandPage): ?>
+                    <a href="brand-edit.php?id=<?= (int)$brandPage['bid'] ?>&tab=pages" class="btn btn-outline">بازگشت</a>
+                    <button type="submit" class="btn btn-primary" title="چیدمان روی صفحه برند ذخیره می‌شود">💾 ذخیره در صفحه برند</button>
+                <?php else: ?>
+                    <a href="templates.php" class="btn btn-outline">بازگشت</a>
+                    <button type="submit" class="btn btn-primary">💾 ذخیره قالب</button>
+                <?php endif; ?>
             </div>
         </div>
     </div>

@@ -94,7 +94,7 @@
         "breadcrumb": { "max_per_page": 1, "position": "after_header", "why_fa": "در صفحات داخلی — جهت‌یابی + سئو" },
         "spacer": { "max_per_page": 3, "why_fa": "تنفس بصری بین بخش‌های متراکم" },
         "separator": { "max_per_page": 2, "why_fa": "جداسازی موضوعی" },
-        "pagination": { "max_per_page": 1, "position": "end_of_list", "why_fa": "لیست‌های بلند مقالات/کدهای خطا" }
+        "related-links": { "max_per_page": 2, "position": "end_of_list", "why_fa": "مطالب مرتبط — لیست‌های بلند مقالات/کدهای خطا" }
     },
 
     "page_blueprints": {
@@ -164,7 +164,7 @@
                 { "block": "breadcrumb", "props": { "padding": "compact", "background": "default" }, "why_fa": "جهت‌یابی" },
                 { "block": "hero", "props": { "padding": "compact", "background": "gradient", "title": "مقالات آموزشی و تخصصی" }, "why_fa": "معرفی کوتاه" },
                 { "block": "articles-recent", "props": { "padding": "roomy", "background": "default", "title": "آخرین مقالات" }, "why_fa": "کارت مقالات با تصویر شاخص" },
-                { "block": "pagination", "props": { "padding": "compact", "background": "default" }, "why_fa": "ناوبری لیست بلند" },
+                { "block": "related-links", "props": { "padding": "compact", "background": "default", "title": "مطالب پیشنهادی" }, "why_fa": "مسیر ادامه مطالعه — کاربر را در سایت نگه می‌دارد" },
                 { "block": "cta-banner", "props": { "padding": "roomy", "background": "primary" }, "why_fa": "تبدیل خواننده به مشتری" }
             ]
         },

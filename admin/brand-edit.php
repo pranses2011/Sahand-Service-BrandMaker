@@ -20,6 +20,42 @@ if (!$brand) {
 }
 
 /* ==================================================
+ * ✨ v2.21: طراحی حرفه‌ای چیدمان یک صفحه برند با اسکیل UI/UX Pro (AJAX)
+ * ورودی: page_id + csrf_token | خروجی: JSON (امتیاز UX + منطق طراحی)
+ * چیدمان تولیدشده بلافاصله روی brand_pages.layout_json ذخیره می‌شود.
+ * ================================================== */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'uiux_design_page') {
+    (new Auth())->requireLogin();
+    Auth::enforceCsrf();
+    $pageId = (int)post('page_id');
+    $page = $db->fetch('SELECT * FROM brand_pages WHERE id = ? AND brand_id = ?', [$pageId, $brandId]);
+    if (!$page) {
+        json_response(['success' => false, 'error' => 'صفحه برند یافت نشد.'], 404);
+    }
+    try {
+        // 🎨 زمینه واقعی برند برای اسکیل
+        $devicesCount = (int)$db->fetchValue('SELECT COUNT(*) FROM brand_devices WHERE brand_id = ?', [$brandId]);
+        $articlesCount = (int)$db->fetchValue('SELECT COUNT(*) FROM brand_articles WHERE brand_id = ?', [$brandId]);
+        $skill = new UIUXPro();
+        $design = $skill->designPage((string)$page['page_type'], [
+            'brand_fa'        => $brand['name_fa'],
+            'devices_count'   => $devicesCount,
+            'articles_count'  => $articlesCount,
+            'has_testimonials' => true,
+        ]);
+        $db->update('brand_pages', [
+            'layout_json' => json_encode($design['layout'], JSON_UNESCAPED_UNICODE),
+        ], 'id = ?', [$pageId]);
+        (new Cache())->delete('brand_' . $brandId . '_pages');
+        Logger::activity((int)$_SESSION['user_id'], 'طراحی UI/UX Pro صفحه برند', ($page['page_type'] ?? '') . ' — امتیاز ' . $design['ux_score']);
+        json_response(['success' => true, 'data' => $design]);
+    } catch (Throwable $e) {
+        Logger::error('خطای طراحی UI/UX Pro صفحه ' . $pageId, ['message' => $e->getMessage()]);
+        json_response(['success' => false, 'error' => 'خطای اسکیل UI/UX Pro: ' . $e->getMessage()], 500);
+    }
+}
+
+/* ==================================================
  * 💾 پردازش فرم‌ها
  * ================================================== */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -594,17 +630,25 @@ foreach ($pages as $p) {
             <?php foreach ($pages as $page): ?>
                 <?php $contentData = json_decode($page['content'] ?? '{}', true) ?: []; ?>
                 <?php $mainField = isset($contentData['content']) ? 'content' : (isset($contentData['intro']) ? 'intro' : (array_key_first($contentData) ?: 'content')); ?>
-                <div class="card">
+                <div class="card" id="page-card-<?= (int)$page['id'] ?>">
                     <div class="card-header">
                         <h3><?= $pageNames[$page['page_type']] ?? e($page['page_type']) ?></h3>
                         <div class="tools" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                             <?php if ((int)$page['seo_score'] > 0): ?><span class="badge badge-info">سئو: <?= en_to_fa_digits((string)$page['seo_score']) ?>/۱۰۰</span><?php endif; ?>
+                            <?php $pageHasLayout = trim((string)($page['layout_json'] ?? '')) !== '' && ($page['layout_json'] ?? '') !== '[]'; ?>
+                            <?php if ($pageHasLayout): ?><span class="badge badge-success" title="چیدمان درگ‌اند‌دراپ اختصاصی">🎭 چیدمان اختصاصی</span><?php endif; ?>
                             <!-- 👁 v2.9: پیش‌نمایش صفحه — رندر همان‌طور که در سایت دیده می‌شود -->
                             <button type="button" class="btn btn-outline btn-sm" onclick="previewBrandPage(<?= (int)$page['id'] ?>, '<?= e($page['slug'] ?: $page['page_type']) ?>')">👁 پیش‌نمایش</button>
+                            <!-- 🆕 v2.21: بازکردن چیدمان این صفحه در قالب‌ساز (ویرایش درگ‌اند‌دراپ) -->
+                            <a href="template-builder.php?brand_page=<?= (int)$page['id'] ?>" class="btn btn-outline btn-sm" title="چیدمان این صفحه را در قالب‌ساز باز کن و با درگ‌اند‌دراپ ویرایش کن">🎭 قالب‌ساز</a>
+                            <!-- 🆕 v2.21: طراحی حرفه‌ای چیدمان این صفحه با اسکیل UI/UX Pro -->
+                            <button type="button" class="btn btn-info btn-sm" id="btn-uiux-page-<?= (int)$page['id'] ?>" onclick="uiuxDesignPage(<?= (int)$page['id'] ?>, '<?= e($pageNames[$page['page_type']] ?? $page['page_type']) ?>')" title="چیدمان حرفه‌ای این صفحه با قوانین UX و داده‌های همین برند طراحی و ذخیره می‌شود">✨ طراحی با UI/UX Pro</button>
                             <label class="switch"><input type="checkbox" form="page-form-<?= (int)$page['id'] ?>" name="page_active" <?= $page['is_active'] ? 'checked' : '' ?>><span class="slider"></span></label>
                         </div>
                     </div>
                     <div class="card-body">
+                        <!-- 🆕 v2.21: پنل نتیجه طراحی UI/UX Pro برای این صفحه -->
+                        <div class="alert" id="uiux-page-result-<?= (int)$page['id'] ?>" style="display:none"></div>
                         <form method="post" id="page-form-<?= (int)$page['id'] ?>">
                             <?= Auth::csrfField() ?>
                             <input type="hidden" name="action" value="update_page">
@@ -1069,6 +1113,91 @@ foreach ($pages as $p) {
                 });
         });
     }
+})();
+</script>
+
+<script>
+/* ==================================================
+ * ✨ v2.21: طراحی حرفه‌ای چیدمان هر صفحه با اسکیل UI/UX Pro
+ * دکمه «✨ طراحی با UI/UX Pro» روی کارت هر صفحه در تب «صفحه‌ها»
+ * ================================================== */
+(function () {
+    'use strict';
+    var fa = function (n) { return String(n).replace(/[0-9]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[+d]; }); };
+
+    window.uiuxDesignPage = function (pageId, pageName) {
+        var btn = document.getElementById('btn-uiux-page-' + pageId);
+        var panel = document.getElementById('uiux-page-result-' + pageId);
+        if (!btn || !panel) { return; }
+        var csrf = document.querySelector('input[name="csrf_token"]');
+        var data = new URLSearchParams();
+        data.append('action', 'uiux_design_page');
+        data.append('page_id', pageId);
+        if (csrf) { data.append('csrf_token', csrf.value); }
+
+        var confirmMsg = 'چیدمان حرفه‌ای صفحه «' + (pageName || '') + '» با اسکیل UI/UX Pro طراحی و جایگزین چیدمان فعلی شود؟';
+        var doDesign = function () {
+            var old = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> در حال طراحی...';
+            panel.style.display = 'none';
+            fetch('brand-edit.php?id=<?= (int)$brandId ?>', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+                body: data.toString(),
+                credentials: 'same-origin'
+            }).then(function (r) { return r.json(); }).then(function (res) {
+                btn.disabled = false;
+                btn.innerHTML = old;
+                if (!res.success) {
+                    panel.style.display = 'block';
+                    panel.className = 'alert alert-danger';
+                    panel.innerHTML = '❌ ' + (res.error || 'خطای نامشخص');
+                    sahandToast({ message: res.error || 'طراحی ناموفق بود', type: 'danger' });
+                    return;
+                }
+                var d = res.data;
+                var color = d.ux_score >= 85 ? '#16a34a' : d.ux_score >= 70 ? '#2563eb' : d.ux_score >= 50 ? '#d97706' : '#dc2626';
+                var html = '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">' +
+                    '<span style="display:inline-block;min-width:86px;text-align:center;background:' + color + ';color:#fff;border-radius:10px;padding:4px 12px;font-weight:800;font-size:15px">' + fa(d.ux_score) + '/۱۰۰</span>' +
+                    '<b>' + (d.grade_fa || '') + '</b>' +
+                    '<span style="color:var(--text-light);font-size:12px">هدف صفحه: ' + (d.goal_fa || '') + '</span></div>' +
+                    '<div style="font-size:12.5px;margin-bottom:4px"><b>💡 منطق طراحی (قوانین UX اعمال‌شده):</b></div><ul style="font-size:12.5px;margin:0 18px 6px 0;padding:0">';
+                (d.rationale || []).forEach(function (r) { html += '<li style="margin-bottom:3px">' + r + '</li>'; });
+                html += '</ul><div style="font-size:12px;color:var(--text-light)">💾 چیدمان روی این صفحه ذخیره شد — برای ویرایش درگ‌اند‌دراپ از دکمه «🎭 قالب‌ساز» استفاده کنید.</div>';
+                panel.style.display = 'block';
+                panel.className = 'alert alert-success';
+                panel.innerHTML = html;
+                /* نشان «چیدمان اختصاصی» اگر هنوز نیست */
+                var card = document.getElementById('page-card-' + pageId);
+                if (card && !card.querySelector('.badge-success')) {
+                    var h = card.querySelector('.card-header .tools');
+                    if (h) {
+                        var b = document.createElement('span');
+                        b.className = 'badge badge-success';
+                        b.title = 'چیدمان درگ‌اند‌دراپ اختصاصی';
+                        b.textContent = '🎭 چیدمان اختصاصی';
+                        h.insertBefore(b, h.firstChild);
+                    }
+                }
+                sahandToast({ message: 'چیدمان «' + (pageName || 'صفحه') + '» با امتیاز ' + fa(d.ux_score) + '/۱۰۰ طراحی شد', type: 'success' });
+            }).catch(function (err) {
+                btn.disabled = false;
+                btn.innerHTML = old;
+                panel.style.display = 'block';
+                panel.className = 'alert alert-danger';
+                panel.innerHTML = '❌ خطای ارتباط با سرور — دوباره تلاش کنید';
+                sahandToast({ message: 'خطای ارتباط: ' + err.message, type: 'danger' });
+            });
+        };
+
+        if (window.sahandConfirm) {
+            sahandConfirm({ title: 'طراحی با UI/UX Pro', message: confirmMsg, type: 'question', confirmText: 'بله، طراحی کن', confirmIcon: '✨' })
+                .then(function (ok) { if (ok) { doDesign(); } });
+        } else if (window.confirm(confirmMsg)) {
+            doDesign();
+        }
+    };
 })();
 </script>
 

@@ -531,15 +531,25 @@ class UIUXPro
             $changes[] = 'نظرات مشتریان با بخش ویژگی‌ها جایگزین شد (داده نظرات موجود نیست)';
         }
 
-        // عنوان هیرو با نام برند (اگر موجود)
+        // عنوان هیرو با نام برند — اگر نام برند در عنوان نیست اضافه می‌شود
+        // (🆕 v2.21: قبلاً فقط وقتی عنوان «خالی» بود اعمال می‌شد؛ اما بلوپرینت‌ها
+        //  عنوان از پیش پر دارند → کد مرده بود. حالا عنوان عمومی + نام برند)
         $brandFa = trim((string)($context['brand_fa'] ?? ''));
         if ($brandFa !== '') {
             foreach ($layout as &$item) {
                 $isHero = in_array($item['block'], ($this->kb['scoring']['hero_blocks'] ?? []), true);
-                if ($isHero && empty($item['props']['title'])) {
-                    $item['props']['title'] = 'تعمیرات تخصصی ' . $brandFa;
-                    $changes[] = 'عنوان هیرو با نام برند شخصی‌سازی شد';
-                    break;
+                if ($isHero) {
+                    $title = trim((string)($item['props']['title'] ?? ''));
+                    if ($title === '') {
+                        $item['props']['title'] = 'تعمیرات تخصصی ' . $brandFa;
+                        $changes[] = 'عنوان هیرو با نام برند شخصی‌سازی شد';
+                    } elseif (mb_strpos($title, $brandFa) === false) {
+                        // «تعمیرات تخصصی …» → «تعمیرات تخصصی {برند} …» وگرنه پسوند « — {برند}»
+                        $replaced = preg_replace('/^تعمیرات تخصصی\\s*/u', 'تعمیرات تخصصی ' . $brandFa . ' ', $title, 1, $cnt);
+                        $item['props']['title'] = $cnt ? trim((string)$replaced) : ($title . ' — ' . $brandFa);
+                        $changes[] = 'نام برند «' . $brandFa . '» به عنوان هیرو اضافه شد';
+                    }
+                    break; // فقط اولین هیرو
                 }
             }
             unset($item);
