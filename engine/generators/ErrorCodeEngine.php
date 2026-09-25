@@ -1564,6 +1564,36 @@ class ErrorCodeEngine
                 }
             }
         }
+        /* ۳) 🆕 v3.13: کدهای عددی سه‌رقمی تلویزیون/webOS — «LG TV Error Code 137»،
+         *    «error codes like 137, 324, 202, 105, and 109» (سبک رایج خطاهای
+         *    اپلیکیشن تلویزیون‌های هوشمند). گارد: واژه error/code/fault باید
+         *    دقیقاً قبل عدد باشد — سال‌ها (2024) و شماره مدل‌ها رد می‌شوند.
+         *    فهرست‌های با ویرگول کامل گرفته می‌شوند (یک تطبیق = همه کدها). */
+        if (preg_match_all('/\b(?:errors?|faults?|codes?)\s+(?:codes?\s+|of\s+)?(?:like\s+|numbers?\s+|no\.?\s*|[:#\\-]\s*)?(\d{3}(?:\s*[,،]\s*(?:and\s+)?\d{3})*)/ui', $text, $m)) {
+            foreach ($m[1] as $list) {
+                preg_match_all('/\b(\d{3})\b/', $list, $nums);
+                foreach ($nums[1] as $raw) {
+                    $n = (int)$raw;
+                    if ($n < 100) { continue; } // سه‌رقمی واقعی
+                    $c = $this->normalizeCode($raw);
+                    if ($c !== null && !isset($codes[$c])) {
+                        $codes[$c] = true;
+                    }
+                }
+            }
+        }
+        /* ۴) 🆕 v3.13: تیترهای ساختاری «LG TV Error Code 137» — بعد از پاک‌سازی
+         *    markdown خط مستقل می‌شود؛ الگو: (برند/دستگاه) + error + code + عدد */
+        if (preg_match_all('/^\s*(?:[A-Z][a-zA-Z]{0,15}(?:\s+[A-Z][a-zA-Z]{0,15}){0,3}\s+)?(?:error|fault)\s+(?:code\s+)?(\d{3})\b/im', $text, $m)) {
+            foreach ($m[1] as $raw) {
+                $n = (int)$raw;
+                if ($n < 100) { continue; }
+                $c = $this->normalizeCode($raw);
+                if ($c !== null && !isset($codes[$c])) {
+                    $codes[$c] = true;
+                }
+            }
+        }
         /* 🧹 v2.14: حذف واژه‌های رایج انگلیسی که شکل کد دارند (may BE / to LE...)
            ولی در پنجره زمینه‌شان هیچ واژه خطایی نیست — روی «متن کامل صفحه»
            این نویزها فراوان‌اند و باعث کدهای ساختگی می‌شدند */

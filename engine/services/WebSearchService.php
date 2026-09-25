@@ -1,6 +1,6 @@
 <?php
 /**
- * 🌐 سرویس جستجوی آنلاین وب — WebSearchService v1.1
+ * 🌐 سرویس جستجوی آنلاین وب — WebSearchService v1.4
  * ================================================
  * قدرت جدید موتور سهند: دسترسی به داده‌های زنده اینترنت
  * برای بهبود محتوا، سئو و مقالات — فقط در صورت لزوم.
@@ -9,21 +9,28 @@
  *   1️⃣ SerpApi        (اختیاری — نیازمند کلید API)
  *   2️⃣ Google CSE     (اختیاری — نیازمند کلید + CX)
  *   3️⃣ Bing API       (اختیاری — نیازمند کلید اشتراک)
- *   4️⃣ Wikipedia API  (رایگان — رسمی و پایدار، fa+en — جدید v1.2)
- *   5️⃣ DuckDuckGo HTML (رایگان — بدون کلید)
- *   6️⃣ DuckDuckGo Lite (رایگان — جایگزین)
- *   7️⃣ Mojeek HTML    (رایگان — ایندکس مستقل)
- *   8️⃣ Startpage HTML (رایگان — جایگزین جدید v1.2)
- *   9️⃣ Bing HTML      (رایگان — آخرین جایگزین)
+ *   4️⃣ Wikipedia API  (رایگان — رسمی و پایدار، fa+en)
+ *   5️⃣ DuckDuckGo HTML / Lite (رایگان — بدون کلید)
+ *   6️⃣ Mojeek / Startpage / Bing / Ecosia / Brave / SearXNG (رایگان)
+ *   7️⃣ Google HTML / Yandex (رایگان — v1.3)
+ *   8️⃣ 🆕 v1.4: jina+DDG — جستجوی DuckDuckGo از طریق پروکسی متن r.jina.ai
+ *      (برو‌رفتنی از هر هاستی — حتی وقتی همه موتورها IP هاست را بلاک کرده‌اند؛
+ *       درخواست از سرورهای jina می‌رود نه از هاست ما!)
  *   📰 Google News RSS (اخبار زنده — متد news())
+ *   📄 🆕 v1.4: fetchPageText با fallback خواننده jina — صفحات 403/بلاک‌شده
+ *      (مثل lg.com و سایت‌های قطعات) از طریق r.jina.ai خوانده می‌شوند
  *
  * ⚡ v1.2: مسابقه موازی (curl_multi) بین ارائه‌دهندگان رایگان —
  *    اولین پاسخ موفق برنده می‌شود؛ تأخیر جستجو تا ۵۰٪ کاهش یافت.
  *    + استخراج تاریخ نتایج (freshness) + رتبه‌بندی اعتماد دامنه
  *
+ * 🔧 v1.4: مدیریت هوشمند شکست مسابقه — اگر ۲ کوئری پشت‌سرهم در مسابقه
+ *    کامل شکست بخورد، مسابقه دور می‌زند و jina مستقیم امتحان می‌شود
+ *    (صرفه‌جویی بودجه زمانی روی هاست‌های بلاک‌شده)
+ *
  * امنیت و پایداری:
  *   🛡️ محافظت SSRF (آدرس‌های داخلی/خصوصی مسدود)
- *   ⏱️ محدودیت نرخ (پیش‌فرض ۶۰ جستجو در ساعت)
+ *   ⏱️ محدودیت نرخ (پیش‌فرض ۲۴۰ جستجو در ساعت)
  *   ⚡ کش TTL-دار (پیش‌فرض ۳۰ دقیقه)
  *   🔄 جایگزینی خودکار ارائه‌دهنده در صورت خطا
  *   🔁 تلاش مجدد خودکار در خطای شبکه (v1.1)
@@ -33,7 +40,7 @@
  *   providers[], serpapi_key, google_cse_key, google_cse_cx, bing_api_key
  *
  * @package SahandBrandMaker\Engine
- * @version 1.2.0
+ * @version 1.4.0
  */
 class WebSearchService
 {
@@ -45,6 +52,15 @@ class WebSearchService
 
     /** @var string|null ارائه‌دهنده موفق آخر */
     private $lastProvider = null;
+
+    /** 🆕 v1.4: زمان آخرین فراخوانی jina (محدودیت نرخ ناشناس ~۲۰/دقیقه) */
+    private $jinaLastCall = 0.0;
+
+    /** 🆕 v1.4: jina تا این زمان قفل می‌ماند (پس از خطای پشت‌سرهم 401/429) */
+    private $jinaCooldownUntil = 0.0;
+
+    /** 🆕 v1.4: شمارش شکست‌های متوالی مسابقه — بعد از ۲ بار، مستقیم jina */
+    private $raceFailureStreak = 0;
 
     /** ⏱️ TTL پیش‌فرض کش جستجو (ثانیه) */
     const SEARCH_TTL = 1800;
@@ -207,39 +223,60 @@ class WebSearchService
         $t0 = microtime(true);
 
         [$ok, $status, $body, $error] = $this->httpGet($url);
+
+        /* 🆕 v1.4 — fallback خواننده jina (دو محرک):
+         *  ① سایت بلاک‌کننده: 403/401/429 یا صفحه چالش (Access Denied / Cloudflare)
+         *  ② صفحه JS-محور: HTTP 200 ولی متن استخراجی تقریباً خالی (< ۳۰۰ نویسه) —
+         *    jina صفحه را با رندر JS کامل می‌خواند (تست زنده: techbullish LG TV
+         *    مستقیم = خالی، از طریق jina = ۱۰هزار نویسه با همه کدها) */
+        $blocked = !$ok
+            || $status === 401 || $status === 403 || $status === 429
+            || stripos($body, 'Access Denied') !== false
+            || stripos($body, 'Just a moment') !== false
+            || stripos($body, 'captcha') !== false
+            || stripos($body, 'unusual traffic') !== false;
+        $directText = '';
+        if ($ok && !$blocked) {
+            $directText = $this->htmlBodyToText($body, $maxChars);
+        }
+        if (($blocked || mb_strlen($directText) < 300) && microtime(true) >= $this->jinaCooldownUntil) {
+            try {
+                [$jok, $jmd] = $this->jinaFetch($url);
+                if ($jok) {
+                    [$title, $text] = $this->markdownToText($jmd, $maxChars);
+                    if (mb_strlen($text) > max(120, mb_strlen($directText))) {
+                        return [
+                            'ok'          => true,
+                            'url'         => $url,
+                            'title'       => $title ?: mb_substr($directText, 0, 0),
+                            'description' => mb_substr($text, 0, 200),
+                            'text'        => $text,
+                            'chars'       => mb_strlen($text),
+                            'took_ms'     => (int)round((microtime(true) - $t0) * 1000),
+                            'via'         => 'jina',
+                        ];
+                    }
+                }
+            } catch (Throwable $e) {
+                // jina هم نشد — ادامه با مسیر عادی
+            }
+        }
         if (!$ok) {
             return ['ok' => false, 'url' => $url, 'error' => $error ?: ('HTTP ' . $status), 'took_ms' => (int)round((microtime(true) - $t0) * 1000)];
         }
 
-        // حذف بخش‌های غیرمتنی
-        $html = preg_replace('#<script\b[^>]*>.*?</script>#is', ' ', $body);
-        $html = preg_replace('#<style\b[^>]*>.*?</style>#is', ' ', $html);
-        $html = preg_replace('#<(nav|header|footer|aside|form|noscript)\b[^>]*>.*?</\1>#is', ' ', $html);
-        $html = preg_replace('#<!--.*?-->#s', ' ', $html);
-
-        // عنوان و توضیحات متا
+        // 🆕 v1.4: متن مستقیم از قبل استخراج شده (htmlBodyToText) — فقط عنوان/توضیح متا از HTML
         $title = '';
-        if (preg_match('#<title[^>]*>(.*?)</title>#is', $html, $m)) {
+        if (preg_match('#<title[^>]*>(.*?)</title>#is', $body, $m)) {
             $title = $this->cleanText($m[1]);
         }
         $desc = '';
-        if (preg_match('#<meta[^>]+name=["\']description["\'][^>]+content=["\'](.*?)["\']#is', $html, $m)) {
+        if (preg_match('#<meta[^>]+name=["\']description["\'][^>]+content=["\'](.*?)["\']#is', $body, $m)) {
             $desc = $this->cleanText($m[1]);
-        } elseif (preg_match('#<meta[^>]+content=["\'](.*?)["\'][^>]+name=["\']description["\']#is', $html, $m)) {
+        } elseif (preg_match('#<meta[^>]+content=["\'](.*?)["\'][^>]+name=["\']description["\']#is', $body, $m)) {
             $desc = $this->cleanText($m[1]);
         }
-
-        // تبدیل بلوک‌ها به فاصله و حذف تگ‌ها
-        $text = preg_replace('#</(p|div|li|h[1-6]|tr|section|article|blockquote)>#i', "\n", $html);
-        $text = preg_replace('#<br\s*/?>#i', "\n", $text);
-        $text = strip_tags($text);
-        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $text = preg_replace("/[ \t]+/", ' ', $text);
-        $text = preg_replace("/\n{3,}/", "
-
-", $text);
-        $text = trim($text);
-        $text = mb_substr($text, 0, max(500, $maxChars));
+        $text = $directText;
 
         return [
             'ok'          => mb_strlen($text) > 80,
@@ -250,6 +287,29 @@ class WebSearchService
             'chars'       => mb_strlen($text),
             'took_ms'     => (int)round((microtime(true) - $t0) * 1000),
         ];
+    }
+
+    /**
+     * 🧹 تبدیل بدنه HTML به متن ساده (v1.4 — از دل fetchPageText استخراج شد
+     * تا هم برای مسیر مستقیم و هم مقایسه با متن jina استفاده شود)
+     */
+    private function htmlBodyToText(string $body, int $maxChars): string
+    {
+        // حذف بخش‌های غیرمتنی
+        $html = preg_replace('#<script\b[^>]*>.*?</script>#is', ' ', $body);
+        $html = preg_replace('#<style\b[^>]*>.*?</style>#is', ' ', $html);
+        $html = preg_replace('#<(nav|header|footer|aside|form|noscript)\b[^>]*>.*?</\1>#is', ' ', $html);
+        $html = preg_replace('#<!--.*?-->#s', ' ', $html);
+
+        // تبدیل بلوک‌ها به فاصله و حذف تگ‌ها
+        $text = preg_replace('#</(p|div|li|h[1-6]|tr|section|article|blockquote)>#i', "\n", $html);
+        $text = preg_replace('#<br\s*/?>#i', "\n", $text);
+        $text = strip_tags($text);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace("/[ \t]+/", ' ', $text);
+        $text = preg_replace("/\n{3,}/", "\n\n", $text);
+        $text = trim($text);
+        return mb_substr($text, 0, max(500, $maxChars));
     }
 
     /**
@@ -374,6 +434,176 @@ class WebSearchService
     }
 
     /* ==================================================
+     * 🌉 پل jina — پروکسی متن رایگان r.jina.ai (v1.4)
+     * ================================================== */
+
+    /**
+     * 🌉 فراخوانی خواننده jina با مدیریت هوشمند نرخ و retry
+     *
+     * r.jina.ai هر URL را از سرورهای خودش می‌خواند (IP تمیز) و Markdown
+     * تمیز برمی‌گرداند — برو‌رفتنی برای صفحات 403/Cloudflare از هر هاستی.
+     * ⏱️ محدودیت ناشناس ~۲۰ درخواست/دقیقه → فاصله اجباری ۳٫۵ ثانیه
+     * بین فراخوانی‌ها + retry با تأخیر فزاینده روی 401/429 + قفل ۱۲۰ثانیه‌ای
+     * پس از شکست‌های پشت‌سرهم (تا وقت موتور تلف نشود).
+     *
+     * @param string $targetUrl آدرس کامل http/https مقصد
+     * @return array [ok(bool), body(string)] — body = Markdown خام jina
+     */
+    private function jinaFetch(string $targetUrl): array
+    {
+        if (microtime(true) < $this->jinaCooldownUntil) {
+            return [false, ''];
+        }
+        $url = 'https://r.jina.ai/' . $targetUrl;
+        $delays = [0.5, 4.0, 9.0]; // تلاش اول + ۲ retry با فاصله فزاینده
+        $body = '';
+        foreach ($delays as $i => $delay) {
+            if ($i > 0) {
+                usleep((int)($delay * 1000000));
+            }
+            // ⏱️ فاصله اجباری بین فراخوانی‌های jina (نرخ ناشناس)
+            $wait = 3.5 - (microtime(true) - $this->jinaLastCall);
+            if ($wait > 0) {
+                usleep((int)($wait * 1000000));
+            }
+            $this->jinaLastCall = microtime(true);
+            [$ok, $status, $b, $err] = $this->httpGet($url, [], 25, true); // حالت حداقلی — بدون UA مرورگر (تست زنده: UA کروم 403، curl 200)
+            $body = is_string($b) ? $b : '';
+            // خطای شناخته‌شده نرخ/اعتبار jina (بدنه JSON خطا با کد 401/429 می‌آید)
+            $rateLimited = !$ok
+                || $status === 401 || $status === 429
+                || strpos($body, 'AuthenticationRequiredError') !== false
+                || strpos($body, 'RateLimitError') !== false;
+            if (!$rateLimited && $ok && $status === 200 && mb_strlen($body) > 100) {
+                return [true, $body];
+            }
+            if ($status === 404) {
+                return [false, ''];
+            }
+        }
+        // شکست پشت‌سرهم → قفل ۱۲۰ ثانیه jina (فراخوانی بعدی سریع fail می‌شود)
+        $this->jinaCooldownUntil = microtime(true) + 120.0;
+        return [false, $body];
+    }
+
+    /**
+     * 🔎 جستجوی DuckDuckGo از طریق پروکسی jina (v1.4)
+     *
+     * چرا؟ html.duckduckgo.com مستقیم از خیلی هاست‌ها 202/timeout می‌دهد؛
+     * اما از طریق r.jina.ai درخواست از سرورهای jina می‌رود و نتیجه Markdown
+     * با لینک‌های uddg بازگشتی برمی‌گردد — قابل پارس کامل.
+     */
+    private function searchJinaDdg(string $query, int $limit): array
+    {
+        $target = 'https://html.duckduckgo.com/html/?q=' . rawurlencode($query);
+        [$ok, $md] = $this->jinaFetch($target);
+        if (!$ok) {
+            throw new RuntimeException('پروکسی jina در دسترس نیست');
+        }
+        return $this->parseJinaDdgMarkdown($md, $limit);
+    }
+
+    /**
+     * 📊 پارس Markdown خروجی «jina روی صفحه نتایج DDG»
+     *
+     * قالب خروجی:
+     *   ## [عنوان نتیجه](https://duckduckgo.com/l/?uddg=<URL-کدشده>&rut=...)
+     *   [![Image...](favicon)](...)  ← حذف
+     *   [دامنه/مسیر](همان لینک)      ← حذف
+     *   [متن اسنیپت](همان لینک)      ← استخراج متن
+     */
+    public function parseJinaDdgMarkdown(string $md, int $limit): array
+    {
+        $out = [];
+        if (!preg_match_all('/##\s*\[([^\]]+)\]\(https:\/\/duckduckgo\.com\/l\/\?uddg=([^&"\')]+)[^)]*\)/u', $md, $m, PREG_OFFSET_CAPTURE)) {
+            return $out;
+        }
+        $count = min(count($m[0]), max(1, $limit));
+        for ($i = 0; $i < $count; $i++) {
+            $title = trim((string)$m[1][$i][0]);
+            $url = rawurldecode((string)$m[2][$i][0]);
+            // اعتبار URL
+            if (!preg_match('#^https?://#i', $url) || stripos($url, 'duckduckgo.com') !== false) {
+                continue;
+            }
+            // اسنیپت = بخش بعد از این تیتر تا تیتر بعدی — متنِ داخل آخرین لینک‌های [..](..)
+            $start = (int)$m[0][$i][1] + strlen((string)$m[0][$i][0]);
+            $end = ($i + 1 < count($m[0])) ? (int)$m[0][$i + 1][1] : strlen($md);
+            $section = substr($md, $start, $end - $start);
+            // متن بلوک‌های لینک [متن](url) — متن اسنیپت DDG داخل این بلوک‌هاست
+            $snippet = '';
+            if (preg_match_all('/\[([^\]!][^\]]{10,})\]\(https:\/\/duckduckgo\.com\/l\/[^)]*\)/u', $section, $sm)) {
+                foreach ($sm[1] as $cand) {
+                    $cand = trim($cand);
+                    // مسیر دامنه‌مانند نیست (مثل example.com/path) و تصویر نیست
+                    if (mb_strlen($cand) > mb_strlen($snippet) && !preg_match('/^[\w.-]+\.[a-z]{2,}(\/\S*)?$/iu', $cand)) {
+                        $snippet = $cand;
+                    }
+                }
+            }
+            $snippet = trim(preg_replace('/\s+/u', ' ', $snippet));
+            if ($title === '') {
+                continue;
+            }
+            $out[] = [
+                'title'    => $this->cleanText($title),
+                'url'      => $url,
+                'snippet'  => $snippet,
+                'provider' => 'jina_ddg',
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * 📄 تبدیل Markdown خواننده jina به متن ساده (v1.4)
+     *
+     * خروجی jina:
+     *   Title: <عنوان صفحه>
+     *   URL Source: <آدرس>
+     *   Markdown Content:
+     *   <بدنه markdown>
+     *
+     * تبدیل‌ها: حذف تصاویر، لینک به متن، حذف نشانه‌های قالب‌بندی markdown، حفظ
+     * خطوط جدول (| کد | معنا | برای parseCodeTable خطایاب حیاتی است)
+     *
+     * @return array [title, text]
+     */
+    public function markdownToText(string $md, int $maxChars = 8000): array
+    {
+        $title = '';
+        if (preg_match('/^Title:\s*(.+)$/mu', $md, $tm)) {
+            $title = trim($tm[1]);
+        }
+        $body = $md;
+        $pos = strpos($md, 'Markdown Content:');
+        if ($pos !== false) {
+            $body = substr($md, $pos + strlen('Markdown Content:'));
+        }
+        // حذف سرصفحه‌های jina اگر در بدنه ماند
+        $body = preg_replace('/^(Title|URL Source):.*$/mu', ' ', $body);
+        // تصاویر ![alt](url) → حذف کامل
+        $body = preg_replace('/!\[[^\]]*\]\([^)]*\)/u', ' ', $body);
+        // لینک [متن](url) → متن
+        $body = preg_replace('/\[([^\]]+)\]\([^)]*\)/u', '$1', $body);
+        // خط‌های جداکننده جدول markdown (---|---) → حذف
+        $body = preg_replace('/^\s*\|?[\s:|-]+\|?\s*$/mu', ' ', $body);
+        // نشانه‌های قالب‌بندی
+        $body = str_replace(['**', '__'], '', $body);
+        $body = preg_replace('/(?<!\w)[*_]{1,3}(?!\s)/u', '', $body);
+        $body = preg_replace('/^#{1,6}\s*/mu', '', $body);
+        $body = preg_replace('/^\s*[-•]\s+/mu', '', $body);
+        // بلاک کد
+        $body = preg_replace('/```.*?```/us', ' ', $body);
+        // فاصله‌ها
+        $body = preg_replace('/[ \t]+/', ' ', $body);
+        $body = preg_replace('/\n{3,}/', "\n\n", $body);
+        $body = trim($body);
+        $body = mb_substr($body, 0, max(500, $maxChars));
+        return [$this->cleanText($title), $body];
+    }
+
+    /* ==================================================
      * 🔗 زنجیره ارائه‌دهندگان
      * ================================================== */
 
@@ -407,16 +637,53 @@ class WebSearchService
         }
 
         // ۲) ⚡ مسابقه موازی رایگان‌ها
-        if (!empty($freeGroup)) {
+        //    🔧 v1.4: اگر ۲ بار پشت‌سرهم کامل شکست خورده باشد، دیگر وقت
+        //    برای مسابقه تلف نمی‌شود — مستقیم سراغ jina می‌رویم (هاست بلاک‌شده)
+        $raceTried = false;
+        if (!empty($freeGroup) && $this->raceFailureStreak < 2) {
+            $raceTried = true;
+            try {
+                $raced = $this->raceProviders($freeGroup, $query, $limit);
+                if (!empty($raced['results'])) {
+                    $this->raceFailureStreak = 0;
+                    $this->lastProvider = $raced['provider'];
+                    return $this->finalizeResults($query, $raced['results'], $limit, $raced['provider']);
+                }
+                $errors[] = $raced['error'] ?? 'race: بدون نتیجه';
+                $this->raceFailureStreak++;
+            } catch (Exception $e) {
+                $errors[] = 'race: ' . $e->getMessage();
+                $this->raceFailureStreak++;
+            }
+        }
+
+        // ۳) 🆕 v1.4: jina+DDG — برو‌رفتنی از هر هاستی (پروکسی r.jina.ai)
+        //    درخواست جستجو از سرورهای jina می‌رود؛ حتی اگر همه موتورها IP
+        //    هاست را بلاک کرده باشند نتیجه می‌آید. retry داخلی + throttle.
+        if (microtime(true) >= $this->jinaCooldownUntil) {
+            try {
+                $results = $this->searchJinaDdg($query, $limit);
+                if ($results) {
+                    $this->lastProvider = 'jina_ddg';
+                    return $this->finalizeResults($query, $results, $limit, 'jina_ddg');
+                }
+                $errors[] = 'jina_ddg: نتیجه‌ای استخراج نشد';
+            } catch (Exception $e) {
+                $errors[] = 'jina_ddg: ' . $e->getMessage();
+            }
+        }
+
+        // ۴) آخرین تلاش: اگر مسابقه را به‌خاطر streak رد کردیم، حالا یک‌بار امتحان شود
+        if (!$raceTried && !empty($freeGroup)) {
             try {
                 $raced = $this->raceProviders($freeGroup, $query, $limit);
                 if (!empty($raced['results'])) {
                     $this->lastProvider = $raced['provider'];
                     return $this->finalizeResults($query, $raced['results'], $limit, $raced['provider']);
                 }
-                $errors[] = $raced['error'] ?? 'race: بدون نتیجه';
+                $errors[] = $raced['error'] ?? 'race(2): بدون نتیجه';
             } catch (Exception $e) {
-                $errors[] = 'race: ' . $e->getMessage();
+                $errors[] = 'race(2): ' . $e->getMessage();
             }
         }
 
@@ -1454,25 +1721,43 @@ class WebSearchService
         return $url;
     }
 
-    /** GET با cURL — خروجی: [ok, status, body, error] — 🔁 با یک تلاش مجدد در خطای شبکه */
-    private function httpGet(string $url, array $headers = []): array
+    /** GET با cURL — خروجی: [ok, status, body, error] — 🔁 با یک تلاش مجدد در خطای شبکه
+     *
+     * ⚠️🚨 باگ تاریخی v2.2→v2.16 (رفع v2.17): این کلوژر «static function» بود اما
+     * داخلش از $this->cfg و $this->userAgent() استفاده می‌کرد → در PHP 8 با
+     * «Using $this when not in object context» همیشه می‌ترکید → fetchPageText و
+     * searchGenericProvider (هر ۵ ارائه‌دهنده جدید) کاملاً مرده بودند — ریشه واقعی
+     * «خطایاب هیچ کدی پیدا نکرد» و «فیلدهای ناقص از اسنیپت‌های ضعیف». کلوژر معمولی
+     * شد تا $this را از زمینه شیء بگیرد.
+     */
+    private function httpGet(string $url, array $headers = [], ?int $timeout = null, bool $minimal = false): array
     {
-        $attempt = static function () use ($url, $headers) {
+        $attempt = function () use ($url, $headers, $timeout, $minimal) {
             $ch = curl_init($url);
-            curl_setopt_array($ch, [
+            $opts = [
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_FOLLOWLOCATION => true,
                 CURLOPT_MAXREDIRS      => 3,
                 CURLOPT_CONNECTTIMEOUT => (int)$this->cfg['connect_timeout'],
-                CURLOPT_TIMEOUT        => (int)$this->cfg['timeout'],
+                CURLOPT_TIMEOUT        => $timeout ?? (int)$this->cfg['timeout'],
                 CURLOPT_ENCODING       => '',
                 CURLOPT_SSL_VERIFYPEER => true,
-                CURLOPT_USERAGENT      => $this->userAgent(),
-                CURLOPT_HTTPHEADER     => array_merge([
+            ];
+            if ($minimal) {
+                /* 🆕 v1.4: حالت حداقلی — برای r.jina.ai که UA مرورگرگونه را با
+                   چالش Cloudflare پاسخ می‌دهد اما کلاینت‌های ساده (UA پیش‌فرض
+                   curl) را آزاد می‌گذارد. تست زنده: UA کروم = 403، curl = 200 */
+                if (!empty($headers)) {
+                    $opts[CURLOPT_HTTPHEADER] = $headers;
+                }
+            } else {
+                $opts[CURLOPT_USERAGENT] = $this->userAgent();
+                $opts[CURLOPT_HTTPHEADER] = array_merge([
                     'Accept: text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
                     'Accept-Language: fa-IR,fa;q=0.9,en;q=0.8',
-                ], $headers),
-            ]);
+                ], $headers);
+            }
+            curl_setopt_array($ch, $opts);
             $body = curl_exec($ch);
             $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $error = curl_error($ch) ?: null;
