@@ -5,7 +5,7 @@
  * این فایل هنگام تولید ZIP به صورت خودکار مقداردهی می‌شود.
  *
  * @package SahandBrandSite
- * @version 1.0.0
+ * @version 1.2.0
  */
 
 // 🛡️ جلوگیری از دسترسی مستقیم
@@ -33,6 +33,7 @@ define('BRANDMAKER_ASSETS', '{{BRANDMAKER_URL}}/assets'); // آدرس منابع
  * ⏱️ تنظیمات کش محلی (برای سرعت و کاهش درخواست)
  * -------------------------------------------------- */
 define('CACHE_DIR', __DIR__ . '/cache');                // پوشه کش محلی
+define('CACHE_ENABLED', true);                          // فعال/غیرفعال بودن کش
 define('CACHE_TTL', 300);                                // مدت اعمال کش به ثانیه (۵ دقیقه)
 
 /* --------------------------------------------------
@@ -43,6 +44,9 @@ mb_internal_encoding('UTF-8');                           // 🔤 انکودین�
 
 /* --------------------------------------------------
  * 🧰 توابع کمکی مشترک سایت برند
+ * ⚠️ v1.2: هم‌ارز ConfigGenerator نسخه ۱.۲ — استقرار خودکار config.php را
+ * بازنویسی می‌کند؛ این مجموعه توابع باید در هر دو نسخه یکسان بماند وگرنه
+ * صفحات با «Call to undefined function» فاتال می‌شوند.
  * -------------------------------------------------- */
 
 /**
@@ -54,59 +58,94 @@ mb_internal_encoding('UTF-8');                           // 🔤 انکودین�
  */
 function fetchFromAPI(string $endpoint, int $cacheTtl = CACHE_TTL): ?array
 {
+    // 🚫 کش غیرفعال است → مستقیم به API
+    if (!CACHE_ENABLED) {
+        return fetchFromAPILive($endpoint);
+    }
+
     $cacheFile = CACHE_DIR . '/' . sha1($endpoint) . '.json';
 
     // 📦 کش معتبر؟
     if (file_exists($cacheFile) && time() - filemtime($cacheFile) < $cacheTtl) {
-        $cached = json_decode((string)file_get_contents($cacheFile), true);
+        $cached = json_decode((string)@file_get_contents($cacheFile), true);
         if (is_array($cached)) {
             return $cached;
         }
     }
 
-    // 🌐 درخواست به API
-    $url = BRANDMAKER_API . '/' . $endpoint;
-    $context = stream_context_create([
-        'http' => [
-            'method'        => 'GET',
-            'timeout'       => 8,
-            'ignore_errors' => true,
-            'header'        => "X-API-Key: " . BRAND_API_KEY . "\r\n",
-        ],
-        'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
-    ]);
-    $response = @file_get_contents($url, false, $context);
-    if ($response === false && function_exists('curl_init')) {
-        // 🔄 fallback به cURL
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 8,
-            CURLOPT_HTTPHEADER     => ['X-API-Key: ' . BRAND_API_KEY],
-            CURLOPT_SSL_VERIFYPEER => false,
-        ]);
-        $response = curl_exec($ch);
-        curl_close($ch);
-    }
-    if ($response === false) {
-        return $cached ?? null; // کش کهنه بهتر از هیچ
-    }
+    $data = fetchFromAPILive($endpoint);
 
-    $data = json_decode($response, true);
-    if (!is_array($data) || empty($data['success'])) {
-        return $cached ?? null;
+    // 💾 ذخیره در کش — فقط پاسخ موفق
+    if ($data !== null) {
+        if (!is_dir(CACHE_DIR)) {
+            @mkdir(CACHE_DIR, 0755, true);
+        }
+        @file_put_contents($cacheFile, json_encode($data, JSON_UNESCAPED_UNICODE), LOCK_EX);
+    } elseif (file_exists($cacheFile)) {
+        // 🩹 شبکه قطع است — کش کهنه بهتر از هیچ
+        $cached = json_decode((string)@file_get_contents($cacheFile), true);
+        if (is_array($cached)) {
+            return $cached;
+        }
     }
-
-    // 💾 ذخیره در کش
-    if (!is_dir(CACHE_DIR)) {
-        @mkdir(CACHE_DIR, 0755, true);
-    }
-    @file_put_contents($cacheFile, $response, LOCK_EX);
     return $data;
 }
 
 /**
- * 📥 دریافت داده (بدون کش تو در تو — نسخه ساده برای فرم)
+ * ⚡ دریافت مستقیم (بدون کش) — قلب شبکه‌ای سایت برند
+ * cURL مقدم (مهلت ۱۰ث + کد وضعیت) + fallback file_get_contents — هرگز استثنا پرتاب نمی‌کند.
+ */
+function fetchFromAPILive(string $endpoint): ?array
+{
+    $url = BRANDMAKER_API . '/' . $endpoint;
+    $response = false;
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_CONNECTTIMEOUT => 6,
+            CURLOPT_HTTPHEADER     => ['X-API-Key: ' . BRAND_API_KEY],
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_USERAGENT      => 'SahandBrandSite/1.2',
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 2,
+        ]);
+        $response = curl_exec($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($code !== 200) {
+            $response = false;
+        }
+    }
+
+    if ($response === false && ini_get('allow_url_fopen')) {
+        $context = stream_context_create([
+            'http' => [
+                'method'        => 'GET',
+                'timeout'       => 10,
+                'ignore_errors' => true,
+                'header'        => "X-API-Key: " . BRAND_API_KEY . "\r\n",
+            ],
+            'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
+        ]);
+        $response = @file_get_contents($url, false, $context);
+    }
+
+    if ($response === false || $response === '') {
+        return null;
+    }
+    $data = json_decode($response, true);
+    if (!is_array($data) || empty($data['success'])) {
+        return null;
+    }
+    return $data;
+}
+
+/**
+ * 📥 ارسال داده به API سایت ساز (بدون کش تو در تو — نسخه ساده برای فرم)
  */
 function postToAPI(string $endpoint, array $payload): array
 {
@@ -122,7 +161,9 @@ function postToAPI(string $endpoint, array $payload): array
             CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => 15,
+            CURLOPT_CONNECTTIMEOUT => 8,
             CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
         ]);
         $response = curl_exec($ch);
         curl_close($ch);

@@ -1,6 +1,6 @@
 <?php
 /**
- * 🚨 ErrorCodeEngine — موتور خطایاب AI (v2.0)
+ * 🚨 ErrorCodeEngine — موتور خطایاب AI (v3.14)
  * ============================================
  * تولید کدهای خطای «واقعی» با ساختار کامل ۱۴ فیلدی برای هر برند + دستگاه:
  *
@@ -16,7 +16,7 @@
  * کدها از خود موتور «ساخته» نمی‌شوند — فقط از پایگاه دانش و وب استخراج می‌شوند.
  *
  * @package SahandBrandMaker
- * @version 2.0
+ * @version 3.14
  */
 class ErrorCodeEngine
 {
@@ -47,6 +47,9 @@ class ErrorCodeEngine
             // گزارش پیشرفت هرگز جریان اصلی را نمی‌شکند
         }
     }
+
+    /** 🌐 v3.14: سرچر مشترک همه راندهای جستجو — cooldown جینا و streak مسابقه بین راندها حفظ می‌شود (قبلاً هر راند نمونه تازه می‌ساخت و حالت‌ها ریست می‌شد) */
+    private $sharedSearcher = null;
 
     /** @var array نقشه دستگاه‌ها */
     private const DEVICE_FA = [
@@ -137,10 +140,14 @@ class ErrorCodeEngine
         /* ⏱️ بودجه زمانی — درج‌ها بلافاصله پس از تحقیق اجرا می‌شوند
            🆕 v2.15: ۳۴ → ۴۴ ثانیه — با ارائه‌دهنده‌های جدید و راند نجات، زمان بیشتر لازم است */
         if (function_exists('set_time_limit')) {
-            @set_time_limit(180);
+            @set_time_limit(300);
         }
         $maxExec = (int)@ini_get('max_execution_time');
-        $budget = ($maxExec > 0 && $maxExec <= 120) ? max(26.0, min(44.0, $maxExec - 8.0)) : 44.0;
+        /* 🆕 v3.14: ۴۴ → ۱۳۰ ثانیه — روی هاست‌هایی که موتورهای رایگان را بلاک
+           می‌کنند، هر کوئری تا ۱۲-۲۵ ثانیه (مسابقه + پل jina) طول می‌کشد و بودجه
+           ۴۴ ثانیه‌ای عملاً بعد از ۳-۴ کوئری تمام می‌شد؛ ۱۶ کوئری + ۸ صفحه فهرست
+           + ۱۴ تعمیق به زمان بیشتری نیاز دارند. */
+        $budget = ($maxExec > 0 && $maxExec <= 150) ? max(30.0, min(130.0, $maxExec - 10.0)) : 130.0;
         $deadline = microtime(true) + $budget;
 
         $sources = [];
@@ -158,10 +165,16 @@ class ErrorCodeEngine
                    جایگزین (نام‌های مترادف دستگاه) امتحان می‌شوند — ریشه‌یابی
                    «مایکروویو/تلویزیون ال‌جی هیچ کدی پیدا نکرد»: کوئری‌های اصلی
                    گاهی نتایج فنی برنمی‌گرداندند و موتور زود تسلیم می‌شد. */
-                if (!$webCodes && microtime(true) < $deadline - 8.0) {
+                /* 🚨 v3.14 — راند نجات «همیشه» اجرا می‌شود + بودجه تازه ۴۵ ثانیه:
+                   ریشه‌یابی نهایی «مایکروویو/تلویزیون ال‌جی هیچ کدی پیدا نکرد»:
+                   بودجه ۴۴ ثانیه‌ای با موتورهای بلاک‌شده و پل jina کند، پیش از
+                   رسیدن به راند نجات تمام می‌شد؛ شرط «deadline-8» عملاً هرگز برقرار
+                   نبود و مترادف‌ها هرگز امتحان نمی‌شدند. */
+                if (!$webCodes) {
+                    $deadline = max($deadline, microtime(true) + 45.0);
                     $this->progress(30, 'راند نجات — کوئری‌های جایگزین', 'با نام‌های مترادف دستگاه دوباره جستجو می‌شود...');
                     foreach (self::DEVICE_ALIASES_EN[$deviceKey] ?? [] as $altEn) {
-                        if (microtime(true) > $deadline - 6.0) { break; }
+                        if (microtime(true) > $deadline - 10.0) { break; }
                         $altFa = $deviceFa;
                         $altCodes = $this->searchWebCodes($brand['name_en'] ?: $brand['name_fa'], $brand['name_fa'], $deviceKey, $altFa, $brandKey, $deadline, $altEn);
                         foreach ($altCodes as $wc) {
@@ -269,7 +282,7 @@ class ErrorCodeEngine
         $this->progress(97, 'ثبت کدها در پایگاه داده', ($inserted + $kbAdded) . ' کد جدید ثبت شد');
         if ($webCount === 0 && $kbAdded === 0) {
             $report = $useWeb
-                ? 'هیچ کدی از جستجوی اینترنتی تأیید نشد و پایگاه دانش هم برای این برند+دستگاه کدی ندارد — چیزی ثبت نشد (طبق سیاست «فقط کدهای واقعی»). کوئری دیگری یا اتصال اینترنت را بررسی کنید.'
+                ? 'هیچ کدی از جستجوی اینترنتی تأیید نشد و پایگاه دانش هم برای این برند+دستگاه کدی ندارد — چیزی ثبت نشد (طبق سیاست «فقط کدهای واقعی»). سه علت رایج: ① موتورهای رایگان از این هاست بلاک شده‌اند — کلید یک موتور حرفه‌ای (SerpApi/Google CSE/Bing API) را در «تنظیمات ← جستجوی وب» ثبت کنید ② سقف نرخ جستجوی ساعتی پر شده — چند دقیقه صبر کنید یا سقف را در تنظیمات افزایش دهید ③ چند دقیقه بعد دوباره تلاش کنید (پل جستجو ممکن است موقتاً محدود شده باشد).'
                 : 'جستجوی آنلاین غیرفعال بود — کدهای معتبر پایگاه دانش تخصصی (در صورت وجود) ثبت شدند.';
         } elseif ($webCount === 0 && $kbAdded > 0) {
             $report = "جستجوی وب کد تأییدشده‌ای نیافت اما {$kbAdded} کد معتبر از «پایگاه دانش تخصصی» (مستندات رسمی سازنده) ثبت شد" . ($skipped > 0 ? " — {$skipped} کد از قبل موجود بود" : '') . '.';
@@ -296,6 +309,15 @@ class ErrorCodeEngine
      * 🌐 جستجوی آنلاین کدها (فارسی + انگلیسی)
      * ================================================== */
 
+    /** 🌐 نمونه مشترک WebSearchService — v3.14 */
+    private function sharedSearcher(): WebSearchService
+    {
+        if ($this->sharedSearcher === null) {
+            $this->sharedSearcher = new WebSearchService();
+        }
+        return $this->sharedSearcher;
+    }
+
     /**
      * 🌐 جستجوی کدهای خطا در وب — فارسی و انگلیسی (v3.0: دو فازی + راستی‌آزمایی تک‌کد)
      *
@@ -308,27 +330,32 @@ class ErrorCodeEngine
      */
     private function searchWebCodes(string $brandEn, string $brandFa, string $deviceKey, string $deviceFa, ?string $brandKey = null, ?float $deadline = null, ?string $deviceEnOverride = null): array
     {
-        $searcher = new WebSearchService();
+        $searcher = $this->sharedSearcher();
         $deviceEn = $deviceEnOverride !== null && $deviceEnOverride !== '' ? $deviceEnOverride : (self::DEVICE_FA[$deviceKey][1] ?? ucfirst($deviceKey));
         $deadline = $deadline ?? (microtime(true) + 24.0);
 
         /* 🎯 v2.15: کوئری‌های دقیق‌تر و متنوع‌تر — ۷ → ۱۲ (پوشش عبارت‌های رایج
            تعمیرکاران و صفحات جدول کد؛ تلویزیون: چشمک LED هم پوشش داده می‌شود) */
         $isTv = stripos($deviceEn, 'tv') !== false || stripos($deviceEn, 'television') !== false;
+        $isMw = stripos($deviceEn, 'microwave') !== false;
         $queries = [
             "{$brandEn} {$deviceEn} error codes list meaning",
             "کد خطای {$deviceFa} {$brandFa} فهرست کامل",
             "{$brandEn} {$deviceEn} fault codes list troubleshooting manual",
             "کد خطا {$deviceFa} {$brandFa} علت و راه حل",
             "{$brandEn} {$deviceEn} display error code chart",
-            /* 🆕 v3.9: کوئری‌های بیشتر — پوشش منابع فنی و جدول‌های سازنده */
             "{$brandEn} {$deviceEn} error code table all models",
             "رفع خطای {$deviceFa} {$brandFa} نمایش کد",
-            /* 🆕 v2.15: عبارت‌های رایج کاربران + پوشش تلویزیون (چشمک LED) */
             "{$brandEn} {$deviceEn} error codes what does it mean and how to fix",
             "{$brandEn} {$deviceEn} service manual error code list pdf",
             $isTv ? "{$brandEn} TV blinking codes LED error meaning" : "{$brandEn} {$deviceEn} diagnostic codes self test",
             "{$brandEn} {$deviceEn} کدهای خطا",
+            /* 🆕 v3.14: کوئری‌های تخصصی — تلویزیون (webOS/کدهای عددی سه‌رقمی)
+               و مایکروویو (کدهای دوهرفی SE/FE/TE) + پوشش سایت‌های تعمیرات */
+            $isTv ? "{$brandEn} TV webOS error codes 101 105 137 324 meaning" : "{$brandEn} {$deviceEn} error code list explained",
+            $isMw ? "{$brandEn} microwave SE FE TE error code meaning" : "{$brandEn} {$deviceEn} common fault codes chart",
+            "{$brandEn} {$deviceEn} error codes fixya justanswer",
+            "{$deviceFa} {$brandFa} کد ارور علت تعمیر",
         ];
 
         $found = [];      // code => record
@@ -362,7 +389,7 @@ class ErrorCodeEngine
                 /* 🎯 v2.8: صفحه‌های «فهرست/جدول کد» را برای پارس ساختاری ذخیره کن
                    (v2.15: سقف ۶ → ۸ صفحه و متن کامل ۹ → ۱۴ هزار نویسه — فیلدهای
                    کامل‌تر از دلایل/راه‌حل از صفحات سازنده) */
-                if (count($listUrls) < 8 && $url !== ''
+                if (count($listUrls) < 10 && $url !== ''
                     && preg_match('#(error|fault|code|خطا|کد)#iu', ($r['title'] ?? '') . $url)
                     && (stripos($text, $brandEn) !== false || mb_strpos($text, $brandFa) !== false)) {
                     $listUrls[] = $url;
@@ -406,10 +433,10 @@ class ErrorCodeEngine
          * یا «کد OE: خطای تخلیه آب». جدول هر صفحه → معنای دقیق تک‌تک کدها؛
          * کدهای جدید کشف‌شده از این مسیر «تأییدشده با شاهد جدول» حساب می‌شوند. */
         $tableMeanings = [];
-        foreach (array_slice($listUrls, 0, 6) as $lui => $lu) {
+        foreach (array_slice($listUrls, 0, 8) as $lui => $lu) {
             if (microtime(true) > $deadline - 6.0) { break; }
             /* 📊 v2.14: گزارش خواندن صفحات فهرست کد (۴۵٪ تا ۶۵٪) */
-            $this->progress(45 + (int)round(20 * ($lui / 6)), 'خواندن صفحات فهرست کد سازنده', 'صفحه ' . ($lui + 1) . ' از ' . count(array_slice($listUrls, 0, 6)) . ' تحلیل می‌شود...');
+            $this->progress(45 + (int)round(20 * ($lui / 8)), 'خواندن صفحات فهرست کد سازنده', 'صفحه ' . ($lui + 1) . ' از ' . count(array_slice($listUrls, 0, 8)) . ' تحلیل می‌شود...');
             try {
                 $page = $searcher->fetchPageText($lu, 14000);
             } catch (Throwable $e) {
@@ -521,12 +548,12 @@ class ErrorCodeEngine
          * ⏱️ بودجه: حداکثر ۸ کد یا تا سقف زمان — کدهای هرگز بررسی‌نشده فقط با
          * شناخت KB یا شاهد بالا نگه داشته می‌شوند. */
         uasort($found, fn($a, $b) => $b['_evidence'] <=> $a['_evidence']);
-        $deepBudget = 8;
+        $deepBudget = 14;
         /* 🆕 v3.9: بودجه ویژه غنی‌سازی کدهای جدول‌تأییدِ «نحیف» — کدهایی که از
            جدول عنوان/قطعه دقیق دارند اما دلایل/راه‌حل استخراج‌شده از متن جدول
            کمتر از ۲ مورد است، با جستجوی اختصاصی تکمیلی غنی می‌شوند تا همه
            فیلدها کامل و بدون نقص باشند */
-        $tableEnrichBudget = 4;
+        $tableEnrichBudget = 8;
         $i = 0;
         $totalCandidates = count($found);
         $processedCandidates = 0;
@@ -557,7 +584,8 @@ class ErrorCodeEngine
                     $enrichQueued = !empty($f2info['_needs_enrich']);
                     $tableOk = !empty($f2info['_table_verified']);
                     if ($idx++ < $i && !$enrichQueued) { continue; } // کدهای بررسی‌شده
-                    if (($f2info['_evidence'] ?? 0) < 2 && !$tableOk) {
+                    if (($f2info['_evidence'] ?? 0) < 2 && !$tableOk
+                        && !$this->kbKnowsCode($brandKey, $deviceKey, (string)$ck2)) {
                         $found[$ck2]['_reject'] = true;
                     }
                 }
@@ -568,11 +596,18 @@ class ErrorCodeEngine
             } catch (Throwable $e) {
                 $deep = null;
             }
-            if ($deep === null) {
-                /* هیچ شاهد اختصاصی و نه جدول → رد (سیاست فقط-وب v2.8)
-                   🛡 v3.9: کد «جدول‌تأییدشده» هرگز رد نمی‌شود — شاهد جدول قوی است؛
-                   فقط غنی‌سازی ناقص می‌ماند و فیلدها از متن جدول پر می‌شوند */
-                if (empty($f['_table_verified'])) {
+            if ($deep === null || ((int)($deep['evidence'] ?? 0) === 0 && (string)($deep['page_text'] ?? '') === '')) {
+                /* 🆕 v3.14: تفکیک «شکست زیرساخت» از «شاهد منفی» —
+                   ریشه‌یابی نهایی «هیچ کدی از جستجوی اینترنتی تأیید نشد»:
+                   وقتی همه موتورهای جستجو از این هاست پاسخ نمی‌دهند (بلاک/نرخ
+                   پر)، نبودِ شاهد معنایش «کد جعلی است» نیست — کد در فاز ۱ در
+                   زمینه برند+دستگاه دیده شده و ثبتش می‌ماند (بدون تیک راستی‌آزمایی).
+                   فقط وقتی جستجو «نتایجی» برگرداند ولی هیچ‌کدام این کد را در زمینه
+                   برند+دستگاه تأیید نکرد، رد می‌شود (سیاست فقط-کدهای واقعی حفظ شد). */
+                $verdict = (string)($deep['verdict'] ?? 'negative');
+                if (empty($f['_table_verified'])
+                    && $verdict !== 'infra'
+                    && !$this->kbKnowsCode($brandKey, $deviceKey, (string)$codeKey)) {
                     $f['_reject'] = true;
                 }
                 continue;
@@ -610,7 +645,7 @@ class ErrorCodeEngine
                 $f['_location'] = $this->locationFromContext(implode(' ', array_slice($contextTexts[$codeKey] ?? [], 0, 4)));
             }
             if (empty($f['models']) || $f['models'] === []) {
-                $f['models'] = $this->modelsFromContext(implode(' ', array_slice($contextTexts[$codeKey] ?? [], 0, 6)), $brandEn);
+                $f['models'] = $this->modelsFromContext(implode(' ', array_slice($contextTexts[$codeKey] ?? [], 0, 6)), $brandEn, array_keys($found));
             }
             unset($f['_needs_enrich']);
         }
@@ -671,7 +706,7 @@ class ErrorCodeEngine
         /* ۱) انگلیسی: CODE - meaning / CODE: meaning / CODE | meaning
            ⚠️ کلاس کاراکتر معنا فقط «فاصله/تب» دارد نه \n — وگرنه تطبیق حریصانه
            کدِ خط بعد را می‌بلعد */
-        if (preg_match_all('/\b(Er\s?)?([A-Z]{1,2}-?\d{1,2}|\d{1,2}-?[A-Z]{1,2}|[A-Z]{2}\d{0,2})\s*(?:=|:|\||–|—|-)\s*([a-zA-Z][a-zA-Z \t&\'\-]{8,70})/u', $text, $m, PREG_SET_ORDER)) {
+        if (preg_match_all('/\b(Er\s?)?([A-Z]{1,2}-?\d{1,2}|\d{1,2}-?[A-Z]{1,2}|[A-Z]{2}\d{0,2}|\d{3})\s*(?:=|:|\||\x{2013}|\x{2014}|-)\s*([a-zA-Z][a-zA-Z \t&\'\-]{8,70})/u', $text, $m, PREG_SET_ORDER)) {
             foreach ($m as $mm) {
                 $code = $this->normalizeCode(trim(str_replace(' ', '', $mm[1] . $mm[2])));
                 if ($code === null) { continue; }
@@ -683,6 +718,12 @@ class ErrorCodeEngine
                 /* عبارت‌های بی‌محتوا رد */
                 if (preg_match('/^(what|how|why|error|code|this|the|and|for)\b/i', $en)) { continue; }
                 $fa = $this->translateErrorPhrase($en);
+                if ($fa === null) {
+                    /* 🆕 v3.14: واژه بیرون دیکشنری دیگر «کل ردیف جدول» را حذف
+                       نمی‌کند — استخراج کلیدواژه‌ای از خود معنا (شبکه/بک‌لایت/
+                       مگنترون/...) با واژه‌نامه titleFromContext */
+                    $fa = $this->titleFromContext($code, $en, '');
+                }
                 if ($fa !== null && !isset($out[$code])) {
                     $out[$code] = $fa;
                 }
@@ -703,7 +744,7 @@ class ErrorCodeEngine
             }
         }
         /* ۲) فارسی: «کد E4: خطای ...» / «E4 - خطای ...» / «نمایش IE می‌دهد: خطای ...» */
-        if (preg_match_all('/\b([A-Z]{1,2}-?\d{1,2}|\d{1,2}-?[A-Z]{1,2}|[A-Z]{2}\d{0,2})\b[^\nA-Za-z]{0,12}?(?:خطای|ایراد|علامت)\s+([^\n.،؛!؟]{6,60})/u', $text, $m, PREG_SET_ORDER)) {
+        if (preg_match_all('/\b([A-Z]{1,2}-?\d{1,2}|\d{1,2}-?[A-Z]{1,2}|[A-Z]{2}\d{0,2}|\d{3})\b[^\nA-Za-z]{0,12}?(?:خطای|ایراد|علامت)\s+([^\n.،؛!؟]{6,60})/u', $text, $m, PREG_SET_ORDER)) {
             foreach ($m as $mm) {
                 $code = $this->normalizeCode(trim($mm[1]));
                 if ($code === null) { continue; }
@@ -714,7 +755,7 @@ class ErrorCodeEngine
             }
         }
         /* ۳) جدول‌های با جداکننده تب یا | : «E4\tWater Drainage» / «| UE | Unbalance |» */
-        if (preg_match_all('/^\s*\|?\s*([A-Z]{1,2}-?\d{1,2}|\d{1,2}-?[A-Z]{1,2}|[A-Z]{2}\d{0,2})\b\s*\|\s*([^\n|]{8,70})/um', $text, $m, PREG_SET_ORDER)) {
+        if (preg_match_all('/^\s*\|?\s*([A-Z]{1,2}-?\d{1,2}|\d{1,2}-?[A-Z]{1,2}|[A-Z]{2}\d{0,2}|\d{3})\b\s*\|\s*([^\n|]{8,70})/um', $text, $m, PREG_SET_ORDER)) {
             foreach ($m as $mm) {
                 $code = $this->normalizeCode(trim($mm[1]));
                 if ($code === null) { continue; }
@@ -744,6 +785,7 @@ class ErrorCodeEngine
         $contexts = [];
         $urls = [];
         $evidence = 0;
+        $searchesReturned = 0; /* 🆕 v3.14: آیا اصلاً نتیجه‌ای از موتورها آمد؟ */
         $bestTitle = '';
         $bestPart = '';
         $bestSeverity = '';
@@ -759,12 +801,15 @@ class ErrorCodeEngine
             } catch (Throwable $e) {
                 continue;
             }
+            if (!empty($res['results'])) {
+                $searchesReturned++;
+            }
             foreach ($res['results'] ?? [] as $r) {
                 $text = ($r['title'] ?? '') . ' — ' . ($r['snippet'] ?? '');
                 $url = (string)($r['url'] ?? '');
                 if ($text === '' || trim($text) === '—') { continue; }
                 /* خود کد باید در نتیجه باشد (با توجه به فاصله در «Er FF») */
-                $codeVariants = [$code, str_replace(' ', '', $code), str_replace(' ', '-', $code)];
+                $codeVariants = self::codeVariantSet($code);
                 $hasCode = false;
                 foreach ($codeVariants as $cv) {
                     if (stripos($text, $cv) !== false || mb_strpos($text, $cv) !== false) { $hasCode = true; break; }
@@ -798,12 +843,20 @@ class ErrorCodeEngine
             if (empty($page['ok'])) { continue; }
             $txt = (string)$page['text'];
             /* صفحه باید کد و زمینه را داشته باشد */
-            $hasCode = stripos($txt, str_replace(' ', '', $code)) !== false || mb_strpos($txt, $code) !== false;
+            $hasCode = false;
+            foreach (self::codeVariantSet($code) as $cv) {
+                if (stripos($txt, $cv) !== false || mb_strpos($txt, $cv) !== false) { $hasCode = true; break; }
+            }
             $hasCtx = stripos($txt, $brandEn) !== false || stripos($txt, $deviceEn) !== false
                 || mb_strpos($txt, $brandFa) !== false || mb_strpos($txt, $deviceFa) !== false;
             if ($hasCode && $hasCtx && mb_strlen($txt) > 400) {
                 $pageText = $txt;
-                if (count($contexts) < 8) { $contexts[] = ($page['title'] ?? '') . ' — ' . mb_substr($txt, 0, 2500); }
+                if (count($contexts) < 8) {
+                    /* 🆕 v3.14: پنجره کد-محور به‌جای ۲۵۰۰ نویسه اول صفحه —
+                       ریشه «فیلدهای نامربوط»: ابتدای صفحه شرح کدهای دیگر است */
+                    $win = $this->codeCentricContext($txt, $code, 1200);
+                    $contexts[] = ($page['title'] ?? '') . ' — ' . ($win !== '' ? $win : mb_substr($txt, 0, 1200));
+                }
                 if ($bestTitle === '') {
                     $t = $this->meaningFromTitle((string)($page['title'] ?? ''), $code, $deviceFa);
                     if ($t !== null) { $bestTitle = $t; }
@@ -813,7 +866,11 @@ class ErrorCodeEngine
         }
 
         if ($evidence === 0 && $pageText === '') {
-            return null;
+            /* 🆕 v3.14: حکم شفاف — «negative» = نتایج آمد ولی این کد تأیید نشد؛
+               «infra» = زیرساخت جستجو اصلاً پاسخ نداد (بلاک/نرخ پر) */
+            return ['evidence' => 0, 'contexts' => [], 'urls' => [], 'title' => '', 'part' => '',
+                    'severity' => '', 'page_text' => '', 'location' => '',
+                    'verdict' => $searchesReturned > 0 ? 'negative' : 'infra'];
         }
 
         /* 🎯 v3.1: استخراج «زمینه کد-محور» — پنجره ±۳۵۰ کاراکتر دور خود کد.
@@ -1003,6 +1060,32 @@ class ErrorCodeEngine
     private function translateErrorPhrase(string $en): ?string
     {
         $dict = [
+            /* 🆕 v3.14: تلویزیون (webOS/پنل/شبکه) و مایکروویو — مقدم بر قوانین عمومی
+               ریشه‌یابی: جدول‌های کامل سازنده LG برای این دستگاه‌ها به‌خاطر نبودن
+               این واژه‌ها «کامل» دور ریخته می‌شدند */
+            '/back\s?light|backlight/i' => 'بک‌لایت LED',
+            '/t-?con/i' => 'برد T-Con',
+            '/main\s?board|mainboard/i' => 'مین‌برد',
+            '/power\s?(board|supply)/i' => 'پاور بورد (منبع تغذیه)',
+            '/wi-?fi|wireless/i' => 'ماژول وای‌فای',
+            '/network|internet|router|lan|ethernet|dns/i' => 'اتصال شبکه و اینترنت',
+            '/unable to load|app(lication)?s?\s+(load|fail|crash)|content/i' => 'بارگذاری اپلیکیشن و محتوا',
+            '/webos|firmware|software|update|upgrade/i' => 'نرم‌افزار (فیرویر)',
+            '/signal|antenna|tuner|channel|broadcast/i' => 'سیگنال آنتن و تیونر',
+            '/hdmi|arc|port/i' => 'پورت HDMI',
+            '/display\s?panel|oled\s?panel|panel/i' => 'پنل نمایشگر',
+            '/remote\s?control|remote/i' => 'ریموت کنترل',
+            '/internal\s?(storage|memory)/i' => 'حافظه داخلی',
+            '/region|geograph|country/i' => 'محدودیت جغرافیایی محتوا',
+            '/magnetron/i' => 'مگنترون',
+            '/high\s?voltage|hv\s?diode/i' => 'دیود ولتاژ بالا (HV)',
+            '/capacitor/i' => 'خازن',
+            '/thermal\s?(fuse|cut\s?off)/i' => 'فیوز حرارتی',
+            '/door\s?(switch|latch)|interlock/i' => 'قفل درب (میکروسوئیچ)',
+            '/membrane|touch\s?pad/i' => 'کیپد (صفحه‌کلید)',
+            '/turntable|rotat/i' => 'موتور گردان (ترن‌تیبل)',
+            '/waveguide|stirrer/i' => 'راهنمای موج و پخش‌کننده',
+            '/steam\s?sensor/i' => 'سنسور بخار',
             /* ⚠️ ترتیب حیاتی است: «Motor Locked» نباید به «قفل درب» برسد
                و «Water Level Sensor» نباید «سنسور دما» شود */
             /* 🆕 v2.14: عبارات اینورتر/الکتریکی (مایکروویو/فر/کولر ال‌جی) — مقدم بر قوانین عمومی
@@ -1512,7 +1595,7 @@ class ErrorCodeEngine
      * مانند «WF-8072T»، «JV1250H»، «GN-H702» از زمینه همان کد
      * @return string[] حداکثر ۸ مدل یکتا
      */
-    private function modelsFromContext(string $ctx, string $brandEn = ''): array
+    private function modelsFromContext(string $ctx, string $brandEn = '', array $knownCodes = []): array
     {
         $models = [];
         /* الگوی مدل: ۲-۴ حرف لاتین + خط تیره/فاصله اختیاری + ۲-۶ رقم + پسوند حرفی */
@@ -1524,6 +1607,13 @@ class ErrorCodeEngine
                 $upperBrand = strtoupper($brandEn);
                 if ($upperBrand !== '' && stripos($mm, $upperBrand) === 0) { continue; }
                 if (in_array($mm, ['E1','E2','E3','E4','LED','LCD','HTTP','HTML'], true)) { continue; }
+                /* 🆕 v3.14: خودِ کدهای خطا مدل نیستند! — ریشه‌یابی «مدل‌های
+                   نامربوط»: متن فهرست کدها پر از «E-01 / F-13 / CH05» است و
+                   الگوی مدل همه را «مدل سازگار» می‌گرفت */
+                $normTok = strtoupper(str_replace([' ', '-'], '', $mm));
+                foreach ($knownCodes as $kc) {
+                    if (strtoupper(str_replace([' ', '-'], '', (string)$kc)) === $normTok) { continue 2; }
+                }
                 if (!in_array($mm, $models, true)) {
                     $models[] = $mm;
                 }
@@ -1558,6 +1648,17 @@ class ErrorCodeEngine
     {
         $hay = implode(' ', $causes);
         foreach ([
+            /* 🆕 v3.14: تلویزیون و مایکروویو */
+            '/مگنترون/' => 'مگنترون',
+            '/بک‌لایت/' => 'بک‌لایت LED',
+            '/T-?Con|تی‌کان/' => 'برد T-Con',
+            '/پاور|منبع تغذیه/' => 'پاور بورد',
+            '/وای‌فای|شبکه|اینترنت/' => 'ماژول وای‌فای',
+            '/کیپد|کیبورد/' => 'کیپد (صفحه‌کلید)',
+            '/فیوز حرارتی/' => 'فیوز حرارتی',
+            '/دیود/' => 'دیود ولتاژ بالا',
+            '/آنتن|سیگنال|تیونر/' => 'تیونر و برد سیگنال',
+            '/نرم‌افزار|فیرویر/' => 'نرم‌افزار webOS',
             '/تخلیه|پمپ/' => 'پمپ تخلیه',
             '/شیر|ورودی آب/' => 'شیر برقی ورودی',
             '/سنسور|NTC|فشار/' => 'سنسور مربوطه',
@@ -1584,7 +1685,7 @@ class ErrorCodeEngine
         $codes = [];
         // ۱) کدهای حرف‌دار: E18 / E-18 / F01 / CH05 / Er FF / UE / OE / LE / IE / dE / tE / nE / 4E / 5E / H1
         //    🆕 v3.10: پوشش کامل حروف سازنده‌ها — 1E، PE، CE، AE، bE، nE (ال‌جی/سامسونگ/بوش)
-        if (preg_match_all('/\b(E-?\d{1,2}|F-?\d{1,2}|CH-?\d{1,2}|Er\s?[A-Z]{1,2}|[4n5d1][Ee]|[UOILFCAPb][Ee]|[dt][Ee]|[Hh]\d{1,2})\b/u', $text, $m)) {
+        if (preg_match_all('/\b(E-?\d{1,2}|F-?\d{1,2}|CH-?\d{1,2}|Er\s?[A-Z]{1,2}|[4n5d1][Ee]|[UOILFCAPBSDHTMN][Ee]|[dt][Ee]|[Hh]\d{1,2})\b/u', $text, $m)) {
             foreach ($m[1] as $raw) {
                 $c = $this->normalizeCode($raw);
                 if ($c !== null && !isset($codes[$c])) {
@@ -1633,6 +1734,20 @@ class ErrorCodeEngine
                 }
             }
         }
+        /* ۵) 🆕 v3.14: کدهای چشمک LED تلویزیون — «blinks 3 times» / «3 blinks»
+         *    (روش تشخیص رسمی خطاهای سخت‌افزاری تلویزیون‌های LG/سامسونگ —
+         *    کد به فارسی «چشمک N بار» ثبت می‌شود تا روی سایت خوانا باشد) */
+        if (preg_match_all('/\b(?:(\d{1,2})\s+(?:blinks?|flashes?)\b|(?:blinks?|flashes?)\s+(\d{1,2})\s+times?\b)/i', $text, $m, PREG_SET_ORDER)) {
+            foreach ($m as $mm) {
+                $n = (int)($mm[1] !== '' ? $mm[1] : $mm[2]);
+                if ($n >= 2 && $n <= 15) {
+                    $blinkKey = 'چشمک ' . en_to_fa_digits((string)$n) . ' بار';
+                    if (!isset($codes[$blinkKey])) {
+                        $codes[$blinkKey] = true;
+                    }
+                }
+            }
+        }
         /* 🧹 v2.14: حذف واژه‌های رایج انگلیسی که شکل کد دارند (may BE / to LE...)
            ولی در پنجره زمینه‌شان هیچ واژه خطایی نیست — روی «متن کامل صفحه»
            این نویزها فراوان‌اند و باعث کدهای ساختگی می‌شدند */
@@ -1654,6 +1769,25 @@ class ErrorCodeEngine
         }
         $start = max(0, $pos - $radius);
         return mb_substr($text, $start, $radius * 2);
+    }
+
+    /** 🔤 مجموعه شکل‌های نوشتاری یک کد — v3.14
+     * ریشه‌یابی «رد اشتباه کد واقعی»: صفحه‌ای که «E01» می‌نویسد کدِ «E-01» را
+     * تأیید نمی‌کرد (تطبیق فقط فاصله را جابه‌جا می‌کرد نه خط تیره) → کد واقعی رد می‌شد. */
+    private static function codeVariantSet(string $code): array
+    {
+        $base = strtoupper(preg_replace('/\s+/', '', $code));
+        if ($base === '') {
+            return [$code];
+        }
+        $variants = [$code, $base, str_replace(' ', '', $code), str_replace(' ', '-', $code)];
+        if (preg_match('/^([A-Z]{1,2})-?(\d{1,3})$/', $base, $m)) {
+            $variants[] = $m[1] . '-' . $m[2];
+            $variants[] = $m[1] . ' ' . $m[2];
+            $variants[] = $m[1] . $m[2];
+            $variants[] = strtolower($m[1]) . $m[2];
+        }
+        return array_values(array_unique(array_filter($variants)));
     }
 
     /** 🧹 نرمال‌سازی کد */
@@ -1893,7 +2027,7 @@ class ErrorCodeEngine
             'oven'            => ['سوختن المنت Grill/Upper', 'خرابی ترموستات یا سنسور دما', 'خرابی سنسور شعله (ایونیزاسیون)', 'اشکال برد لمسی', 'لقی سوکت‌های حرارتی'],
             'water_heater'    => ['خرابی ترموستات', 'رسوب روی المنت/مبدل', 'خرابی سنسور دود', 'افت فشار آب', 'خرابی برد'],
             'package'         => ['افت فشار آب سیستم', 'خرابی پمپ سیرکولاسیون', 'گیر کردن سوئیچ فشار', 'خرابی سنسور NTC', 'نشت گاز/آب'],
-            'television'      => ['خرابی بک‌لایت LED', 'اشکال T-Con', 'خرابی پاور بورد', 'خرابی مین‌بورد', 'نوسان برق ورودی'],
+            'television'      => ['خرابی بک‌لایت LED', 'اشکال برد T-Con', 'خرابی پاور بورد', 'خرابی مین‌برد', 'نوسان برق ورودی', 'قطعی یا بی‌ثباتی اتصال شبکه و وای‌فای', 'نیاز به بروزرسانی نرم‌افزار webOS', 'ضعف سیگنال آنتن یا خرابی تیونر', 'محدودیت جغرافیایی سرویس محتوا'],
         ];
         return $common[$deviceKey] ?? ['فرسودگی قطعه مرتبط', 'اتصالات شل یا اکسید شده', 'اشکال برد کنترل', 'شرایط بهره‌برداری نامناسب'];
     }
@@ -1910,7 +2044,7 @@ class ErrorCodeEngine
             'oven'            => ['قطع برق ۵ دقیقه و ریست برد', 'بررسی تنظیمات پخت و تایمر'],
             'water_heater'    => ['ریست کلید حرارتی (پشت درب)', 'بررسی فشار آب ورودی', 'قطع برق ۱۰ دقیقه و روشن‌سازی مجدد'],
             'package'         => ['شارژ فشار آب سیستم به ۱.۵ بار', 'ریست سوئیچ فشار', 'هوای مدار شوفاژ'],
-            'television'     => ['قطع برق و اتصال مجدد بعد از ۵ دقیقه', 'بررسی سلامت کابل HDMI/آنتن', 'بروزرسانی نرم‌افزار از منوی تنظیمات'],
+            'television'     => ['قطع برق تلویزیون از پریز و اتصال مجدد بعد از ۵ دقیقه (ریست کامل)', 'بررسی سلامت اتصال کابل HDMI و پورت‌ها', 'بررسی اتصال WiFi و ریست مودم/روتر', 'بروزرسانی نرم‌افزار از منوی تنظیمات', 'بررسی اتصال آنتن و جستجوی مجدد کانال‌ها'],
         ];
         return $map[$deviceKey] ?? ['ریست دستگاه با قطع برق ۱۰ دقیقه‌ای', 'بررسی اتصالات و منبع تغذیه', 'بررسی درب و کلیدهای امنیتی'];
     }
@@ -1927,7 +2061,7 @@ class ErrorCodeEngine
             'oven'            => ['تست مقاومت المنت‌ها (۲۰-۴۰ اهم)', 'تست سنسور دما و ترموستات', 'تعمیر/تعویض برد لمسی'],
             'water_heater'    => ['تست ترموستات و سنسورها', 'رسوب‌زدایی مبدل و بررسی المنت'],
             'package'         => ['تست پمپ سیرکولاسیون و سوئیچ فشار', 'کالیبراسیون برد و بررسی احتراق'],
-            'television'     => ['تست ولتاژهای پاور بورد', 'تست بک‌لایت و T-Con', 'تعمیر مین‌بورد'],
+            'television'     => ['تست ولتاژهای ریل پاور بورد (۵V/۱۲V/۲۴V)', 'تست LEDهای بک‌لایت و برد T-Con با تجهیزات', 'بروزرسانی/ریفلاش فیرویر webOS به روش USB', 'تست و تعویض ماژول وای‌فای', 'تعمیر مین‌برد (قطعات مربوطه)'],
         ];
         return $map[$deviceKey] ?? ['تست قطعه مرتبط با مولتی‌متر و تعویض', 'عیب‌یابی برد کنترل و تعمیر تخصصی', 'بررسی سیم‌کشی و سوکت‌های داخلی'];
     }
@@ -1939,6 +2073,18 @@ class ErrorCodeEngine
     private function titleFromContext(string $code, string $text, string $deviceFa): string
     {
         $patterns = [
+            /* 🆕 v3.14: تلویزیون و مایکروویو — پوشش جدول‌های سازنده این دستگاه‌ها */
+            '/(backlight|بک‌لایت)/iu' => 'خطای بک‌لایت LED',
+            '/(t-?con|تی‌کان)/iu' => 'خطای برد T-Con',
+            '/(network|wi-?fi|internet|router|شبکه|اینترنت|اتصال به)/iu' => 'خطای اتصال شبکه و اینترنت',
+            '/\b(app|apps|webos|اپلیکیشن)\b/iu' => 'خطای اپلیکیشن و نرم‌افزار',
+            '/(signal|antenna|tuner|آنتن|سیگنال)/iu' => 'خطای سیگنال آنتن',
+            '/(magnetron|مگنترون)/iu' => 'خطای مگنترون',
+            '/(thermal\s?(fuse|cut)|فیوز حرارتی)/iu' => 'خطای فیوز حرارتی',
+            '/(keypad|key\s?pad|touch\s?pad|کیپد|صفحه‌کلید)/iu' => 'خطای کیپد و صفحه‌کلید',
+            '/(high\s?voltage|hv\s?diode|دیود)/iu' => 'خطای دیود ولتاژ بالا',
+            '/(main\s?board|مین‌برد)/iu' => 'خطای مین‌برد',
+            '/(power\s?(board|supply)|پاور\s?بورد)/iu' => 'خطای پاور بورد',
             '/(drain|drainage|تخلیه)/iu' => 'خطای تخلیه آب',
             '/(inlet|ورود آب|آبرسانی)/iu' => 'خطای ورود آب',
             '/(door|درب|قفل)/iu' => 'خطای قفل درب',
@@ -1957,7 +2103,7 @@ class ErrorCodeEngine
                 return $title;
             }
         }
-        return 'خطای ' . $code . ' در ' . $deviceFa;
+        return 'خطای ' . $code . ($deviceFa !== '' ? ' در ' . $deviceFa : '');
     }
 
     /** 🧭 آیا عنوان «عمومی» است؟ (فقط کد + دستگاه — بدون هیچ معنا) — v2.8
@@ -1987,6 +2133,22 @@ class ErrorCodeEngine
     private function partFromTitle(string $title): string
     {
         $map = [
+            /* 🆕 v3.14: قطعات تلویزیون و مایکروویو — پیش از قوانین عمومی */
+            '/بک‌لایت|backlight/iu' => 'بک‌لایت LED و درایور',
+            '/T-?Con|تی‌کان/iu' => 'برد T-Con',
+            '/مین‌برد|main\s?board/iu' => 'مین‌برد (Main Board)',
+            '/پاور\s?بورد|power\s?(board|supply)/iu' => 'پاور بورد (Power Board)',
+            '/وای‌فای|wi-?fi|ماژول شبکه|network module/iu' => 'ماژول وای‌فای/شبکه',
+            '/اپلیکیشن|نرم‌افزار|webos|firmware/iu' => 'نرم‌افزار webOS و حافظه',
+            '/آنتن|تیونر|signal|tuner/iu' => 'تیونر و برد سیگنال',
+            '/مگنترون|magnetron/iu' => 'مگنترون',
+            '/فیوز حرارتی|thermal/iu' => 'فیوز حرارتی',
+            '/دیود ولتاژ|hv\s?diode/iu' => 'دیود ولتاژ بالا (HV)',
+            '/خازن|capacitor/iu' => 'خازن ولتاژ بالا',
+            '/کیپد|کیبورد|keypad|touch\s?pad/iu' => 'کیپد (صفحه‌کلید)',
+            '/گردان|ترن‌تیبل|turntable/iu' => 'موتور گردان (ترن‌تیبل)',
+            '/پنل نمایشگر|display\s?panel/iu' => 'پنل نمایشگر',
+            '/پورت|hdmi|port/iu' => 'پورت HDMI',
             '/سنسور فشار|سنسور سطح|فشار آب|سطح آب/iu' => 'سنسور فشار/سطح آب',
             '/تخلیه|درین|drain/iu' => 'پمپ تخلیه و شلنگ تخلیه',
             '/ورود آب|آبرسانی|آب‌رسانی|inlet/iu' => 'شیر برقی ورودی آب',
@@ -2021,6 +2183,18 @@ class ErrorCodeEngine
     private function partFromContext(string $text): string
     {
         $map = [
+            /* 🆕 v3.14: تلویزیون و مایکروویو — پیش از قوانین عمومی */
+            '/بک‌لایت|backlight/iu' => 'بک‌لایت LED و درایور',
+            '/T-?Con|تی‌کان/iu' => 'برد T-Con',
+            '/مین‌برد|main\s?board/iu' => 'مین‌برد (Main Board)',
+            '/پاور\s?بورد|power\s?(board|supply)/iu' => 'پاور بورد (Power Board)',
+            '/وای‌فای|wi-?fi/iu' => 'ماژول وای‌فای',
+            '/مگنترون|magnetron/iu' => 'مگنترون',
+            '/دیود ولتاژ|hv\s?diode/iu' => 'دیود ولتاژ بالا (HV)',
+            '/خازن|capacitor/iu' => 'خازن ولتاژ بالا',
+            '/فیوز حرارتی|thermal\s?fuse/iu' => 'فیوز حرارتی',
+            '/کیپد|keypad|touch\s?pad/iu' => 'کیپد (صفحه‌کلید)',
+            '/آنتن|tuner|antenna/iu' => 'تیونر و برد سیگنال',
             '/تخلیه|drain|پمپ/iu' => 'پمپ تخلیه',
             '/ورود آب|inlet|شیر/iu' => 'شیر برقی ورودی',
             '/سنسور|sensor|NTC|thermistor/iu' => 'سنسور دما NTC',
@@ -2052,8 +2226,10 @@ class ErrorCodeEngine
 
     private function severityFromContext(string $text): string
     {
-        if (preg_match('/critical|بحرانی|فوری/iu', $text)) { return 'critical'; }
-        if (preg_match('/warning|هشدار|مهم/iu', $text)) { return 'high'; }
+        /* 🆕 v3.14: کلیدواژه‌های بیشتر — تلویزیون/مایکروویو و سطوح low */
+        if (preg_match('/critical|fatal|بحرانی|خطرناک|فوری|fire|آتش|دود|smoke|shock|برق‌گرفتگی|burn/iu', $text)) { return 'critical'; }
+        if (preg_match('/warning|هشدار|مهم|serious|severe|سنگین|failure|توقف کامل|does not (?:turn|start|work)|کار نمی‌کند/iu', $text)) { return 'high'; }
+        if (preg_match('/minor|جزئی|کم‌اهمیت|informational|اطلاعاتی|notice|tip|نکته/iu', $text)) { return 'low'; }
         return 'medium';
     }
 
@@ -2099,6 +2275,22 @@ class ErrorCodeEngine
     private function partWithEn(string $part): string
     {
         $map = [
+            /* 🆕 v3.14: قطعات تلویزیون و مایکروویو */
+            'بک‌لایت LED و درایور' => 'بک‌لایت LED | LED Backlight',
+            'برد T-Con' => 'برد T-Con | Timing Control Board',
+            'مین‌برد (Main Board)' => 'مین‌برد | Main Board',
+            'پاور بورد (Power Board)' => 'پاور بورد | Power Supply Board',
+            'ماژول وای‌فای/شبکه' => 'ماژول شبکه | WiFi Module',
+            'نرم‌افزار webOS و حافظه' => 'نرم‌افزار | webOS Firmware',
+            'تیونر و برد سیگنال' => 'تیونر | Tuner Board',
+            'مگنترون' => 'مگنترون | Magnetron',
+            'دیود ولتاژ بالا (HV)' => 'دیود HV | High-Voltage Diode',
+            'خازن ولتاژ بالا' => 'خازن HV | HV Capacitor',
+            'فیوز حرارتی' => 'فیوز حرارتی | Thermal Fuse',
+            'کیپد (صفحه‌کلید)' => 'کیپد | Keypad',
+            'موتور گردان (ترن‌تیبل)' => 'موتور گردان | Turntable Motor',
+            'پنل نمایشگر' => 'پنل | Display Panel',
+            'پورت HDMI' => 'پورت HDMI | HDMI Port',
             'پمپ تخلیه' => 'پمپ تخلیه | Drain Pump',
             'شیر برقی ورودی' => 'شیر برقی ورودی | Inlet Valve',
             'سنسور دما NTC' => 'سنسور دما | NTC Thermistor',

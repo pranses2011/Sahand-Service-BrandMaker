@@ -696,6 +696,29 @@ class CpanelAPI
     }
 
     /**
+     * 📏 اندازه فایل روی سرور (بایت) — v2.22
+     * استعلام مستقیم get_file_information — برای راستی‌آمایی کامل بودن آپلود
+     * ZIP قبل از استخراج (آپلود ناقص/کوت‌شده = استخراج بی‌صدا هیچ فایلی تولید
+     * می‌کند — ریشه‌یابی خطای «index.php در مسیر سایت یافت نشد»).
+     * @return int|null اندازه، یا null اگر قابل استعلام نبود
+     */
+    public function remoteFileSize(string $path): ?int
+    {
+        $path = $this->normalizePath($path);
+        $info = $this->call('Fileman', 'get_file_information', ['path' => $path]);
+        if (!is_array($info) || $info === []) {
+            return null;
+        }
+        /* دو قالب پاسخ: تخت {size:...} یا تو-در-تو {file:{size:...}} */
+        $flat = isset($info['size']) ? (int)$info['size'] : 0;
+        if ($flat > 0) {
+            return $flat;
+        }
+        $nested = (isset($info['file']) && is_array($info['file']) && isset($info['file']['size'])) ? (int)$info['file']['size'] : 0;
+        return $nested > 0 ? $nested : null;
+    }
+
+    /**
      * 📤 آپلود فایل (مثلاً ZIP سایت) — v2.19.1 (overwrite + راستی‌آزمایی واقعی)
      * ============================================================================
      *  • نام فیلدهای multipart طبق مستندات رسمی cPanel: file-0، file-1، ...

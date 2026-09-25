@@ -8,15 +8,27 @@
  *
  * ⚠️ در فرآیند بروزرسانی: مقادیر قبلی (کش و ...) حفظ می‌شوند.
  *
+ * 🚨 v2.22 — ریشه‌یابی قطعی خطای «تست نهایی ناموفق: پاسخ HTTP: 500 |
+ *    thrown in .../index.php on line 16»:
+ *    نسخه‌های قبلی این کلاس فقط «ثابت‌ها» را می‌ساختند، در حالی که
+ *    config.php قالب (templates/brand-core/config.php) «توابع کمکی»
+ *    (fetchFromAPI / postToAPI / e / fa_num / cdn_asset) را هم دارد.
+ *    بازنویسی config.php در مرحله stepConfig همه توابع را پاک می‌کرد →
+ *    index.php خط ۱۶ با «Call to undefined function fetchFromAPI()»
+ *    فاتال می‌شد → HTTP 500 و «صفحات خالی» سایت برند.
+ *    ✅ اکنون فایل تولیدی «ثابت‌ها + کامل مجموعه توابع» است — هم‌ارز
+ *    دقیق قالب، با پشتیبانی CACHE_ENABLED (که فقط در نسخه تولیدی تعریف
+ *    می‌شود) — و رندر سریع صفحه خطای کش.
+ *
  * @package SahandBrandMaker
- * @version 1.0.0
+ * @version 1.2.0
  */
 class ConfigGenerator
 {
     /**
-     * ⚙️ تولید محتوای config.php سایت برند
+     * ⚙️ تولید محتوای config.php سایت برند (ثابت‌ها + توابع کمکی کامل)
      *
-     * @param array $brand    ردیف برند (id، api_key، name_fa، name_en، slug)
+     * @param array  $brand    ردیف برند (id، api_key، name_fa، name_en، slug)
      * @param string $fullDomain دامنه کامل سایت برند (مثلاً samsung.ea-fixer.ir)
      * @param string $brandmakerUrl آدرس سایت ساز (BASE_URL)
      * @param array  $previous تنظیمات قبلی برای حفظ (اختیاری — در بروزرسانی)
@@ -61,7 +73,7 @@ class ConfigGenerator
  * تاریخ تولید: {$generationDate}
  *
  * @package SahandBrandSite
- * @version 1.1.0
+ * @version 1.2.0
  */
 
 // 🛡️ جلوگیری از دسترسی مستقیم
@@ -99,9 +111,179 @@ define('CACHE_TTL', {$cacheTtl});                          // مدت اعتبا�
  * 🌍 تنظیمات عمومی
  * -------------------------------------------------- */
 define('DEBUG_MODE', {$debugModeStr});                          // حالت دیباگ (در محیط اجرا: خاموش)
-define('VERSION', '1.1.0');                                // نسخه هسته سایت برند
+define('VERSION', '1.2.0');                                // نسخه هسته سایت برند
 date_default_timezone_set('Asia/Tehran');                  // ⏰ منطقه زمانی ایران
 mb_internal_encoding('UTF-8');                              // 🔤 انکودینگ UTF-8
+
+/* ==================================================
+ * 🧰 توابع کمکی مشترک سایت برند
+ * ⚠️ v1.2: این توابع قبلاً فقط در config.php قالب (ZIP) وجود داشتند —
+ * بازنویسی config.php در استقرار آنها را حذف می‌کرد و همه صفحات با
+ * «Call to undefined function fetchFromAPI()» فاتال (HTTP 500) می‌شدند.
+ * ================================================== */
+
+/**
+ * 📥 دریافت داده از API سایت ساز با کش فایل‌محور
+ *
+ * @param string \$endpoint اندپوینت (مثلاً brand/{id}/page/home)
+ * @param int    \$cacheTtl مدت کش (ثانیه)
+ * @return array|null
+ */
+function fetchFromAPI(string \$endpoint, int \$cacheTtl = CACHE_TTL): ?array
+{
+    // 🚫 کش غیرفعال است → مستقیم به API
+    if (!CACHE_ENABLED) {
+        return fetchFromAPILive(\$endpoint);
+    }
+
+    \$cacheFile = CACHE_DIR . '/' . sha1(\$endpoint) . '.json';
+
+    // 📦 کش معتبر؟
+    if (file_exists(\$cacheFile) && time() - filemtime(\$cacheFile) < \$cacheTtl) {
+        \$cached = json_decode((string)@file_get_contents(\$cacheFile), true);
+        if (is_array(\$cached)) {
+            return \$cached;
+        }
+    }
+
+    \$data = fetchFromAPILive(\$endpoint);
+
+    // 💾 ذخیره در کش — فقط پاسخ موفق
+    if (\$data !== null) {
+        if (!is_dir(CACHE_DIR)) {
+            @mkdir(CACHE_DIR, 0755, true);
+        }
+        @file_put_contents(\$cacheFile, json_encode(\$data, JSON_UNESCAPED_UNICODE), LOCK_EX);
+    } elseif (file_exists(\$cacheFile)) {
+        // 🩹 شبکه قطع است — کش کهنه بهتر از هیچ
+        \$cached = json_decode((string)@file_get_contents(\$cacheFile), true);
+        if (is_array(\$cached)) {
+            return \$cached;
+        }
+    }
+    return \$data;
+}
+
+/**
+ * ⚡ دریافت مستقیم (بدون کش) — قلب شبکه‌ای سایت برند
+ * file_get_contents با مهلت + fallback cURL — هرگز استثنا پرتاب نمی‌کند.
+ */
+function fetchFromAPILive(string \$endpoint): ?array
+{
+    \$url = BRANDMAKER_API . '/' . \$endpoint;
+    \$response = false;
+
+    if (function_exists('curl_init')) {
+        // 🔄 cURL مقدم — پایدارترین
+        \$ch = curl_init(\$url);
+        curl_setopt_array(\$ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_CONNECTTIMEOUT => 6,
+            CURLOPT_HTTPHEADER     => ['X-API-Key: ' . BRAND_API_KEY],
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_USERAGENT      => 'SahandBrandSite/' . VERSION,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 2,
+        ]);
+        \$response = curl_exec(\$ch);
+        \$code = (int)curl_getinfo(\$ch, CURLINFO_HTTP_CODE);
+        curl_close(\$ch);
+        if (\$code !== 200) {
+            \$response = false;
+        }
+    }
+
+    if (\$response === false && ini_get('allow_url_fopen')) {
+        // 🔄 fallback به file_get_contents
+        \$context = stream_context_create([
+            'http' => [
+                'method'        => 'GET',
+                'timeout'       => 10,
+                'ignore_errors' => true,
+                'header'        => "X-API-Key: " . BRAND_API_KEY . "\r\n",
+            ],
+            'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
+        ]);
+        \$response = @file_get_contents(\$url, false, \$context);
+    }
+
+    if (\$response === false || \$response === '') {
+        return null;
+    }
+    \$data = json_decode(\$response, true);
+    if (!is_array(\$data) || empty(\$data['success'])) {
+        return null;
+    }
+    return \$data;
+}
+
+/**
+ * 📥 ارسال داده به API سایت ساز (فرم درخواست و ردیابی)
+ */
+function postToAPI(string \$endpoint, array \$payload): array
+{
+    \$url = BRANDMAKER_API . '/' . \$endpoint;
+    \$payload['api_key'] = BRAND_API_KEY;
+    \$json = json_encode(\$payload, JSON_UNESCAPED_UNICODE);
+
+    if (function_exists('curl_init')) {
+        \$ch = curl_init(\$url);
+        curl_setopt_array(\$ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => \$json,
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_CONNECTTIMEOUT => 8,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+        ]);
+        \$response = curl_exec(\$ch);
+        curl_close(\$ch);
+    } else {
+        \$context = stream_context_create([
+            'http' => [
+                'method'  => 'POST',
+                'content' => \$json,
+                'timeout' => 15,
+                'header'  => "Content-Type: application/json\r\n",
+            ],
+            'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
+        ]);
+        \$response = @file_get_contents(\$url, false, \$context);
+    }
+    \$data = json_decode((string)\$response, true);
+    return is_array(\$data) ? \$data : ['success' => false, 'error' => 'خطای ارتباط با سرور'];
+}
+
+/**
+ * 🧼 پاکسازی خروجی HTML (ضد XSS)
+ */
+function e(?string \$value): string
+{
+    return htmlspecialchars((string)\$value, ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * 🔢 تبدیل اعداد به فارسی
+ */
+function fa_num(string \$value): string
+{
+    return str_replace(['0','1','2','3','4','5','6','7','8','9'], ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'], \$value);
+}
+
+/**
+ * 🖼️ آدرس منبع روی سرور سایت ساز
+ */
+function cdn_asset(string \$path): string
+{
+    if (\$path === '' || \$path === null) {
+        return '';
+    }
+    return (strpos(\$path, 'http') === 0) ? \$path : BRANDMAKER_ASSETS . '/' . ltrim(\$path, 'assets/');
+}
 
 PHP;
     }

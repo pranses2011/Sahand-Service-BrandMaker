@@ -598,10 +598,46 @@ class Deployer
             return ['ok' => false, 'error' => 'مسیر ZIP آپلودشده ثبت نشده است.'];
         }
 
-        // 📦 استخراج + مکان‌یابی + بازیابی خودکار + راستی‌آمایی index.php
+        /* 🔎 v2.22 — راستی‌آمایی کامل بودن ZIP روی سرور قبل از استخراج:
+         *    آپلود کوت‌شده (قطع شبکه/محدودیت سرور) باعث می‌شود fileop استخراج را
+         *    «موفق» گزارش کند ولی هیچ/تعداد کمی فایل تولید شود و راستی‌آمایی
+         *    index.php شکست بخورد. حجم محلی و ریموت باید یکسان باشند. */
+        $localZip = (string)($state['zip_path'] ?? '');
+        if ($localZip !== '' && is_file($localZip)) {
+            $remoteSize = $this->api->remoteFileSize($remoteZip);
+            $localSize = (int)filesize($localZip);
+            if ($remoteSize !== null && abs($remoteSize - $localSize) > 512) {
+                $this->logger->stepSkipped(
+                    (int)$deployment['id'],
+                    'zip_reupload',
+                    'حجم ZIP روی سرور (' . $remoteSize . ' بایت) با بسته محلی (' . $localSize . ' بایت) مطابقت ندارد — آپلود ناقص بود؛ بارگذاری مجدد...'
+                );
+                if (!$this->api->uploadFile($localZip, $serverPath)) {
+                    $ftpUp = new FtpManager();
+                    $ftpUp->uploadFile($localZip, $this->ftpRemotePath($remoteZip));
+                }
+            }
+        }
+
+        /* 📦 استخراج + مکان‌یابی + بازیابی خودکار + راستی‌آمایی index.php */
         if (!$this->api->extractZip($remoteZip, $serverPath)) {
             $extractError = $this->api->getLastError();
             $stage = $this->api->getLastExtractStage();
+
+            /* 🚑 v2.22 — نجات FTP کامل: اگر استخراج cPanel هیچ فایلی تولید نکرد
+             *    (رفتار مشاهده‌شده روی برخی سرورهای قدیمی: fileop موفق ولی خروجی صفر)،
+             *    بسته محلی باز شده و همه فایل‌ها تک‌به‌تک از طریق FTP مستقر می‌شوند.
+             *    بسته سایت کوچک است (~۳۵ فایل) — سریع و مستقل از رفتار fileop. */
+            $ftpRescue = $this->deployZipViaFtp($localZip, $serverPath);
+            if ($ftpRescue === 'ok' && $this->api->entryExists($serverPath . '/index.php', 'file')) {
+                $this->logger->stepSkipped(
+                    (int)$deployment['id'],
+                    'extract_ftp_rescue',
+                    'استخراج cPanel ناکام ماند (' . $extractError . ') — کل سایت از مسیر جایگزین FTP تک‌به‌تک مستقر شد.'
+                );
+                $this->api->deleteFile($remoteZip); /* 🧹 بسته دیگر لازم نیست */
+                return ['ok' => true, 'message' => 'فایل‌ها با مسیر جایگزین FTP مستقر شدند (استخراج cPanel روی این سرور کار نکرد) — index.php موجود است'];
+            }
 
             // 🔍 دیاگنوستیک ۱ — محتوای واقعی مسیر سایت گزارش شود تا عیب‌یابی قطعی باشد
             $listing = [];
@@ -640,11 +676,12 @@ class Deployer
                     . ' | وضعیت لیست: ' . $listView
                     . ' | ZIP روی سرور: ' . $zipOnServer
                     . ($rawSnippet !== '' ? ' | نمونه پاسخ لیست: ' . $rawSnippet : '')
+                    . ($ftpRescue !== 'ok' ? ' | نجات FTP هم ناکام: ' . $ftpRescue : '')
                     . ($extractError !== '' ? ' | جزئیات: ' . $extractError : ''),
             ];
         }
 
-        // 🧹 حذف ZIP فقط بعد از راستی‌آزمایی موفق (نه قبل — تا تلاش مجدد ممکن بماند)
+        // 🧹 حذف ZIP فقط بعد از راستی‌آمایی موفق (نه قبل — تا تلاش مجدد ممکن بماند)
         if (!$this->api->deleteFile($remoteZip)) {
             $this->logger->stepSkipped(
                 (int)$deployment['id'],
@@ -654,6 +691,114 @@ class Deployer
         }
 
         return ['ok' => true, 'message' => 'فایل‌ها استخراج و راستی‌آمایی شد — index.php در مسیر سایت موجود است'];
+    }
+
+    /**
+     * 🚑 استقرار کامل محتوای ZIP محلی از طریق FTP — v2.22
+     * ====================================================
+     * آخرین پناهگاه مرحله استخراج: بسته محلی با ZipArchive باز شده و تمام
+     * فایل‌ها/پوشه‌ها تک‌به‌تک با FTP (باینری) در مسیر سایت مستقر می‌شوند.
+     *
+     * @return string 'ok' یا دلیل شکست (برای دیاگنوستیک شفاف)
+     */
+    private function deployZipViaFtp(string $localZip, string $serverPath): string
+    {
+        if ($localZip === '' || !is_file($localZip)) {
+            return 'بسته محلی ZIP در state ثبت نشده است';
+        }
+        if (!class_exists('ZipArchive')) {
+            return 'افزونه ZipArchive روی سایت ساز فعال نیست';
+        }
+
+        $ftp = new FtpManager();
+        if (!$ftp->connect()) {
+            return 'اتصال FTP برقرار نشد: ' . $ftp->getLastError();
+        }
+
+        /* 📂 استخراج محلی به پوشه موقت */
+        $tmp = rtrim((string)sys_get_temp_dir(), '/') . '/ssb-ftp-' . substr(md5($localZip . microtime()), 0, 10);
+        if (!is_dir($tmp) && !@mkdir($tmp, 0755, true)) {
+            return 'ساخت پوشه موقت محلی ناموفق بود';
+        }
+        $za = new ZipArchive();
+        if ($za->open($localZip) !== true) {
+            $this->rrmdirLocal($tmp);
+            return 'باز کردن ZIP محلی ناموفق بود';
+        }
+        $za->extractTo($tmp);
+        $za->close();
+
+        /* 🌳 آپلود بازگشتی کل درخت فایل */
+        [$total, $ok] = $this->ftpUploadTree($ftp, $tmp, $this->ftpRemotePath($serverPath));
+        $this->rrmdirLocal($tmp);
+
+        if ($total < 1) {
+            return 'بسته ZIP خالی به نظر می‌رسد';
+        }
+        if ($ok < $total) {
+            return 'آپلود FTP ناقص ماند (' . $ok . ' از ' . $total . ' فایل)';
+        }
+        return 'ok';
+    }
+
+    /**
+     * 🌳 آپلود بازگشتی درخت فایل با FTP — خروجی [تعداد کل، تعداد موفق]
+     */
+    private function ftpUploadTree(FtpManager $ftp, string $localDir, string $remoteDir): array
+    {
+        $total = 0;
+        $ok = 0;
+        foreach ((glob(rtrim($localDir, '/') . '/*', GLOB_NOSORT) ?: []) as $item) {
+            $base = basename($item);
+            if ($base === '.' || $base === '..') {
+                continue;
+            }
+            $remote = rtrim($remoteDir, '/') . '/' . $base;
+            if (is_dir($item)) {
+                $ftp->createDirectory($remote);
+                [$subTotal, $subOk] = $this->ftpUploadTree($ftp, $item, $remote);
+                $total += $subTotal;
+                $ok += $subOk;
+            } else {
+                $total++;
+                if ($ftp->uploadFile($item, $remote)) {
+                    $ok++;
+                }
+            }
+        }
+        return [$total, $ok];
+    }
+
+    /**
+     * 🗺️ مسیر FTP از serverPath مطلق — ریشه FTP همان home کاربر است
+     * (/home/user/public_html/x → /public_html/x)
+     */
+    private function ftpRemotePath(string $serverPath): string
+    {
+        $user = (string)($this->settings['cpanel_username'] ?? '');
+        $rel = $serverPath;
+        if ($user !== '') {
+            $rel = (string)preg_replace('#^/home/' . preg_quote($user, '#') . '#', '', $serverPath);
+        }
+        return '/' . ltrim((string)$rel, '/');
+    }
+
+    /**
+     * 🧹 حذف بازگشتی پوشه موقت محلی
+     */
+    private function rrmdirLocal(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        foreach ((glob($dir . '/*') ?: []) as $f) {
+            if (is_dir($f)) {
+                $this->rrmdirLocal($f);
+            } else {
+                @unlink($f);
+            }
+        }
+        @rmdir($dir);
     }
 
     /**

@@ -199,17 +199,37 @@ class SmartPipeline
         $t = microtime(true);
         $withImages = !array_key_exists('with_images', $params) || $params['with_images'] !== false;
         $images = [];
+        $imagesTraceExtra = [];
         if ($withImages) {
-            $imageService = new ArticleImageService();
-            /* v2: دستگاه از عنوان استنتاج می‌شود + واترمارک دو لوگو */
+            /* 🆕 v2.22: «سرویس انتخابی تنظیمات» همیشه اول تلاش می‌شود — قبلاً این
+               خط تولید فقط بسته عکس محلی می‌کاشت و سرویس انتخابی هرگز استفاده
+               نمی‌شد (شکایت: «مطمئن شو سرویس مربوطه استفاده بشه»). قطعی → بسته محلی. */
             $pickKey = ArticleImageService::normalizeDeviceKey($deviceKey)
                 ?? ArticleImageService::inferDeviceKey((string)($article['title'] ?? ''), (string)($finalContent ?? ''));
-            $images = $imageService->pick($pickKey, $topicType, (string)($article['title'] ?? ''), $focusKeyword, $brand);
-            $finalContent = $imageService->injectIntoContent($finalContent, $images);
-            $trace[] = $this->step('images', 'درج ۳ تصویر مرتبط در مقاله', $t, [
+            $aiImages = [];
+            $usedService = '';
+            try {
+                $photoGen = new AiPhotoService();
+                $aiImages = $photoGen->generateForArticle((int)($article['id'] ?? 0), (string)($article['title'] ?? ''), (string)$pickKey, (string)$topicType, $brand, 3);
+                $usedService = (string)($aiImages[0]['service'] ?? '');
+            } catch (Throwable $eImg) {
+                $aiImages = [];
+            }
+            if ($aiImages) {
+                $injector = new ArticleImageService();
+                $images = $aiImages;
+                $finalContent = $injector->injectIntoContent($finalContent, $images);
+                $imagesTraceExtra = ['service' => $usedService];
+            } else {
+                $imageService = new ArticleImageService();
+                /* v2: دستگاه از عنوان استنتاج می‌شود + واترمارک دو لوگو */
+                $images = $imageService->pick($pickKey, $topicType, (string)($article['title'] ?? ''), $focusKeyword, $brand);
+                $finalContent = $imageService->injectIntoContent($finalContent, $images);
+            }
+            $trace[] = $this->step('images', 'درج ۳ تصویر مرتبط در مقاله' . ($usedService !== '' ? ' (سرویس: ' . $usedService . ')' : ''), $t, array_merge([
                 'count' => count($images),
                 'files' => array_column($images, 'file'),
-            ]);
+            ], $imagesTraceExtra));
         }
 
         /* ---------- ۸️⃣ عنوان بهینه (v3.3: با موضوع درخواستی، عنوان کاربر حفظ می‌شود) ---------- */

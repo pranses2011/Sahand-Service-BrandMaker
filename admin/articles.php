@@ -88,11 +88,13 @@ if (get_param('regen_images') === '1' && ($regenId = (int)get_param('edit')) > 0
         try {
             $brand = ['name_fa' => $article['brand_name'] ?? '', 'extra_settings' => $article['extra_settings'] ?? '', 'logo' => $article['brand_logo'] ?? '', 'id' => $article['brand_id'] ?? 0];
             $gen = new AiImageGenerator();
+            /* 🆕 v2.22: نوع مقاله از خود عنوان استنتاج می‌شود — قبلاً همیشه
+               «troubleshooting» ثابت بود و صحنه پرامپت با موضوع مقاله نمی‌خواند */
             $aiImages = $gen->generateForArticle(
                 $regenId,
                 $article['title'],
                 (string)($article['device_key'] ?? ''),
-                'troubleshooting',
+                AiPhotoService::inferTopicType((string)$article['title']),
                 $brand,
                 '',
                 strip_tags((string)($article['content'] ?? ''))
@@ -145,11 +147,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'regen_images') 
         /* ⏱ زمان بیشتری برای جبران سرویس‌های تصویر */
         if (function_exists('set_time_limit')) { @set_time_limit(300); }
 
+        /* 🆕 v2.22: نوع مقاله از عنوان استنتاج می‌شود (قبلاً ثابت بود) */
         $aiImages = $gen->generateForArticle(
             $regenId,
             $article['title'],
             (string)($article['device_key'] ?? ''),
-            'troubleshooting',
+            AiPhotoService::inferTopicType((string)$article['title']),
             $brand,
             '',
             strip_tags((string)($article['content'] ?? ''))
@@ -174,6 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'regen_images') 
             'photo_source' => $aiImages['photo_source'] ?? 'package',
             'service'    => $aiImages['service'] ?? '',
             'service_label' => $svcLabel,
+            'notices'    => (array)($aiImages['notices'] ?? []), /* 🆕 v3.0: هشدار شفاف «سرویس انتخابی کلید ندارد» */
             'og'         => ['path' => $aiImages['og']['path'], 'url' => asset_url($aiImages['og']['path']) . '?t=' . time()],
             'featured'   => isset($aiImages['featured']) ? ['path' => $aiImages['featured']['path'], 'url' => asset_url($aiImages['featured']['path']) . '?t=' . time()] : null,
             'images'     => array_map(static function ($im) {

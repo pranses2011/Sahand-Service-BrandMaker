@@ -723,7 +723,7 @@ $photoServices = AiPhotoService::servicesList();
                     <span id="photo-test-result" style="font-size:12.5px"></span>
                 </div>
                 <div class="hint" style="margin-top:12px">
-                    💡 سرویس‌های «پولینیشنز» (Flux و Turbo) کاملاً رایگان و بدون کلید هستند و برای شروع کافی‌اند. سرویس‌های Hugging Face / DeepAI / Together با کلید رایگان حساب کاربری‌شان فعال می‌شوند؛ Stability و OpenAI اشتراکی هستند. تست سرویس یک تصویر نمونه کوچک می‌سازد و وضعیت اتصال را نشان می‌دهد.
+                    💡 ۱۴ سرویس پشتیبانی می‌شود — رایگان بدون کلید: «پولینیشنز» (Flux/Turbo) و «AI Horde»؛ کلید با پلن رایگان: Hugging Face / DeepAI / Together / fal.ai / Google Imagen (aistudio) / GetImg؛ اشتراکی: Stability / OpenAI (DALL·E 3 و gpt-image-1) / Ideogram / Replicate. سرویس انتخابی همیشه اول تلاش می‌شود و سرویس واقعاً استفاده‌شده در گزارش تولید تصاویر اعلام می‌شود. «تست سرویس» وضعیت اتصال و کلید را با یک درخواست واقعی بررسی می‌کند.
                 </div>
             </div>
         </div>

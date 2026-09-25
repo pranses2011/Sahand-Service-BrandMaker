@@ -149,6 +149,7 @@ class AiImageGenerator
                 'alt'     => $alts[$i] ?? $photo['alt'],
                 'caption' => $photo['caption'] ?? '',
                 'source'  => (string)($photo['source'] ?? $photoSource),
+                'service' => (string)($photo['service'] ?? ''), /* 🆕 v3.0: سرویس سازنده همین تصویر */
             ];
         }
 
@@ -165,6 +166,12 @@ class AiImageGenerator
 
         $result['photo_source'] = $photoSource;
         $result['service'] = (string)($aiFeatured['service'] ?? ''); /* 🆕 v2.15: سرویسی که واقعاً ساخت (خالی = بسته آماده) */
+        /* 🆕 v3.0: اعلان‌های شفاف سرویس تصویر — «سرویس انتخابی کلید ندارد» و ... */
+        try {
+            $result['notices'] = (isset($photoGen) && method_exists($photoGen, 'getNotices')) ? $photoGen->getNotices() : [];
+        } catch (Throwable $eN) {
+            $result['notices'] = [];
+        }
         $this->progress(93, 'درج تصاویر در محتوای مقاله', count($result['images']) . ' تصویر درون‌متن + تصویر شاخص آماده درج است');
         return $result;
     }

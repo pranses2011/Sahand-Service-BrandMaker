@@ -40,7 +40,7 @@
  *   providers[], serpapi_key, google_cse_key, google_cse_cx, bing_api_key
  *
  * @package SahandBrandMaker\Engine
- * @version 1.4.0
+ * @version 1.5.0
  */
 class WebSearchService
 {
@@ -88,6 +88,13 @@ class WebSearchService
             'google_cse_cx' => '',
             'bing_api_key'  => '',
         ], $saved);
+        /* 🆕 v1.5: کلمپ سقف نرخ — نصب‌های قدیمی مقدار ۶۰ (seed اولیه) ذخیره
+           کرده‌اند و آن روی پیش‌فرض ۲۴۰ غالب می‌شود؛ جستجوی عمیق خطایاب هر بار
+           ۳۰-۴۰ کوئری می‌سوزاند و سقف ۶۰ بعد از ۱-۲ دستگاه همه جستجوها را
+           fail-fast می‌کرد (ریشه‌یابی «هیچ کدی پیدا نشد»). حداقل مجاز = ۲۴۰. */
+        if ((int)$this->cfg['rate_per_hour'] < 240) {
+            $this->cfg['rate_per_hour'] = 240;
+        }
     }
 
     /* ==================================================
@@ -455,7 +462,7 @@ class WebSearchService
             return [false, ''];
         }
         $url = 'https://r.jina.ai/' . $targetUrl;
-        $delays = [0.5, 4.0, 9.0]; // تلاش اول + ۲ retry با فاصله فزاینده
+        $delays = [0.4, 2.5, 7.0]; // 🆕 v1.5: فاصله‌های کوتاه‌تر — بودجه خطایاب محدود است و انتظار ۹+ ثانیه‌ای wasteful بود
         $body = '';
         foreach ($delays as $i => $delay) {
             if ($i > 0) {
