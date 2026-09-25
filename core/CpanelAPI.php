@@ -545,11 +545,101 @@ class CpanelAPI
      * ================================================== */
 
     /**
-     * 📂 ساخت پوشه
+     * 📂 ساخت پوشه — v2.16 بازنویسی ریشه‌ای
+     * ================================
+     * 🔴 ریشه‌یابی خطای «The system could not find the function “mkdir” in the module “Fileman”»:
+     *    طبق مستندات رسمی cPanel (api.docs.cpanel.net — Fileman::mkdir):
+     *    «We strongly recommend that you use UAPI instead of cPanel API 2.
+     *     However, no equivalent UAPI function exists.»
+     *    یعنی تابع mkdir در UAPI **هرگز وجود نداشته** — فراخوانی /execute/Fileman/mkdir
+     *    روی همه سرورهای cPanel با خطای «تابع پیدا نشد» شکست می‌خورد.
+     *
+     * ✅ روش صحیح (طبق مستندات): API2 Fileman::mkdir با پارامترها:
+     *    path        = مسیر مطلق پوشه والد (مثلاً /home/user/public_html/brands/samsung)
+     *    name        = نام پوشه جدید (مثلاً css)
+     *    permissions = مجوز هشتایی (0755)
+     *
+     * 🛡️ زنجیره ضدگلوله:
+     *    ① API2 مستقیم (والد موجود — حالت رایج استقرار)
+     *    ② ساخت بازگشتی والد+فرزند (برای مسیرهای تودرتو مثل پوشه بکاپ)
+     *    ③ راستی‌آزمایی وجود (اگر پوشه از قبل هست → موفق)
      */
     public function createDirectory(string $path): bool
     {
-        return $this->call('Fileman', 'mkdir', ['path' => $this->normalizePath($path)]) !== false;
+        $path = rtrim($this->normalizePath($path), '/');
+        if ($path === '' || $path === '/') {
+            return true;
+        }
+
+        $errors = [];
+
+        /* ① API2 مستقیم — والد موجود است (حالت رایج: زیردامنه پوشه ریشه را ساخته) */
+        if ($this->mkdirApi2($path)) {
+            return true;
+        }
+        $errors[] = 'API2: ' . ($this->lastError ?: 'ناموفق');
+
+        /* ② والد هم وجود ندارد؟ — ساخت بازگشتی سطح‌به‌سطح */
+        $parent = rtrim(dirname($path), '/');
+        if ($parent !== $path && $parent !== '' && $parent !== '/' && $parent !== '\\') {
+            if ($this->createDirectory($parent) && $this->mkdirApi2($path)) {
+                return true;
+            }
+            $errors[] = 'بازگشتی: والد یا فرزند ساخته نشد';
+        }
+
+        /* ③ راستی‌آزمایی نهایی — شاید پوشه از قبل موجود بوده است */
+        if ($this->entryExists($path)) {
+            return true;
+        }
+
+        $this->lastError = 'ساخت پوشه «' . basename($path) . '» ناموفق — ' . implode(' | ', array_filter($errors));
+        return false;
+    }
+
+    /**
+     * 📂 ساخت یک سطح پوشه از طریق API2 Fileman::mkdir (تنها مسیر رسمی)
+     *
+     * @param string $fullPath مسیر مطلق کامل پوشه موردنظر (والد باید موجود باشد)
+     */
+    private function mkdirApi2(string $fullPath): bool
+    {
+        $name = basename($fullPath);
+        if ($name === '' || $name === '/' || $name === '.') {
+            $this->lastError = 'نام پوشه نامعتبر است.';
+            return false;
+        }
+        return $this->callApi2('Fileman', 'mkdir', [
+            'path'        => rtrim(dirname($fullPath), '/'),
+            'name'        => $name,
+            'permissions' => '0755',
+        ]) !== false;
+    }
+
+    /**
+     * ❓ بررسی وجود فایل/پوشه در مسیر (از طریق لیست پوشه والد — UAPI list_files)
+     *
+     * @param string      $path مسیر مطلق موردنظر
+     * @param string|null $type محدود کردن به نوع ('dir' یا 'file') — null = هر دو
+     */
+    public function entryExists(string $path, ?string $type = null): bool
+    {
+        $path   = $this->normalizePath($path);
+        $parent = $this->normalizePath(dirname($path));
+        $name   = basename(rtrim($path, '/'));
+
+        if ($name === '' || $name === '/') {
+            return false;
+        }
+
+        $files = $this->listFiles($parent);
+        foreach ($files as $f) {
+            $fname = (string)($f['file'] ?? $f['name'] ?? '');
+            if ($fname === $name) {
+                return $type === null || (string)($f['type'] ?? '') === $type;
+            }
+        }
+        return false;
     }
 
     /**
@@ -650,19 +740,45 @@ class CpanelAPI
     /**
      * ✍️ نوشتن محتوا در فایل (تولید config.php و .htaccess)
      *
+     * 🛡️ v2.16 زنجیره دو-لایه:
+     *    ① UAPI Fileman::save_file_content (روش اصلی — در UAPI موجود است)
+     *    ② API2 Fileman::savefile (جایگزین — برای هاست‌هایی که UAPI فایل را محدود کرده‌اند)
+     *       پارامترها طبق مستندات: path=مسیر مطلق پوشه، filename=نام فایل، content=محتوا
+     *
      * @param string $path مسیر کامل فایل مقصد
      * @param string $content محتوا
      */
     public function writeFile(string $path, string $content): bool
     {
+        $path = $this->normalizePath($path);
+
+        /* ① UAPI — روش اصلی */
         $data = $this->call('Fileman', 'save_file_content', [
-            'file'          => $this->normalizePath($path),
+            'file'          => $path,
             'content'       => $content,
             'from_charset'  => 'UTF-8',
             'to_charset'    => 'UTF-8',
             'fallback_list' => 'UTF-8',
         ]);
-        return $data !== false;
+        if ($data !== false) {
+            return true;
+        }
+        $uapiError = $this->lastError;
+
+        /* ② API2 savefile — جایگزین (path + filename + content) */
+        $dir  = rtrim(dirname($path), '/');
+        $name = basename($path);
+        $api2 = $this->callApi2('Fileman', 'savefile', [
+            'path'     => $dir,
+            'filename' => $name,
+            'content'  => $content,
+        ]);
+        if ($api2 !== false) {
+            return true;
+        }
+
+        $this->lastError = 'نوشتن فایل ناموفق — UAPI: ' . ($uapiError ?: 'ناموفق') . ' | API2: ' . ($this->lastError ?: 'ناموفق');
+        return false;
     }
 
     /**

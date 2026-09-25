@@ -472,7 +472,10 @@ class Deployer
     }
 
     /**
-     * ۴️⃣ ساخت ساختار پوشه‌ها
+     * ۴️⃣ ساخت ساختار پوشه‌ها — v2.16 سه‌لایه ضدگلوله
+     * ① cPanel API2 (Fileman::mkdir — تنها مسیر رسمی؛ UAPI معادل ندارد)
+     * ② FTP (اگر API محدود شده باشد)
+     * ③ نهایی‌سازی توسط استخراج ZIP (ساختار کامل داخل بسته هست — استخراج خودش پوشه‌ها را می‌سازد)
      */
     private function stepFolders(array $deployment, ?array $brand, array $state): array
     {
@@ -483,13 +486,41 @@ class Deployer
         $dirs = ['css', 'js', 'pages', 'includes', 'cache'];
         $created = 0;
         $failed = [];
+        $ftp = null;
+        $ftpOk = false;
         foreach ($dirs as $dir) {
             if ($this->api->createDirectory($serverPath . '/' . $dir)) {
                 $created++;
+                continue;
+            }
+            // ② fallback FTP — فقط بار اول اتصال برقرار می‌شود
+            if ($ftp === null) {
+                $ftp = new FtpManager();
+                $ftpOk = $ftp->connect();
+                if (!$ftpOk) {
+                    $this->logger->stepSkipped((int)$deployment['id'], 'folders_ftp_unavailable', 'FTP هم در دسترس نیست: ' . $ftp->getLastError());
+                }
+            }
+            // مسیر FTP نسبی از ریشه home است (بدون /home/user)
+            if ($ftpOk && $ftp->createDirectory(ltrim($serverPath, '/') . '/' . $dir)) {
+                $created++;
+                $this->logger->stepSkipped((int)$deployment['id'], 'folders_ftp_fallback', 'پوشه ' . $dir . ' از طریق FTP ساخته شد (API ناموفق بود).');
             } else {
                 $failed[] = $dir;
             }
         }
+
+        // ③ پوشه‌های نجات‌یافته توسط استخراج ZIP ساخته می‌شوند (ساختار کامل داخل بسته هست)
+        // فقط اگر ZIP هم در دسترس نباشد ادامه چک می‌شود — در غیر این صورت استخراج ساختار را کامل می‌کند
+        if (!empty($failed) && !empty($state['zip_path']) && file_exists((string)$state['zip_path'])) {
+            $this->logger->stepSkipped(
+                (int)$deployment['id'],
+                'folders_via_extract',
+                'پوشه‌های ' . implode(', ', $failed) . ' با API/FTP ساخته نشدند — استخراج ZIP مرحله بعد آنها را می‌سازد (ساختار کامل داخل بسته هست).'
+            );
+            return ['ok' => true, 'message' => 'ساختار پوشه‌ها آماده شد (' . $created . ' از ' . count($dirs) . ' مستقیم — بقیه با استخراج بسته ساخته می‌شوند)'];
+        }
+
         // ⚠️ پوشه‌های حیاتی: pages و includes (هسته سایت از آن‌ها فایل می‌خواند)
         if (in_array('pages', $failed, true) || in_array('includes', $failed, true)) {
             return ['ok' => false, 'error' => 'ساخت پوشه‌های حیاتی ناموفق: ' . implode(', ', $failed) . ' — ' . $this->api->getLastError()];
