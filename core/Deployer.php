@@ -7,7 +7,7 @@
  *   ۲. بررسی وجود زیردامنه
  *   ۳. ساخت زیردامنه در cPanel
  *   ۴. ساخت پوشه‌ها
- *   ۵. آپلود و استخراج ZIP (API + FTP fallback)
+ *   ۵. آپلود و استخراج ZIP (API + موتور کمکی PHP + FTP)
  *   ۶. تنظیم config.php
  *   ۷. تنظیم .htaccess
  *   ۸. نصب SSL
@@ -589,6 +589,10 @@ class Deployer
      *    • وجود ZIP روی سرور (استعلام مستقیم — تفکیک «آپلود دروغگو» از «استخراج ناموفق»)
      *    • وضعیت لیست پوشه (ok / ok-empty / unparsed / error) + نمونه پاسخ خام
      *      اگر قالب پاسخ سرور شناخته نشد — عیب‌یابی نسل بعدی قطعی می‌شود
+     * ✅ v2.23 — سه موتور استخراج: fileop ← «کمکی PHP» روی خود سایت
+     *    (بدون نیاز به FTP — نوشته با writeFile و فراخوانی با HTTP) ← FTP
+     * ✅ v2.23 — پاک‌سازی فایل‌های تضادی ریشه پیش از استخراج (ریشه جدید:
+     *    fileop با فایل هم‌نام موجود در مقصد، استخراج را بی‌صدا رها می‌کند)
      */
     private function stepExtract(array $deployment, ?array $brand, array $state): array
     {
@@ -620,9 +624,49 @@ class Deployer
         }
 
         /* 📦 استخراج + مکان‌یابی + بازیابی خودکار + راستی‌آمایی index.php */
+        /* 🧹 v2.23 — پاک‌سازی فایل‌های تضادی ریشه پیش از استخراج (ریشه جدید):
+         * بسته ZIP حاوی config.php و .htaccess و index.php و ... در ریشه است؛
+         * در جریان بروزرسانی، clean_old این دو فایل را «حفظ» می‌کند (لیست خطای
+         * کاربر: دقیقاً فقط .htaccess + config.php + ZIP) و در استقرار تازه
+         * ممکن است هاست .htaccess پیش‌فرض گذاشته باشد. رفتار fileop روی این
+         * سرور: در برخورد با فایل هم‌نامِ موجود، استخراج را بی‌صدا رها می‌کند
+         * و «موفقیت تأییدنشده» برمی‌گرداند — هیچ فایلی تولید نمی‌شود.
+         * محتوای config قبلی از قبل در state حفظ شده (preserve_config قبل از
+         * clean_old اجرا می‌شود) و .htaccess در مرحله بعدی بازنویسی می‌شود. */
+        $conflictsCleared = $this->clearZipConflicts($localZip, $serverPath);
+        if ($conflictsCleared !== []) {
+            $this->logger->stepSkipped(
+                (int)$deployment['id'],
+                'extract_conflict_clear',
+                count($conflictsCleared) . ' فایل تضادی قدیمی پیش از استخراج حذف شد (' . implode('، ', $conflictsCleared) . ') — fileop با فایل هم‌نام موجود، استخراج را بی‌صدا رها می‌کند'
+            );
+        }
+
         if (!$this->api->extractZip($remoteZip, $serverPath)) {
             $extractError = $this->api->getLastError();
             $stage = $this->api->getLastExtractStage();
+
+            /* 🚑 نجات ۱ — v2.23: «موتور کمکی PHP» روی خود سایت (بدون FTP):
+             * فایل کمکی کوچک با writeFile (اثبات‌شده روی سرورهای مشکل‌دار —
+             * همان مسیر نوشتن config.php و .htaccess) در پوشه سایت نوشته و
+             * از طریق HTTP فراخوانی می‌شود؛ خودش ZipArchive را روی بسته
+             * آپلودشده اجرا می‌کند. به نه fileop وابسته است و نه تنظیمات FTP
+             * — و حتی به بسته محلی هم نیازی ندارد (ZIP از قبل روی سرور هست).
+             * راستی‌آمایی نهایی همیشه با استعلام مستقیم cPanel انجام می‌شود. */
+            $helper = $this->deployZipViaHttpHelper($remoteZip, $serverPath, $deployment);
+            if ($this->api->entryExists($serverPath . '/index.php', 'file')) {
+                $this->logger->stepSkipped(
+                    (int)$deployment['id'],
+                    'extract_http_helper',
+                    'استخراج cPanel ناکام ماند (' . $extractError . ') — موتور کمکی PHP روی خود سایت بسته را استخراج کرد' . (isset($helper['url']) && $helper['url'] !== '' ? ' (' . $helper['url'] . ')' : '')
+                );
+                $this->api->deleteFile($remoteZip); /* 🧹 بسته دیگر لازم نیست */
+                return ['ok' => true, 'message' => 'فایل‌ها با «موتور کمکی PHP» مستقر شدند (بدون FTP) — index.php موجود است'];
+            }
+            /* 🧹 فایل کمکی هرگز روی سایت نماند (خودش هم بعد از اجرای کامل حذف می‌شود) */
+            if (!empty($helper['helper'])) {
+                $this->api->deleteFile($serverPath . '/' . $helper['helper']);
+            }
 
             /* 🚑 v2.22 — نجات FTP کامل: اگر استخراج cPanel هیچ فایلی تولید نکرد
              *    (رفتار مشاهده‌شده روی برخی سرورهای قدیمی: fileop موفق ولی خروجی صفر)،
@@ -665,6 +709,11 @@ class Deployer
             $listView = $statusMap[$listStatus] ?? $listStatus;
             $rawSnippet = $this->api->getListRawSnippet(160);
 
+            $helperView = (string)($helper['status'] ?? 'نامشخص');
+            if ($helperView === 'ok') {
+                $helperView = 'اجرا شد اما راستی‌آمایی index.php ناموفق ماند';
+            }
+
             $headline = $stage === 'api'
                 ? 'استخراج ZIP ناموفق'
                 : 'استخراج کامل نشد — index.php در مسیر سایت یافت نشد';
@@ -675,9 +724,11 @@ class Deployer
                     . ' | محتوای مسیر سایت: ' . $dirView
                     . ' | وضعیت لیست: ' . $listView
                     . ' | ZIP روی سرور: ' . $zipOnServer
+                    . ' | نجات کمکی PHP: ' . $helperView
                     . ($rawSnippet !== '' ? ' | نمونه پاسخ لیست: ' . $rawSnippet : '')
                     . ($ftpRescue !== 'ok' ? ' | نجات FTP هم ناکام: ' . $ftpRescue : '')
-                    . ($extractError !== '' ? ' | جزئیات: ' . $extractError : ''),
+                    . ($extractError !== '' ? ' | جزئیات: ' . $extractError : '')
+                    . ' | 💡 راهنما: اگر تکرار شد، تنظیمات FTP را در «تنظیمات cPanel» تکمیل کنید تا موتور نجات سوم (FTP) هم فعال شود',
             ];
         }
 
@@ -799,6 +850,271 @@ class Deployer
             }
         }
         @rmdir($dir);
+    }
+
+    /**
+     * 🧹 حذف فایل‌های تضادی ریشه پیش از استخراج — v2.23
+     * ================================================
+     * فایل‌های سطح اول بسته ZIP که روی سرور هم موجود باشند حذف می‌شوند —
+     * چون fileop برخی سرورها در برخورد با فایل هم‌نام موجود، کل استخراج را
+     * بی‌صدا رها می‌کند (لیست خطای کاربر: فقط .htaccess + config.php + ZIP).
+     *
+     * محتوای config.php قبلی از قبل در state حفظ شده (مرحله preserve_config
+     * قبل از clean_old اجرا می‌شود) و .htaccess در مرحله بعدی بازنویسی می‌شود —
+     * یعنی حذف این فایل‌ها هیچ داده‌ای از دست نمی‌دهد.
+     *
+     * @param string $localZip بسته محلی (برای فهرست ورودی‌های ریشه)
+     * @param string $serverPath مسیر سایت روی سرور
+     * @return array نام فایل‌هایی که حذف شدند
+     */
+    private function clearZipConflicts(string $localZip, string $serverPath): array
+    {
+        if ($localZip === '' || !is_file($localZip) || !class_exists('ZipArchive')) {
+            return [];
+        }
+        $z = new ZipArchive();
+        if ($z->open($localZip) !== true) {
+            return [];
+        }
+        $rootFiles = [];
+        for ($i = 0; $i < $z->numFiles; $i++) {
+            $name = (string)$z->getNameIndex($i);
+            if ($name === '' || strpos($name, '/') !== false || substr($name, -1) === '/') {
+                continue; /* فقط فایل‌های ریشه بسته */
+            }
+            $rootFiles[] = $name;
+        }
+        $z->close();
+
+        $cleared = [];
+        foreach (array_slice($rootFiles, 0, 40) as $f) {
+            if ($this->api->entryExists($serverPath . '/' . $f, 'file')
+                && $this->api->deleteFile($serverPath . '/' . $f)) {
+                $cleared[] = $f;
+            }
+        }
+        return $cleared;
+    }
+
+    /**
+     * 🚑 استقرار بسته با «موتور کمکی PHP» روی خود سایت — v2.23
+     * =======================================================
+     * سومین موتور استخراج — مستقل از fileop و FTP:
+     *   ① فایل کمکی کوچک با CpanelAPI::writeFile در پوشه سایت نوشته می‌شود
+     *      (همان مسیری که config.php و .htaccess را می‌نویسد — روی سرورهای
+     *      مشکل‌دار استخراج، writeFile اثبات‌شده کار می‌کند)
+     *   ② از طریق HTTP فراخوانی می‌شود (کاندیدها: https/http × دامنه برند و
+     *      مسیر سایت روی دامنه اصلی حساب) و خودش با ZipArchive بسته
+     *      آپلودشده را همان‌جا استخراج + مسطح‌سازی + مجوزدهی می‌کند
+     *   ③ راستی‌آمایی نهایی همیشه با entryExists (استعلام مستقیم cPanel)
+     *      در stepExtract انجام می‌شود — گزارش کمکی به‌تنهایی ملاک نیست
+     *
+     * 🛡️ امنیت: نام تصادفی + کلید ۴۸ نویسه‌ای تصادفی + بمب زمانی یک‌ساعته +
+     *      خودحذف پس از اجرا + فقط بسته هم‌نام ثبت‌شده در همان پوشه (بدون هیچ
+     *      ورودی مسیر از بیرون) + کلید غلط هرگز فایل را حذف نمی‌کند (ضد خرابکاری)
+     *
+     * @param string $remoteZip مسیر ZIP روی سرور (از قبل آپلودشده)
+     * @param string $serverPath مسیر سایت روی سرور
+     * @param array  $deployment ردیف عملیات (برای full_domain)
+     * @return array ['status' => 'ok'|دلیل شکست، 'helper' => نام فایل کمکی، 'url' => نشانی موفق/آخرین]
+     */
+    private function deployZipViaHttpHelper(string $remoteZip, string $serverPath, array $deployment): array
+    {
+        $zipBase = basename($remoteZip);
+        if ($zipBase === '' || $zipBase === '.' || $zipBase === '/') {
+            return ['status' => 'نام بسته روی سرور نامعتبر است', 'helper' => '', 'url' => ''];
+        }
+
+        /* ① تولید و نوشتن فایل کمکی روی سایت */
+        try {
+            $key = bin2hex(random_bytes(24));
+            $helperName = 'ssb-x-' . bin2hex(random_bytes(5)) . '.php';
+        } catch (Throwable $e) {
+            return ['status' => 'تولید مقادیر تصادفی ناموفق: ' . $e->getMessage(), 'helper' => '', 'url' => ''];
+        }
+        $code = $this->buildExtractHelperCode($zipBase, $key);
+        if (!$this->api->writeFile($serverPath . '/' . $helperName, $code)) {
+            return ['status' => 'نوشتن فایل کمکی روی سایت ناموفق: ' . $this->api->getLastError(), 'helper' => $helperName, 'url' => ''];
+        }
+
+        /* ② فراخوانی از طریق HTTP — کاندیدها به‌ترتیب اطمینان */
+        $urls = $this->helperUrlCandidates($deployment, $serverPath, $helperName);
+        if ($urls === []) {
+            return ['status' => 'هیچ نشانی قابل فراخوانی برای فایل کمکی یافت نشد (دامنه برند ثبت نشده است)', 'helper' => $helperName, 'url' => ''];
+        }
+
+        $last = 'بدون پاسخ';
+        $lastUrl = '';
+        foreach ($urls as $url) {
+            $lastUrl = $url;
+            $res = $this->httpFetch($url . '?key=' . urlencode($key));
+            if ($res['errno'] !== 0 || (int)$res['code'] !== 200) {
+                $last = 'HTTP ' . ((int)$res['code'] > 0 ? (string)$res['code'] : 'خطا')
+                    . ($res['error'] !== '' ? ' (' . mb_substr($res['error'], 0, 80) . ')' : '');
+                continue;
+            }
+            $json = json_decode(trim((string)$res['body']), true);
+            if (is_array($json)) {
+                if (!empty($json['ok'])) {
+                    return ['status' => 'ok', 'helper' => $helperName, 'url' => $url];
+                }
+                $last = 'کمکی گزارش داد: ' . mb_substr((string)($json['error'] ?? 'ناموفق'), 0, 160);
+            } else {
+                $snippet = mb_substr(trim((string)preg_replace('/\\s+/u', ' ', strip_tags((string)$res['body']))), 0, 120);
+                $last = 'پاسخ غیر JSON از کمکی' . ($snippet !== '' ? ': «' . $snippet . '»' : '');
+            }
+        }
+        return ['status' => $last, 'helper' => $helperName, 'url' => $lastUrl];
+    }
+
+    /**
+     * 🌐 کاندیدهای نشانی فراخوانی فایل کمکی — v2.23
+     * اولویت: دامنه برند (vhost اختصاصی) سپس مسیر سایت روی دامنه اصلی حساب
+     * (برای استقرار تازه که DNS زیردامنه هنوز گرم نشده، مسیر دامنه اصلی
+     * بلافاصله کار می‌کند چون زیر public_html همان حساب است)
+     * @return array لیست URL ها (https سپس http از هر کاندید)
+     */
+    private function helperUrlCandidates(array $deployment, string $serverPath, string $helperName): array
+    {
+        $urls = [];
+        $domain = strtolower(trim((string)($deployment['full_domain'] ?? '')));
+        if ($domain !== '') {
+            $urls[] = 'https://' . $domain . '/' . $helperName;
+            $urls[] = 'http://' . $domain . '/' . $helperName;
+        }
+
+        /* مسیر نسبی از docroot دامنه اصلی (/home/user/public_html/...) */
+        $user = trim((string)($this->settings['cpanel_username'] ?? ''));
+        $rootDomain = strtolower(trim((string)($this->settings['root_domain'] ?? '')));
+        if ($user !== '' && $rootDomain !== '') {
+            $rel = preg_replace('#^/home/' . preg_quote($user, '#') . '/public_html#i', '', $serverPath);
+            if (is_string($rel) && $rel !== $serverPath && trim($rel, '/') !== '') {
+                $urls[] = 'https://' . $rootDomain . '/' . trim($rel, '/') . '/' . $helperName;
+                $urls[] = 'http://' . $rootDomain . '/' . trim($rel, '/') . '/' . $helperName;
+            }
+        }
+        return $urls;
+    }
+
+    /**
+     * 🧩 تولید کد فایل کمکی استخراج (PHP مستقل برای اجرا روی خود سایت) — v2.23
+     * ====================================================================
+     * کاملاً خودکفا و سازگار با PHP 7.2+ (بدون تایپ‌هینت/سینتکس جدید):
+     *   • فقط بسته هم‌نام ثبت‌شده را در همان پوشه ( __DIR__ ) استخراج می‌کند
+     *   • مسطح‌سازی خودکار اگر ZIP پوشه ریشه داشت (هم‌ارز settleExtractedFiles)
+     *   • مجوزدهی (پوشه 0755 / فایل 0644) + گزارش JSON + خودحذف پس از اجرا
+     *   • بمب زمانی یک‌ساعته + کلید تصادفی ۴۸ نویسه‌ای (کلید غلط = 403 بدون حذف)
+     *
+     * @param string $zipBase نام فایل ZIP روی سرور (بدون مسیر)
+     * @param string $key کلید تصادفی این اجرا
+     * @return string کد PHP کامل فایل کمکی
+     */
+    private function buildExtractHelperCode(string $zipBase, string $key): string
+    {
+        $tpl = <<<'SSBHELPER'
+<?php
+/* SS-Brands extract helper - generated by auto-deploy v2.23+; self-removes after run */
+error_reporting(0);
+ini_set('display_errors', '0');
+@set_time_limit(300);
+@ignore_user_abort(true);
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
+
+function ssb_helper_out($r) { echo json_encode($r); exit; }
+function ssb_helper_move_up($src, $dst) {
+    $moved = false;
+    $items = @scandir($src);
+    if (!is_array($items)) { return $moved; }
+    foreach ($items as $base) {
+        if ($base === '.' || $base === '..') { continue; }
+        $item = rtrim($src, '/') . '/' . $base;
+        $target = rtrim($dst, '/') . '/' . $base;
+        if (is_dir($item)) {
+            if (is_dir($target)) {
+                if (ssb_helper_move_up($item, $target)) { $moved = true; }
+                @rmdir($item);
+            } elseif (@rename($item, $target)) { $moved = true; }
+        } else {
+            if (is_file($target)) { @unlink($target); }
+            if (@rename($item, $target)) { $moved = true; }
+        }
+    }
+    return $moved;
+}
+
+$SSB_KEY = __SSB_KEY__;
+$SSB_ZIP = __SSB_ZIP__;
+
+/* time bomb - stale helper never runs */
+if (time() - (int)@filemtime(__FILE__) > 3600) {
+    @unlink(__FILE__);
+    ssb_helper_out(array('ok' => false, 'error' => 'helper-expired'));
+}
+/* auth - wrong key: 403 only (no delete, so vandals cannot kill the rescue) */
+if (!isset($_GET['key']) || !is_string($_GET['key']) || !hash_equals($SSB_KEY, $_GET['key'])) {
+    header('HTTP/1.1 403 Forbidden');
+    ssb_helper_out(array('ok' => false, 'error' => 'bad-key'));
+}
+
+$dir = __DIR__;
+$zipPath = $dir . '/' . $SSB_ZIP;
+if (!is_file($zipPath)) {
+    @unlink(__FILE__);
+    ssb_helper_out(array('ok' => false, 'error' => 'zip-missing'));
+}
+if (!class_exists('ZipArchive')) {
+    @unlink(__FILE__);
+    ssb_helper_out(array('ok' => false, 'error' => 'no-ziparchive'));
+}
+
+$z = new ZipArchive();
+$rc = $z->open($zipPath);
+if ($rc !== true) {
+    @unlink(__FILE__);
+    ssb_helper_out(array('ok' => false, 'error' => 'zip-open-' . $rc));
+}
+$n = (int)$z->numFiles;
+if (!$z->extractTo($dir)) {
+    $err = (string)$z->getStatusString();
+    $z->close();
+    @unlink(__FILE__);
+    ssb_helper_out(array('ok' => false, 'error' => 'extract-failed: ' . $err, 'files' => $n));
+}
+$z->close();
+
+/* flatten - if the ZIP had a root wrapper folder */
+$flat = false;
+if (!is_file($dir . '/index.php')) {
+    foreach ((array)@glob($dir . '/*', GLOB_ONLYDIR) as $sub) {
+        if (is_file($sub . '/index.php')) {
+            $flat = ssb_helper_move_up($sub, $dir);
+            @rmdir($sub);
+            break;
+        }
+    }
+}
+
+/* permissions: dir 0755 / file 0644 */
+@chmod($dir, 0755);
+$scan = @scandir($dir);
+if (is_array($scan)) {
+    foreach ($scan as $e) {
+        if ($e === '.' || $e === '..') { continue; }
+        @chmod($dir . '/' . $e, is_dir($dir . '/' . $e) ? 0755 : 0644);
+    }
+}
+
+$ok = is_file($dir . '/index.php');
+@unlink(__FILE__);
+if ($ok) { @unlink($zipPath); }
+ssb_helper_out(array('ok' => $ok, 'files' => $n, 'flattened' => $flat, 'error' => $ok ? '' : 'index-missing'));
+SSBHELPER;
+
+        return strtr($tpl, [
+            '__SSB_KEY__' => var_export($key, true),
+            '__SSB_ZIP__' => var_export($zipBase, true),
+        ]);
     }
 
     /**
