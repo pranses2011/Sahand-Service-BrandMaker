@@ -362,6 +362,7 @@ async function openDeployDialog(brandId, isUpdate) {
         return;
     }
     currentBrandId = brandId;
+    updateMode = false; /* 🛡️ v2.15: ریست پیش از پاسخ زنده — حالت کهنه از دیالوگ قبلی نمی‌ماند */
 
     const body = await api({action: 'preview', brand_id: brandId});
     if (!body.success) { sahandAlert({ title: 'خطا', message: errText(body), type: 'danger' }); return; }

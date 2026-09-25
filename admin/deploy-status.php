@@ -49,6 +49,15 @@ switch ($action) {
             json_response(['success' => false, 'error' => 'برند یافت نشد.']);
         }
 
+        /* 🛡️ v2.15 — تصمیم «سرورمحور» درباره نوع عملیات: حالت بروزرسانی/استقرار
+           از واقعیت زنده دیتابیس محاسبه می‌شود، نه از پارامتر کلاینت. ریشه‌یابی:
+           اگر فرانت (کش مرورگر/نسخه قدیمی JS) update_mode=true می‌فرستاد در حالی
+           که برند مسیر سرور نداشت، queueUpdate رد می‌شد و کاربر پیام «این برند
+           هنوز استقرار خودکار ندارد» می‌دید. حالا چنین حالتی خودکار به «استقرار
+           جدید» تبدیل می‌شود و برعکس. */
+        $reallyDeployed = !empty($brand['is_deployed']) && trim((string)($brand['server_path'] ?? '')) !== '';
+        $updateMode = $reallyDeployed;
+
         $deployer = new Deployer();
         if ($updateMode) {
             $result = $deployer->queueUpdate($brandId, 'panel');

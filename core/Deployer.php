@@ -154,6 +154,11 @@ class Deployer
 
     /**
      * 🔄 ایجاد عملیات بروزرسانی
+     *
+     * 🛡️ v2.15 — ضدگلوله: اگر برند «واقعاً» مستقر نباشد (پرچم خاموش یا مسیر
+     * سرور خالی — میراث نسخه‌های قدیمی/استقرار ناتمام)، به‌جای رد کردن با
+     * خطای «این برند هنوز استقرار خودکار ندارد»، عملیات «استقرار جدید»
+     * خودکار صف می‌شود (طبق خواسته کاربر: «اصلاحش کن تا استقرار رو انجام بده»).
      */
     public function queueUpdate(int $brandId, string $triggeredBy = 'panel'): array
     {
@@ -162,7 +167,10 @@ class Deployer
             return ['success' => false, 'deployment_id' => null, 'message' => 'برند یافت نشد.'];
         }
         if (empty($brand['is_deployed']) || empty($brand['server_path'])) {
-            return ['success' => false, 'deployment_id' => null, 'message' => 'این برند هنوز استقرار خودکار ندارد — ابتدا استقرار انجام دهید.'];
+            /* 🚀 fallback خودکار: استقرار جدید با نام پیشنهادی زیردامنه */
+            $subManager = new SubdomainManager();
+            $suggested = $subManager->previewSubdomain($brand);
+            return $this->queueDeploy($brandId, $suggested, true, $triggeredBy, (string)($brand['domain_type'] ?? 'subdomain') === 'addon' ? (string)$brand['full_domain'] : '');
         }
 
         $active = $this->db->fetchValue(

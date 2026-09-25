@@ -489,6 +489,34 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
 }
 
 /* --------------------------------------------------
+ * 🆕 مهاجرت v2.15 — خودترمیمی پرچم‌های استقرار ناسازگار
+ * ریشه‌یابی باگ «این برند هنوز استقرار خودکار ندارد»: برندهایی که
+ * is_deployed=1 دارند اما server_path خالی است (میراث نسخه‌های قدیمی یا
+ * استقرار ناتمام)، در دیالوگ «بروزرسانی» باز می‌شدند و شروع عملیات با
+ * خطای queueUpdate رد می‌شد. پرچم ناسازگار = استقرار واقعی نیست → صفر می‌شود
+ * تا دیالوگ درست «استقرار جدید» نشان دهد. فقط یک بار (cache/.schema_v215).
+ * -------------------------------------------------- */
+if (!defined('SAHAND_NO_DB_MIGRATE')) {
+    try {
+        $v215Marker = ROOT_PATH . '/cache/.schema_v215';
+        if (!file_exists($v215Marker)) {
+            $dsn4 = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=%s', DB_HOST, DB_PORT, DB_NAME, DB_CHARSET);
+            $probe4 = new PDO($dsn4, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 3]);
+            $probe4 = null;
+            $pdo = Database::getInstance()->pdo();
+
+            /* 🩺 پرچم استقرار بدون مسیر سرور = داده ناسازگار → ریست به «بدون استقرار» */
+            $pdo->exec("UPDATE `brands` SET `is_deployed` = 0, `deploy_method` = NULL, `deployed_at` = NULL
+                WHERE `is_deployed` = 1 AND (`server_path` IS NULL OR TRIM(`server_path`) = '')");
+
+            @file_put_contents($v215Marker, date('Y-m-d H:i:s'));
+        }
+    } catch (Throwable $v215SchemaE) {
+        // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
+    }
+}
+
+/* --------------------------------------------------
  * 🕐 شروع امن نشست (Session)
  * -------------------------------------------------- */
 if (session_status() === PHP_SESSION_NONE && !defined('SAHAND_NO_SESSION')) {
