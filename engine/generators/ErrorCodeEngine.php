@@ -1239,14 +1239,48 @@ class ErrorCodeEngine
      * الگوها: «به علت X»، «علت آن X است»، «caused by X»، «due to X»، «faulty/defective X»
      * اگر جمله‌ای پیدا نشد → دلایل استاندارد همان نوع دستگاه (دانش فنی معتبر)
      */
+    /**
+     * 🆕 v3.13: برش بخش ساختاریافته «نشانگر شروع → نشانگر پایان/سقف»
+     * جایگزین regex مهارشده‌ای که روی متن‌های بلند با «preg_match_all():
+     * regular expression is too large» می‌ترکید و بخش‌های Possible Causes /
+     * Troubleshooting Steps را کاملاً از دست می‌داد (ریشه «فیلدهای ناقص»).
+     */
+    private function sliceStructuredSections(string $ctx, string $startRe, array $endRegexes, int $maxLen = 700, int $maxSections = 3): array
+    {
+        $out = [];
+        if (!preg_match_all($startRe, $ctx, $mm, PREG_OFFSET_CAPTURE)) {
+            return $out;
+        }
+        foreach (array_slice($mm[0], 0, $maxSections) as $mk) {
+            $start = $mk[1] + strlen($mk[0]);
+            $rest = substr($ctx, $start);
+            if ($rest === false || $rest === '') { continue; }
+            $len = min($maxLen, strlen($rest));
+            foreach ($endRegexes as $ere) {
+                if (preg_match($ere, $rest, $em, PREG_OFFSET_CAPTURE)) {
+                    $len = min($len, (int)$em[0][1]);
+                }
+            }
+            if ($len > 15) {
+                $out[] = substr($rest, 0, $len);
+            }
+        }
+        return $out;
+    }
+
     private function extractCausesFromContext(string $ctx, string $deviceKey, string $category): array
     {
         $causes = [];
         /* 🆕 v2.14: بخش ساختاریافته «Possible Causes:» — رایج‌ترین قالب مقالات فنی
            مثال: «Possible Causes: Damaged wire harness. Faulty thermistor.»
            ⚠️ الگوی مهارشده: هرچه تا کد بعدی/بخش بعدی است می‌گیرد (دو-نقطه داخلی مجاز) */
-        if (preg_match_all('/(?:possible\s+)?causes?\s*:\s*((?:(?!\b[A-Z]{1,2}-?\d{1,2}\s*:|\b(?:troubleshoot|how\s+to|solution|fix\b|repair\b|related|meaning|final)\b).){15,600})/is', $ctx, $m)) {
-            foreach ($m[1] as $block) {
+        foreach ($this->sliceStructuredSections(
+            $ctx,
+            '/(?:possible\s+)?causes?\s*:/is',
+            ['/\b(?:troubleshoot\w*|how\s+to|solution|fix\b|repair\b|related|meaning|final|diagnos\w*|symptom\w*|next\s+step)\b/i', '/\b[A-Z]{1,2}-?\d{1,2}\s*(?::|\b)/'],
+            700
+        ) as $block) {
+            {
                 foreach (preg_split('/[.;]\s+/', trim($block)) as $s) {
                     $s = trim($s, " \t.,;-‌");
                     if (mb_strlen($s) < 6 || mb_strlen($s) > 90) { continue; }
@@ -1401,8 +1435,13 @@ class ErrorCodeEngine
             /* 🆕 v2.14: بخش ساختاریافته «Troubleshooting Steps:» — قالب استاندارد مقالات
                مثال: «Troubleshooting Steps: Check the wire harness. Reset the unit.»
                ⚠️ الگوی مهارشده: دو-نقطه داخلی مجاز است؛ تا کد بعدی ادامه می‌یابد */
-            if (preg_match_all('/troubleshoot\w*\s*(?:steps?)?\s*:\s*((?:(?!\b[A-Z]{1,2}-?\d{1,2}\s*:|\b(?:related|meaning|final|conclusion|notes?\b|when\s+to)\b).){15,900})/is', $ctx, $m)) {
-                foreach ($m[1] as $block) {
+            foreach ($this->sliceStructuredSections(
+                $ctx,
+                '/troubleshoot\w*\s*(?:steps?)?\s*:/is',
+                ['/\b(?:related|meaning|final|conclusion|notes?\b|when\s+to|next\s+step|possible\s+causes)\b/i', '/\b[A-Z]{1,2}-?\d{1,2}\s*(?::|\b)/'],
+                900
+            ) as $block) {
+                {
                     foreach (preg_split('/[.;]\s+/', trim($block)) as $s) {
                         $s = trim($s, " \t.,;-‌");
                         if (mb_strlen($s) < 6 || mb_strlen($s) > 110) { continue; }
