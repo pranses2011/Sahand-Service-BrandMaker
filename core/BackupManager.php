@@ -237,8 +237,9 @@ class BackupManager
         // ۳. ساخت مجدد پوشه
         $this->api->createDirectory($serverPath);
 
-        // ۴. استخراج بکاپ در مسیر سایت — v2.18: extractZip خودش ZIP خارج از مقصد را
-        //    ابتدا به داخل مقصد کپی می‌کند، استخراج می‌کند و کپی را پاک می‌کند
+        // ۴. استخراج بکاپ در مسیر سایت — v2.19: extractZip خودش ZIP خارج از مقصد را
+        //    ابتدا به داخل مقصد کپی می‌کند، استخراج می‌کند، مکان‌یابی/مسطح‌سازی
+        //    خودکار (پوشه ریشه بکاپ → انتقال به بالا) و راستی‌آمایی index.php انجام می‌دهد
         if ($logger) { $logger->step($deploymentId, 'rollback_extract', 'استخراج بکاپ...'); }
         if (!$this->api->extractZip((string)$backup['file_path'], $serverPath)) {
             $msg = 'استخراج بکاپ ناموفق بود: ' . $this->api->getLastError();
@@ -246,7 +247,8 @@ class BackupManager
             return ['success' => false, 'message' => $msg];
         }
 
-        // ۵. اصلاح ساختار — ZIP شامل خود پوشه برند است؛ فایل‌ها باید داخل serverPath باشند
+        // ۵. اصلاح ساختار تکمیلی — ZIP شامل خود پوشه برند است؛ v2.19 معمولاً
+        //    داخل extractZip مسطح می‌شود — این فراخوانی صرفاً محک اضافی است
         $this->api->flattenSingleChildDir($serverPath);
 
         Logger::info('[Backup] بازیابی انجام شد', ['backup_id' => $backupId]);

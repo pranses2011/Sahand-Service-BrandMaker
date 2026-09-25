@@ -12,7 +12,7 @@
  * 📡 اندپوینت: https://{host}:{port}/execute/{Module}/{Function}
  *
  * @package SahandBrandMaker
- * @version 1.0.0
+ * @version 2.19.0
  */
 class CpanelAPI
 {
@@ -30,6 +30,9 @@ class CpanelAPI
 
     /** @var bool حالت دیباگ — ثبت جزئیات فراخوانی‌ها */
     private $debug;
+
+    /** @var string مرحله شکست آخرین استخراج — 'api' (فراخوانی cPanel) یا 'settle' (مکان‌یابی/راستی‌آزمایی) — v2.19 */
+    private $lastExtractStage = '';
 
     /**
      * 🔧 سازنده — دریافت تنظیمات اتصال
@@ -156,12 +159,20 @@ class CpanelAPI
             return false;
         }
 
+        /* 🛡️ v2.19: پارس هر دو قالب پاسخ UAPI:
+         *   قدیمی (تخت):    {status, data, errors, messages, ...}
+         *   جدید (تو-در-تو): {apiversion, module, func, result: {status, data, errors, messages}}
+         * مستندات رسمی (cpanel.openapi 11.138) قالب تو-در-تو را تعریف می‌کند؛
+         * سرورهای قدیمی قالب تخت برمی‌گردانند — هر دو پارس می‌شوند تا سیستم
+         * هم روی هاست فعلی و هم پس از ارتقای سرور کار کند. */
+        $payload = isset($json['result']) && is_array($json['result']) ? $json['result'] : $json;
+
         // UAPI موفق: status=1 و errors=null
-        $status = (int)($json['status'] ?? 0);
+        $status = (int)($payload['status'] ?? 0);
         if ($status !== 1) {
-            $errors = $json['errors'] ?? null;
+            $errors = $payload['errors'] ?? null;
             $msg = is_array($errors) ? implode(' | ', $errors) : (is_string($errors) && $errors !== '' ? $errors : '');
-            $messages = $json['messages'] ?? null;
+            $messages = $payload['messages'] ?? null;
             if ($msg === '' && is_array($messages)) {
                 $msg = implode(' | ', $messages);
             }
@@ -169,7 +180,7 @@ class CpanelAPI
             return false;
         }
 
-        return $json['data'] ?? [];
+        return is_array($payload['data'] ?? null) ? $payload['data'] : [];
     }
 
     /**
@@ -659,12 +670,16 @@ class CpanelAPI
             $this->lastError = 'فایل محلی برای آپلود یافت نشد: ' . basename($localFile);
             return false;
         }
-        foreach (['file-0', 'upload-0'] as $field) {
-            $data = $this->call('Fileman', 'upload_files', ['dir' => $this->normalizePath($remoteDir)], [
-                $field => $localFile,
-            ]);
-            if ($data !== false) {
-                return true;
+        /* 🛡️ v2.19: دو قرارداد فیلد (file-0 مستندات + upload-0 اثبات‌شده)
+         *    × دو قالب مسیر (مطلق + نسبی از home — مثال‌های رسمی نسبی‌اند) */
+        foreach ([$this->normalizePath($remoteDir), $this->homeRelative($remoteDir)] as $dir) {
+            foreach (['file-0', 'upload-0'] as $field) {
+                $data = $this->call('Fileman', 'upload_files', ['dir' => $dir], [
+                    $field => $localFile,
+                ]);
+                if ($data !== false) {
+                    return true;
+                }
             }
         }
         return false;
@@ -705,18 +720,14 @@ class CpanelAPI
             return [false, null];
         }
 
-        /* 🛡️ دو قالب مسیر — مطلق سپس نسبی از home (طبق مثال‌های رسمی) */
-        $user = (string)($this->settings['cpanel_username'] ?? '');
-        $attempts = [array_map(function ($p) {
+        /* 🛡️ v2.19: دو قالب مسیر — مطلق سپس نسبی از home (طبق مثال‌های رسمی) */
+        $abs = array_map(function ($p) {
             return $this->normalizePath($p);
-        }, $sourcefiles)];
-        if ($user !== '') {
-            $attempts[] = array_map(function ($p) use ($user) {
-                $abs = $this->normalizePath($p);
-                $rel = preg_replace('#^/home/' . preg_quote($user, '#') . '/?#', '', $abs);
-                return ($rel !== '' && $rel !== $abs) ? $rel : $abs;
-            }, $sourcefiles);
-        }
+        }, $sourcefiles);
+        $rel = array_map(function ($p) {
+            return $this->homeRelative($p);
+        }, $sourcefiles);
+        $attempts = $abs === $rel ? [$abs] : [$abs, $rel];
 
         $lastErr = '';
         foreach ($attempts as $files) {
@@ -753,14 +764,21 @@ class CpanelAPI
     }
 
     /**
-     * 📦 استخراج ZIP در مسیر مقصد — v2.18 بازنویسی ریشه‌ای
-     * ================================================
-     * ✅ تنها مسیر رسمی: API2 Fileman::fileop (op=extract) — طبق مستندات cPanel
-     *    «no equivalent UAPI function exists»
+     * 📦 استخراج ZIP در مسیر مقصد — v2.19 بازنویسی ریشه‌ای (مکان‌یابی + بازیابی خودکار)
+     * ====================================================
+     * 🔴 ریشه‌یابی خطای «استخراج کامل نشد — index.php در مسیر سایت یافت نشد»:
+     *    طبق مستندات رسمی API2 Fileman::fileop، پارامتر destfiles «فقط برای
+     *    عملیات copy/move/rename» تعریف شده — برای extract مقصدی وجود ندارد و
+     *    استخراج در دایرکتوری خودِ آرشیو انجام می‌شود. کد v2.18 علاوه بر ارسال
+     *    بی‌اثر destfiles، فرض می‌کرد فایل‌ها مستقیم در مقصد می‌نشینند؛ اما
+     *    cPanel (به‌ویژه نسخه‌های قدیمی) آرشیو را داخل «پوشه هم‌نام آرشیو»
+     *    استخراج می‌کند (site.zip → site/… ) و راستی‌آمایی index.php شکست می‌خورد.
      *
-     * 📌 استخراج در محل ZIP انجام می‌شود؛ اگر ZIP خارج از پوشه مقصد باشد
-     *    (مثل بکاپ در /brands/backups)، ابتدا کپی داخل مقصد انجام و پس از
-     *    استخراج، کپی پاک می‌شود — خروجی در همه حالات قطعی است.
+     * ✅ زنجیره v2.19:
+     *    ① ZIP داخل مقصد تضمین می‌شود (کپی در صورت نیاز — استخراج کنار آرشیو)
+     *    ② استخراج بدون destfiles (رفتار رسمی) سپس با destfiles (نسخه‌های قدیمی)
+     *    ③ settleExtractedFiles: مکان‌یابی index.php (مقصد یا زیرپوشه‌ها) +
+     *       انتقال محتویات به بالا + راستی‌آمایی نهایی — در همه حالات خروجی قطعی
      *
      * @param string $remoteZip مسیر ZIP روی سرور
      * @param string $destDir پوشه مقصد استخراج
@@ -771,21 +789,151 @@ class CpanelAPI
         $destDir   = rtrim($this->normalizePath($destDir), '/');
         $zipDir    = rtrim(dirname($remoteZip), '/');
 
-        /* ① ZIP از قبل داخل مقصد است — استخراج مستقیم */
-        if (strcasecmp($zipDir, $destDir) === 0) {
-            [$ok] = $this->fileOp('extract', [$remoteZip], $destDir);
-            return $ok;
+        /* ① ZIP بیرون از مقصد است — کپی داخل مقصد (استخراج همیشه کنار آرشیو) */
+        if (strcasecmp($zipDir, $destDir) !== 0) {
+            if (!$this->copyFile($remoteZip, $destDir)) {
+                $this->lastError = 'کپی بسته به پوشه مقصد ناموفق بود (برای استخراج ایمن): ' . $this->lastError;
+                return false;
+            }
+            $remoteZip = $destDir . '/' . basename($remoteZip);
         }
 
-        /* ② ZIP بیرون از مقصد است — کپی داخل مقصد، استخراج، پاک‌سازی کپی */
-        if (!$this->copyFile($remoteZip, $destDir)) {
-            $this->lastError = 'کپی بسته به پوشه مقصد ناموفق بود (برای استخراج ایمن): ' . $this->lastError;
-            return false;
+        /* ② استخراج — ابتدا بدون destfiles (طبق مستندات؛ استخراج کنار آرشیو که
+         *    خودِ مقصد است)، سپس با destfiles (برخی نسخه‌های قدیمی آن را می‌پذیرند) */
+        $this->lastExtractStage = 'api';
+        [$ok] = $this->fileOp('extract', [$remoteZip]);
+        if (!$ok) {
+            [$ok] = $this->fileOp('extract', [$remoteZip], $destDir);
+            if (!$ok) {
+                return false;
+            }
         }
-        $staged = $destDir . '/' . basename($remoteZip);
-        [$ok] = $this->fileOp('extract', [$staged], $destDir);
-        $this->deleteFile($staged); /* 🧹 کپی موقت — شکست حذف بحرانی نیست */
-        return $ok;
+
+        /* ③ مکان‌یابی + بازیابی خودکار + راستی‌آمایی نهایی */
+        $this->lastExtractStage = 'settle';
+        return $this->settleExtractedFiles($destDir, $remoteZip);
+    }
+
+    /**
+     * 🧭 مکان‌یابی فایل‌های استخراج‌شده + بازیابی خودکار — v2.19
+     * =========================================================
+     * بعد از استخراج، فایل‌ها ممکن است در یکی از این مکان‌ها باشند:
+     *   ① مستقیم داخل $destDir (حالت استاندارد)
+     *   ② داخل زیرپوشه هم‌نام آرشیو (رفتار cPanel قدیمی: site.zip → site/…)
+     *   ③ داخل تک‌پوشه ریشه (ZIP دارای پوشه ریشه — مثل بکاپ برند)
+     * اگر index.php در زیرپوشه پیدا شد، کل محتویاتش به $destDir منتقل و
+     * پوشه حذف می‌شود — در همه حالات خروجی قطعی است: index.php در $destDir.
+     *
+     * @return bool آیا index.php نهایتاً در مسیر مقصد موجود است؟
+     */
+    private function settleExtractedFiles(string $destDir, string $remoteZip): bool
+    {
+        $destDir = rtrim($this->normalizePath($destDir), '/');
+
+        /* ① حالت استاندارد — فایل‌ها مستقیم در مقصد */
+        if ($this->entryExists($destDir . '/index.php', 'file')) {
+            return true;
+        }
+
+        /* ② جستجوی زیرپوشه‌ها — اولویت: هم‌نام آرشیو، سپس سایر پوشه‌ها */
+        $zipBase = preg_replace('/\.(zip|tar\.gz|tar|gz|bz2)$/i', '', basename($remoteZip));
+        $priority = [];
+        $others   = [];
+        foreach ($this->listFiles($destDir) as $e) {
+            if (($e['type'] ?? '') !== 'dir') {
+                continue;
+            }
+            $name = (string)($e['file'] ?? $e['name'] ?? '');
+            if ($name === '' || $name === '.' || $name === '..') {
+                continue;
+            }
+            if ($name === $zipBase) {
+                $priority[] = $name;
+            } else {
+                $others[] = $name;
+            }
+        }
+
+        foreach (array_merge($priority, $others) as $sub) {
+            $inner = $destDir . '/' . $sub;
+
+            /* 🎯 فقط پوشه‌ای که واقعاً «ریشه سایت» است جابجا شود:
+             *    index.php + حداقل یک نشانگر ریشه (robots.txt/.htaccess/config.php/404.php/css)
+             *    — پوشه‌های بخشی مثل pages/ یا includes/ اشتباهی انتخاب نمی‌شوند */
+            if (!$this->entryExists($inner . '/index.php', 'file')) {
+                continue;
+            }
+            $hasRootMarker = $this->entryExists($inner . '/robots.txt')
+                || $this->entryExists($inner . '/.htaccess')
+                || $this->entryExists($inner . '/config.php', 'file')
+                || $this->entryExists($inner . '/404.php', 'file')
+                || $this->entryExists($inner . '/css', 'dir');
+            if (!$hasRootMarker) {
+                continue;
+            }
+
+            /* 🚚 انتقال تک‌به‌تک محتویات به بالا — با ادغام هوشمند:
+             * پوشه‌های هم‌نام موجود (مثل css/ که stepFolders از قبل ساخته)
+             * بازگشتی ادغام می‌شوند نه تودرتو — v2.19.1 */
+            $moved = $this->mergeMoveUp($inner, $destDir) ? 1 : 0;
+            $this->deleteFile($inner); /* 🧹 پوشه خالی‌شده */
+
+            if ($moved > 0 && $this->entryExists($destDir . '/index.php', 'file')) {
+                return true;
+            }
+        }
+
+        $this->lastError = 'پس از استخراج، index.php نه در مسیر مقصد و نه در زیرپوشه‌های کاندید یافت نشد';
+        return false;
+    }
+
+    /**
+     * 🧬 انتقال محتویات یک پوشه به بالا با ادغام هوشمند — v2.19
+     * =========================================================
+     * سناریوی حیاتی: stepFolders قبل از استخراج، پوشه‌های خالی css/js/pages/…
+     * را در مقصد می‌سازد؛ اگر استخراج داخل زیرپوشه انجام شده باشد، انتقال ساده
+     * «css» روی «css» موجود تودرتو می‌سازد (destDir/css/css!) چون مستندات
+     * move_file می‌گوید مقصد موجود ← منبع داخل آن می‌رود.
+     *
+     * ✅ این متد تداخل‌ها را مدیریت می‌کند:
+     *   • پوشه روی پوشه → ادغام بازگشتی (محتویات داخل هم می‌روند)
+     *   • فایل روی فایل → حذف قدیمی + جایگزینی
+     *   • عدم تداخل → انتقال معمولی
+     *
+     * @return bool آیا حداقل یک مدخل جابجا شد؟
+     */
+    private function mergeMoveUp(string $srcDir, string $destDir): bool
+    {
+        $srcDir  = rtrim($this->normalizePath($srcDir), '/');
+        $destDir = rtrim($this->normalizePath($destDir), '/');
+        $moved   = 0;
+
+        foreach ($this->listFiles($srcDir) as $entry) {
+            $name = (string)($entry['file'] ?? $entry['name'] ?? '');
+            if ($name === '' || $name === '.' || $name === '..') {
+                continue;
+            }
+            $src = $srcDir . '/' . $name;
+            $dst = $destDir . '/' . $name;
+
+            if ($this->entryExists($dst)) {
+                $srcIsDir = ($entry['type'] ?? '') === 'dir';
+                $dstIsDir = $this->entryExists($dst, 'dir');
+                if ($srcIsDir && $dstIsDir) {
+                    /* 📁 پوشه روی پوشه — ادغام بازگشتی */
+                    if ($this->mergeMoveUp($src, $dst)) {
+                        $moved++;
+                    }
+                    continue;
+                }
+                /* 📄 فایل/تداخل نوع — قدیمی حذف و جایگزین می‌شود */
+                $this->deleteFile($dst);
+            }
+            if ($this->moveFile($src, $destDir)) {
+                $moved++;
+            }
+        }
+        return $moved > 0;
     }
 
     /**
@@ -797,10 +945,7 @@ class CpanelAPI
     public function deleteFile(string $path): bool
     {
         $path = $this->normalizePath($path);
-        $user = (string)($this->settings['cpanel_username'] ?? '');
-        $relative = $user !== ''
-            ? (string)preg_replace('#^/home/' . preg_quote($user, '#') . '/?#', '', $path)
-            : $path;
+        $relative = $this->homeRelative($path);
 
         /* ① UAPI delete_file — مطلق سپس نسبی */
         $candidates = array_unique(array_filter([$path, $relative]));
@@ -837,27 +982,33 @@ class CpanelAPI
     }
 
     /**
-     * 🚚 جابجایی فایل/پوشه به داخل پوشه مقصد — v2.18 دولایه
-     * ① UAPI Fileman::move_file (source + destination — مستندات رسمی؛
+     * 🚚 جابجایی فایل/پوشه به داخل پوشه مقصد — v2.19 دو قالب مسیر
+     * ① UAPI Fileman::move_file (source + destination — مستندات رسمی:
      *    «If the destination is an existing directory, the source is moved into it»)
+     *    هر دو قالب مطلق + نسبی امتحان می‌شود (مثال‌های رسمی نسبی‌اند)
      * ② API2 fileop op=move (sourcefiles جداشده با کاما + destfiles)
      */
     public function moveFile(string $source, string $destDir): bool
     {
-        $source = $this->normalizePath($source);
-        $destDir = rtrim($this->normalizePath($destDir), '/');
+        $destAbs = rtrim($this->normalizePath($destDir), '/');
+        $destRel = rtrim($this->homeRelative($destDir), '/');
 
-        /* ① UAPI move_file */
-        if ($this->call('Fileman', 'move_file', [
-            'source'      => $source,
-            'destination' => $destDir,
-        ]) !== false) {
-            return true;
+        /* ① UAPI move_file — مطلق سپس نسبی */
+        $pairs = $destAbs === $destRel
+            ? [[$this->normalizePath($source), $destAbs]]
+            : [[$this->normalizePath($source), $destAbs], [$this->homeRelative($source), $destRel]];
+        foreach ($pairs as [$src, $dst]) {
+            if ($this->call('Fileman', 'move_file', [
+                'source'      => $src,
+                'destination' => $dst,
+            ]) !== false) {
+                return true;
+            }
         }
         $uapiError = $this->getLastError();
 
         /* ② API2 fileop move */
-        [$ok] = $this->fileOp('move', [$source], $destDir);
+        [$ok] = $this->fileOp('move', [$source], $destAbs);
         if ($ok) {
             return true;
         }
@@ -922,37 +1073,51 @@ class CpanelAPI
     }
 
     /**
-     * 📋 لیست فایل‌های یک پوشه — v2.18
+     * 📋 لیست فایل‌های یک پوشه — v2.19 دو قالب مسیر
      * 📌 طبق مستندات رسمی، پاسخ در دو آرایه جدا برمی‌گردد:
      *    data.files (فایل‌ها) + data.dirs (پوشه‌ها) → هر دو ادغام و یکتا می‌شوند
      *    و فیلد type هر مدخل تضمین می‌شود ('file' یا 'dir')
+     * 🛡️ مسیر پوشه با هر دو قالب امتحان می‌شود (مطلق + نسبی از home —
+     *    مثال‌های رسمی نسبی‌اند؛ اولین نتیجه غیرخالی برنده است)
      */
     public function listFiles(string $dir): array
     {
-        $data = $this->call('Fileman', 'list_files', [
-            'dir'         => $this->normalizePath($dir),
-            'show_hidden' => 1,
-        ]);
-        if ($data === false) {
-            return [];
+        $formats = [$this->normalizePath($dir)];
+        $rel = $this->homeRelative($dir);
+        if ($rel !== $formats[0]) {
+            $formats[] = $rel;
         }
-        $out = [];
-        $seen = [];
-        foreach (['files', 'dirs'] as $key) {
-            foreach ((array)($data[$key] ?? []) as $entry) {
-                if (!is_array($entry)) {
-                    continue;
-                }
-                $name = (string)($entry['file'] ?? $entry['name'] ?? '');
-                if ($name === '' || isset($seen[$name])) {
-                    continue;
-                }
-                $seen[$name] = true;
-                $entry['type'] = ($entry['type'] ?? '') !== '' ? (string)$entry['type'] : ($key === 'dirs' ? 'dir' : 'file');
-                $out[] = $entry;
+
+        foreach ($formats as $dirPath) {
+            $data = $this->call('Fileman', 'list_files', [
+                'dir'         => $dirPath,
+                'show_hidden' => 1,
+            ]);
+            if ($data === false) {
+                continue; /* قالب مسیر دیگر امتحان شود */
             }
+            $out = [];
+            $seen = [];
+            foreach (['files', 'dirs'] as $key) {
+                foreach ((array)($data[$key] ?? []) as $entry) {
+                    if (!is_array($entry)) {
+                        continue;
+                    }
+                    $name = (string)($entry['file'] ?? $entry['name'] ?? '');
+                    if ($name === '' || isset($seen[$name])) {
+                        continue;
+                    }
+                    $seen[$name] = true;
+                    $entry['type'] = ($entry['type'] ?? '') !== '' ? (string)$entry['type'] : ($key === 'dirs' ? 'dir' : 'file');
+                    $out[] = $entry;
+                }
+            }
+            if ($out !== []) {
+                return $out; /* ✅ اولین قالب با نتیجه غیرخالی */
+            }
+            /* نتیجه خالی — قالب بعدی هم امتحان شود (شاید قالب مسیر اشتباه بود) */
         }
-        return $out;
+        return [];
     }
 
     /**
@@ -1405,6 +1570,33 @@ class CpanelAPI
             return '/home/' . $user . $path;
         }
         return $path;
+    }
+
+    /**
+     * 🏠 تبدیل مسیر به قالب نسبی از home کاربر — v2.19
+     * مستندات رسمی cPanel برای پارامترهای مسیر (dir/sourcefiles/path/...)
+     * مثال‌های نسبی می‌دهند («public_html/...»)؛ برخی سرورها فقط یکی از
+     * دو قالب را می‌پذیرند — به همین دلیل همه عملیات هر دو را امتحان می‌کنند.
+     */
+    private function homeRelative(string $path): string
+    {
+        $path = $this->normalizePath($path);
+        $user = (string)($this->settings['cpanel_username'] ?? '');
+        if ($user === '') {
+            return $path;
+        }
+        $rel = preg_replace('#^/home/' . preg_quote($user, '#') . '/?#', '', $path);
+        return ($rel !== '' && $rel !== $path) ? $rel : $path;
+    }
+
+    /**
+     * 🧭 مرحله شکست آخرین استخراج — v2.19
+     * 'api' یعنی فراخوانی cPanel شکست خورد؛ 'settle' یعنی استخراج انجام شد
+     * ولی مکان‌یابی/راستی‌آمایی index.php ناکام ماند (پیام خطای مناسب انتخاب شود)
+     */
+    public function getLastExtractStage(): string
+    {
+        return $this->lastExtractStage;
     }
 
     /**

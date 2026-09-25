@@ -19,7 +19,7 @@ if (!defined('SAHAND_INIT')) {
 /* --------------------------------------------------
  * 🌍 تنظیمات عمومی
  * -------------------------------------------------- */
-define('SAHAND_VERSION', '2.18.0');             // نسخه سیستم (۲.۱۸.۰ — ریشه‌یابی نهایی خطای استقرار «The system could not find the function fileop in the module Fileman»: تابع Fileman::fileop فقط در API2 وجود دارد (تأیید مستندات رسمی) → هلپر مرکزی fileOp با امضای رسمی (sourcefiles کاما-جدا + doubledecode + metadata) + ممیزی کامل همه فراخوانی‌های cPanel: delete_file سه‌لایه + writeFile/readFile با پارامترهای صحیح + chmod از API2 + SSL با توابع واقعی UAPI (list_ssl_items/start_autossl_check) + راستی‌آمایی index.php پس از استخراج)
+define('SAHAND_VERSION', '2.19.0');             // نسخه سیستم (۲.۱۹.۰ — ریشه‌یابی خطای «استخراج کامل نشد — index.php یافت نشد»: طبق مستندات رسمی API2 fileop پارامتر destfiles فقط برای copy/move/rename است و برای extract وجود ندارد — استخراج کنار خود آرشیو انجام می‌شود؛ cPanel قدیمی آرشیو را داخل «پوشه هم‌نام آرشیو» استخراج می‌کند → settleExtractedFiles جدید: مکان‌یابی index.php در مقصد/زیرپوشه‌ها + انتقال خودکار محتویات به بالا + راستی‌آمایی؛ + پارس دو-قالبی پاسخ UAPI در call (تخت قدیمی + result تو-در-تو جدید 11.138) + تلاش مسیر مطلق/نسبی در همه عملیات فایل + دیاگنوستیک کامل محتوای مسیر سایت در خطا)
 define('SAHAND_NAME_FA', 'سایت ساز برند سهند سرویس'); // نام فارسی سیستم
 define('SAHAND_NAME_EN', 'Sahand BrandMaker');   // نام انگلیسی سیستم
 date_default_timezone_set('Asia/Tehran');        // ⏰ منطقه زمانی ایران

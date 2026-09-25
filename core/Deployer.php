@@ -579,9 +579,12 @@ class Deployer
     }
 
     /**
-     * ۶️⃣ استخراج ZIP + حذف فایل فشرده — v2.18
-     * ✅ استخراج با API2 رسمی Fileman::fileop (op=extract) — UAPI معادل ندارد
-     * ✅ راستی‌آمایی نهایی: index.php باید در مسیر سایت موجود باشد
+     * ۶️⃣ استخراج ZIP + مکان‌یابی + راستی‌آزمایی + حذف ZIP — v2.19
+     * ✅ استخراج API2 رسمی بدون destfiles (مستندات: فقط برای copy/move/rename)
+     * ✅ بازیابی خودکار: اگر cPanel داخل زیرپوشه هم‌نام آرشیو استخراج کرد،
+     *    محتویات به بالا منتقل می‌شود (settleExtractedFiles)
+     * ✅ راستی‌آمایی قبل از حذف ZIP (تا تلاش مجدد ممکن بماند)
+     * ✅ دیاگنوستیک کامل در خطا: محتوای واقعی مسیر سایت + جزئیات مرحله شکست
      */
     private function stepExtract(array $deployment, ?array $brand, array $state): array
     {
@@ -591,12 +594,34 @@ class Deployer
             return ['ok' => false, 'error' => 'مسیر ZIP آپلودشده ثبت نشده است.'];
         }
 
-        // 📦 استخراج — v2.18: API2 رسمی (fileop op=extract + sourcefiles کاما-جدا + doubledecode)
+        // 📦 استخراج + مکان‌یابی + بازیابی خودکار + راستی‌آمایی index.php
         if (!$this->api->extractZip($remoteZip, $serverPath)) {
-            return ['ok' => false, 'error' => 'استخراج ZIP ناموفق: ' . $this->api->getLastError()];
+            $extractError = $this->api->getLastError();
+            $stage = $this->api->getLastExtractStage();
+
+            // 🔍 دیاگنوستیک — محتوای واقعی مسیر سایت گزارش شود تا عیب‌یابی قطعی باشد
+            $listing = [];
+            foreach ($this->api->listFiles($serverPath) as $e) {
+                $n = (string)($e['file'] ?? $e['name'] ?? '?');
+                $listing[] = (($e['type'] ?? '') === 'dir') ? $n . '/' : $n;
+            }
+            $dirView = $listing === []
+                ? 'خالی'
+                : implode('، ', array_slice($listing, 0, 15)) . (count($listing) > 15 ? ' و ' . (count($listing) - 15) . ' مورد دیگر' : '');
+
+            $headline = $stage === 'api'
+                ? 'استخراج ZIP ناموفق'
+                : 'استخراج کامل نشد — index.php در مسیر سایت یافت نشد';
+
+            return [
+                'ok'    => false,
+                'error' => $headline
+                    . ' | محتوای مسیر سایت: ' . $dirView
+                    . ($extractError !== '' ? ' | جزئیات: ' . $extractError : ''),
+            ];
         }
 
-        // 🧹 حذف ZIP بعد از استخراج (طبق سند) — v2.18: سه‌لایه UAPI delete_file؛ شکست بحرانی نیست
+        // 🧹 حذف ZIP فقط بعد از راستی‌آزمایی موفق (نه قبل — تا تلاش مجدد ممکن بماند)
         if (!$this->api->deleteFile($remoteZip)) {
             $this->logger->stepSkipped(
                 (int)$deployment['id'],
@@ -605,15 +630,7 @@ class Deployer
             );
         }
 
-        // 🔧 اگر ZIP شامل پوشه ریشه بود — مسطح کن (فایل‌ها باید مستقیم داخل serverPath باشند)
-        $this->api->flattenSingleChildDir($serverPath);
-
-        // ✅ راستی‌آمایی نهایی — فایل ریشه سایت باید موجود باشد
-        if (!$this->api->entryExists($serverPath . '/index.php')) {
-            return ['ok' => false, 'error' => 'استخراج کامل نشد — index.php در مسیر سایت یافت نشد' . ($this->api->getLastError() ? ' (' . $this->api->getLastError() . ')' : '')];
-        }
-
-        return ['ok' => true, 'message' => 'فایل‌ها استخراج و ZIP حذف شد'];
+        return ['ok' => true, 'message' => 'فایل‌ها استخراج و راستی‌آمایی شد — index.php در مسیر سایت موجود است'];
     }
 
     /**
