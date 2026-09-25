@@ -65,7 +65,7 @@ class WebSearchService
             'connect_timeout' => 5,      // ثانیه — فقط اتصال
             'max_results'   => 8,
             'cache_ttl'     => self::SEARCH_TTL,
-            'rate_per_hour' => 60,
+            'rate_per_hour' => 240,      /* 🆕 v2.15: ۶۰ → ۲۴۰ — جستجوی عمیق خطایاب هر بار ۲۰+ کوئری می‌سوزاند و سقف ۶۰ آن را خفه می‌کرد! */
             'providers'     => [],       // خالی = زنجیره خودکار
             'serpapi_key'   => '',
             'google_cse_key'=> '',
@@ -388,7 +388,7 @@ class WebSearchService
         // فقط اولین ارائه‌دهنده رایگان به صورت ترتیبی اجرا نمی‌شود؛
         // بلکه گروه رایگان‌ها همزمان شلیک می‌شوند و اولین پاسخ برنده است.
         $freeGroup = array_values(array_filter($chain, function ($p) {
-            return in_array($p, ['wikipedia', 'duckduckgo_html', 'duckduckgo_lite', 'mojeek', 'startpage', 'bing_html'], true);
+            return in_array($p, ['wikipedia', 'duckduckgo_html', 'duckduckgo_lite', 'mojeek', 'startpage', 'bing_html', 'google_html', 'yandex_html', 'ecosia_html', 'brave_html', 'searx_json'], true);
         }));
         $keyedGroup = array_values(array_diff($chain, $freeGroup));
 
@@ -558,6 +558,48 @@ class WebSearchService
                 ]);
                 curl_setopt_array($ch, $common + [CURLOPT_URL => $ctx['url']]);
                 return [$ch, $ctx];
+            /* ════════ 🆕 v2.15: ارائه‌دهنده‌های جدید — پوشش از هاست‌های محدود/ایرانی ════════ */
+            case 'google_html':
+                $ctx['url'] = 'https://www.google.com/search?' . http_build_query([
+                    'q' => $query, 'num' => (string)max(10, $limit), 'hl' => 'en', 'gbv' => '1',
+                ]);
+                curl_setopt_array($ch, $common + [
+                    CURLOPT_URL => $ctx['url'],
+                    CURLOPT_HTTPHEADER => [
+                        'Accept: text/html,application/xhtml+xml',
+                        'Accept-Language: en-US,en;q=0.9,fa;q=0.8',
+                    ],
+                ]);
+                return [$ch, $ctx];
+            case 'yandex_html':
+                $ctx['url'] = 'https://yandex.com/search/?' . http_build_query(['text' => $query]);
+                curl_setopt_array($ch, $common + [CURLOPT_URL => $ctx['url']]);
+                return [$ch, $ctx];
+            case 'ecosia_html':
+                $ctx['url'] = 'https://www.ecosia.org/search?' . http_build_query(['q' => $query]);
+                curl_setopt_array($ch, $common + [CURLOPT_URL => $ctx['url']]);
+                return [$ch, $ctx];
+            case 'brave_html':
+                $ctx['url'] = 'https://search.brave.com/search?' . http_build_query(['q' => $query, 'source' => 'web']);
+                curl_setopt_array($ch, $common + [CURLOPT_URL => $ctx['url']]);
+                return [$ch, $ctx];
+            case 'searx_json':
+                /* نمونه‌های عمومی SearXNG با خروجی JSON — یکی تصادفی (پراکندگی بار) */
+                $instances = [
+                    'https://searx.be/search',
+                    'https://search.inetol.net/search',
+                    'https://priv.au/search',
+                    'https://opnxng.com/search',
+                    'https://paulgo.io/search',
+                ];
+                $ctx['url'] = $instances[array_rand($instances)] . '?' . http_build_query([
+                    'q' => $query, 'format' => 'json', 'language' => 'auto', 'safesearch' => '0',
+                ]);
+                curl_setopt_array($ch, $common + [
+                    CURLOPT_URL => $ctx['url'],
+                    CURLOPT_HTTPHEADER => ['Accept: application/json'],
+                ]);
+                return [$ch, $ctx];
         }
         curl_close($ch);
         return [null, $ctx];
@@ -575,6 +617,12 @@ class WebSearchService
             case 'mojeek':            return $this->parseMojeekHtml($body, $limit);
             case 'bing_html':         return $this->parseBingHtml($body, $limit);
             case 'startpage':         return $this->parseStartpageHtml($body, $limit);
+            /* ════════ 🆕 v2.15: پارسرهای ارائه‌دهنده‌های جدید ════════ */
+            case 'google_html':       return $this->parseGoogleHtml($body, $limit);
+            case 'yandex_html':       return $this->parseYandexHtml($body, $limit);
+            case 'ecosia_html':       return $this->parseEcosiaHtml($body, $limit);
+            case 'brave_html':        return $this->parseBraveHtml($body, $limit);
+            case 'searx_json':        return $this->parseSearxJson($body, $limit);
         }
         throw new RuntimeException('ارائه‌دهنده ناشناخته: ' . $provider);
     }
@@ -648,12 +696,19 @@ class WebSearchService
         if ($this->providerAvailable('serpapi'))    { $chain[] = 'serpapi'; }
         if ($this->providerAvailable('google_cse')) { $chain[] = 'google_cse'; }
         if ($this->providerAvailable('bing_api'))   { $chain[] = 'bing_api'; }
+        /* 🆕 v2.15: گوگل و یاندکس اول رایگان‌ها — بهترین پوشش از هاست‌های ایرانی
+           (تست زنده: DDG/Mojeek از بسیاری هاست‌ها بلاک/ناتمام هستند) */
+        $chain[] = 'google_html';
+        $chain[] = 'yandex_html';
         $chain[] = 'wikipedia';
         $chain[] = 'duckduckgo_html';
         $chain[] = 'duckduckgo_lite';
         $chain[] = 'mojeek';
         $chain[] = 'startpage';
         $chain[] = 'bing_html';
+        $chain[] = 'ecosia_html';
+        $chain[] = 'brave_html';
+        $chain[] = 'searx_json';
         return $chain;
     }
 
@@ -669,7 +724,13 @@ class WebSearchService
             case 'duckduckgo_html':
             case 'duckduckgo_lite':
             case 'mojeek':
-            case 'bing_html':       return true;
+            case 'bing_html':
+            case 'google_html':      /* 🆕 v2.15 */
+            case 'yandex_html':      /* 🆕 v2.15 */
+            case 'ecosia_html':      /* 🆕 v2.15 */
+            case 'brave_html':       /* 🆕 v2.15 */
+            case 'searx_json':       /* 🆕 v2.15 */
+                return true;
         }
         return false;
     }
@@ -687,8 +748,42 @@ class WebSearchService
             case 'mojeek':          return $this->searchMojeek($query, $limit);
             case 'startpage':       return $this->searchStartpage($query, $limit);
             case 'bing_html':       return $this->searchBingHtml($query, $limit);
+            /* 🆕 v2.15: اجرای ترتیبی ارائه‌دهنده‌های جدید (fallback بدون curl_multi) */
+            case 'google_html':
+            case 'yandex_html':
+            case 'ecosia_html':
+            case 'brave_html':
+            case 'searx_json':      return $this->searchGenericProvider($provider, $query, $limit);
         }
         throw new RuntimeException('ارائه‌دهنده ناشناخته: ' . $provider);
+    }
+
+    /**
+     * 🆕 v2.15: اجرای ترتیبی یک ارائه‌دهنده جدید از روی سازنده درخواست مشترک
+     * (URL را از buildProviderRequest می‌سازد، با httpGet می‌گیرد و با پارسر مربوط تجزیه می‌کند)
+     */
+    private function searchGenericProvider(string $provider, string $query, int $limit): array
+    {
+        /* ساخت URL با همان منطق مسابقه — از یک handle موقت فقط برای ساخت آپشن‌ها */
+        $urls = [
+            'google_html' => 'https://www.google.com/search?' . http_build_query(['q' => $query, 'num' => (string)max(10, $limit), 'hl' => 'en', 'gbv' => '1']),
+            'yandex_html' => 'https://yandex.com/search/?' . http_build_query(['text' => $query]),
+            'ecosia_html' => 'https://www.ecosia.org/search?' . http_build_query(['q' => $query]),
+            'brave_html'  => 'https://search.brave.com/search?' . http_build_query(['q' => $query, 'source' => 'web']),
+        ];
+        if ($provider === 'searx_json') {
+            $instances = ['https://searx.be/search', 'https://search.inetol.net/search', 'https://priv.au/search', 'https://opnxng.com/search', 'https://paulgo.io/search'];
+            $urls['searx_json'] = $instances[array_rand($instances)] . '?' . http_build_query(['q' => $query, 'format' => 'json', 'language' => 'auto', 'safesearch' => '0']);
+        }
+        $url = $urls[$provider] ?? '';
+        if ($url === '') {
+            throw new RuntimeException('URL ارائه‌دهنده ساخته نشد.');
+        }
+        [$ok, $status, $body, $error] = $this->httpGet($url, $provider === 'google_html' ? ['Accept-Language: en-US,en;q=0.9'] : []);
+        if (!$ok || $status !== 200) {
+            throw new RuntimeException('پاسخ ' . $status . ($error ? ' (' . $error . ')' : ''));
+        }
+        return $this->parseProviderResponse($provider, $body, $limit, ['method' => 'GET', 'url' => $url]);
     }
 
     /* ==================================================
@@ -939,6 +1034,172 @@ class WebSearchService
                     'rank'    => $i + 1,
                 ];
             }
+        }
+        return $out;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+     * 🆕 v2.15: پارسرهای ارائه‌دهنده‌های جدید — پوشش از هاست‌های محدود
+     * (تست زنده نشان داد DDG/Mojeek از بسیاری هاست‌ها 202/timeout می‌دهند)
+     * ════════════════════════════════════════════════════════════════ */
+
+    /** 🔵 Google — HTML کلاسیک (gbv=1) — بهترین پوشش؛ صفحه ریدایرکت/کنسنت رد می‌شود */
+    public function parseGoogleHtml(string $body, int $limit): array
+    {
+        $out = [];
+        /* رد صفحات کنسنت/کپچا/خالی */
+        if (mb_strlen($body) < 2500 || stripos($body, 'google.com/search?') === false && stripos($body, '<body') === false) {
+            if (mb_strlen($body) < 2500) { return $out; }
+        }
+        /* لینک‌های ارگانیک: /url?q=... یا href مستقیم داخل h3 */
+        if (preg_match_all('#<a[^>]+href="(?:/url\?q=|)(https?://[^"&]+)"[^>]*>.{0,400}?<h3[^>]*>(.*?)</h3>#is', $body, $m, PREG_SET_ORDER)) {
+            foreach ($m as $i => $mm) {
+                if (count($out) >= $limit) { break; }
+                $url = html_entity_decode($mm[1], ENT_QUOTES, 'UTF-8');
+                $host = strtolower((string)parse_url($url, PHP_URL_HOST));
+                if (preg_match('#google\.|gstatic|blogger\.com|youtube\.com#i', $host)) { continue; }
+                /* اسنیپت: نزدیک‌ترین متن بعد از این نتیجه */
+                $snippet = '';
+                if (preg_match('#<h3[^>]*>' . preg_quote($this->cleanText($mm[2]), '#') . '</h3>(.{0,900}?)</div>#is', $body, $sm)) {
+                    $snippet = $this->cleanText($sm[1]);
+                }
+                $out[] = [
+                    'title'   => $this->cleanText($mm[2]),
+                    'url'     => $url,
+                    'snippet' => mb_substr($snippet, 0, 300),
+                    'source'  => $this->hostOf($url),
+                    'rank'    => count($out) + 1,
+                ];
+            }
+        }
+        return $out;
+    }
+
+    /** 🟡 Yandex — HTML SERP (از ایران هم معمولاً در دسترس) */
+    public function parseYandexHtml(string $body, int $limit): array
+    {
+        $out = [];
+        if (stripos($body, 'captcha') !== false && stripos($body, 'SmartCaptcha') !== false) { return $out; }
+        /* لینک‌های ارگانیک داخل تگ <a class="...Link..." href="http..."> */
+        if (preg_match_all('#<a[^>]+href="(https?://[^"]+)"[^>]*>(.*?)</a>#is', $body, $m, PREG_SET_ORDER)) {
+            $seen = [];
+            foreach ($m as $mm) {
+                if (count($out) >= $limit) { break; }
+                $url = html_entity_decode($mm[1], ENT_QUOTES, 'UTF-8');
+                $host = strtolower((string)parse_url($url, PHP_URL_HOST));
+                if ($host === '' || preg_match('#yandex|microsoft|w3\.org#i', $host)) { continue; }
+                if (isset($seen[$url])) { continue; }
+                $title = $this->cleanText($mm[2]);
+                if (mb_strlen($title) < 8) { continue; }
+                $seen[$url] = 1;
+                $out[] = [
+                    'title'   => mb_substr($title, 0, 160),
+                    'url'     => $url,
+                    'snippet' => '',
+                    'source'  => $this->hostOf($url),
+                    'rank'    => count($out) + 1,
+                ];
+            }
+        }
+        /* اسنیپت‌ها: تگ‌های <span class="organic__url"> یا متن جاری — از تکرار خالی جلوگیری */
+        return $out;
+    }
+
+    /** 🌱 Ecosia — HTML سمت سرور */
+    public function parseEcosiaHtml(string $body, int $limit): array
+    {
+        $out = [];
+        if (preg_match_all('#<a[^>]+class="[^"]*result__link[^"]*"[^>]+href="([^"]+)"[^>]*>(.*?)</a>#is', $body, $m, PREG_SET_ORDER)) {
+            preg_match_all('#<p[^>]+class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</p>#is', $body, $snips);
+            foreach ($m as $i => $mm) {
+                if ($i >= $limit) { break; }
+                $url = html_entity_decode($mm[1], ENT_QUOTES, 'UTF-8');
+                if (!preg_match('#^https?://#i', $url)) { continue; }
+                $out[] = [
+                    'title'   => $this->cleanText($mm[2]),
+                    'url'     => $url,
+                    'snippet' => isset($snips[1][$i]) ? $this->cleanText($snips[1][$i]) : '',
+                    'source'  => $this->hostOf($url),
+                    'rank'    => $i + 1,
+                ];
+            }
+        }
+        /* ساختار جدیدتر Ecosia: data-test-id="result-link" */
+        if (!$out && preg_match_all('#<a[^>]+data-test-id="result-link"[^>]+href="([^"]+)"[^>]*>(.*?)</a>#is', $body, $m, PREG_SET_ORDER)) {
+            foreach ($m as $i => $mm) {
+                if ($i >= $limit) { break; }
+                $url = html_entity_decode($mm[1], ENT_QUOTES, 'UTF-8');
+                if (!preg_match('#^https?://#i', $url)) { continue; }
+                $out[] = [
+                    'title'   => $this->cleanText(strip_tags($mm[2])),
+                    'url'     => $url,
+                    'snippet' => '',
+                    'source'  => $this->hostOf($url),
+                    'rank'    => $i + 1,
+                ];
+            }
+        }
+        return $out;
+    }
+
+    /** 🦁 Brave — HTML سمت سرور */
+    public function parseBraveHtml(string $body, int $limit): array
+    {
+        $out = [];
+        if (preg_match_all('#<a[^>]+href="(https?://[^"]+)"[^>]*class="[^"]*heading-serpresult[^"]*"[^>]*>(.*?)</a>#is', $body, $m, PREG_SET_ORDER)) {
+            preg_match_all('#<div[^>]+class="[^"]*snippet-description[^"]*"[^>]*>(.*?)</div>#is', $body, $snips);
+            foreach ($m as $i => $mm) {
+                if ($i >= $limit) { break; }
+                $url = html_entity_decode($mm[1], ENT_QUOTES, 'UTF-8');
+                if (preg_match('#brave\.com#i', (string)parse_url($url, PHP_URL_HOST))) { continue; }
+                $out[] = [
+                    'title'   => $this->cleanText($mm[2]),
+                    'url'     => $url,
+                    'snippet' => isset($snips[1][$i]) ? $this->cleanText($snips[1][$i]) : '',
+                    'source'  => $this->hostOf($url),
+                    'rank'    => $i + 1,
+                ];
+            }
+        }
+        /* ساختار جایگزین: snippet داخل <div class="snippet ..."> با لینک标题 */
+        if (!$out) {
+            if (preg_match_all('#<div[^>]+class="snippet[^"]*"[^>]*>.*?<a[^>]+href="(https?://[^"]+)"[^>]*>(.*?)</a>.*?<div[^>]+class="snippet-description[^"]*"[^>]*>(.*?)</div>#is', $body, $m, PREG_SET_ORDER)) {
+                foreach ($m as $i => $mm) {
+                    if ($i >= $limit) { break; }
+                    $url = html_entity_decode($mm[1], ENT_QUOTES, 'UTF-8');
+                    if (preg_match('#brave\.com#i', (string)parse_url($url, PHP_URL_HOST))) { continue; }
+                    $out[] = [
+                        'title'   => $this->cleanText($mm[2]),
+                        'url'     => $url,
+                        'snippet' => $this->cleanText($mm[3]),
+                        'source'  => $this->hostOf($url),
+                        'rank'    => $i + 1,
+                    ];
+                }
+            }
+        }
+        return $out;
+    }
+
+    /** 🔍 SearXNG — JSON API نمونه‌های عمومی */
+    public function parseSearxJson(string $body, int $limit): array
+    {
+        $out = [];
+        $data = json_decode(trim($body), true);
+        if (!is_array($data) || empty($data['results']) || !is_array($data['results'])) {
+            return $out;
+        }
+        foreach ($data['results'] as $i => $r) {
+            if (count($out) >= $limit) { break; }
+            $url = (string)($r['url'] ?? '');
+            if (!preg_match('#^https?://#i', $url)) { continue; }
+            $out[] = [
+                'title'   => $this->cleanText((string)($r['title'] ?? '')),
+                'url'     => $url,
+                'snippet' => $this->cleanText((string)($r['content'] ?? '')),
+                'source'  => $this->hostOf($url),
+                'rank'    => count($out) + 1,
+            ];
         }
         return $out;
     }

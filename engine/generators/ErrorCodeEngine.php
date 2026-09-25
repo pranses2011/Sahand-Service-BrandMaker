@@ -65,6 +65,25 @@ class ErrorCodeEngine
         'vacuum_cleaner'  => ['جاروبرقی', 'Vacuum Cleaner'],
     ];
 
+    /** 🔁 v2.15: نام‌های مترادف انگلیسی هر دستگاه — برای «راند نجات» جستجو
+     *  (ریشه‌یابی: کوئری با نام رسمی گاهی نتایج فنی نمی‌دهد؛ مترادف‌های رایج
+     *   کاربران و تعمیرکاران نتایج بهتری برمی‌گردانند) */
+    private const DEVICE_ALIASES_EN = [
+        'microwave'      => ['Microwave', 'Countertop Microwave', 'Over-the-Range Microwave'],
+        'television'    => ['TV', 'Smart TV', 'LED TV', 'OLED TV'],
+        'washing_machine' => ['Washer', 'Front Load Washer', 'Washing Machine'],
+        'refrigerator'  => ['Fridge', 'Refrigerator Freezer', 'Fridge Freezer'],
+        'dishwasher'    => ['Dish Washer', 'Dishwasher'],
+        'air_conditioner' => ['AC Split', 'Air Conditioner', 'HVAC Split'],
+        'dryer'         => ['Tumble Dryer', 'Clothes Dryer'],
+        'oven'          => ['Electric Oven', 'Built-in Oven'],
+        'stove'         => ['Cooktop', 'Gas Stove'],
+        'hood'          => ['Cooker Hood', 'Extractor Hood'],
+        'water_heater'  => ['Water Heater', 'Boiler'],
+        'package'       => ['Combi Boiler', 'Wall-mounted Boiler'],
+        'vacuum_cleaner' => ['Vacuum', 'Vacuum Cleaner'],
+    ];
+
     /** @var array تاکسونومی نوع خطا */
     public const CATEGORIES = [
         'سنسور', 'موتور', 'برد الکترونیکی', 'پمپ', 'شیر', 'المنت / هیتر', 'کمپرسور',
@@ -116,13 +135,12 @@ class ErrorCodeEngine
         }
 
         /* ⏱️ بودجه زمانی — درج‌ها بلافاصله پس از تحقیق اجرا می‌شوند
-           🆕 v3.9: بودجه «تطبیقی» — تا ۳۴ ثانیه اگر محدودیت اجرای هاست اجازه دهد
-           (قبلاً ثابت ۲۶ ثانیه بود و در هاست‌های سریع نصف راه می‌ماندیم) */
+           🆕 v2.15: ۳۴ → ۴۴ ثانیه — با ارائه‌دهنده‌های جدید و راند نجات، زمان بیشتر لازم است */
         if (function_exists('set_time_limit')) {
             @set_time_limit(180);
         }
         $maxExec = (int)@ini_get('max_execution_time');
-        $budget = ($maxExec > 0 && $maxExec <= 90) ? max(22.0, min(34.0, $maxExec - 8.0)) : 34.0;
+        $budget = ($maxExec > 0 && $maxExec <= 120) ? max(26.0, min(44.0, $maxExec - 8.0)) : 44.0;
         $deadline = microtime(true) + $budget;
 
         $sources = [];
@@ -136,6 +154,22 @@ class ErrorCodeEngine
             try {
                 $this->progress(8, 'شروع جستجوی آنلاین', 'کوئری‌های فارسی و انگلیسی به موتورهای جستجو ارسال می‌شود...');
                 $webCodes = $this->searchWebCodes($brand['name_en'] ?: $brand['name_fa'], $brand['name_fa'], $deviceKey, $deviceFa, $brandKey, $deadline);
+                /* 🚨 v2.15 — راند نجات: اگر هیچ کدی پیدا نشد، کوئری‌های ساده‌شده
+                   جایگزین (نام‌های مترادف دستگاه) امتحان می‌شوند — ریشه‌یابی
+                   «مایکروویو/تلویزیون ال‌جی هیچ کدی پیدا نکرد»: کوئری‌های اصلی
+                   گاهی نتایج فنی برنمی‌گرداندند و موتور زود تسلیم می‌شد. */
+                if (!$webCodes && microtime(true) < $deadline - 8.0) {
+                    $this->progress(30, 'راند نجات — کوئری‌های جایگزین', 'با نام‌های مترادف دستگاه دوباره جستجو می‌شود...');
+                    foreach (self::DEVICE_ALIASES_EN[$deviceKey] ?? [] as $altEn) {
+                        if (microtime(true) > $deadline - 6.0) { break; }
+                        $altFa = $deviceFa;
+                        $altCodes = $this->searchWebCodes($brand['name_en'] ?: $brand['name_fa'], $brand['name_fa'], $deviceKey, $altFa, $brandKey, $deadline, $altEn);
+                        foreach ($altCodes as $wc) {
+                            $webCodes[] = $wc;
+                        }
+                        if (count($webCodes) >= 5) { break; }
+                    }
+                }
                 foreach ($webCodes as $wc) {
                     /* 🔀 دانش curated فقط «فاصله‌های خالی» را پر می‌کند (v2.8:
                        هرگز جای داده استخراج‌شده از وب را نمی‌گیرد — وب مقدم مطلق) */
@@ -272,13 +306,15 @@ class ErrorCodeEngine
      *
      * @return array<array{code,title,part,category,severity,causes,fixes_user,fixes_tech,source_urls}>
      */
-    private function searchWebCodes(string $brandEn, string $brandFa, string $deviceKey, string $deviceFa, ?string $brandKey = null, ?float $deadline = null): array
+    private function searchWebCodes(string $brandEn, string $brandFa, string $deviceKey, string $deviceFa, ?string $brandKey = null, ?float $deadline = null, ?string $deviceEnOverride = null): array
     {
         $searcher = new WebSearchService();
-        $deviceEn = self::DEVICE_FA[$deviceKey][1] ?? ucfirst($deviceKey);
+        $deviceEn = $deviceEnOverride !== null && $deviceEnOverride !== '' ? $deviceEnOverride : (self::DEVICE_FA[$deviceKey][1] ?? ucfirst($deviceKey));
         $deadline = $deadline ?? (microtime(true) + 24.0);
 
-        /* 🎯 v2.8: کوئری‌های دقیق‌تر — سایت‌های فهرست کد سازنده و جدول‌ها */
+        /* 🎯 v2.15: کوئری‌های دقیق‌تر و متنوع‌تر — ۷ → ۱۲ (پوشش عبارت‌های رایج
+           تعمیرکاران و صفحات جدول کد؛ تلویزیون: چشمک LED هم پوشش داده می‌شود) */
+        $isTv = stripos($deviceEn, 'tv') !== false || stripos($deviceEn, 'television') !== false;
         $queries = [
             "{$brandEn} {$deviceEn} error codes list meaning",
             "کد خطای {$deviceFa} {$brandFa} فهرست کامل",
@@ -288,6 +324,11 @@ class ErrorCodeEngine
             /* 🆕 v3.9: کوئری‌های بیشتر — پوشش منابع فنی و جدول‌های سازنده */
             "{$brandEn} {$deviceEn} error code table all models",
             "رفع خطای {$deviceFa} {$brandFa} نمایش کد",
+            /* 🆕 v2.15: عبارت‌های رایج کاربران + پوشش تلویزیون (چشمک LED) */
+            "{$brandEn} {$deviceEn} error codes what does it mean and how to fix",
+            "{$brandEn} {$deviceEn} service manual error code list pdf",
+            $isTv ? "{$brandEn} TV blinking codes LED error meaning" : "{$brandEn} {$deviceEn} diagnostic codes self test",
+            "{$brandEn} {$deviceEn} کدهای خطا",
         ];
 
         $found = [];      // code => record
@@ -318,8 +359,10 @@ class ErrorCodeEngine
                 if (!$hasContext) {
                     continue;
                 }
-                /* 🎯 v2.8: صفحه‌های «فهرست/جدول کد» را برای پارس ساختاری ذخیره کن */
-                if (count($listUrls) < 6 && $url !== ''
+                /* 🎯 v2.8: صفحه‌های «فهرست/جدول کد» را برای پارس ساختاری ذخیره کن
+                   (v2.15: سقف ۶ → ۸ صفحه و متن کامل ۹ → ۱۴ هزار نویسه — فیلدهای
+                   کامل‌تر از دلایل/راه‌حل از صفحات سازنده) */
+                if (count($listUrls) < 8 && $url !== ''
                     && preg_match('#(error|fault|code|خطا|کد)#iu', ($r['title'] ?? '') . $url)
                     && (stripos($text, $brandEn) !== false || mb_strpos($text, $brandFa) !== false)) {
                     $listUrls[] = $url;
@@ -363,12 +406,12 @@ class ErrorCodeEngine
          * یا «کد OE: خطای تخلیه آب». جدول هر صفحه → معنای دقیق تک‌تک کدها؛
          * کدهای جدید کشف‌شده از این مسیر «تأییدشده با شاهد جدول» حساب می‌شوند. */
         $tableMeanings = [];
-        foreach (array_slice($listUrls, 0, 4) as $lui => $lu) {
+        foreach (array_slice($listUrls, 0, 6) as $lui => $lu) {
             if (microtime(true) > $deadline - 6.0) { break; }
             /* 📊 v2.14: گزارش خواندن صفحات فهرست کد (۴۵٪ تا ۶۵٪) */
-            $this->progress(45 + (int)round(20 * ($lui / 4)), 'خواندن صفحات فهرست کد سازنده', 'صفحه ' . ($lui + 1) . ' از ' . count(array_slice($listUrls, 0, 4)) . ' تحلیل می‌شود...');
+            $this->progress(45 + (int)round(20 * ($lui / 6)), 'خواندن صفحات فهرست کد سازنده', 'صفحه ' . ($lui + 1) . ' از ' . count(array_slice($listUrls, 0, 6)) . ' تحلیل می‌شود...');
             try {
-                $page = $searcher->fetchPageText($lu, 9000);
+                $page = $searcher->fetchPageText($lu, 14000);
             } catch (Throwable $e) {
                 continue;
             }
