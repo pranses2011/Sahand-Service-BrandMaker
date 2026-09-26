@@ -46,13 +46,31 @@ if (!is_array($data)) {
     exit;
 }
 
-/* 🧼 فقط فیلدهای مجاز فرم عبور می‌کنند (ضد تزریق فیلد) */
+/* 🧼 فقط فیلدهای مجاز فرم عبور می‌کنند (ضد تزریق فیلد)
+   🖼️ v2.30 — فیلد images (آرایه URLهای آپلودشده) هم عبور می‌کند؛
+   قبلاً این فیلد در لیست سفید نبود → تصاویر هرگز به API نمی‌رسیدند! */
 $allowed = ['full_name', 'phone', 'phone2', 'address', 'device_type', 'device_other',
-            'device_model', 'description', 'preferred_date', 'preferred_time'];
+            'device_model', 'description', 'preferred_date', 'preferred_time', 'images'];
 $payload = [];
 foreach ($allowed as $field) {
     if (array_key_exists($field, $data)) {
         $payload[$field] = is_string($data[$field]) ? mb_substr(trim($data[$field]), 0, 2000) : $data[$field];
+    }
+}
+/* 🖼️ اعتبارسنجی آرایه تصاویر: فقط رشته‌های URL ساده (حداکثر ۳ مورد) */
+if (isset($payload['images'])) {
+    $imgs = [];
+    if (is_array($payload['images'])) {
+        foreach (array_slice($payload['images'], 0, 3) as $imgUrl) {
+            if (is_string($imgUrl) && preg_match('#^https?://[^\s"\'<>]{5,500}$#i', $imgUrl)) {
+                $imgs[] = $imgUrl;
+            }
+        }
+    }
+    if ($imgs) {
+        $payload['images'] = $imgs;
+    } else {
+        unset($payload['images']);
     }
 }
 if (empty($payload)) {

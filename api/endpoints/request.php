@@ -85,13 +85,30 @@ function api_submit_request(int $urlBrandId): void
         'ip_address'      => $ip,
     ]);
 
-    // 🖼️ تصاویر پیوست (حداکثر ۳)
+    /* 🖼️ تصاویر پیوست (حداکثر ۳) — v2.30:
+       اکنون فرم ابتدا تصاویر را با اندپوینت upload-request-image آپلود
+       می‌کند و URL آنها را می‌فرستد. URL مطلقِ هم‌دامنه به مسیر نسبی
+       تبدیل می‌شود تا با asset_url پنل سازگار و مستقل از دامنه بماند. */
     $images = [];
     if (!empty($input['images']) && is_array($input['images'])) {
         foreach (array_slice($input['images'], 0, MAX_REQUEST_IMAGES) as $imgUrl) {
-            if (preg_match('#^https?://#i', (string)$imgUrl)) {
-                $db->insert('request_attachments', ['request_id' => $requestId, 'file_path' => (string)$imgUrl]);
-                $images[] = (string)$imgUrl;
+            $imgUrl = trim((string)$imgUrl);
+            if ($imgUrl === '') { continue; }
+            $relPath = null;
+            if (preg_match('#^https?://[^\s"\'<>]{5,500}$#i', $imgUrl)) {
+                /* URL مطلق — اگر هم‌دامنه سایت ساز است، نسبی‌اش کن */
+                if (stripos($imgUrl, BASE_URL . '/uploads/requests/') === 0) {
+                    $relPath = 'uploads/requests/' . substr($imgUrl, strlen(BASE_URL . '/uploads/requests/'));
+                } else {
+                    $relPath = $imgUrl; /* URL خارجی معتبر — همان‌طور ذخیره می‌شود */
+                }
+            } elseif (preg_match('#^uploads/requests/brand-\d+/req_[a-z0-9]+\.(jpe?g|png|webp|gif)$#i', $imgUrl)) {
+                /* مسیر نسبی مستقیم از آپلودر — فقط الگوی امن مجاز است */
+                $relPath = $imgUrl;
+            }
+            if ($relPath !== null) {
+                $db->insert('request_attachments', ['request_id' => $requestId, 'file_path' => $relPath]);
+                $images[] = $relPath;
             }
         }
     }

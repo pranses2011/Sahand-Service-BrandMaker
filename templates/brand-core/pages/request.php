@@ -129,6 +129,45 @@ require __DIR__ . '/_page_base.php';
         var data = {};
         new FormData(form).forEach(function (v, k) { data[k] = v; });
 
+        /* 🖼️ v2.30 — آپلود تصاویر پیوست پیش از ثبت درخواست:
+           فایل‌ها از طریق پروکسی همان‌مبدأ /js/image-upload.php به سایت
+           ساز منتقل و URL آنها در فیلد images ارسال می‌شود.
+           (قبلاً File در JSON به {} تبدیل می‌شد و تصاویر گم می‌شدند!) */
+        var filesInput = document.getElementById('images-input');
+        var files = filesInput && filesInput.files ? Array.from(filesInput.files).slice(0, 3) : [];
+
+        function uploadOne(file) {
+            var fd = new FormData();
+            fd.append('image', file);
+            return fetch('/js/image-upload.php', { method: 'POST', body: fd })
+                .then(function (r) { if (!r.ok) { throw new Error('http-' + r.status); } return r.text(); })
+                .then(function (txt) {
+                    try { return JSON.parse(txt); } catch (err) { throw new Error('bad-json'); }
+                })
+                .then(function (res) {
+                    if (res && res.success && res.data && res.data.url) { return res.data.url; }
+                    throw new Error((res && res.error) || 'upload-failed');
+                });
+        }
+
+        var uploadChain = Promise.resolve();
+        var imageUrls = [];
+        files.forEach(function (f) {
+            uploadChain = uploadChain.then(function () {
+                btn.innerHTML = '⏳ آپلود تصاویر (' + (imageUrls.length + 1) + ' از ' + files.length + ')...';
+                return uploadOne(f).then(function (u) { imageUrls.push(u); });
+            });
+        });
+
+        uploadChain.catch(function (upErr) {
+            /* آپلود تصویر ناموفق بود — درخواست بدون تصویر ادامه می‌یابد */
+            console.warn('آپلود تصویر ناموفق:', upErr && upErr.message ? upErr.message : upErr);
+        });
+
+        uploadChain.then(function () {
+            if (imageUrls.length) { data.images = imageUrls; }
+            btn.innerHTML = '⏳ در حال ارسال...';
+
         /* 🚀 v2.25 — زنجیره سه‌مرحله‌ای ارسال:
            ① پروکسی همان‌مبدأ /js/form-submit.php (بدون CORS/SSL مرورگر — مسیر اصلی)
            ② ارسال مستقیم به API سایت ساز (پشتیبان — برای بسته‌های قدیمی‌تر)
@@ -148,8 +187,9 @@ require __DIR__ . '/_page_base.php';
         postJson('/js/form-submit.php', data)
             .catch(function () {
                 /* پروکسی موجود نبود (بسته قدیمی) یا خطا داد → مسیر مستقیم */
-                return postJson(apiBase + '/brand/<?= (int)BRAND_ID ?>/request',
-                    Object.assign({}, data, { api_key: <?= json_encode((string)BRAND_API_KEY) ?> }));
+                var body = Object.assign({}, data, { api_key: <?= json_encode((string)BRAND_API_KEY) ?> });
+                if (imageUrls.length) { body.images = imageUrls; }
+                return postJson(apiBase + '/brand/<?= (int)BRAND_ID ?>/request', body);
             })
             .then(function (res) {
                 if (res && res.success) {
@@ -170,6 +210,7 @@ require __DIR__ . '/_page_base.php';
                 btn.disabled = false;
                 btn.innerHTML = '🚀 ثبت درخواست';
             });
+        }); /* پایان uploadChain.then */
     });
 })();
 </script>

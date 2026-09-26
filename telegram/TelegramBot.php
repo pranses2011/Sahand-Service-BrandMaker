@@ -1883,21 +1883,40 @@ class TelegramBot
         }
         try {
             $bot = new self((string)$cfg['bot_token'], $cfg);
-            $name = (string)($request['name'] ?? '');
+            /* 🚨 v2.30 — فیلدهای صحیح: اندپوینت درخواست full_name/device_key
+               می‌فرستد؛ خواندن name/device قدیمی باعث پیام خالی می‌شد! */
+            $name = (string)($request['full_name'] ?? $request['name'] ?? '');
             $phone = (string)($request['phone'] ?? '');
-            $device = (string)($request['device'] ?? '');
+            $device = (string)($request['device_key'] ?? $request['device'] ?? '');
             $desc = mb_substr((string)($request['description'] ?? ''), 0, 300);
             $brandName = (string)($brand['name_fa'] ?? '');
+            /* 🏢 v2.30 — نام نمایندگی هم در پیام ربات */
+            $agencyName = (string)(Config::get(Config::KEY_AGENCY_NAME_FA) ?: '');
             $text = "📨 <b>درخواست خدمات جدید</b>\n\n" .
                 "🏷️ برند: " . htmlspecialchars($brandName) . "\n" .
+                ($agencyName !== '' ? "🏢 نمایندگی: " . htmlspecialchars($agencyName) . "\n" : '') .
                 "👤 نام: " . htmlspecialchars($name) . "\n" .
                 "📞 تلفن: <code>" . htmlspecialchars($phone) . "</code>\n" .
                 ($device !== '' ? "🔧 دستگاه: " . htmlspecialchars($device) . "\n" : '') .
                 ($desc !== '' ? "📝 توضیحات: " . htmlspecialchars($desc) . "\n" : '');
+            /* 🖼️ v2.30 — تصاویر پیوست درخواست به‌صورت آلبوم ارسال می‌شوند */
+            $albumItems = [];
+            if (!empty($request['images']) && is_array($request['images'])) {
+                foreach (array_slice($request['images'], 0, 3) as $img) {
+                    $p = (string)$img;
+                    $abs = (strpos($p, 'http') === 0) ? '' : ROOT_PATH . '/' . ltrim($p, '/');
+                    if ($abs !== '' && is_file($abs)) {
+                        $albumItems[] = ['path' => $abs, 'caption' => '🖼️ تصویر پیوست درخواست'];
+                    }
+                }
+            }
             $sent = false;
             foreach (array_filter(array_map('trim', explode(',', (string)($cfg['allowed_chat_ids'] ?? '')))) as $chatId) {
                 if ($chatId === '*' || $chatId === '') { continue; }
                 try {
+                    if ($albumItems) {
+                        $bot->sendImageAlbum($chatId, $albumItems);
+                    }
                     $bot->sendMessage($chatId, $text, ['disable_preview' => true]);
                     $sent = true;
                 } catch (Exception $e) {

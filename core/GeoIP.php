@@ -36,6 +36,12 @@ class GeoIP
     /**
      * 🌍 تشخیص اطلاعات جغرافیایی IP
      *
+     * 🚨 v2.30 — «طولانی‌ترین تطابق» (longest-prefix match): قبلاً اولین
+     * رنج منطبق برمی‌گشت و چون رنج‌های سراسری بزرگ (تهران) بالای فایل
+     * بودند، رنج‌های استانی دقیق‌تر (تبریز/شیراز/ساری/...) که پایین‌تر
+     * تعریف شده بودند هرگز انتخاب نمی‌شدند → نقشه همیشه یک‌شهره/خالی!
+     * اکنون بین همه رنج‌های منطبق، «محدودترین» (کوچک‌ترین بازه) برنده است.
+     *
      * @param string $ip آدرس IP
      * @return array ['country' => 'IR', 'country_fa' => 'ایران', 'city' => 'تهران', 'province' => 'تهران']
      */
@@ -46,15 +52,24 @@ class GeoIP
             return $default;
         }
         $ipLong = ip2long($ip);
+        $best = null;
+        $bestSize = null;
         foreach (self::load() as $range) {
             if ($ipLong >= $range[0] && $ipLong <= $range[1]) {
-                return [
-                    'country'   => 'IR',
-                    'country_fa'=> 'ایران',
-                    'city'      => $range[2] ?? '',
-                    'province'  => $range[3] ?? '',
-                ];
+                $size = $range[1] - $range[0];
+                if ($bestSize === null || $size < $bestSize) {
+                    $bestSize = $size;
+                    $best = $range;
+                }
             }
+        }
+        if ($best !== null) {
+            return [
+                'country'   => 'IR',
+                'country_fa'=> 'ایران',
+                'city'      => $best[2] ?? '',
+                'province'  => $best[3] ?? '',
+            ];
         }
         return $default;
     }

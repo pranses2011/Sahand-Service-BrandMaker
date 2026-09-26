@@ -171,7 +171,72 @@ $exitPages = $safeQuery(
     $params
 );
 
-/* 🗺 مختصات شهرها برای نقشه SVG (طرح‌واره ایران) */
+/* ═══════════════════════════════════════════════════════════════
+ * 🆕 v2.30 — گزارش‌های جدید (درخواست کاربر: «انواع بیشتری از گزارش
+ * و آمار همراه با نمودارهای زیبا»)
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* 🌍 پراکندگی کشورها */
+$byCountry = $safeQuery(
+    "SELECT COALESCE(NULLIF(v.country, ''), 'IR') AS cc, COUNT(DISTINCT v.session_hash) AS c
+     FROM visits v WHERE {$where} GROUP BY cc ORDER BY c DESC LIMIT 8",
+    $params
+);
+$countryFa = [
+    'IR' => '🇮🇷 ایران', 'TR' => '🇹🇷 ترکیه', 'AE' => '🇦🇪 امارات', 'DE' => '🇩🇪 آلمان',
+    'US' => '🇺🇸 آمریکا', 'NL' => '🇳🇱 هلند', 'GB' => '🇬🇧 انگلیس', 'CA' => '🇨🇦 کانادا',
+    'AF' => '🇦🇫 افغانستان', 'IQ' => '🇮🇶 عراق', 'RU' => '🇷🇺 روسیه', 'FR' => '🇫🇷 فرانسه',
+    'SE' => '🇸🇪 سوئد', 'AU' => '🇦🇺 استرالیا', 'IN' => '🇮🇳 هند', 'CN' => '🇨🇳 چین',
+];
+
+/* 🔥 نقشه حرارتی ساعت × روز هفته (۷×۲۴) */
+$heatRows = $safeQuery(
+    "SELECT WEEKDAY(v.visit_date) AS wd, HOUR(v.visited_at) AS h, COUNT(DISTINCT v.session_hash) AS c
+     FROM visits v WHERE {$where} GROUP BY wd, h",
+    $params
+);
+$heatMap = array_fill(0, 7, array_fill(0, 24, 0));
+foreach ((array)$heatRows as $hr) {
+    $wd = (int)$hr['wd']; $h = (int)$hr['h'];
+    if ($wd >= 0 && $wd < 7 && $h >= 0 && $h < 24) { $heatMap[$wd][$h] = (int)$hr['c']; }
+}
+
+/* ⏱ روند میانگین مدت حضور روزانه (ثانیه) */
+$durationTrend = $safeQuery(
+    "SELECT v.visit_date, ROUND(AVG(vd.duration)) AS avg_dur
+     FROM visit_details vd JOIN visits v ON v.id = vd.visit_id
+     WHERE {$where} AND vd.duration > 0 GROUP BY v.visit_date ORDER BY v.visit_date LIMIT 30",
+    $params
+);
+
+/* 🚪 صفحات ورود (شروع سفر کاربر) */
+$entryPages = $safeQuery(
+    "SELECT v.entry_page, COUNT(DISTINCT v.session_hash) AS c
+     FROM visits v WHERE {$where} AND v.entry_page IS NOT NULL AND v.entry_page != ''
+     GROUP BY v.entry_page ORDER BY c DESC LIMIT 8",
+    $params
+);
+
+/* 📊 تعامل کاربران: میانگین صفحات دیده‌شده در هر بازدید */
+$engagementRow = $safeQuery(
+    "SELECT COUNT(DISTINCT v.session_hash) AS uv, COUNT(vd.id) AS pv
+     FROM visits v LEFT JOIN visit_details vd ON vd.visit_id = v.id
+     WHERE {$where}",
+    $params
+);
+$pagesPerVisit = ($engagementRow && (int)$engagementRow[0]['uv'] > 0)
+    ? round((int)$engagementRow[0]['pv'] / (int)$engagementRow[0]['uv'], 2)
+    : 0;
+
+/* 🌡 رتبه‌بندی روز-ساعت داغ */
+$heatPeak = ['wd' => 0, 'h' => 0, 'c' => 0];
+foreach ($heatMap as $wd => $hours) {
+    foreach ($hours as $h => $c) {
+        if ($c > $heatPeak['c']) { $heatPeak = ['wd' => $wd, 'h' => $h, 'c' => $c]; }
+    }
+}
+
+/* 🗺 مختصات شهرها برای نقشه SVG (طرح‌واره ایران) — v2.30: +3 شهر جدید */
 $cityXY = [
     'تهران' => [364.7, 143.0], 'کرج' => [346.3, 139.4], 'مشهد' => [700.1, 127.2], 'اصفهان' => [375.0, 223.4],
     'شیراز' => [411.0, 303.8], 'تبریز' => [154.4, 80.3], 'اهواز' => [252.0, 258.5], 'قم' => [342.6, 171.0],
@@ -179,6 +244,7 @@ $cityXY = [
     'ارومیه' => [102.7, 94.3], 'ساری' => [432.0, 120.4], 'سنندج' => [183.1, 153.1], 'همدان' => [245.4, 166.8],
     'خرم‌آباد' => [239.3, 201.3], 'اردبیل' => [236.4, 75.8], 'بیرجند' => [684.5, 217.6], 'قزوین' => [306.5, 128.0],
     'ایلام' => [159.7, 197.3], 'یزد' => [485.7, 243.2],
+    'بندرعباس' => [508.0, 357.0], 'زنجان' => [228.0, 122.0], 'گنبد کاووس' => [476.0, 92.0],
 ];
 
 /* 📈 شاخص‌های کلی */
@@ -469,8 +535,96 @@ $trackerBoxStyle = $trackerHealthy
     </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════
+     🆕 v2.30 — گزارش‌های جدید: نقشه حرارتی + کشورها + مقایسه دوره
+     ═══════════════════════════════════════════════════════════════ -->
+
+<!-- 🔥 نقشه حرارتی ساعت × روز هفته (تمام‌عرض) -->
+<div class="card" style="margin-bottom:18px">
+    <div class="card-header">
+        <h3>🔥 نقشه حرارتی بازدید — ساعت × روز هفته</h3>
+        <?php if ($heatPeak['c'] > 0): ?>
+            <span class="badge badge-info" style="font-size:11px">اوج بازدید: <?= e($weekdayFa[$heatPeak['wd']]) ?> ساعت <?= e(en_to_fa_digits(str_pad((string)$heatPeak['h'], 2, '۰', STR_PAD_LEFT))) ?>:۰۰</span>
+        <?php endif; ?>
+    </div>
+    <div class="card-body">
+        <canvas id="heatmap-chart" height="250"></canvas>
+        <div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-top:10px;font-size:10.5px;color:var(--text-light)">
+            کم
+            <?php foreach ([0.08, 0.25, 0.45, 0.65, 0.85, 1] as $ii): ?>
+                <span style="width:26px;height:11px;border-radius:3px;display:inline-block;background:rgba(30,64,175,<?= $ii ?>)"></span>
+            <?php endforeach; ?>
+            زیاد
+        </div>
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- 🌍 پراکندگی کشورها -->
+    <div class="card">
+        <div class="card-header"><h3>🌍 پراکندگی کشورهای بازدیدکنندگان</h3></div>
+        <div class="card-body"><canvas id="countries-chart" height="230"></canvas></div>
+    </div>
+    <!-- 📊 مقایسه دوره جاری با دوره قبل -->
+    <div class="card">
+        <div class="card-header"><h3>📊 مقایسه با دوره قبل</h3></div>
+        <div class="card-body">
+            <canvas id="compare-chart" height="230"></canvas>
+            <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap">
+                <div style="flex:1;min-width:130px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:11px;text-align:center">
+                    <div style="font-size:20px;font-weight:900;color:#1e40af"><?= e(en_to_fa_digits((string)$totalUnique)) ?></div>
+                    <div style="font-size:11px;color:#64748b">🟦 بازدیدکننده این دوره</div>
+                </div>
+                <div style="flex:1;min-width:130px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:12px;padding:11px;text-align:center">
+                    <div style="font-size:20px;font-weight:900;color:#475569"><?= e(en_to_fa_digits((string)$prevUnique)) ?></div>
+                    <div style="font-size:11px;color:#64748b">⬜ دوره قبل</div>
+                </div>
+                <div style="flex:1;min-width:130px;background:<?= $totalViews >= $prevViews ? '#f0fdf4;border:1px solid #bbf7d0' : '#fef2f2;border:1px solid #fecaca' ?>;border-radius:12px;padding:11px;text-align:center">
+                    <div style="font-size:20px;font-weight:900;color:<?= $totalViews >= $prevViews ? '#15803d' : '#b91c1c' ?>"><?= $prevViews > 0 ? e(en_to_fa_digits((string)round(($totalViews - $prevViews) / $prevViews * 100))) . '٪' : '—' ?></div>
+                    <div style="font-size:11px;color:#64748b">📈 رشد بازدید صفحات</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- ⏱ روند مدت حضور -->
+    <div class="card">
+        <div class="card-header"><h3>⏱ روند میانگین مدت حضور (ثانیه)</h3></div>
+        <div class="card-body"><canvas id="duration-chart" height="210"></canvas></div>
+    </div>
+    <!-- 🚪 صفحات ورود و خروج -->
+    <div class="card">
+        <div class="card-header"><h3>🚪 صفحات ورود و خروج کاربران</h3></div>
+        <div class="card-body">
+            <canvas id="entryexit-chart" height="230"></canvas>
+            <?php if (!empty($entryPages) || !empty($exitPages)): ?>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">
+                    <div>
+                        <div style="font-size:11px;font-weight:800;color:var(--text-light);margin-bottom:6px">⬅️ پرتکرارترین صفحات ورود:</div>
+                        <?php foreach (array_slice($entryPages, 0, 5) as $ep): ?>
+                            <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span dir="ltr" style="max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($ep['entry_page']) ?></span><b><?= e(en_to_fa_digits((string)$ep['c'])) ?></b></div>
+                        <?php endforeach; ?>
+                    </div>
+                    <div>
+                        <div style="font-size:11px;font-weight:800;color:var(--text-light);margin-bottom:6px">➡️ پرتکرارترین صفحات خروج:</div>
+                        <?php foreach (array_slice($exitPages, 0, 5) as $xp): ?>
+                            <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span dir="ltr" style="max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= e($xp['page_url']) ?></span><b><?= e(en_to_fa_digits((string)$xp['exits'])) ?></b></div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
 <!-- 🧩 نمودار Canvas بدون وابستگی خارجی -->
 <script>
+/* 🔄 v2.30 — همه نمودارها در یک تابع؛ تغییر اندازه پنجره → بازترسیم
+   (قبلاً نمودار فقط یک‌بار در لود اول با عرض لحظه‌ای ترسیم می‌شد) */
+function sahandDrawCharts() {
+
 /* 📈 نمودار خطی روند بازدید */
 (function () {
     const canvas = document.getElementById('visits-chart');
@@ -680,5 +834,288 @@ function sahandBars(canvasId, data, opts) {
         ctx.fillText(d.label + ' (' + new Intl.NumberFormat('fa-IR').format(d.value) + ')', w - 10, y + 2);
     });
 })();
+
+/* ═══════════════════════════════════════════════════════════════
+ * 🆕 v2.30 — نمودارهای جدید: حرارتی / کشورها / مقایسه / مدت / ورود-خروج
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* 🔥 نقشه حرارتی ساعت × روز هفته */
+(function () {
+    const canvas = document.getElementById('heatmap-chart');
+    if (!canvas) return;
+    const heat = <?= json_encode($heatMap) ?>;
+    const wdFa = <?= json_encode($weekdayFa) ?>;
+    const faNum = n => new Intl.NumberFormat('fa-IR').format(n);
+    const totalCells = heat.flat().filter(v => v > 0).length;
+    if (!totalCells) {
+        canvas.parentElement.innerHTML = '<div class="empty-state"><div class="icon">🔥</div><p>داده‌ای برای نقشه حرارتی موجود نیست.</p></div>';
+        return;
+    }
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth;
+    const H = 250;
+    canvas.width = w * dpr; canvas.height = H * dpr;
+    ctx.scale(dpr, dpr);
+    const pad = { t: 26, r: 14, b: 26, l: 58 };
+    const cw = w - pad.l - pad.r, ch = H - pad.t - pad.b;
+    const cellW = cw / 24, cellH = ch / 7;
+    const maxC = Math.max(...heat.flat(), 1);
+    /* خط‌کش ساعت (بالای شبکه) */
+    ctx.fillStyle = '#64748b'; ctx.font = '9px Vazirmatn, Tahoma'; ctx.textAlign = 'center';
+    for (let h = 0; h < 24; h += 3) {
+        ctx.fillText(String(h).padStart(2, '0'), pad.l + cellW * (h + 0.5), pad.t - 7);
+    }
+    for (let d = 0; d < 7; d++) {
+        /* برچسب روز (سمت راست — RTL) */
+        ctx.fillStyle = '#334155'; ctx.font = 'bold 10.5px Vazirmatn, Tahoma'; ctx.textAlign = 'right';
+        ctx.fillText(wdFa[d], w - pad.r, pad.t + cellH * (d + 0.5) + 4);
+        for (let h = 0; h < 24; h++) {
+            const v = heat[d][h] || 0;
+            const t = Math.pow(v / maxC, 0.65);
+            const x = w - pad.r - cellW * (h + 1) + 1.2; /* RTL: ساعت از راست */
+            const y = pad.t + cellH * d + 1.2;
+            ctx.fillStyle = v > 0 ? 'rgba(30,64,175,' + (0.1 + 0.9 * t).toFixed(2) + ')' : '#f1f5f9';
+            ctx.beginPath();
+            const rr = Math.min(3.5, cellW / 3);
+            ctx.moveTo(x + rr, y); ctx.arcTo(x + cellW - 2.4, y, x + cellW - 2.4, y + cellH - 2.4, rr);
+            ctx.arcTo(x + cellW - 2.4, y + cellH - 2.4, x, y + cellH - 2.4, rr);
+            ctx.arcTo(x, y + cellH - 2.4, x, y, rr); ctx.arcTo(x, y, x + cellW - 2.4, y, rr);
+            ctx.closePath(); ctx.fill();
+            if (v / maxC >= 0.55) {
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 9.5px Vazirmatn, Tahoma'; ctx.textAlign = 'center';
+                ctx.fillText(faNum(v), x + (cellW - 2.4) / 2, y + cellH / 2 + 3.5);
+            }
+        }
+    }
+})();
+
+/* 🌍 دونات پراکندگی کشورها */
+(function () {
+    const canvas = document.getElementById('countries-chart');
+    if (!canvas) return;
+    const data = <?= json_encode(array_map(fn($r) => ['label' => $countryFa[$r['cc']] ?? $r['cc'], 'value' => (int)$r['c']], $byCountry)) ?>;
+    if (!data.length) {
+        canvas.parentElement.innerHTML = '<div class="empty-state"><div class="icon">🌍</div><p>داده‌ای موجود نیست.</p></div>';
+        return;
+    }
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth;
+    canvas.width = w * dpr; canvas.height = 230 * dpr;
+    ctx.scale(dpr, dpr);
+    const colors = ['#1e40af', '#0891b2', '#16a34a', '#f59e0b', '#7c3aed', '#dc2626', '#db2777', '#4d7c0f'];
+    const total = data.reduce((s, d) => s + d.value, 0);
+    const cx = w * 0.30, cy = 115, r = 76;
+    let angle = -Math.PI / 2;
+    data.forEach((d, i) => {
+        const slice = (d.value / total) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, angle, angle + slice);
+        ctx.closePath();
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fill();
+        /* فاصله بین قاچ‌ها */
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.4; ctx.stroke();
+        angle += slice;
+    });
+    ctx.beginPath(); ctx.arc(cx, cy, r * 0.56, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.fillStyle = '#1e293b'; ctx.font = 'bold 15px Vazirmatn, Tahoma'; ctx.textAlign = 'center';
+    ctx.fillText(new Intl.NumberFormat('fa-IR').format(total), cx, cy + 5);
+    ctx.font = '9.5px Vazirmatn, Tahoma'; ctx.fillStyle = '#64748b';
+    ctx.fillText('بازدیدکننده', cx, cy + 20);
+    /* راهنما */
+    ctx.textAlign = 'right'; ctx.font = '11.5px Vazirmatn, Tahoma';
+    data.forEach((d, i) => {
+        const y = 34 + i * 25;
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fillRect(w * 0.60, y - 9, 13, 13);
+        ctx.fillStyle = '#1e293b';
+        ctx.fillText(d.label + ' — ' + new Intl.NumberFormat('fa-IR').format(d.value) + ' (' + Math.round(d.value / total * 100) + '٪)', w - 8, y + 2);
+    });
+})();
+
+/* 📊 میله‌های جفتی مقایسه دوره جاری با دوره قبل */
+(function () {
+    const canvas = document.getElementById('compare-chart');
+    if (!canvas) return;
+    const cur = { u: <?= (int)$totalUnique ?>, v: <?= (int)$totalViews ?>, b: <?= (int)$returningSessions ?> };
+    const prev = { u: <?= (int)$prevUnique ?>, v: <?= (int)$prevViews ?> };
+    const faNum = n => new Intl.NumberFormat('fa-IR').format(n);
+    const rows = [
+        { l: 'بازدیدکننده یکتا', a: cur.u, b: prev.u },
+        { l: 'بازدید صفحات', a: cur.v, b: prev.b !== undefined ? prev.v : 0 },
+    ];
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth;
+    const H = 230;
+    canvas.width = w * dpr; canvas.height = H * dpr;
+    ctx.scale(dpr, dpr);
+    const pad = { t: 34, r: 14, b: 26, l: 14 };
+    const cw = w - pad.l - pad.r, ch = H - pad.t - pad.b;
+    const maxV = Math.max(cur.u, cur.v, prev.u, prev.v, 4);
+    /* راهنمای رنگ */
+    ctx.font = 'bold 11px Vazirmatn, Tahoma'; ctx.textAlign = 'right';
+    ctx.fillStyle = '#1e40af'; ctx.fillRect(w - 150, 8, 12, 12);
+    ctx.fillStyle = '#1e293b'; ctx.fillText('دوره جاری', w - 158, 18);
+    ctx.fillStyle = '#cbd5e1'; ctx.fillRect(w - 260, 8, 12, 12);
+    ctx.fillStyle = '#1e293b'; ctx.fillText('دوره قبل', w - 268, 18);
+    const groupW = cw / rows.length;
+    rows.forEach((row, gi) => {
+        const gx = w - pad.r - groupW * (gi + 1); /* RTL */
+        const barW = Math.min(44, groupW / 2 - 14);
+        const h1 = row.a / maxV * ch, h2 = row.b / maxV * ch;
+        const xA = gx + groupW / 2 + 3, xB = gx + groupW / 2 - barW - 3;
+        /* میله دوره جاری (راست) */
+        const g1 = ctx.createLinearGradient(0, pad.t + ch - h1, 0, pad.t);
+        g1.addColorStop(0, '#1e40af'); g1.addColorStop(1, '#3b82f6');
+        ctx.fillStyle = g1;
+        ctx.beginPath(); ctx.moveTo(xA + 6, pad.t + ch - h1);
+        ctx.arcTo(xA + barW, pad.t + ch - h1, xA + barW, pad.t + ch, 6);
+        ctx.lineTo(xA + barW, pad.t + ch); ctx.lineTo(xA, pad.t + ch);
+        ctx.arcTo(xA, pad.t + ch, xA, pad.t + ch - h1, 6); ctx.closePath(); ctx.fill();
+        /* میله دوره قبل (چپ) */
+        ctx.fillStyle = '#cbd5e1';
+        ctx.beginPath(); ctx.moveTo(xB + 6, pad.t + ch - h2);
+        ctx.arcTo(xB + barW, pad.t + ch - h2, xB + barW, pad.t + ch, 6);
+        ctx.lineTo(xB + barW, pad.t + ch); ctx.lineTo(xB, pad.t + ch);
+        ctx.arcTo(xB, pad.t + ch, xB, pad.t + ch - h2, 6); ctx.closePath(); ctx.fill();
+        /* اعداد بالای میله‌ها */
+        ctx.fillStyle = '#1e40af'; ctx.font = 'bold 11.5px Vazirmatn, Tahoma'; ctx.textAlign = 'center';
+        ctx.fillText(faNum(row.a), xA + barW / 2, pad.t + ch - h1 - 6);
+        ctx.fillStyle = '#64748b'; ctx.font = '10.5px Vazirmatn, Tahoma';
+        ctx.fillText(faNum(row.b), xB + barW / 2, pad.t + ch - h2 - 6);
+        /* برچسب گروه */
+        ctx.fillStyle = '#334155'; ctx.font = 'bold 11.5px Vazirmatn, Tahoma';
+        ctx.fillText(row.l, gx + groupW / 2, H - 8);
+        /* خط صفر */
+        ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(pad.l, pad.t + ch); ctx.lineTo(w - pad.r, pad.t + ch); ctx.stroke();
+    });
+})();
+
+/* ⏱ روند میانگین مدت حضور */
+(function () {
+    const canvas = document.getElementById('duration-chart');
+    if (!canvas) return;
+    const data = <?= json_encode(array_map(fn($r) => ['date' => $r['visit_date'], 'v' => (int)$r['avg_dur']], $durationTrend)) ?>;
+    if (!data.length) {
+        canvas.parentElement.innerHTML = '<div class="empty-state"><div class="icon">⏱</div><p>هنوز داده مدت حضور ثبت نشده است.<br><small>با خروج کاربر از سایت، مدت حضور واقعی ثبت می‌شود.</small></p></div>';
+        return;
+    }
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth;
+    canvas.width = w * dpr; canvas.height = 210 * dpr;
+    ctx.scale(dpr, dpr);
+    const pad = { t: 15, r: 15, b: 26, l: 44 };
+    const cw = w - pad.l - pad.r, ch = 210 - pad.t - pad.b;
+    const maxV = Math.max(...data.map(d => d.v), 10);
+    const xAt = i => pad.l + (data.length === 1 ? cw / 2 : cw * i / (data.length - 1));
+    const yAt = v => pad.t + ch - (ch * v / maxV);
+    for (let i = 0; i <= 4; i++) {
+        const y = pad.t + ch - (ch * i / 4);
+        ctx.strokeStyle = '#e2e8f0'; ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y); ctx.stroke();
+        ctx.fillStyle = '#64748b'; ctx.font = '9.5px Vazirmatn, Tahoma'; ctx.textAlign = 'right';
+        ctx.fillText(Math.round(maxV * i / 4), pad.l - 5, y + 3);
+    }
+    const gradient = ctx.createLinearGradient(0, pad.t, 0, pad.t + ch);
+    gradient.addColorStop(0, 'rgba(13,148,136,.25)'); gradient.addColorStop(1, 'rgba(13,148,136,0)');
+    ctx.beginPath(); ctx.moveTo(xAt(0), yAt(data[0].v));
+    data.forEach((d, i) => ctx.lineTo(xAt(i), yAt(d.v)));
+    ctx.lineTo(xAt(data.length - 1), pad.t + ch); ctx.lineTo(xAt(0), pad.t + ch); ctx.closePath();
+    ctx.fillStyle = gradient; ctx.fill();
+    ctx.beginPath(); ctx.strokeStyle = '#0d9488'; ctx.lineWidth = 2.2;
+    data.forEach((d, i) => i ? ctx.lineTo(xAt(i), yAt(d.v)) : ctx.moveTo(xAt(i), yAt(d.v)));
+    ctx.stroke();
+    /* نقطه‌ها */
+    data.forEach((d, i) => {
+        ctx.beginPath(); ctx.arc(xAt(i), yAt(d.v), 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#0d9488'; ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.4; ctx.stroke();
+    });
+    ctx.fillStyle = '#64748b'; ctx.font = '9px Vazirmatn, Tahoma'; ctx.textAlign = 'center';
+    const step = Math.ceil(data.length / 6);
+    data.forEach((d, i) => { if (i % step === 0) ctx.fillText(d.date.slice(5), xAt(i), 200); });
+})();
+
+/* 🚪 صفحات ورود و خروج — میله‌های افقی جفتی */
+(function () {
+    const canvas = document.getElementById('entryexit-chart');
+    if (!canvas) return;
+    const entries = <?= json_encode(array_map(fn($r) => ['l' => mb_substr((string)$r['entry_page'], 0, 26), 'v' => (int)$r['c']], $entryPages)) ?>;
+    const exits = <?= json_encode(array_map(fn($r) => ['l' => mb_substr((string)$r['page_url'], 0, 26), 'v' => (int)$r['exits']], $exitPages)) ?>;
+    if (!entries.length && !exits.length) {
+        canvas.parentElement.innerHTML = '<div class="empty-state"><div class="icon">🚪</div><p>داده ورود/خروج ثبت نشده است.</p></div>';
+        return;
+    }
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth;
+    const H = 230;
+    canvas.width = w * dpr; canvas.height = H * dpr;
+    ctx.scale(dpr, dpr);
+    const faNum = n => new Intl.NumberFormat('fa-IR').format(n);
+    const pad = { t: 24, r: 118, b: 12, l: 60 };
+    const cw = w - pad.l - pad.r;
+    /* نیمه راست: ورود | نیمه چپ: خروج */
+    const half = cw / 2 - 8;
+    const maxE = Math.max(...entries.map(d => d.v), 1);
+    const maxX = Math.max(...exits.map(d => d.v), 1);
+    const rowH = Math.min(26, (H - pad.t - pad.b) / Math.max(entries.length, exits.length, 1) - 4);
+    ctx.font = 'bold 10.5px Vazirmatn, Tahoma'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#16a34a'; ctx.fillText('⬅️ ورود', w - pad.r - half / 2, 12);
+    ctx.fillStyle = '#dc2626'; ctx.fillText('خروج ➡️', pad.l + half / 2, 12);
+    entries.slice(0, 7).forEach((d, i) => {
+        const y = pad.t + i * (rowH + 4);
+        const bw = Math.max(3, d.v / maxE * (half - 46));
+        const x = w - pad.r - bw;
+        const g = ctx.createLinearGradient(x, 0, w - pad.r, 0);
+        g.addColorStop(0, '#15803d'); g.addColorStop(1, '#4ade80');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        const rr = Math.min(rowH / 2, 6);
+        ctx.moveTo(x + rr, y); ctx.arcTo(w - pad.r, y, w - pad.r, y + rowH, rr);
+        ctx.arcTo(w - pad.r, y + rowH, x, y + rowH, rr); ctx.arcTo(x, y + rowH, x, y, rr);
+        ctx.arcTo(x, y, w - pad.r, y, rr); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#334155'; ctx.font = '10px Vazirmatn, Tahoma'; ctx.textAlign = 'left';
+        ctx.fillText(d.l, w - pad.r + 6, y + rowH / 2 + 3.5);
+        ctx.fillStyle = '#15803d'; ctx.font = 'bold 9.5px Vazirmatn, Tahoma'; ctx.textAlign = 'right';
+        ctx.fillText(faNum(d.v), x - 4, y + rowH / 2 + 3.5);
+    });
+    exits.slice(0, 7).forEach((d, i) => {
+        const y = pad.t + i * (rowH + 4);
+        const bw = Math.max(3, d.v / maxX * (half - 46));
+        const g = ctx.createLinearGradient(pad.l, 0, pad.l + bw, 0);
+        g.addColorStop(0, '#f87171'); g.addColorStop(1, '#b91c1c');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        const rr = Math.min(rowH / 2, 6);
+        ctx.moveTo(pad.l + rr, y); ctx.arcTo(pad.l + bw, y, pad.l + bw, y + rowH, rr);
+        ctx.arcTo(pad.l + bw, y + rowH, pad.l, y + rowH, rr); ctx.arcTo(pad.l, y + rowH, pad.l, y, rr);
+        ctx.arcTo(pad.l, y, pad.l + bw, y, rr); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#334155'; ctx.font = '10px Vazirmatn, Tahoma'; ctx.textAlign = 'right';
+        ctx.fillText(d.l, pad.l - 6, y + rowH / 2 + 3.5);
+        ctx.fillStyle = '#b91c1c'; ctx.font = 'bold 9.5px Vazirmatn, Tahoma'; ctx.textAlign = 'left';
+        ctx.fillText(faNum(d.v), pad.l + bw + 4, y + rowH / 2 + 3.5);
+    });
+})();
+
+} /* پایان sahandDrawCharts */
+
+/* ▶ اجرای اولیه + بازترسیم با تأخیر هنگام تغییر اندازه */
+sahandDrawCharts();
+let sahandResizeTimer = null;
+window.addEventListener('resize', function () {
+    clearTimeout(sahandResizeTimer);
+    sahandResizeTimer = setTimeout(sahandDrawCharts, 180);
+});
+/* بازترسیم پس از بارگذاری کامل فونت (متن نمودارها با فونت درست) */
+if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () { sahandDrawCharts(); });
+}
 </script>
 <?php require __DIR__ . '/includes/footer.php'; ?>

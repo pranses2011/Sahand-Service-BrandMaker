@@ -25,3 +25,8 @@ test-out/
 # 🚀 افزونه استقرار خودکار (v2.11) — فایل‌های حساس زمان اجرا
 cache/.deploy_secret
 cache/.schema_v211
+
+# 🖼️ v2.30 — تصاویر پیوست درخواست‌ها (محتوای کاربر)
+uploads/requests/*
+!uploads/requests/.htaccess
+!uploads/requests/.gitkeep

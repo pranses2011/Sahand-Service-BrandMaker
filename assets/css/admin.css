@@ -228,6 +228,16 @@ body.no-scroll { overflow: hidden; }
 }
 .card-body { padding: 22px; }
 
+/* ---------- 📈 نمودارهای Canvas (v2.30 — ریشه «نمودار در نصف کارت») ----------
+   canvas به‌طور پیش‌فرض ۳۰۰px عرض دارد؛ بدون width:100% نمودار فقط
+   نیمی از عرض کارت را پر می‌کرد و نیمه دیگر سفید می‌ماند. */
+.card-body canvas {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+}
+
 /* ---------- 📊 کارت‌های آماری داشبورد ---------- */
 .stats-grid {
     display: grid;
@@ -818,3 +828,26 @@ td, .card-body, .alert, .card-header h3, .topbar-titles { overflow-wrap: break-w
 }
 .log-item .title { font-size: 13px; font-weight: 700; }
 .log-item .meta { font-size: 11.5px; color: var(--text-light); }
+
+/* ---------- 🖼️ تصاویر پیوست درخواست (v2.30) ---------- */
+.req-attach-thumb {
+    display: inline-block;
+    width: 96px;
+    height: 96px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    position: relative;
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+.req-attach-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.req-attach-thumb:hover {
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: 0 8px 20px rgba(30,64,175,.18);
+    border-color: var(--primary);
+}

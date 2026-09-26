@@ -132,6 +132,78 @@ $returningSessions = $retRow ? (int)$retRow[0]['returning_sessions'] : 0;
 
 $topKeywords = $safeQuery("SELECT v.search_keyword AS kw, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} AND v.search_keyword IS NOT NULL AND v.search_keyword != '' GROUP BY kw ORDER BY c DESC LIMIT 10", $params);
 
+/* ═══════════════════════════════════════════════════════════════
+ * 🆕 v2.30 — داده گزارش‌های جدید برای نسخه چاپی
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* 🌍 پراکندگی کشورها */
+$byCountry = $safeQuery(
+    "SELECT COALESCE(NULLIF(v.country, ''), 'IR') AS cc, COUNT(DISTINCT v.session_hash) AS c
+     FROM visits v WHERE {$where} GROUP BY cc ORDER BY c DESC LIMIT 8",
+    $params
+);
+$countryFa = [
+    'IR' => 'ایران', 'TR' => 'ترکیه', 'AE' => 'امارات', 'DE' => 'آلمان',
+    'US' => 'آمریکا', 'NL' => 'هلند', 'GB' => 'انگلیس', 'CA' => 'کانادا',
+    'AF' => 'افغانستان', 'IQ' => 'عراق', 'RU' => 'روسیه', 'FR' => 'فرانسه',
+];
+
+/* 🔥 نقشه حرارتی ساعت × روز هفته */
+$heatRows = $safeQuery(
+    "SELECT WEEKDAY(v.visit_date) AS wd, HOUR(v.visited_at) AS h, COUNT(DISTINCT v.session_hash) AS c
+     FROM visits v WHERE {$where} GROUP BY wd, h",
+    $params
+);
+$heatMap = array_fill(0, 7, array_fill(0, 24, 0));
+foreach ((array)$heatRows as $hr) {
+    $wd = (int)$hr['wd']; $h = (int)$hr['h'];
+    if ($wd >= 0 && $wd < 7 && $h >= 0 && $h < 24) { $heatMap[$wd][$h] = (int)$hr['c']; }
+}
+/* 🚨 v2.30 — تخت‌سازی صحیح: array_merge(...$heatMap) آرایه دوبعدی می‌سازد و
+   max() روی آن آرایه برمی‌گرداند → تقسیم بر آرایه = Exception وسط رندر! */
+$heatMax = 1;
+$heatSum = 0;
+foreach ($heatMap as $hours) {
+    foreach ($hours as $c) { $heatSum += $c; if ($c > $heatMax) { $heatMax = $c; } }
+}
+
+/* ⏱ روند میانگین مدت حضور روزانه */
+$durationTrend = $safeQuery(
+    "SELECT v.visit_date, ROUND(AVG(vd.duration)) AS avg_dur
+     FROM visit_details vd JOIN visits v ON v.id = vd.visit_id
+     WHERE {$where} AND vd.duration > 0 GROUP BY v.visit_date ORDER BY v.visit_date LIMIT 30",
+    $params
+);
+
+/* 🚪 صفحات ورود و خروج */
+$entryPages = $safeQuery(
+    "SELECT v.entry_page, COUNT(DISTINCT v.session_hash) AS c
+     FROM visits v WHERE {$where} AND v.entry_page IS NOT NULL AND v.entry_page != ''
+     GROUP BY v.entry_page ORDER BY c DESC LIMIT 8",
+    $params
+);
+$exitPages = $safeQuery(
+    "SELECT vd.page_url, COUNT(*) AS exits FROM visit_details vd JOIN visits v ON v.id = vd.visit_id
+     WHERE {$where} AND vd.is_exit = 1 GROUP BY vd.page_url ORDER BY exits DESC LIMIT 8",
+    $params
+);
+
+/* 📊 مقایسه با دوره قبل */
+$prevWhere = '1=1';
+$prevParams = [];
+if ($brandFilter > 0) { $prevWhere .= ' AND v.brand_id = ?'; $prevParams[] = $brandFilter; }
+if ($dateFrom !== '') {
+    $prevTo = date('Y-m-d', strtotime($dateFrom . ' -1 day'));
+    $prevDays = max(1, (strtotime($dateTo ?: date('Y-m-d')) - strtotime($dateFrom)) / 86400 + 1);
+    $prevFrom = date('Y-m-d', strtotime($prevTo) - (($prevDays - 1) * 86400));
+    $prevWhere .= " AND v.visit_date >= ? AND v.visit_date <= ?";
+    $prevParams[] = $prevFrom;
+    $prevParams[] = $prevTo;
+}
+$prevRow = $safeQuery("SELECT COUNT(DISTINCT v.session_hash) AS u, COUNT(*) AS views FROM visits v WHERE {$prevWhere}", $prevParams);
+$prevUnique = $prevRow ? (int)$prevRow[0]['u'] : 0;
+$prevViews = $prevRow ? (int)$prevRow[0]['views'] : 0;
+
 /* 📈 شاخص‌های کلی */
 $totalUnique = array_sum(array_column($timeline, 'unique_visits'));
 $newVisitors = max(0, $totalUnique - $returningSessions);
@@ -426,6 +498,99 @@ $recentDays = array_slice(array_reverse($timeline), 0, 35);
         </tbody>
     </table>
     <?php endif; ?>
+
+    <?php /* ═══════════ 🆕 v2.30 — بخش‌های جدید گزارش چاپی ═══════════ */ ?>
+
+    <?php if (!empty($byCountry)): ?>
+    <h2 class="sec">🌍 پراکندگی کشورهای بازدیدکنندگان</h2>
+    <table class="dt">
+        <thead><tr><th>کشور</th><th>بازدیدکننده یکتا</th><th style="width:220px">سهم</th></tr></thead>
+        <tbody>
+        <?php $maxC = max(array_column($byCountry, 'c')) ?: 1; $sumC = array_sum(array_column($byCountry, 'c')) ?: 1; ?>
+        <?php foreach ($byCountry as $cRow): ?>
+            <tr>
+                <td><?= e($countryFa[$cRow['cc']] ?? $cRow['cc']) ?></td>
+                <td class="n"><?= e(en_to_fa_digits((string)$cRow['c'])) ?> (<?= e(en_to_fa_digits((string)round($cRow['c'] / $sumC * 100))) ?>٪)</td>
+                <td><div class="bar-cell"><i style="width:<?= max(2, round($cRow['c'] / $maxC * 100)) ?>%"></i></div></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php endif; ?>
+
+    <?php if ($heatMax > 1 || $heatSum > 0): ?>
+    <h2 class="sec">🔥 نقشه حرارتی بازدید — ساعت × روز هفته</h2>
+    <table class="dt heat">
+        <thead><tr><th>روز</th><?php foreach (range(0, 23) as $h): if ($h % 3 !== 0 && $h !== 23) continue; ?><th class="n"><?= e(en_to_fa_digits(sprintf('%02d', $h))) ?></th><?php endforeach; ?></tr></thead>
+        <tbody>
+        <?php foreach ($heatMap as $wd => $hours): ?>
+            <tr>
+                <th><?= e($weekdayFa[$wd]) ?></th>
+                <?php foreach ($hours as $h => $c): if ($h % 3 !== 0 && $h !== 23) continue; ?>
+                    <?php $t = $c > 0 ? 0.12 + 0.88 * pow($c / $heatMax, 0.65) : 0; ?>
+                    <td class="n hc" <?= $t > 0 ? 'style="background:rgba(29,91,166,' . round($t, 2) . ');color:' . ($t > 0.5 ? '#fff' : '#334155') . '"' : '' ?>><?= $c > 0 ? e(en_to_fa_digits((string)$c)) : '·' ?></td>
+                <?php endforeach; ?>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <div style="font-size:10px;color:#64748b;margin-top:5px">ساعت‌ها هر ۳ ساعت نمایش داده می‌شوند — اعداد: بازدیدکننده یکتا</div>
+    <?php endif; ?>
+
+    <?php if (!empty($durationTrend)): ?>
+    <h2 class="sec">⏱ روند میانگین مدت حضور روزانه</h2>
+    <table class="dt">
+        <thead><tr><th>تاریخ</th><th>میانگین مدت حضور (ثانیه)</th><th style="width:220px">نسبت</th></tr></thead>
+        <tbody>
+        <?php $maxDur = max(array_column($durationTrend, 'avg_dur')) ?: 1; ?>
+        <?php foreach (array_reverse(array_slice($durationTrend, -14)) as $dt): ?>
+            <tr>
+                <td><?= e(jdate($dt['visit_date'])) ?></td>
+                <td class="n"><?= e(en_to_fa_digits((string)$dt['avg_dur'])) ?></td>
+                <td><div class="bar-cell"><i style="width:<?= max(2, round($dt['avg_dur'] / $maxDur * 100)) ?>%;background:#0d9488"></i></div></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php endif; ?>
+
+    <?php if (!empty($entryPages) || !empty($exitPages)): ?>
+    <h2 class="sec">🚪 صفحات ورود و خروج کاربران</h2>
+    <table class="dt">
+        <thead><tr><th style="width:50%">⬅️ صفحات ورود</th><th style="width:50%">➡️ صفحات خروج</th></tr></thead>
+        <tbody>
+        <?php $maxRows = max(count($entryPages), count($exitPages)); ?>
+        <?php for ($i = 0; $i < $maxRows; $i++): ?>
+            <tr>
+                <td dir="ltr" style="text-align:left;font-size:10.5px"><?= isset($entryPages[$i]) ? e($entryPages[$i]['entry_page']) . ' <b>(' . e(en_to_fa_digits((string)$entryPages[$i]['c'])) . ')</b>' : '—' ?></td>
+                <td dir="ltr" style="text-align:left;font-size:10.5px"><?= isset($exitPages[$i]) ? e($exitPages[$i]['page_url']) . ' <b>(' . e(en_to_fa_digits((string)$exitPages[$i]['exits'])) . ')</b>' : '—' ?></td>
+            </tr>
+        <?php endfor; ?>
+        </tbody>
+    </table>
+    <?php endif; ?>
+
+    <h2 class="sec">📊 مقایسه با دوره قبل</h2>
+    <table class="dt">
+        <thead><tr><th>شاخص</th><th>دوره جاری</th><th>دوره قبل</th><th>تغییر</th></tr></thead>
+        <tbody>
+        <?php
+        $chg = static fn($cur, $prev) => $prev > 0 ? round(($cur - $prev) / $prev * 100) : null;
+        $rows = [
+            ['بازدیدکننده یکتا', $totalUnique, $prevUnique],
+            ['بازدید کل صفحات', $totalViews, $prevViews],
+        ];
+        ?>
+        <?php foreach ($rows as [$label, $cur, $prev]): $d = $chg($cur, $prev); ?>
+            <tr>
+                <th><?= e($label) ?></th>
+                <td class="n"><?= e(en_to_fa_digits((string)$cur)) ?></td>
+                <td class="n"><?= e(en_to_fa_digits((string)$prev)) ?></td>
+                <td class="n" style="font-weight:800;color:<?= $d === null ? '#64748b' : ($d >= 0 ? '#15803d' : '#b91c1c') ?>"><?= $d === null ? '—' : ($d >= 0 ? '▲ ' : '▼ ') . e(en_to_fa_digits((string)abs($d))) . '٪' ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
 
     <footer class="rep">
         <span>صادرشده توسط سایت ساز برند سهند سرویس — <?= e(Config::get(Config::KEY_MAIN_SITE) ?: 'ea-fixer.ir') ?></span>

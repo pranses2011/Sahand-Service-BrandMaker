@@ -1169,10 +1169,10 @@ function renderPageProps() {
         '<label class="form-check" style="font-size:12px"><input type="checkbox" ' + (pageProp('darkPreview') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'darkPreview\',this.checked?1:0)"> 🌙 پیش‌نمایش بوم در حالت تیره</label>' +
         '<hr style="border:none;border-top:1px dashed var(--border);margin:12px 0">' +
         '<div style="font-size:11px;font-weight:800;color:var(--primary);margin:0 0 7px">📐 فاصله محتوای صفحه از لبه‌ها (🆕)</div>' +
-        '<div class="form-group"><label>⬆️ فاصله از بالا (px — خالی = خودکار)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="400" value="' + pageProp(\'padTop\') + '" onchange="setPageProp(\'padTop\',this.value)"></div>' +
-        '<div class="form-group"><label>⬇️ فاصله از پایین (px — خالی = خودکار)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="400" value="' + pageProp(\'padBottom\') + '" onchange="setPageProp(\'padBottom\',this.value)"></div>' +
-        '<div class="form-group"><label>↔️ فاصله از چپ (px — خالی = خودکار)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="400" value="' + pageProp(\'padLeft\') + '" onchange="setPageProp(\'padLeft\',this.value)"></div>' +
-        '<div class="form-group"><label>↔️ فاصله از راست (px — خالی = خودکار)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="400" value="' + pageProp(\'padRight\') + '" onchange="setPageProp(\'padRight\',this.value)"></div>' +
+        '<div class="form-group"><label>⬆️ فاصله از بالا (px — خالی = خودکار)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="400" value="' + pageProp('padTop') + '" onchange="setPageProp(\'padTop\',this.value)"></div>' +
+        '<div class="form-group"><label>⬇️ فاصله از پایین (px — خالی = خودکار)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="400" value="' + pageProp('padBottom') + '" onchange="setPageProp(\'padBottom\',this.value)"></div>' +
+        '<div class="form-group"><label>↔️ فاصله از چپ (px — خالی = خودکار)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="400" value="' + pageProp('padLeft') + '" onchange="setPageProp(\'padLeft\',this.value)"></div>' +
+        '<div class="form-group"><label>↔️ فاصله از راست (px — خالی = خودکار)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="400" value="' + pageProp('padRight') + '" onchange="setPageProp(\'padRight\',this.value)"></div>' +
         '<hr style="border:none;border-top:1px solid var(--border);margin:13px 0">' +
         '<button type="button" class="btn btn-outline btn-sm btn-block" onclick="resetPageProps()">↺ بازنشانی تنظیمات صفحه</button>';
     panel.innerHTML = html;

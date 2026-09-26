@@ -132,9 +132,12 @@ if (($viewId = (int)get_param('view')) > 0) {
                                 <label>🖼️ تصاویر پیوست (<?= en_to_fa_digits((string)count($attachments)) ?>)</label>
                                 <div style="display:flex;gap:10px;flex-wrap:wrap">
                                     <?php foreach ($attachments as $att): ?>
-                                        <a href="<?= asset_url($att['file_path']) ?>" target="_blank"><img src="<?= asset_url($att['file_path']) ?>" style="width:88px;height:88px;object-fit:cover;border-radius:10px;border:1px solid var(--border)" loading="lazy"></a>
+                                        <a href="<?= asset_url($att['file_path']) ?>" target="_blank" class="req-attach-thumb" title="مشاهده تصویر در اندازه اصلی">
+                                            <img src="<?= asset_url($att['file_path']) ?>" alt="تصویر پیوست درخواست" loading="lazy">
+                                        </a>
                                     <?php endforeach; ?>
                                 </div>
+                                <div class="hint" style="margin-top:6px">روی تصویر کلیک کنید تا در اندازه اصلی باز شود.</div>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -197,7 +200,8 @@ $page = max(1, (int)get_param('p'));
 $perPage = 20;
 $total = $db->count('service_requests r', $where, $params);
 $requests = $db->fetchAll(
-    "SELECT r.*, b.name_fa AS brand_name, b.logo AS brand_logo
+    "SELECT r.*, b.name_fa AS brand_name, b.logo AS brand_logo,
+            (SELECT COUNT(*) FROM request_attachments ra WHERE ra.request_id = r.id) AS attach_count
      FROM service_requests r JOIN brands b ON b.id = r.brand_id
      WHERE {$where} ORDER BY r.id DESC LIMIT {$perPage} OFFSET " . (($page - 1) * $perPage),
     $params
@@ -253,7 +257,7 @@ $counts = ['new' => $db->count('service_requests', "status = 'new'"), 'all' => $
                         <div style="font-weight:700;font-size:12.5px"><?= e($req['full_name']) ?></div>
                         <a href="tel:<?= e(fa_to_en_digits($req['phone'])) ?>" style="font-size:11.5px;direction:ltr;display:inline-block;color:var(--primary)"><?= e(fa_to_en_digits($req['phone'])) ?></a>
                     </td>
-                    <td style="font-size:12px"><?= e($req['device_key']) ?><?= $req['device_other'] ? '<br><small style="color:var(--text-light)">' . e($req['device_other']) . '</small>' : '' ?></td>
+                    <td style="font-size:12px"><?= e($req['device_key']) ?><?= $req['device_other'] ? '<br><small style="color:var(--text-light)">' . e($req['device_other']) . '</small>' : '' ?><?= (int)($req['attach_count'] ?? 0) > 0 ? ' <span class="badge badge-secondary" style="font-size:9.5px">🖼️ ' . en_to_fa_digits((string)$req['attach_count']) . '</span>' : '' ?></td>
                     <td><span class="badge <?= $statusMap[$req['status']][1] ?>"><?= $statusMap[$req['status']][0] ?></span></td>
                     <td style="font-size:11px;color:var(--text-light)"><?= time_ago_fa($req['created_at']) ?></td>
                     <td><a href="requests.php?view=<?= (int)$req['id'] ?>" class="btn btn-outline btn-sm">👁️ مشاهده</a> <a href="request-print.php?id=<?= (int)$req['id'] ?>" target="_blank" class="btn btn-outline btn-sm" title="نمای چاپی">🖨️</a></td>

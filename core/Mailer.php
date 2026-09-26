@@ -66,14 +66,22 @@ class Mailer
      * @param string $to      ایمیل مقصد
      * @param array  $request داده‌های درخواست (نام، تلفن، دستگاه و ...)
      * @param array  $brand   اطلاعات برند (نام + آدرس لوگو + دامنه)
+     * @param array  $agency  🆕 v2.30 — اطلاعات نمایندگی (agency_name + agency_logo)
      */
-    public function sendServiceRequest(string $to, array $request, array $brand): bool
+    public function sendServiceRequest(string $to, array $request, array $brand, array $agency = []): bool
     {
+        /* 🖼️ لوگوی برند */
         $logoHtml = '';
         if (!empty($brand['logo'])) {
             $logoUrl = (strpos($brand['logo'], 'http') === 0 ? $brand['logo'] : BASE_URL . '/' . $brand['logo']);
-            $logoHtml = '<img src="' . htmlspecialchars($logoUrl) . '" alt="' . htmlspecialchars($brand['name_fa']) . '" style="height:48px"> ';
+            $logoHtml = '<img src="' . htmlspecialchars($logoUrl) . '" alt="' . htmlspecialchars($brand['name_fa'] ?? '') . '" style="height:48px;vertical-align:middle"> ';
         }
+        /* 🏢 لوگوی نمایندگی (درخواست v2.30) */
+        $agencyLogoHtml = '';
+        if (!empty($agency['agency_logo'])) {
+            $agencyLogoHtml = '<img src="' . htmlspecialchars($agency['agency_logo']) . '" alt="' . htmlspecialchars($agency['agency_name'] ?? 'نمایندگی') . '" style="height:40px;vertical-align:middle"> ';
+        }
+        $agencyName = (string)($agency['agency_name'] ?? '');
 
         // 🏗️ ساخت جدول اطلاعات درخواست
         $rows = [
@@ -97,24 +105,32 @@ class Mailer
                 . '</tr>';
         }
 
-        // 🔗 لینک تصاویر پیوست (در صورت وجود)
+        // 🖼️ تصاویر پیوست — نمایش بصری (v2.30: پیش‌تر فقط لینک متنی بود)
         $imagesHtml = '';
         if (!empty($request['images']) && is_array($request['images'])) {
-            $imagesHtml .= '<p style="margin:14px 0 6px"><b>🖼️ تصاویر پیوست:</b></p><ul>';
+            $thumbs = '';
             foreach ($request['images'] as $img) {
                 $url = (strpos($img, 'http') === 0 ? $img : BASE_URL . '/' . $img);
-                $imagesHtml .= '<li><a href="' . htmlspecialchars($url) . '">' . htmlspecialchars(basename($img)) . '</a></li>';
+                $thumbs .= '<a href="' . htmlspecialchars($url) . '" target="_blank" style="display:inline-block;margin:4px">'
+                    . '<img src="' . htmlspecialchars($url) . '" alt="تصویر پیوست" style="width:150px;height:150px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0">'
+                    . '</a>';
             }
-            $imagesHtml .= '</ul>';
+            $imagesHtml = '<p style="margin:16px 0 6px"><b>🖼️ تصاویر پیوست مشتری:</b></p>'
+                . '<div style="direction:rtl;text-align:right">' . $thumbs . '</div>'
+                . '<p style="font-size:11px;color:#64748b;margin:4px 0 0">در صورت نمایش‌داده‌نشدن، روی تصاویر کلیک کنید یا «نمایش تصاویر» را در کلاینت ایمیل فعال کنید.</p>';
         }
 
-        $subject = '📨 درخواست خدمات جدید — ' . ($brand['name_fa'] ?? 'سایت برند');
+        $subject = '📨 درخواست خدمات جدید — ' . ($brand['name_fa'] ?? 'سایت برند') . ($agencyName ? ' | ' . $agencyName : '');
         $body = '<div style="font-family:Tahoma,Arial,sans-serif;direction:rtl;text-align:right;max-width:640px;margin:auto;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">'
-            . '<div style="background:#1e3a8a;color:#fff;padding:16px 20px;display:flex;align-items:center;gap:10px">' . $logoHtml
-            . '<div><div style="font-size:16px;font-weight:bold">درخواست خدمات جدید</div>'
-            . '<div style="font-size:12px;opacity:.85">از سایت ' . htmlspecialchars($brand['name_fa'] ?? '') . ' (' . htmlspecialchars($brand['domain'] ?? '') . ')</div></div></div>'
+            . '<div style="background:#1e3a8a;color:#fff;padding:16px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">' . $logoHtml
+            . '<div style="flex:1;min-width:180px"><div style="font-size:16px;font-weight:bold">درخواست خدمات جدید</div>'
+            . '<div style="font-size:12px;opacity:.85">از سایت ' . htmlspecialchars($brand['name_fa'] ?? '') . ' (' . htmlspecialchars($brand['domain'] ?? '') . ')</div></div>'
+            . ($agencyLogoHtml || $agencyName ? '<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.12);border-radius:10px;padding:7px 12px">' . $agencyLogoHtml
+                . '<span style="font-size:12.5px;font-weight:bold">' . htmlspecialchars($agencyName) . '</span></div>' : '')
+            . '</div>'
             . '<div style="padding:20px"><table style="width:100%;border-collapse:collapse;font-size:13px">' . $rowsHtml . '</table>'
             . $imagesHtml
+            . '<div style="margin-top:18px;text-align:center"><a href="' . htmlspecialchars(BASE_URL . '/admin/requests.php') . '" style="display:inline-block;background:#1e40af;color:#fff;text-decoration:none;font-weight:bold;font-size:13px;border-radius:10px;padding:11px 26px">👁️ مشاهده در پنل مدیریت</a></div>'
             . '<p style="margin-top:16px;color:#64748b;font-size:12px">⏰ ' . jdate_words(date('Y-m-d H:i:s')) . ' — ارسال‌شده توسط سایت ساز برند سهند سرویس</p>'
             . '</div></div>';
 

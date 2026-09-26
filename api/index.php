@@ -51,11 +51,13 @@ $router->use(function (array $params) {
     $path = trim(preg_replace('#^.*?/api/#', '', parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH)), '/');
     // 🌐 مسیرهای عمومی بدون احراز هویت (محدودیت نرخ فعال است):
     //    📨 request — ثبت درخواست از فرم سایت برند (کلید در بدنه بررسی می‌شود)
+    //    🖼️ upload-request-image — آپلود تصویر پیوست درخواست (کلید در بدنه فرم)
     //    📊 track — ردیاب بازدید (brand_id اعتبارسنجی می‌شود)
     //    🖼️ icon — سرو آیکون در تگ <img> (امکان ارسال هدر نیست)
     //    🏷️ brands — لیست عمومی برندها برای فوتر سایت‌ها
     //    🤖 telegram/webhook — وب‌هوک تلگرام (با توکن مخفی خودکار تلگرام راستی‌آزمایی می‌شود)
     if (preg_match('#^brand/[^/]+/request$#', $path) || preg_match('#^request$#', $path)
+        || preg_match('#^brand/[^/]+/upload-request-image$#', $path) || preg_match('#^upload-request-image$#', $path)
         || preg_match('#^track$#', $path)
         || preg_match('#^icon/#', $path)
         || preg_match('#^brands$#', $path)
@@ -140,6 +142,16 @@ $router->add('POST', 'brand/{brandId}/request', function ($p) {
 $router->add('POST', 'request', function () {
     require __DIR__ . '/endpoints/request.php';
     api_submit_request(0);
+});
+
+/* 🖼️ v2.30 — آپلود تصویر پیوست درخواست (فرم سایت برند → پروکسی همان‌مبدأ) */
+$router->add('POST', 'brand/{brandId}/upload-request-image', function ($p) {
+    require __DIR__ . '/endpoints/request-image.php';
+    api_upload_request_image((int)$p['brandId']);
+});
+$router->add('POST', 'upload-request-image', function () {
+    require __DIR__ . '/endpoints/request-image.php';
+    api_upload_request_image(0);
 });
 
 // 📊 ثبت بازدید (tracker.js)
