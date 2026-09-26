@@ -1616,3 +1616,7 @@ fix-cron-deploy-v2.14a → feat-images-v2.14 → feat-font-previews-v2.14 → fe
 
 ### نتیجه
 نسخه سیستم 2.29.0 | عناصر قالب‌ساز: ۲۱۴ | فاصله‌های صفحه + انیمیشن + کلیک‌پذیری کامل | آمار با نقشه ایران + ۶ گزارش جدید
+
+### رلیز
+- 🏷️ تگ: `v2.29.0` — SHA کامیت‌های اصلی: `b6af7ef` (stage1) + `2e8de14` (analytics) + `601de0e` (test-fix) + `97ff3d7` (docs)
+- 📦 https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/tag/v2.29.0 — install.zip (۶.۸MB / ۱۹۲۴ فایل) + update.zip (۴۹۰KB / ۲۰ فایل) + UPGRADE + AI-API-GUIDE + README + SHA256SUMS
