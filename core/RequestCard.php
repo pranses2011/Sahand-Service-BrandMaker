@@ -228,7 +228,10 @@ class RequestCard
                 $lines = self::wrapText((string)$f[1], self::$fontRegular, 21, $maxValueW);
                 $rowsH += 16 + count($lines) * ($f[2] ? 34 : $lineH);
             }
-            $footH = 74;
+            /* 🆕 v2.32 — کارت بدون تصویر مشتری: لوگوها در فوتر نشان داده
+               می‌شوند تا برندینگ پیام حفظ شود (درخواست «لوگوها در پیام») */
+            $logoInFooter = ($photo === null) && (!empty($brand['logo']) || $agencyLogoPath !== '');
+            $footH = $logoInFooter ? 112 : 74;
             $H = $headH + $photoH + 34 + $rowsH + $footH;
 
             /* 🎨 بوم */
@@ -316,15 +319,29 @@ class RequestCard
                 $y += $rowH;
             }
 
-            /* 🦶 فوتر */
+            /* 🦶 فوتر — v2.32: بدون تصویر مشتری، دو لوگو اینجا قرار می‌گیرند */
             $foot = imagecreatetruecolor(self::W, $footH);
             imagefill($foot, 0, 0, $lightBg);
             imagecopy($img, $foot, 0, $H - $footH, 0, 0, self::W, $footH);
             imagedestroy($foot);
-            $footText = trim(($agencyName !== '' ? '🏢 ' . $agencyName . '   ' : '') . '⏰ ' . jdate(date('Y-m-d H:i'), true));
-            self::drawText($img, self::shape($footText), self::$fontRegular, 17, $gray, self::W - $pad, $H - $footH + 24, 'right');
-            if (!empty($request['request_id'])) {
-                self::drawText($img, self::shape('کد پیگیری: ' . $request['request_id']), self::$fontBold, 17, $accent, $pad, $H - $footH + 24, 'left');
+            if ($logoInFooter) {
+                if (!empty($brand['logo'])) {
+                    self::drawLogoChip($img, (string)$brand['logo'], 18, $H - $footH + 12, 'left');
+                }
+                if ($agencyLogoPath !== '') {
+                    self::drawLogoChip($img, $agencyLogoPath, self::W - 18, $H - $footH + 12, 'right');
+                }
+                $footText = trim(($agencyName !== '' ? '🏢 ' . $agencyName . '   ' : '') . '⏰ ' . jdate(date('Y-m-d H:i'), true));
+                self::drawText($img, self::shape($footText), self::$fontRegular, 17, $gray, self::W - $pad, $H - 40, 'right');
+                if (!empty($request['request_id'])) {
+                    self::drawText($img, self::shape('کد پیگیری: ' . $request['request_id']), self::$fontBold, 17, $accent, $pad, $H - 40, 'left');
+                }
+            } else {
+                $footText = trim(($agencyName !== '' ? '🏢 ' . $agencyName . '   ' : '') . '⏰ ' . jdate(date('Y-m-d H:i'), true));
+                self::drawText($img, self::shape($footText), self::$fontRegular, 17, $gray, self::W - $pad, $H - $footH + 24, 'right');
+                if (!empty($request['request_id'])) {
+                    self::drawText($img, self::shape('کد پیگیری: ' . $request['request_id']), self::$fontBold, 17, $accent, $pad, $H - $footH + 24, 'left');
+                }
             }
 
             /* 💾 ذخیره */

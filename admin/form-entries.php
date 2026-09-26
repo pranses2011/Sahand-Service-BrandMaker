@@ -72,7 +72,7 @@ $formLabels = [
 ];
 $fieldLabels = [
     'full_name' => 'نام و نام خانوادگی', 'phone' => 'شماره تماس', 'phone2' => 'تماس دوم', 'email' => 'ایمیل',
-    'subject' => 'موضوع', 'address' => 'آدرس', 'description' => 'پیام / شرح', 'device_type' => 'نوع دستگاه',
+    'subject' => 'موضوع', 'address' => 'آدرس', 'description' => 'پیام / شرح', 'device_type' => 'نوع دستگاه', 'device_name' => 'نوع دستگاه',
     'device_other' => 'دستگاه (دستی)', 'device_model' => 'مدل دستگاه', 'preferred_date' => 'تاریخ ترجیحی',
     'preferred_time' => 'بازه ساعتی', 'images' => 'تصاویر پیوست',
 ];
@@ -118,6 +118,8 @@ require __DIR__ . '/includes/header.php';
             $flds = json_decode((string)$entry['fields'], true) ?: [];
             $imgs = (array)($flds['images'] ?? []);
             unset($flds['images']);
+            /* 🚨 v2.32 — کلید خام دستگاه وقتی نام فارسی هست نشان داده نمی‌شود */
+            if (!empty($flds['device_name'])) { unset($flds['device_type'], $flds['device_other']); }
             ?>
             <table class="table" style="font-size:13px">
                 <tbody>

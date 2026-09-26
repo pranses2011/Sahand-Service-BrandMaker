@@ -92,6 +92,19 @@ function api_submit_form_entry(int $urlBrandId): void
     }
     if ($images) { $fields['images'] = $images; }
 
+    /* 🚨 v2.32 — نام دستگاه فارسی در ذخیره پنل هم بنشیند (ریشه «نام
+       دستگاه انگلیسی»): مقدار خام device_type مثل washing_machine در
+       JSON می‌نشست؛ اکنون device_name فارسی هم کنارش ذخیره می‌شود. */
+    if (trim((string)($fields['device_type'] ?? '')) !== '') {
+        try {
+            $fields['device_name'] = NotificationService::deviceNameFa(
+                (int)$brand['id'],
+                (string)$fields['device_type'],
+                (string)($fields['device_other'] ?? '')
+            );
+        } catch (Throwable $dvE) { /* بی‌صدا */ }
+    }
+
     /* ═══ ثبت در پنل ═══ */
     $entryId = 0;
     if (in_array('panel', $dests, true) || true) {
