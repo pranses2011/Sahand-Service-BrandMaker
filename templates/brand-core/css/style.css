@@ -12,6 +12,25 @@
     --shadow-lg: 0 12px 40px rgba(0,0,0,.12);
     --transition: all .25s ease;
     --container: 1180px;
+
+    /* 🎨 v2.24 — رنگ‌های پیش‌فرض ایمنی: اگر theme-light.css خالی/ناقص باشد
+       (پالت ثبت نشده یا استخراج ناقص)، صفحه هرگز «متن هم‌رنگ زمینه» نمی‌شود.
+       theme-*.css بعد از این فایل لود می‌شود و مقادیر برند را روی همین
+       پیش‌فرض‌ها بازنویسی می‌کند. */
+    --color-primary: #1e40af;
+    --color-primary-light: #3b82f6;
+    --color-primary-dark: #1e3a8a;
+    --color-secondary: #0ea5e9;
+    --color-accent: #f59e0b;
+    --color-background: #ffffff;
+    --color-surface: #f5f7fa;
+    --color-text: #1f2937;
+    --color-text-light: #6b7280;
+    --color-border: #e5e7eb;
+    --color-success: #16a34a;
+    --color-warning: #f59e0b;
+    --color-error: #dc2626;
+    --color-info: #2563eb;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

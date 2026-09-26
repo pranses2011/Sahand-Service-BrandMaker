@@ -53,6 +53,32 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
     <!-- 🎨 استایل‌ها -->
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/theme-light.css" id="theme-stylesheet">
+    <?php
+    /* 🎨 v2.24 — پالت زنده از API سایت ساز (دو منفعت):
+       ① تغییر پالت/تم در پنل، بدون استقرار مجدد و بعد از انقضای کش (پیش‌فرض
+         ۵ دقیقه) روی سایت برند اعمال می‌شود — قبلاً رنگ‌ها فقط هنگام ساخت ZIP
+         «پخته» می‌شدند و هیچ تغییری اثر نمی‌کرد (ریشه «تنظیمات تم اعمال نمی‌شود»).
+       ② اگر theme-*.css مستقرشده خالی/قدیمی باشد، این استایل جایگزین می‌شود.
+       ساختار: :root (روشن — همیشه برنده بر theme-light.css چون بعدش لود می‌شود)
+       + html[data-theme="dark"] (تاریک — انتخاب‌گر قوی‌تر از :root، فقط وقتی
+       کاربر تم تاریک فعال کند اعمال می‌شود؛ هماهنگ با toggleTheme) */
+    $liveLight = is_array($palette['light'] ?? null) ? $palette['light'] : [];
+    $liveDark  = is_array($palette['dark'] ?? null) ? $palette['dark'] : [];
+    $cssVars = static function (array $vars, string $selector): string {
+        $lines = '';
+        foreach ($vars as $k => $v) {
+            $k = trim((string)$k);
+            $v = trim((string)$v);
+            if ($k !== '' && $v !== '' && preg_match('/^--[\w-]+$/', $k) && preg_match('/^[#()\w\s,.%\-\d]+$/', $v)) {
+                $lines .= $k . ':' . $v . ';';
+            }
+        }
+        return $lines !== '' ? $selector . '{' . $lines . '}' : '';
+    };
+    $inlinePalette = $cssVars($liveLight, ':root') . $cssVars($liveDark, 'html[data-theme="dark"]');
+    if ($inlinePalette !== ''): ?>
+    <style id="brand-palette-live"><?= $inlinePalette ?></style>
+    <?php endif; ?>
     <!-- 🧩 Schema.org -->
     <script type="application/ld+json"><?= json_encode([
         '@context' => 'https://schema.org',

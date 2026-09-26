@@ -68,6 +68,11 @@ class AiPhotoService
         'pollinations_flux'  => ['پولینیشنز — Flux',            false, 'رایگان و بدون کلید — کیفیت بالا (پیش‌فرض)'],
         'pollinations_turbo' => ['پولینیشنز — Turbo',            false, 'رایگان و بدون کلید — سریع‌تر، کیفیت متوسط'],
         'stablehorde'        => ['AI Horde — Stable Diffusion',  false, 'رایگان-اشتراکی بدون کلید — صف عمومی (کندتر، ۶۰-۱۲۰ ثانیه)'],
+        /* 🆕 v3.1 — چهار سرویس رایگان بدون کلید دیگر (مجموع ۷ سرویس بدون کلید) */
+        'loremflickr'        => ['لورم‌فلیکر — عکس واقعی موضوعی', false, 'رایگان و بدون کلید — عکس استوک واقعی بر اساس کلیدواژه دستگاه (سریع)'],
+        'wikimedia'          => ['ویکیمدیا کامانز — عکس واقعی',   false, 'رایگان و بدون کلید — عکسهای دانشنامه‌ای واقعی با کلیدواژه'],
+        'lexica'             => ['لکسیکا — تصاویر AI موضوعی',    false, 'رایگان و بدون کلید — جستجو در آرشیو گسترده تصاویر Stable Diffusion'],
+        'picsum'             => ['Picsum — عکس استوک تصادفی',    false, 'رایگان و بدون کلید — عکس واقعی تصادفی (آخرین جایگزین اضطراری)'],
         /* 🔑 کلید با پلن رایگان */
         'huggingface'        => ['Hugging Face — SDXL',          true,  'توکن رایگان از huggingface.co/settings/tokens'],
         'deepai'             => ['DeepAI — Text2Img',            true,  'کلید رایگان از deepai.org/dashboard/profile'],
@@ -160,6 +165,54 @@ class AiPhotoService
 
     /** 🌍 پسوند کیفیت پرامپت */
     const STYLE_SUFFIX = 'professional photography, photorealistic, high detail, natural lighting, sharp focus, 16:9 aspect, no text, no words, no watermark, no logo';
+
+    /** 🖼️ کلیدواژه استوک هر دستگاه — v3.1 (سرویسهای عکس واقعی: لورم‌فلیکر/ویکیمدیا/لکسیکا)
+     * سرویسهای عکس واقعی با «پرامپت توصیفی» جستجو نمی‌کنند؛ کلیدواژه کوتاه
+     * موضوعی لازم دارند (مثل refrigerator). انتخاب با بذر (seed) متنوع می‌شود. */
+    const STOCK_KEYWORDS = [
+        'refrigerator'       => 'refrigerator',
+        'freezer'            => 'freezer',
+        'wine_cooler'        => 'wine cooler',
+        'washing_machine'    => 'washing machine',
+        'dryer'              => 'clothes dryer',
+        'dishwasher'         => 'dishwasher',
+        'air_conditioner'    => 'air conditioner',
+        'cooler'             => 'air cooler',
+        'ducted_split'       => 'air conditioning',
+        'package'            => 'gas boiler heater',
+        'fan_coil'           => 'fan coil',
+        'tv'                 => 'television',
+        'microwave'          => 'microwave oven',
+        'oven'               => 'kitchen oven',
+        'stove'              => 'kitchen stove',
+        'cooktop'            => 'cooktop',
+        'range_hood'         => 'range hood',
+        'vacuum'             => 'vacuum cleaner',
+        'steam_cleaner'      => 'steam cleaner',
+        'water_heater'       => 'water heater',
+        'solar_water_heater' => 'solar water heater',
+        'air_purifier'       => 'air purifier',
+        'dehumidifier'       => 'dehumidifier',
+        'water_dispenser'    => 'water dispenser',
+        'kettle'             => 'electric kettle',
+        'air_fryer'          => 'air fryer',
+        'blender'            => 'blender',
+        'juicer'             => 'juicer',
+        'mixer'              => 'kitchen mixer',
+        'food_processor'     => 'food processor',
+        'meat_grinder'       => 'meat grinder',
+        'toaster'            => 'toaster',
+        'sandwich_maker'     => 'sandwich maker',
+        'fryer'              => 'deep fryer',
+        'rice_cooker'        => 'rice cooker',
+        'tea_maker'          => 'samovar tea',
+        'coffee_maker'       => 'coffee machine',
+        'iron'               => 'steam iron',
+        'hair_dryer'         => 'hair dryer',
+        'hair_clipper'       => 'hair clipper',
+        'fan'                => 'electric fan',
+        'heater'             => 'room heater',
+    ];
 
     /** 🧭 نگاشت کلیدواژه‌های عنوان فارسی → نوع مقاله (برای بازتولید تصاویر) — v3.0 */
     const TOPIC_INFER = [
@@ -317,6 +370,9 @@ class AiPhotoService
             $norm = ArticleImageService::normalizeDeviceKey((string)ArticleImageService::inferDeviceKey($title, ''));
         }
         $devicePrompt = self::DEVICE_PROMPTS[$norm] ?? 'household appliance';
+        /* 🆕 v3.1: کلیدواژه استوک همین دستگاه — برای سرویسهای عکس واقعی
+         * (لورم‌فلیکر/ویکیمدیا/لکسیکا) که با پرامپت توصیفی جستجو نمی‌کنند */
+        $stockQuery = self::STOCK_KEYWORDS[$norm] ?? 'home appliance';
 
         /* 🎭 صحنه بر اساس نوع مقاله */
         $scene = self::TOPIC_SCENES[$topicType] ?? self::TOPIC_SCENES['troubleshooting'];
@@ -366,7 +422,7 @@ class AiPhotoService
                     'تولید تصویر ' . $i . ' از ' . $count,
                     'سرویس: ' . self::SERVICES[$svc][0] . ($svcIdx > 1 ? ' (تلاش جایگزین ' . $svcIdx . ')' : ' (سرویس انتخابی)')
                 );
-                $ok = $this->downloadViaService($svc, $prompt, $seed, $abs);
+                $ok = $this->downloadViaService($svc, $prompt, $seed, $abs, $stockQuery);
                 if ($ok) {
                     $imgService = $svc;
                     break; // ✅ موفق — سرویس بعدی لازم نیست
@@ -403,14 +459,19 @@ class AiPhotoService
     }
 
     /* ==================================================
-     * 🌐 درایورهای سرویس‌ها (v3.0 — ۱۴ سرویس)
+     * 🌐 درایورهای سرویس‌ها (v3.1 — ۱۸ سرویس؛ ۷ رایگان بدون کلید)
      * ================================================== */
 
     /**
      * ⬇️ دانلود عکس از سرویس مشخص + اعتبارسنجی
+     * @param string      $service    کلید سرویس
+     * @param string      $prompt     پرامپت توصیفی (سرویسهای AI)
+     * @param int         $seed       بذر یکتا (تنوع + انتخاب از نتایج استوک)
+     * @param string      $destAbs    مسیر مطلق فایل مقصد
+     * @param string|null $stockQuery کلیدواژه موضوعی دستگاه (سرویسهای عکس واقعی — v3.1)
      * @return bool موفقیت ذخیره فایل
      */
-    private function downloadViaService(string $service, string $prompt, int $seed, string $destAbs): bool
+    private function downloadViaService(string $service, string $prompt, int $seed, string $destAbs, ?string $stockQuery = null): bool
     {
         $timeout = max(20, (int)self::settings()['timeout']);
         $key = $this->serviceKey($service);
@@ -428,6 +489,62 @@ class AiPhotoService
             case 'stablehorde':
                 /* AI Horde — رایگان-اشتراکی بدون کلید: ثبت async + poll + دریافت */
                 return $this->stablehordeGenerate($prompt, $destAbs, $timeout);
+
+            /* ---------- 🆕 v3.1 — عکسهای واقعی موضوعی بدون کلید ---------- */
+            case 'loremflickr':
+                /* لورم‌فلیکر — عکس استوک واقعی با کلیدواژه؛ lock بذر = تنوع */
+                $q = rawurlencode($stockQuery ?: 'home appliance');
+                $url = 'https://loremflickr.com/' . self::W . '/' . self::H . '/' . $q . '?lock=' . ($seed % 999983);
+                return $this->httpDownload($url, $destAbs, $timeout, [], 8000);
+
+            case 'wikimedia':
+                /* ویکیمدیا کامانز — جستجوی عکس واقعی با کلیدواژه (API عمومی، بدون کلید) */
+                $q = $stockQuery ?: 'home appliance';
+                $api = 'https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search'
+                    . '&gsrsearch=' . rawurlencode($q) . '&gsrnamespace=6&gsrlimit=24'
+                    . '&prop=imageinfo&iiprop=url%7Csize%7Cmime&iiurlwidth=' . self::W;
+                $body = $this->httpGetBody($api, ['Accept: application/json'], $timeout);
+                if ($body === null) { return false; }
+                $data = json_decode($body, true);
+                $pages = is_array($data) ? ($data['query']['pages'] ?? null) : null;
+                if (!is_array($pages) || $pages === []) { return false; }
+                /* فقط تصاویر شطرنجی JPEG/PNG با عرض کافی */
+                $candidates = [];
+                foreach ($pages as $p) {
+                    $info = is_array($p['imageinfo'][0] ?? null) ? $p['imageinfo'][0] : null;
+                    if ($info === null) { continue; }
+                    if (isset($info['mime']) && !in_array($info['mime'], ['image/jpeg', 'image/png'], true)) { continue; }
+                    if ((int)($info['width'] ?? 0) < 640) { continue; }
+                    $url = trim((string)($info['thumburl'] ?? ''));
+                    if ($url === '') { $url = trim((string)($info['url'] ?? '')); }
+                    if ($url !== '') { $candidates[] = $url; }
+                }
+                if ($candidates === []) { return false; }
+                $pick = $candidates[$seed % count($candidates)];
+                return $this->httpDownload($pick, $destAbs, $timeout, [], 8000);
+
+            case 'lexica':
+                /* لکسیکا — آرشیو تصاویر AI (Stable Diffusion) با جستجوی کلیدواژه، بدون کلید */
+                $q = $stockQuery ?: 'home appliance';
+                $api = 'https://lexica.art/api/v1/search?q=' . rawurlencode($q) . '&limit=24';
+                $body = $this->httpGetBody($api, ['Accept: application/json'], $timeout);
+                if ($body === null) { return false; }
+                $data = json_decode($body, true);
+                $images = is_array($data) ? ($data['images'] ?? null) : null;
+                if (!is_array($images) || $images === []) { return false; }
+                $candidates = [];
+                foreach ($images as $im) {
+                    $src = trim((string)($im['src'] ?? ''));
+                    if ($src !== '' && preg_match('#^https?://#i', $src)) { $candidates[] = $src; }
+                }
+                if ($candidates === []) { return false; }
+                $pick = $candidates[$seed % count($candidates)];
+                return $this->httpDownload($pick, $destAbs, $timeout, [], 8000);
+
+            case 'picsum':
+                /* Picsum — عکس واقعی تصادفی (بدون ارتباط موضوعی — آخرین جایگزین اضطراری) */
+                $url = 'https://picsum.photos/seed/' . ($seed % 999983) . '/' . self::W . '/' . self::H . '.jpg';
+                return $this->httpDownload($url, $destAbs, $timeout, [], 6000);
 
             /* ---------- 🔑 کلید رایگان ---------- */
             case 'huggingface':

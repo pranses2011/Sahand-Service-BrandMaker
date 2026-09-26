@@ -209,3 +209,16 @@ function cdn_asset(string $path): string
     }
     return (strpos($path, 'http') === 0) ? $path : BRANDMAKER_ASSETS . '/' . ltrim($path, 'assets/');
 }
+
+/* ==================================================
+ * 🧰 توابع رندر مشترک صفحات — v2.24
+ * 🚨 ریشه‌یابی «صفحات سایت برند خالی هستند»: فایل includes/functions.php
+ * (render_page_section / article_image / page_url) در هیچ فایلی require
+ * نمی‌شد! هر صفحه‌ای که محتوای API می‌گرفت، در اولین فراخوانی این توابع
+ * با «Call to undefined function» فاتال می‌شد و رندر نیمه‌کاره متوقف
+ * می‌شد — دقیقاً علامت «صفحات خالی». حالا اینجا (نقطه ورود مشترک همه
+ * صفحات) بارگذاری می‌شود؛ فایل کمکی به‌ازای هر درخواست یک‌بار.
+ * ================================================== */
+if (is_file(__DIR__ . '/includes/functions.php')) {
+    require_once __DIR__ . '/includes/functions.php';
+}

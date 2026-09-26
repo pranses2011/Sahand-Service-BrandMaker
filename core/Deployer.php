@@ -472,18 +472,26 @@ class Deployer
     }
 
     /**
-     * ۴️⃣ ساخت ساختار پوشه‌ها — v2.16 سه‌لایه ضدگلوله
-     * ① cPanel API2 (Fileman::mkdir — تنها مسیر رسمی؛ UAPI معادل ندارد)
-     * ② FTP (اگر API محدود شده باشد)
-     * ③ نهایی‌سازی توسط استخراج ZIP (ساختار کامل داخل بسته هست — استخراج خودش پوشه‌ها را می‌سازد)
+     * ۴️⃣ ساخت ساختار پوشه‌ها — v2.24 بازنویسی ریشه‌ای
+     * 🚨 ریشه‌یابی قطعی «استقرار تازه: استخراج کامل نشد — index.php یافت نشد»:
+     * لیست خطای کاربر دقیقاً پنج پوشه cache/ css/ includes/ js/ pages/ را نشان
+     * می‌داد — یعنی همین مرحله! این پوشه‌ها «پیش از استخراج» ساخته می‌شدند و
+     * fileop روی این سرور در برخورد با پوشه هم‌نامِ موجود (حتی خالی)، کل
+     * استخراج را بی‌صدا رها می‌کند و هیچ فایلی تولید نمی‌شود. شاهد قطعی:
+     * جریان «بروزرسانی» (که مرحله folders ندارد و clean_old همه‌چیز را پاک
+     * می‌کند) بدون خطا کار می‌کند.
+     * ✅ v2.24: ساخت پوشه‌های داخل ZIP (css/js/pages/includes) کاملاً حذف شد —
+     * استخراج خودش می‌سازدشان (اثبات‌شده در جریان بروزرسانی). فقط cache ساخته
+     * می‌شود چون در بسته نیست (قالب فایلی داخلش ندارد) و هسته سایت برای کش
+     * به آن نیاز دارد. clearZipConflicts هم اکنون پوشه‌های تضادی را پاک می‌کند
+     * (دفاع عمیق برای بروزرسانی‌های ناقص قبلی).
      */
     private function stepFolders(array $deployment, ?array $brand, array $state): array
     {
         $serverPath = (string)$deployment['server_path'];
 
-        // 📂 ساختار پوشه‌های هسته سایت برند (طبق سند)
-        // پوشه ریشه توسط SubDomain::addsubdomain ساخته شده — نیازی به ساخت مجدد نیست
-        $dirs = ['css', 'js', 'pages', 'includes', 'cache'];
+        // 📂 فقط «cache» — تنها پوشه‌ای که در بسته ZIP نیست (استخراج بقیه را می‌سازد)
+        $dirs = ['cache'];
         $created = 0;
         $failed = [];
         $ftp = null;
@@ -510,23 +518,16 @@ class Deployer
             }
         }
 
-        // ③ پوشه‌های نجات‌یافته توسط استخراج ZIP ساخته می‌شوند (ساختار کامل داخل بسته هست)
-        // فقط اگر ZIP هم در دسترس نباشد ادامه چک می‌شود — در غیر این صورت استخراج ساختار را کامل می‌کند
-        if (!empty($failed) && !empty($state['zip_path']) && file_exists((string)$state['zip_path'])) {
+        // ③ cache غیرحیاتی است — سایت در اولین fetch خودش می‌سازد (mkdir بازگشتی در fetchFromAPI)
+        if (!empty($failed)) {
             $this->logger->stepSkipped(
                 (int)$deployment['id'],
                 'folders_via_extract',
-                'پوشه‌های ' . implode(', ', $failed) . ' با API/FTP ساخته نشدند — استخراج ZIP مرحله بعد آنها را می‌سازد (ساختار کامل داخل بسته هست).'
+                'پوشه ' . implode(', ', $failed) . ' ساخته نشد — غیرحیاتی است؛ هسته سایت در اولین درخواست خودش می‌سازد.'
             );
-            return ['ok' => true, 'message' => 'ساختار پوشه‌ها آماده شد (' . $created . ' از ' . count($dirs) . ' مستقیم — بقیه با استخراج بسته ساخته می‌شوند)'];
         }
 
-        // ⚠️ پوشه‌های حیاتی: pages و includes (هسته سایت از آن‌ها فایل می‌خواند)
-        if (in_array('pages', $failed, true) || in_array('includes', $failed, true)) {
-            return ['ok' => false, 'error' => 'ساخت پوشه‌های حیاتی ناموفق: ' . implode(', ', $failed) . ' — ' . $this->api->getLastError()];
-        }
-
-        return ['ok' => true, 'message' => 'ساختار پوشه‌ها آماده شد (' . $created . ' از ' . count($dirs) . ')'];
+        return ['ok' => true, 'message' => 'ساختار پوشه‌ها آماده شد (بقیه پوشه‌ها توسط استخراج بسته ساخته می‌شوند — v2.24)'];
     }
 
     /**
@@ -593,6 +594,9 @@ class Deployer
      *    (بدون نیاز به FTP — نوشته با writeFile و فراخوانی با HTTP) ← FTP
      * ✅ v2.23 — پاک‌سازی فایل‌های تضادی ریشه پیش از استخراج (ریشه جدید:
      *    fileop با فایل هم‌نام موجود در مقصد، استخراج را بی‌صدا رها می‌کند)
+     * ✅ v2.24 — پاک‌سازی «پوشه‌های» تضادی هم اضافه شد (کشف دوم: پنج پوشه
+     *    پیش‌ساخته مرحله folders قدیمی، کل استخراج را بی‌صدا رها می‌کردند)
+     * ✅ v2.24 — کاندید فراخوانی کمکی PHP اول از BASE_URL خود اپ شروع می‌شود
      */
     private function stepExtract(array $deployment, ?array $brand, array $state): array
     {
@@ -853,11 +857,18 @@ class Deployer
     }
 
     /**
-     * 🧹 حذف فایل‌های تضادی ریشه پیش از استخراج — v2.23
-     * ================================================
-     * فایل‌های سطح اول بسته ZIP که روی سرور هم موجود باشند حذف می‌شوند —
-     * چون fileop برخی سرورها در برخورد با فایل هم‌نام موجود، کل استخراج را
-     * بی‌صدا رها می‌کند (لیست خطای کاربر: فقط .htaccess + config.php + ZIP).
+     * 🧹 حذف موانع تضادی ریشه پیش از استخراج — v2.24 (فایل + پوشه)
+     * ====================================================================
+     * ورودی‌های سطح اول بسته ZIP (فایل و پوشه) که روی سرور هم موجود باشند
+     * حذف می‌شوند — چون fileop برخی سرورها در برخورد با ورودی هم‌نام موجود،
+     * کل استخراج را بی‌صدا رها می‌کند.
+     *
+     * 🚨 v2.24 — کشف دوم: تضاد فقط «فایل» نبود! شاهد قطعی لیست خطای استقرار
+     * تازه: cache/ css/ includes/ js/ pages/ — پنج «پوشه» پیش‌ساخته توسط
+     * مرحله folders قدیمی. یعنی fileop با پوشه هم‌نام موجود (حتی خالی) هم
+     * استخراج را بی‌صدا رها می‌کند. اکنون پوشه‌های سطح اول موجود که با پوشه‌های
+     * بسته هم‌نام‌اند هم حذف می‌شوند (حذف بازگشتی — محتوایشان در بسته تازه
+     * جایگزین می‌شود). پوشه‌های خارج از بسته (مثل cache) دست‌نخورده می‌مانند.
      *
      * محتوای config.php قبلی از قبل در state حفظ شده (مرحله preserve_config
      * قبل از clean_old اجرا می‌شود) و .htaccess در مرحله بعدی بازنویسی می‌شود —
@@ -865,7 +876,7 @@ class Deployer
      *
      * @param string $localZip بسته محلی (برای فهرست ورودی‌های ریشه)
      * @param string $serverPath مسیر سایت روی سرور
-     * @return array نام فایل‌هایی که حذف شدند
+     * @return array نام مواردی که حذف شدند
      */
     private function clearZipConflicts(string $localZip, string $serverPath): array
     {
@@ -877,20 +888,37 @@ class Deployer
             return [];
         }
         $rootFiles = [];
+        $rootDirs  = [];
         for ($i = 0; $i < $z->numFiles; $i++) {
             $name = (string)$z->getNameIndex($i);
-            if ($name === '' || strpos($name, '/') !== false || substr($name, -1) === '/') {
-                continue; /* فقط فایل‌های ریشه بسته */
+            if ($name === '' || substr($name, -1) === '/') {
+                continue; /* ورودی پوشه صریح — نامربوط (بسته فقط فایل دارد) */
             }
-            $rootFiles[] = $name;
+            $slash = strpos($name, '/');
+            if ($slash === false) {
+                $rootFiles[] = $name;          /* فایل سطح اول بسته */
+            } elseif ($slash > 0) {
+                $rootDirs[substr($name, 0, $slash)] = true; /* پوشه سطح اول بسته */
+            }
         }
         $z->close();
 
         $cleared = [];
+        /* ① فایل‌های تضادی ریشه (کشف v2.23) */
         foreach (array_slice($rootFiles, 0, 40) as $f) {
             if ($this->api->entryExists($serverPath . '/' . $f, 'file')
                 && $this->api->deleteFile($serverPath . '/' . $f)) {
                 $cleared[] = $f;
+            }
+        }
+        /* ② پوشه‌های تضادی سطح اول (کشف v2.24) — حذف بازگشتی */
+        foreach (array_slice(array_keys($rootDirs), 0, 20) as $d) {
+            if ($d === '' || $d === '.' || $d === '..') {
+                continue;
+            }
+            if ($this->api->entryExists($serverPath . '/' . $d, 'dir')
+                && $this->api->deleteFile($serverPath . '/' . $d)) {
+                $cleared[] = $d . '/';
             }
         }
         return $cleared;
@@ -968,22 +996,42 @@ class Deployer
     }
 
     /**
-     * 🌐 کاندیدهای نشانی فراخوانی فایل کمکی — v2.23
-     * اولویت: دامنه برند (vhost اختصاصی) سپس مسیر سایت روی دامنه اصلی حساب
-     * (برای استقرار تازه که DNS زیردامنه هنوز گرم نشده، مسیر دامنه اصلی
-     * بلافاصله کار می‌کند چون زیر public_html همان حساب است)
+     * 🌐 کاندیدهای نشانی فراخوانی فایل کمکی — v2.24
+     * اولویت ۱: BASE_URL خود سایت ساز (مطمئن‌ترین گزینه — همان آدرسی که پنل
+     * مدیریت همین حالا از آن سرو می‌شود؛ اگر مسیر سایت برند زیر docroot اپ
+     * باشد قطعاً کار می‌کند — کشف v2.24: کاندید قبلی «root_domain تنظیمات»
+     * با دامنه واقعی سروکننده public_html یکی نبود و نجات کمکی HTTP 404 می‌گرفت)
+     * اولویت ۲: دامنه برند (vhost اختصاصی — برای زیردامنه تازه ممکن است هنوز
+     * DNS/vhost گرم نباشد)
+     * اولویت ۳: مسیر سایت روی دامنه اصلی حساب (طبق تنظیمات cPanel)
      * @return array لیست URL ها (https سپس http از هر کاندید)
      */
     private function helperUrlCandidates(array $deployment, string $serverPath, string $helperName): array
     {
         $urls = [];
+
+        /* ① BASE_URL خود اپ + مسیر نسبی serverPath نسبت به ROOT_PATH اپ
+         *    (پنل مدیریت از همین نشانی سرو می‌شود → اتکاپذیرترین کاندید) */
+        $appBase = rtrim((string)(defined('BASE_URL') ? BASE_URL : ''), '/');
+        if ($appBase !== '' && defined('ROOT_PATH')) {
+            $rootReal = str_replace('\\', '/', realpath(ROOT_PATH) ?: ROOT_PATH);
+            $srvReal  = str_replace('\\', '/', $serverPath);
+            if (strpos($srvReal . '/', $rootReal . '/') === 0) {
+                $rel = trim(substr($srvReal, strlen($rootReal)), '/');
+                if ($rel !== '') {
+                    $urls[] = $appBase . '/' . $rel . '/' . $helperName;
+                }
+            }
+        }
+
+        /* ② دامنه برند */
         $domain = strtolower(trim((string)($deployment['full_domain'] ?? '')));
         if ($domain !== '') {
             $urls[] = 'https://' . $domain . '/' . $helperName;
             $urls[] = 'http://' . $domain . '/' . $helperName;
         }
 
-        /* مسیر نسبی از docroot دامنه اصلی (/home/user/public_html/...) */
+        /* ③ مسیر نسبی از docroot دامنه اصلی (/home/user/public_html/...) */
         $user = trim((string)($this->settings['cpanel_username'] ?? ''));
         $rootDomain = strtolower(trim((string)($this->settings['root_domain'] ?? '')));
         if ($user !== '' && $rootDomain !== '') {
@@ -1603,6 +1651,11 @@ SSBHELPER;
     {
         // 🎨 CSS تم از پالت رنگ برند + 🔤 فونت انتخابی سیستم (v2.14 — سایت
         //    مستقرشده هم با همان فونتی که در پیش‌نمایش دیده می‌شود رندر شود)
+        // 🛡️ v2.24: اگر ردیف پالت در دیتابیس نبود، «پالت پیش‌فرض» ساخته می‌شود —
+        //    قبلاً CSS خالی (":root {}") در بسته می‌رفت و همه var(--color-*)
+        //    بی‌مقدار می‌ماندند (ریشه «رنگ نوشته‌ها با زمینه یکی است» روی
+        //    برندهای بدون پالت). پالت زنده از API (header.php) و پیش‌فرض‌های
+        //    style.css هم لایه‌های پشتیبان همین رفع‌اند.
         $palette = $this->db->fetch('SELECT light_palette, dark_palette FROM color_palettes WHERE brand_id = ?', [(int)$brand['id']]);
         $lightCss = $darkCss = '';
         $themeColor = '#1e40af';
@@ -1612,6 +1665,38 @@ SSBHELPER;
             $darkCss = $colorAnalyzer->toCss(json_decode($palette['dark_palette'], true) ?: [], ':root');
             $lightData = json_decode($palette['light_palette'], true) ?: [];
             $themeColor = (string)($lightData['--color-primary'] ?? '#1e40af');
+        }
+        /* 🧪 «خالی واقعی» را می‌سنجیم: toCss([]) خروجی ":root {}" می‌دهد که
+         * رشته خالی نیست اما هیچ متغیری ندارد — سنجه = وجود حداقل یک متغیر --color */
+        $hasVars = static function (string $css): bool {
+            return (bool)preg_match('/--color-[\w-]+\s*:/', $css);
+        };
+        if (!$hasVars($lightCss) || !$hasVars($darkCss)) {
+            /* 🎨 پالت پیش‌فرض آبی — هم‌ارز buildLightPalette/buildDarkPalette */
+            $fallbackLight = [
+                '--color-primary' => $themeColor, '--color-primary-light' => '#3b82f6',
+                '--color-primary-dark' => '#1e3a8a', '--color-secondary' => '#0ea5e9',
+                '--color-accent' => '#f59e0b', '--color-background' => '#ffffff',
+                '--color-surface' => '#f5f7fa', '--color-text' => '#1f2937',
+                '--color-text-light' => '#6b7280', '--color-border' => '#e5e7eb',
+                '--gradient-primary' => 'linear-gradient(135deg, ' . $themeColor . ' 0%, #0ea5e9 100%)',
+                '--on-primary' => '#ffffff',
+            ];
+            $fallbackDark = [
+                '--color-primary' => '#1a3aa0', '--color-primary-light' => $themeColor,
+                '--color-primary-dark' => '#172554', '--color-secondary' => '#0284c7',
+                '--color-accent' => '#f59e0b', '--color-background' => '#111827',
+                '--color-surface' => '#1f2937', '--color-text' => '#f3f4f6',
+                '--color-text-light' => '#9ca3af', '--color-border' => '#374151',
+                '--gradient-primary' => 'linear-gradient(135deg, #1a3aa0 0%, #0284c7 100%)',
+                '--on-primary' => '#ffffff',
+            ];
+            if (!$hasVars($lightCss)) {
+                $lightCss = (new ColorAnalyzer())->toCss($fallbackLight, ':root');
+            }
+            if (!$hasVars($darkCss)) {
+                $darkCss = (new ColorAnalyzer())->toCss($fallbackDark, ':root');
+            }
         }
         $fontVars = function_exists('site_font_vars_css') ? site_font_vars_css() : '';
         $lightCss .= $fontVars;

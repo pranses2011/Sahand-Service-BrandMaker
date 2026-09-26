@@ -152,6 +152,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!is_dir(CACHE_PATH)) { @mkdir(CACHE_PATH, 0755, true); }
             @file_put_contents($progressFile, json_encode(['pct' => 0, 'title' => 'آماده‌سازی...', 'detail' => '', 'ts' => time()], JSON_UNESCAPED_UNICODE));
             session_write_close();
+
+            /* 🛡️ v2.24 — ریشه‌یابی «Unexpected token '<', "<html><hea"... is not valid JSON»:
+             * موتور خطایاب با جستجوی وب فعال تا ~۱۷۵ ثانیه اجرا می‌شود؛ اگر
+             * محدودیت زمان اجرای هاست (max_execution_time / مهلت LiteSpeed)
+             * درخواست را بکشد، سرور «صفحه HTML خطا» برمی‌گرداند و r.json() فرانت
+             * با «Unexpected token '<'» شکست می‌خورد. سه لایه مقاوم‌سازی:
+             * ① مهلت PHP تا ۶۰۰ ثانیه بالا برده می‌شود (تا جایی که هاست اجازه دهد)
+             * ② تابع shutdown: اگر فاتال رخ داد و هنوز پاسخی ارسال نشده، «JSON
+             *    معتبر» برگردانده می‌شود (با آخرین وضعیت پیشرفت از فایل کش) —
+             *    فرانت پیام قابل‌فهم می‌گیرد نه HTML خام
+             * ③ فرانت تشخیص می‌دهد پاسخ HTML است و پیام راهنمای اقدام‌پذیر
+             *    نشان می‌دهد (ادامه در error-codes.php انتهای فایل) */
+            if (function_exists('set_time_limit')) { @set_time_limit(600); }
+            @ini_set('display_errors', '0');
+            @ignore_user_abort(true);
+            $pf = $progressFile;
+            register_shutdown_function(static function () use ($pf) {
+                $err = error_get_last();
+                if ($err === null || !in_array((int)$err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR], true)) {
+                    return; /* پایان طبیعی یا غیرفاتال — پاسخ اصلی ارسال شده */
+                }
+                if (!headers_sent()) {
+                    http_response_code(200);
+                    header('Content-Type: application/json; charset=utf-8');
+                }
+                /* آخرین وضعیت پیشرفت — برای پیام شفاف */
+                $last = is_file($pf) ? json_decode((string)@file_get_contents($pf), true) : null;
+                $stage = is_array($last) ? trim((string)($last['title'] ?? '')) : '';
+                @unlink($pf);
+                echo json_encode([
+                    'success'  => false,
+                    'report'   => 'اجرای موتور در میانه کار به پایان زمان مجاز سرور رسید'
+                        . ($stage !== '' ? ' (آخرین مرحله: ' . $stage . ')' : '')
+                        . ' — کدهای تأییدشده تا این لحظه ذخیره شده‌اند؛ دوباره تلاش کنید تا جستجو ادامه یابد (کدهای تکراری رد می‌شوند).'
+                        . ' اگر تکرار شد، جعبه «جستجوی آنلاین» را موقتاً خاموش کنید یا تنظیمات FTP را کامل کنید.',
+                    'inserted' => 0,
+                    'timeout'  => true,
+                ], JSON_UNESCAPED_UNICODE);
+            });
         }
 
         try {
@@ -806,21 +845,33 @@ $categories = ErrorCodeEngine::CATEGORIES;
             headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfVal, 'X-Requested-With': 'XMLHttpRequest' },
             body: body.toString(),
             credentials: 'same-origin'
-        }).then(function (r) { return r.json(); }).then(function (res) {
+        }).then(function (r) {
+            /* 🛡️ v2.24 — پاسخ HTML = مرگ درخواست توسط محدودیت زمان هاست
+             * (صفحه خطای HTML به‌جای JSON → «Unexpected token '<'»).
+             * متن پاسخ می‌خوانیم و خودمان JSON می‌پارزیم تا پیام دقیق بدهیم. */
+            return r.text().then(function (txt) {
+                var trimmed = (txt || '').trim();
+                if (trimmed === '' || trimmed.charAt(0) === '<' || /^<!doctype/i.test(trimmed)) {
+                    throw new Error('پاسخ سرور JSON نبود (صفحه HTML/خطای سرور)');
+                }
+                try { return JSON.parse(trimmed); }
+                catch (parseErr) { throw new Error('پاسخ سرور قابل تفسیر نبود'); }
+            });
+        }).then(function (res) {
             clearInterval(pollTimer);
             running = false;
             finishModal(res.success);
             var title = res.success
                 ? '🚨 ' + faDigits(res.inserted || 0) + ' کد خطای واقعی ثبت شد'
-                : 'نتیجه خطایاب';
+                : (res.timeout ? '⏱️ پایان زمان مجاز سرور' : 'نتیجه خطایاب');
             var msg = (res.report || 'پاسخی از سرور دریافت نشد.') +
                 (res.sources && res.sources.length ? '\n\n🔗 منابع:\n' + res.sources.slice(0, 3).join('\n') : '');
             sahandAlert({
                 title: title,
                 message: msg,
                 type: res.success ? 'success' : 'warning',
-                icon: res.success ? '🚨' : '⚠️',
-                confirmText: 'مشاهده کدها',
+                icon: res.success ? '🚨' : (res.timeout ? '⏱️' : '⚠️'),
+                confirmText: res.success ? 'مشاهده کدها' : 'باشه',
             }).then(function () {
                 if (res.redirect) { window.location.href = res.redirect; }
                 else { window.location.reload(); }
@@ -829,7 +880,18 @@ $categories = ErrorCodeEngine::CATEGORIES;
             clearInterval(pollTimer);
             running = false;
             finishModal(false);
-            sahandAlert({ title: 'خطای ارتباط', message: 'ارتباط با سرور برقرار نشد: ' + err.message + ' — دوباره تلاش کنید.', type: 'danger', icon: '🌐' });
+            /* 🆕 v2.24 — پیام اقدام‌پذیر به‌جای خطای خام JSON؛ چون موتور کدها را
+             * در حین اجرا ثبت می‌کند و کدهای موجود در تلاش مجدد رد می‌شوند،
+             * «تلاش مجدد» واقعاً ادامه‌دهنده است. */
+            var isHtml = /JSON نبود|قابل تفسیر نبود/.test(err.message || '');
+            sahandAlert({
+                title: isHtml ? '⏱️ پایان زمان مجاز سرور' : 'خطای ارتباط',
+                message: isHtml
+                    ? 'اجرای خطایاب بیشتر از زمان مجاز هاست طول کشید و سرور درخواست را قطع کرد. کدهای تأییدشده تا این لحظه ذخیره شده‌اند — «دوباره تلاش کنید»: جستجو ادامه می‌یابد و کدهای تکراری رد می‌شوند. اگر باز هم تکرار شد: ① جستجوی آنلاین را موقتاً خاموش کنید (کدهای پایگاه دانش ثبت می‌شوند) ② یا از VPN/IP دیگر امتحان کنید (موتورهای جستجو رایگان ممکن است IP هاست را محدود کرده باشند).'
+                    : 'ارتباط با سرور برقرار نشد: ' + (err.message || 'خطای نامشخص') + ' — دوباره تلاش کنید.',
+                type: 'warning',
+                icon: isHtml ? '⏱️' : '🌐'
+            });
         });
     });
 })();

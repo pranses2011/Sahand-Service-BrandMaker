@@ -183,6 +183,11 @@ function detailsToHtml(details, swatches) {
 async function runStep(step) {
     setStepState(step, 'running');
     setProgress((step - 1) / TOTAL * 100, 'در حال اجرای مرحله ' + step + ' از ' + TOTAL + '...');
+    /* 🆕 v2.24 — مرحله ۴ (مقالات) تک‌به‌تک اجرا می‌شود: هر درخواست فقط یک
+       مقاله می‌سازد (مجموع ۸) تا محدودیت زمان اجرای هاست درخواست طولانی
+       را نکشد (ریشه «خطای ارتباط با سرور» در مرحله ۴). سرور خودش از تعداد
+       مقالات موجود ادامه می‌دهد → تلاش مجدد، ادامه‌دهنده است نه تکراری. */
+    if (step === 4) { return await runArticlesStep(); }
     try {
         const res = await fetch('brand-build.ajax.php', {
             method: 'POST',
@@ -206,6 +211,43 @@ async function runStep(step) {
         setStepState(step, 'error', '<div style="color:var(--danger)">خطای ارتباط با سرور</div>');
         return false;
     }
+}
+
+/* 🆕 v2.24 — مرحله ۴ مقالات: حلقه تک‌مقاله‌ای با نمایش زنده پیشرفت */
+async function runArticlesStep() {
+    const TOTAL_ARTICLES = 8;
+    const titles = [];
+    for (let i = 0; i < TOTAL_ARTICLES; i++) {
+        setProgress((3 + i * 0.9) / TOTAL * 100, 'در حال تولید مقاله ' + (i + 1) + ' از ' + TOTAL_ARTICLES + '...');
+        try {
+            const res = await fetch('brand-build.ajax.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': CSRF,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ step: 4, brand_id: BRAND_ID })
+            });
+            const data = await res.json();
+            if (!data.success) {
+                setStepState(4, 'error', '<div style="color:var(--danger)">' + (data.error || 'خطا در تولید مقاله') + '</div>');
+                setProgress(3 / TOTAL * 100, '❌ خطا در مرحله ۴ (مقاله ' + (i + 1) + ')');
+                return false;
+            }
+            if (data.details && data.details.length) { titles.push(...data.details); }
+            /* نمایش زنده فهرست مقالات تولیدشده تا این لحظه */
+            setStepState(4, 'running', '<div style="font-size:11.5px;line-height:2">' + titles.map(t => '📄 ' + t).join('<br>') + (titles.length ? '<br><span class="spinner" style="width:12px;height:12px;border-width:2px"></span> مقاله بعدی...' : '') + '</div>');
+            if (data.step_done) { break; }
+        } catch (err) {
+            setStepState(4, 'error', '<div style="color:var(--danger)">خطای ارتباط با سرور در مقاله ' + (i + 1) + ' — مقاله‌های ساخته‌شده ذخیره شده‌اند؛ «تلاش مجدد» از همان‌جا ادامه می‌دهد</div>');
+            setProgress(3 / TOTAL * 100, '❌ خطا در مرحله ۴ (مقاله ' + (i + 1) + ')');
+            return false;
+        }
+    }
+    setStepState(4, 'done', '<div style="font-size:11.5px;line-height:2">' + (titles.length ? titles.map(t => '📄 ' + t).join('<br>') : 'مقالات از قبل موجود بود') + '</div>');
+    setProgress(4 / TOTAL * 100, 'مرحله ۴ کامل شد — ' + titles.length + ' مقاله');
+    return true;
 }
 
 /* 🎬 شروع و اجرای زنجیره‌ای مراحل */

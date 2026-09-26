@@ -1411,3 +1411,39 @@ fix-error-engine-web-flag → fix-brand-edit-forms → feat-favicon-api → feat
 
 ### 📦 کامیت‌ها (۵ عدد + مستندات)
 fix-cron-deploy-v2.14a → feat-images-v2.14 → feat-font-previews-v2.14 → feat-builder-v3.4 → feat-error-finder-v3.11 → docs + release
+---
+
+## مرحله ۴۸ — v2.24.0 | 2026-09-26 | ریشه‌یابی قطعی هفت‌گانه
+
+**کامیت**: (پس از کامیت این مرحله ثبت شد — SHA: به‌روزرسانی می‌شود)
+
+### زمینه (گزارش کاربر)
+1. استقرار تازه: «❌ استخراج کامل نشد — محتوای مسیر سایت: cache/، css/، includes/، js/، pages/، .user.ini، php.ini، ZIP | نجات کمکی PHP: HTTP 404» ولی بروزرسانی کار می‌کند
+2. صفحات سایت برند خالی + اعمال‌نشدن تم + هم‌رنگی متن و زمینه
+3. مرحله ۴ ویزارد (مقالات): خطای ارتباط با سرور
+4. خطایاب: «Unexpected token '<', "<html><hea"... is not valid JSON»
+5. درخواست افزودن دستگاه در تب دستگاه‌ها + سرویسهای رایگان تصویر بیشتر
+
+### ریشه‌یابی‌های قطعی (شواهد)
+1. **پنج پوشه لیست خطا = خروجی stepFolders** — نه استخراج! fileop با پوشه هم‌نام موجود (حتی خالی) کل استخراج را بی‌صدا رها می‌کند. شاهد تطبیق: بروزرسانی (بدون مرحله folders + clean_old کامل) کار می‌کرد
+2. **کاندید URL کمکی از root_domain تنظیمات** با دامنه سروکننده واقعی public_html یکی نبود → 404
+3. **includes/functions.php هیچ‌جا require نمی‌شد** → «Call to undefined function render_page_section» در هر صفحه دارای محتوا → صفحات خالی
+4. **پالت فقط هنگام ZIP پخته می‌شد** — بدون ردیف پالت CSS خالی؛ تغییر پالت بدون استقرار اعمال نمی‌شد
+5. **۸ مقاله در یک درخواست** → چند دقیقه → کشته‌شدن توسط مهلت هاست → HTML خطا
+6. **موتور خطایاب ~۱۷۵ث** → همان مرگ درخواست + r.json() خام در فرانت
+
+### تغییرات کلیدی
+- `core/Deployer.php`: stepFolders فقط cache؛ clearZipConflicts فایل + پوشه؛ helperUrlCandidates با BASE_URL اول؛ buildSiteZip با پالت fallback
+- `templates/brand-core/config.php` + `core/ConfigGenerator.php`: require_once functions.php
+- `templates/brand-core/includes/functions.php`: گاردهای function_exists
+- `templates/brand-core/css/style.css`: :root پیش‌فرض کامل
+- `templates/brand-core/includes/header.php`: پالت زنده از API (روشن :root + تاریک html[data-theme=dark])
+- `admin/brand-build.ajax.php` + `admin/brand-build.php`: مرحله ۴ تک‌مقاله‌ای idempotent + حلقه فرانت + set_time_limit
+- `admin/error-codes.php`: shutdown JSON + تشخیص HTML فرانت + پیام اقدام‌پذیر
+- `admin/brand-edit.php`: add_device + remove_device + دراپ‌داون ۴۲ دستگاه
+- `engine/services/AiPhotoService.php`: ۴ سرویس رایگان جدید + STOCK_KEYWORDS ۴۲ دستگاه + پارامتر stockQuery
+- نسخه‌ها: سیستم 2.24.0، موتور AI 3.15.0
+
+### تست
+- v2.24: ۸۲/۸۲ (PHP 8.3 واقعی) + رگرسیون: v2.23 (۵۱/۵۱) + TemplateLibrary (۲۱/۲۱) + موتور/KB (۷۱/۷۱) — مجموع پروژه ۹۰۵
+

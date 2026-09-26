@@ -105,6 +105,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('brand-edit.php?id=' . $brandId . '&tab=info');
     }
 
+    /* ---------- ➕ v2.24: افزودن دستگاه جدید به برند ---------- */
+    if ($action === 'add_device') {
+        $deviceKey = preg_replace('/[^a-z0-9_\-]/', '', strtolower(trim((string)post('device_key'))));
+        $devicesKnowledge = TextProcessor::loadKnowledge('devices') ?: [];
+        if ($deviceKey === '' || !isset($devicesKnowledge[$deviceKey])) {
+            flash('danger', '⛔ دستگاه انتخاب‌شده در پایگاه دانش یافت نشد.');
+            redirect('brand-edit.php?id=' . $brandId . '&tab=devices');
+        }
+        $exists = (int)$db->fetchValue('SELECT COUNT(*) FROM brand_devices WHERE brand_id = ? AND device_key = ?', [$brandId, $deviceKey]);
+        if ($exists > 0) {
+            flash('warning', '⚠️ دستگاه «' . $devicesKnowledge[$deviceKey]['name_fa'] . '» قبلاً برای این برند ثبت شده است.');
+            redirect('brand-edit.php?id=' . $brandId . '&tab=devices');
+        }
+        $maxOrder = (int)$db->fetchValue('SELECT COALESCE(MAX(sort_order), 0) FROM brand_devices WHERE brand_id = ?', [$brandId]);
+        $db->insert('brand_devices', [
+            'brand_id'   => $brandId,
+            'device_key' => $deviceKey,
+            'name_fa'    => $devicesKnowledge[$deviceKey]['name_fa'],
+            'icon'       => 'home-appliance/' . ($devicesKnowledge[$deviceKey]['icon'] ?? $deviceKey),
+            'is_active'  => 1,
+            'is_featured' => 0,
+            'sort_order' => $maxOrder + 1,
+        ]);
+        (new Cache())->delete('brand_' . $brandId . '_pages');
+        (new Cache())->delete('brand_' . $brandId . '_devices');
+        Logger::activity((int)$_SESSION['user_id'], 'افزودن دستگاه به برند', $devicesKnowledge[$deviceKey]['name_fa']);
+        flash('success', '✅ دستگاه «' . $devicesKnowledge[$deviceKey]['name_fa'] . '» اضافه شد — توضیح AI آن را می‌توانید از دکمه تکمیل تولید کنید.');
+        redirect('brand-edit.php?id=' . $brandId . '&tab=devices');
+    }
+
+    /* ---------- 🗑️ v2.24: حذف تک دستگاه از برند ---------- */
+    if ($action === 'remove_device') {
+        $deviceId = (int)post('device_id');
+        $row = $db->fetch('SELECT * FROM brand_devices WHERE id = ? AND brand_id = ?', [$deviceId, $brandId]);
+        if ($row) {
+            /* کدهای خطای این دستگاه با دستگاه می‌مانند (برای بازگردانی بعدی) —
+               فقط رکورد دستگاه از لیست برند حذف می‌شود */
+            $db->delete('brand_devices', 'id = ? AND brand_id = ?', [$deviceId, $brandId]);
+            (new Cache())->delete('brand_' . $brandId . '_pages');
+            (new Cache())->delete('brand_' . $brandId . '_devices');
+            Logger::activity((int)$_SESSION['user_id'], 'حذف دستگاه از برند', $row['name_fa']);
+            flash('success', '🗑️ دستگاه «' . $row['name_fa'] . '» از لیست این برند حذف شد (کدهای خطای ثبت‌شده حفظ شدند).');
+        }
+        redirect('brand-edit.php?id=' . $brandId . '&tab=devices');
+    }
+
     /* ---------- مدیریت دستگاه‌ها ---------- */
     if ($action === 'update_devices') {
         $deviceIds = (array)($_POST['device_active'] ?? []);
@@ -428,6 +474,25 @@ $darkPalette = $palette ? (json_decode($palette['dark_palette'], true) ?: []) : 
 $dominant = $palette ? (json_decode($palette['dominant_colors'], true) ?: []) : [];
 $currentTab = get_param('tab', 'info');
 
+/* 🆕 v2.24: دستگاه‌های قابل افزودن — کل پایگاه دانش (۴۲ نوع) منهای موارد ثبت‌شده این برند */
+$addableDevices = [];
+{
+    $existingKeys = [];
+    foreach ($devices as $d) { $existingKeys[$d['device_key']] = true; }
+    try {
+        $knowledgeDevices = TextProcessor::loadKnowledge('devices') ?: [];
+        foreach ($knowledgeDevices as $k => $info) {
+            if (!isset($existingKeys[$k])) {
+                $addableDevices[$k] = (string)($info['name_fa'] ?? $k);
+            }
+        }
+        /* مرتب‌سازی الفبایی فارسی برای انتخاب آسان */
+        uasort($addableDevices, fn($a, $b) => strcasecmp($a, $b));
+    } catch (Throwable $kdErr) {
+        $addableDevices = [];
+    }
+}
+
 /* 🧹 v2.9: شمارش دستگاه‌های تکراری برای دکمه پاک‌سازی */
 $dupDeviceCount = 0;
 {
@@ -595,7 +660,7 @@ foreach ($pages as $p) {
                 <?php else: ?>
                 <div class="table-wrap">
                     <table class="table">
-                        <thead><tr><th>نمایش</th><th>برجسته</th><th>دستگاه</th><th>ترتیب</th><th>وضعیت توضیح AI</th></tr></thead>
+                        <thead><tr><th>نمایش</th><th>برجسته</th><th>دستگاه</th><th>ترتیب</th><th>وضعیت توضیح AI</th><th>عملیات</th></tr></thead>
                         <tbody>
                         <?php foreach ($devices as $i => $device): ?>
                             <?php $dupMark = (function () use ($devices, $i, $device) {
@@ -610,6 +675,15 @@ foreach ($pages as $p) {
                                 <td style="font-weight:700"><?= e($device['name_fa']) ?> <small style="color:var(--text-light);direction:ltr"><?= e($device['device_key']) ?></small><?= $dupMark ?></td>
                                 <td><input type="number" name="device_order[]" class="form-control" style="width:70px" value="<?= (int)($device['sort_order'] ?? $i) ?>"></td>
                                 <td><?= $device['description'] ? '<span class="badge badge-success">✅ تولید شد</span>' : '<span class="badge badge-secondary">—</span>' ?></td>
+                                <td>
+                                    <form method="post" style="display:inline"
+                                          onsubmit="return confirm('دستگاه «<?= e($device['name_fa']) ?>» از لیست این برند حذف شود؟\nکدهای خطای ثبت‌شده حفظ می‌شوند و با افزودن مجدد دستگاه، دوباره فعال می‌شوند.')">
+                                        <?= Auth::csrfField() ?>
+                                        <input type="hidden" name="action" value="remove_device">
+                                        <input type="hidden" name="device_id" value="<?= (int)$device['id'] ?>">
+                                        <button type="submit" class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger)" title="حذف این دستگاه از برند">🗑️</button>
+                                    </form>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>
@@ -620,6 +694,35 @@ foreach ($pages as $p) {
             </div>
             </form>
         </div>
+
+        <?php if (!empty($addableDevices)): ?>
+        <!-- 🆕 v2.24: افزودن دستگاه جدید از پایگاه دانش ۴۲ نوع دستگاه -->
+        <div class="card" style="margin-top:16px">
+            <div class="card-header">
+                <h3>➕ افزودن دستگاه جدید</h3>
+                <span class="badge badge-info"><?= en_to_fa_digits((string)count($addableDevices)) ?> نوع دستگاه قابل افزودن</span>
+            </div>
+            <form method="post">
+                <?= Auth::csrfField() ?>
+                <input type="hidden" name="action" value="add_device">
+                <div class="card-body" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+                    <div class="form-group" style="flex:1;min-width:260px;margin:0">
+                        <label>انتخاب دستگاه از پایگاه دانش</label>
+                        <select name="device_key" class="form-control" required>
+                            <option value="">— یک دستگاه انتخاب کنید —</option>
+                            <?php foreach ($addableDevices as $key => $nameFa): ?>
+                                <option value="<?= e($key) ?>"><?= e($nameFa) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="hint">پس از افزودن، توضیح دستگاه با هوش مصنوعی تکمیل می‌شود و صفحه کدهای خطا و خدمات آن فعال می‌گردد.</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">➕ افزودن به برند</button>
+                </div>
+            </form>
+        </div>
+        <?php elseif (!empty($devices)): ?>
+        <div class="alert alert-info" style="margin-top:14px">📦 همه <?= en_to_fa_digits('42') ?> نوع دستگاه پایگاه دانش برای این برند ثبت شده است.</div>
+        <?php endif; ?>
     </div>
 
     <!-- 📄 تب صفحات و محتوا -->

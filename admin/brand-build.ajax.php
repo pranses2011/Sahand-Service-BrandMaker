@@ -42,6 +42,12 @@ if ($step === 0) {
 $totalSteps = 8;
 $progressBase = ($step - 1) / $totalSteps * 100;
 
+/* ⏱️ v2.24 — مراحل AI سنگین‌اند؛ مهلت اجرای PHP را بالا می‌بریم تا
+ * «خطای ارتباط با سرور» (کشته‌شدن درخواست توسط max_execution_time) رخ ندهد.
+ * مرحله ۴ additionally تک‌مقاله‌ای شده است (بازتوزیع بار بین درخواست‌ها). */
+if (function_exists('set_time_limit')) { @set_time_limit(300); }
+@ignore_user_abort(true);
+
 try {
     switch ($step) {
         /* ---------- ۱️⃣ تحلیل لوگو و پالت رنگ ---------- */
@@ -188,36 +194,54 @@ try {
                 ],
             ]);
 
-        /* ---------- ۴️⃣ تولید مقالات اولیه ---------- */
+        /* ---------- ۴️⃣ تولید مقالات اولیه — v2.24 تک‌به‌تک ----------
+         * 🚨 ریشه‌یابی «مرحله ۴ (ساخت مقالات) خطای ارتباط با سرور میدهد»:
+         * هر مقاله = تحقیق موضوع + تولید متن AI + ۲-۳ تصویر واقعی AI + سئو
+         * (مجموعاً ۳۰-۹۰ ثانیه). تولید ۸ مقاله در «یک درخواست» چند دقیقه طول
+         * می‌کشید و محدودیت زمان اجرای هاست (max_execution_time / مهلت وب‌سرور)
+         * درخواست را می‌کشت → پاسخ HTML خطا → «خطای ارتباط با سرور» در فرانت.
+         * ✅ اکنون هر فراخوانی «فقط یک مقاله» می‌سازد و فرانت حلقه‌ای تکرار
+         * می‌کند (brand-build.php). idempotent هم هست: شاخص از «تعداد مقالات
+         * موجود برند» گرفته می‌شود → تلاش مجدد بعد از قطعی، از همان‌جا ادامه
+         * می‌یابد و مقاله تکراری نمی‌سازد. */
         case 4:
             $ai = new SahandAI();
-            $brand = $db->fetch('SELECT * FROM brands WHERE id = ?', [$brandId]);
-            $articles = [];
             // 🆕 فاز Q.4: تنوع ۸ نوع از ۲۵ نوع (پوشش ۴ دسته اصلی)
             $topicTypes = [
                 'troubleshooting', 'user_guide', 'maintenance', 'error_codes',
                 'buying_guide', 'safety_guide', 'common_mistakes', 'expert_tips',
             ];
-            foreach ($topicTypes as $i => $topicType) {
-                $article = $ai->generateArticle(['brand_id' => $brandId, 'topic_type' => $topicType]);
-                $articleId = $ai->saveArticle($brandId, $article, $topicType);
-                // اولین مقاله منتشر می‌شود، بقیه زمان‌بندی هفتگی
-                if ($i === 0) {
-                    $db->update('brand_articles', ['status' => 'published', 'published_at' => date('Y-m-d H:i:s')], 'id = ?', [$articleId]);
-                } else {
-                    $publishAt = date('Y-m-d H:i:s', strtotime('+' . ($i * 3) . ' days'));
-                    $db->update('brand_articles', ['status' => 'scheduled', 'published_at' => $publishAt], 'id = ?', [$articleId]);
-                    $db->insert('scheduled_posts', [
-                        'brand_id' => $brandId, 'article_id' => $articleId,
-                        'task_type' => 'publish_article', 'run_at' => $publishAt,
-                    ]);
-                }
-                $articles[] = $article['title'] . ' (' . $article['word_count'] . ' کلمه)';
+            $total = count($topicTypes);
+            $existing = (int)$db->fetchValue('SELECT COUNT(*) FROM brand_articles WHERE brand_id = ?', [$brandId]);
+            /* شاخص = تعداد مقالات موجود (idempotent — تلاش مجدد ادامه‌دهنده است) */
+            $index = $existing;
+            if ($index >= $total) {
+                json_response([
+                    'success'  => true,
+                    'message'  => 'مقالات قبلاً تولید شده‌اند (' . $existing . ' مقاله) — رد شد',
+                    'details'  => ['موجود' => (string)$existing],
+                    'step_done' => true,
+                ]);
+            }
+            $topicType = $topicTypes[$index];
+            $article = $ai->generateArticle(['brand_id' => $brandId, 'topic_type' => $topicType]);
+            $articleId = $ai->saveArticle($brandId, $article, $topicType);
+            // اولین مقاله منتشر می‌شود، بقیه زمان‌بندی هفتگی
+            if ($index === 0) {
+                $db->update('brand_articles', ['status' => 'published', 'published_at' => date('Y-m-d H:i:s')], 'id = ?', [$articleId]);
+            } else {
+                $publishAt = date('Y-m-d H:i:s', strtotime('+' . ($index * 3) . ' days'));
+                $db->update('brand_articles', ['status' => 'scheduled', 'published_at' => $publishAt], 'id = ?', [$articleId]);
+                $db->insert('scheduled_posts', [
+                    'brand_id' => $brandId, 'article_id' => $articleId,
+                    'task_type' => 'publish_article', 'run_at' => $publishAt,
+                ]);
             }
             json_response([
-                'success' => true,
-                'message' => '۸ مقاله یکتا تولید شد',
-                'details' => $articles,
+                'success'  => true,
+                'message'  => 'مقاله ' . ($index + 1) . ' از ' . $total . ' تولید شد — ' . ($article['title'] ?? ''),
+                'details'  => [($article['title'] ?? 'مقاله') . ' (' . ($article['word_count'] ?? 0) . ' کلمه)'],
+                'step_done' => ($index + 1) >= $total,
             ]);
 
         /* ---------- ۵️⃣ تولید سوالات متداول ---------- */
