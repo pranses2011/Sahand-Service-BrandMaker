@@ -6,7 +6,7 @@
 | 📌 مشخصات | مقدار |
 |-----------|-------|
 | 🏷️ نسخه موتور | **3.15.0** (خط تولید هوشمند + بهبود خودکار HTML-امن + دستیار فارسی + 🌐 جستجوی آنلاین ۱۱ ارائه‌دهنده + 🎨 اسکیل UI/UX Pro + 🚨 خطایاب v3.15 — مقاوم در برابر پایان زمان مجاز سرور: shutdown handler پاسخ JSON معتبر برمی‌گرداند + فرانت پاسخ HTML را تشخیص داده و پیام اقدام‌پذیر می‌دهد + تلاش مجدد ادامه‌دهنده (کدهای موجود رد می‌شوند) — و تمام قابلیت‌های v3.14: بودجه ۱۳۰ث + راند نجات همیشه + سرچر مشترک + تفکیک «شکست زیرساخت» از «شاهد منفی» + واریانت کد + الگوهای دوهرفی و چشمک LED + کدهای سه‌رقمی + دیکشنری/قطعات تلویزیون-مایکروویو + پنجره کد-محور + KB ال‌جی — مجموع ۱۶۸ کد) + 📸 عکس واقعی AI مرتبط با موضوع مقاله (**۱۸ سرویس انتخابی از تنظیمات — ۷ رایگان بدون کلید**: پولینیشنز Flux/Turbo + AI Horde + 🆕 لورم‌فلیکر (عکس استوک واقعی موضوعی) + 🆕 ویکیمدیا کامانز (عکس واقعی دانشنامه‌ای با فیلتر JPEG/PNG ≥۶۴۰px) + 🆕 لکسیکا (آرشیو تصاویر SD) + 🆕 پیکسام (جایگزین اضطراری)؛ کلید-رایگان: HuggingFace/DeepAI/Together/fal/Imagen/GetImg؛ اشتراکی: Stability/OpenAI×۲/Ideogram/Replicate + زنجیره fallback خودکار + گزارش سرویس به‌ازای هر تصویر + هم‌سازی ۱۶:۹ + کلیدواژه استوک اختصاصی هر ۴۲ دستگاه) |
-| 🏷️ نسخه سیستم | **2.28.0** |
+| 🏷️ نسخه سیستم | **2.29.0** |
 | 🔢 تعداد اندپوینت‌های AI | **۵۴ اندپوینت** + 🚀 **۱۳ اندپوینت استقرار خودکار** (deploy/health/backup — v2.11) + 🤖 وب‌هوک ربات تلگرام + 💬 وب‌هوک ربات بله |
 | 🔐 احراز هویت | هدر `X-API-Key` |
 | 📦 قالب داده | JSON (UTF-8) |
@@ -284,6 +284,40 @@ Access-Control-Allow-Headers: Content-Type, X-API-Key
 | ۳۷ | POST | `/api/ai/suggest-topics` | 💡 پیشنهاد موضوع مقاله | ✅ |
 
 > 🌐 علاوه بر این‌ها، APIهای سایت برند (خارج از هوش مصنوعی) نیز موجودند: `brand/{id}`، `brand/{id}/articles`، `brand/{id}/faqs`، `GET /api/brands` و... — این سند فقط APIهای موتور AI را پوشش می‌دهد.
+
+### 🌐 تغییرات APIهای سایت برند در 2.29.0 (برای مصرف‌کنندگان خارجی)
+
+> **خلاصه:** تغییر اندپوینت AI نداریم؛ اما «قرارداد چیدمان» (layout_json) عناصر قالب‌ساز **رشد کرد** — مصرف‌کنندگانی که چیدمان را می‌سازند/می‌خوانند باید فیلدهای جدید props و ۶۵ بلوک جدید را بشناسند.
+
+#### ① بلوک‌های جدید قابل استفاده در layout_json (۶۵ مورد)
+
+۸ دسته تازه با رندرگر عمومی (`renderType` در props): `🛒 فروش و تخفیف` (promo-banner, discount-coupon, product-cards, category-grid, price-ticker, installment-plans, payment-options, gift-card)، `🏅 اعتماد و اعتبار` (trust-metrics, partners-grid, awards-row, case-studies, success-stories, video-testimonials, licenses-grid, satisfaction-score)، `🎯 بازاریابی` (lead-magnet, webinar-card, free-audit, trial-offer, bundle-offer, membership-tiers, loyalty-program, referral-program)، `📞 پشتیبانی` (support-channels, ticket-status, knowledge-base, downloads-center, live-chat-card, support-hours, sla-guarantee, remote-support)، `📊 داده و وضعیت` (status-board, inventory-status, queue-display, weather-info, capacity-meter, open-closed, service-coverage, stats-live)، `🎨 دکوراتیو` (gradient-banner, icon-matrix, big-number, quote-typography, pattern-strip, shape-divider, decorative-frame, color-showcase)، `👤 کسب‌وکار` (about-timeline, mission-vision, careers-jobs, press-reviews, company-size, csr-activities, team-culture, history-quick)، `🔧 خدمات فنی` (repair-process, diagnostics-steps, spare-parts, tool-showcase, technician-profile, service-packages, maintenance-plan, emergency-protocol) + `universal-slider` (در دسته هیرو).
+
+#### ② فیلدهای جدید props همه بلوک‌ها (اختیاری — سازگار به عقب)
+
+| فیلد | نوع | توضیح |
+|------|-----|-------|
+| `clickable` | 0/1 | کل بلوک کلیک‌پذیر → داخل `<a>` رندر می‌شود |
+| `link` | string | لینک مقصد بلوک (با clickable=1) |
+| `linkTarget` | `same`/`new` | تب همان/جدید |
+| `anim` | string | انیمیشن ورود: fade/up/down/right/left/zoom/flip/bounce/rotate |
+| `animSpeed` | `slow`/`normal`/`fast` | ۱.۲ث / ۰.۷ث / ۰.۴ث |
+| `animDelay` | int(ms) | تأخیر موجی ۰-۳۰۰۰ |
+| `items[].link` | string | لینک اختصاصی هر آیتم (کارت/ردیف/چیپ لینک‌دار) |
+
+#### ③ فیلدهای اختصاصی
+
+- `hero-slider` / `universal-slider`: `slideType` = `image`/`text`/`card`/`article`/`brand` + `items[]` نامحدود (`text`=عنوان، `desc`=آدرس تصویر یا متن، `link`=لینک اسلاید). نوع `article`/`brand` روی سایت برند **داینامیک از API** پر می‌شود.
+- `progress-bars` / `skill-bars` / `stats-circles`: `barColor` (hex) — رنگ نوارها/حلقه‌ها
+- گره `_page`: `padTop`/`padBottom`/`padLeft`/`padRight` (px ۰-۴۰۰) — فاصله محتوای صفحه از لبه‌ها
+
+#### ④ رفتار پویا از تنظیمات سایت‌ساز
+
+۱۲ بلوک تماسی (top-bar, header-v2, cta-phone, sticky-mobile-cta, urgent-repair, emergency-strip, contact-info-bar, contact-cards, footer-contact, contact-map-split, working-hours, map) وقتی `phone`/`hours`/`text`/`mapUrl` خالی باشند، خودکار از `GET /api/settings` می‌خوانند (تلفن/ساعات/آدرس/نقشه) — دیگر نیازی به مقدار ثابت نیست.
+
+#### ⑤ بکاپ قابل تنظیم (اندپوینت بکاپ API)
+
+`GET/POST /api/backup` بدون تغییر؛ سقف نگهداری دیگر ثابت ۵ نیست: ستون `brands.backup_keep_count` (NULL = پیش‌فرض عمومی `cpanel_settings.backup_keep_count`). پاسخ‌های لیست ممکن است بیش از ۵ بکاپ برگردانند.
 
 ### 🌐 تغییرات APIهای سایت برند در 2.28.0 (برای مصرف‌کنندگان خارجی)
 
@@ -2315,6 +2349,7 @@ echo $r['success'] ? '✅ استقرار کامل شد' : '❌ ' . ($r['error'] 
 
 | نسخه سیستم | نسخه موتور | تغییرات اندپوینت |
 |:----------:|:----------:|------------------|
+| **2.29.0** | 3.15.0 | بدون تغییر اندپوینت AI — قرارداد چیدمان رشد کرد: ۶۵ بلوک جدید با رندرگر عمومی (renderType در props — cards/features/stats/chips/banner/steps/price/quote/divider) + فیلدهای همه-بلوک‌ها (clickable/link/linkTarget + anim/animSpeed/animDelay + items[].link) + اسلایدر چندمقداری (slideType: image/text/card/article/brand — مقاله و برند داینامیک) + barColor نوارها + padTop/Bottom/Left/Right صفحه + ۱۲ بلوک تماسی پویا از settings + سقف بکاپ قابل تنظیم (brands.backup_keep_count) — جزئیات در بخش 2.29.0 بالا |
 | **2.28.0** | 3.15.0 | بدون تغییر اندپوینت AI — تغییرات API سایت برند: 🚨 ثبت مسیر `GET /api/brand/{id}/template/{page}` در روتر (در 2.27 فایل اندپوینت وجود داشت اما مسیرش هرگز ثبت نشده بود → ۴۰۴ همیشگی → تم هرگز روی سایت برند اعمال نمی‌شد!) + fallback تم پیش‌فرض (is_default) برای برندهای بدون تم اختصاصی + پالت `brand/{id}` متغیرهای هیرو از رنگ تاکیدی لوگو (`--hero-bg`/`--hero-text`/`--hero-badge` با WCAG ≥ ۴.۵:۱) + CSS عناصر شخصی کامل‌تر (تعریف `:root` برای حل `var(--x)` + قوانین وابسته به اجداد) — جزئیات در جدول بالا |
 | **2.27.0** | 3.15.0 | بدون تغییر اندپوینت AI — تغییرات API سایت برند: `GET /api/brands` لوگو مطلق + مقالات سوئیپ `{{...}}` هنگام خواندن (لیست/صفحه/related/SEO) + `GET /api/brand/{id}/template/{page}` حل چهارلایه تم (چیدمان صفحه ← قالب صفحه ← تم برند ← پیش‌فرض) + آرایه pelements با HTML/CSS کامل + کش ۱۲۰ث (جزئیات در جدول بالا) |
 | **2.26.0** | 3.15.0 | بدون تغییر قرارداد اندپوینت — بهبود داخلی: 🐛 `POST /api/track` (عمومی): پیام خروج (`is_exit`+`duration`) ردیف ورود همان صفحه را بروزرسانی می‌کند (نرخ پرش/مدت حضور واقعی) + پنل آمار ادمین: نوار وضعیت زنده ردیاب (فعال/غیرفعال + بازدید امروز/کل + آخرین بازدید + راهنمای بروزرسانی استقرار) + قالب‌ساز: ظواهر متعدد برای همه ۱۵۰ عنصر (۱۲ ظاهر بدنه + ۸ استایل دکمه + ۵ افکت هاور — props جدید variant/btnStyle/hoverFx در layout_json، سازگار با چیدمان‌های قدیمی) + استخراج عناصر از سایت خارجی (کلاس ElementExtractor + جدول personal_elements + هندلرهای AJAX ادمین extract_elements/save_personal_element/delete_personal_element — خارج از API عمومی) |
