@@ -23,6 +23,19 @@
 <tr><td>GET</td><td><code>fonts</code></td><td>لیست ۳۰ فونت + URL فایل CSS</td></tr>
 </table>
 
+<h3>📋 ثبت فرم‌های عمومی قالب‌ساز (عمومی — v2.31)</h3>
+<pre><code>POST /api/brand/{id}/form-entry
+Content-Type: application/json
+
+{
+  "form_block": "contact-form",
+  "dest": "panel,email",
+  "page": "/contact",
+  "fields": { "full_name": "...", "phone": "...", "email": "...", "description": "..." },
+  "images": ["https://.../req_xxx.jpg"]
+}</code></pre>
+<p>همه فرم‌های قالب‌ساز (تماس/خبرنامه/رزرو نوبت/نظرسنجی/درخواست تماس/فرم درخواست سریع) — همیشه در جدول form_entries (صفحه «فرم‌های دیگر» پنل) ذخیره و بر اساس <code>dest</code> (ترکیب panel/email/telegram/bale) به کانال‌های انتخابی ارسال می‌شود. ضداسپم: ۱۰ فرم در ساعت از هر IP.</p>
+
 <h3>📨 ثبت درخواست (عمومی — کلید در بدنه)</h3>
 <pre><code>POST /api/brand/{id}/request
 Content-Type: application/json
