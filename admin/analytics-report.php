@@ -65,9 +65,25 @@ $byDevice = $safeQuery("SELECT v.device_type, COUNT(DISTINCT v.session_hash) AS 
 $byBrowser = $safeQuery("SELECT v.browser, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} AND v.browser IS NOT NULL GROUP BY v.browser ORDER BY c DESC LIMIT 8", $params);
 $byOs = $safeQuery("SELECT v.os, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} AND v.os IS NOT NULL GROUP BY v.os ORDER BY c DESC LIMIT 6", $params);
 
-/* 🗺️ شهرها */
-$ipPrefixes = $safeQuery("SELECT DISTINCT v.ip_prefix FROM visits v WHERE {$where} AND v.ip_prefix IS NOT NULL AND v.ip_prefix != ''", $params);
-$citiesDist = GeoIP::citiesDistribution(array_column($ipPrefixes, 'ip_prefix'));
+/* 🗺️ v2.29 — پراکندگی شهرها بر پایه «بازدیدکننده یکتا» به تفکیک شهر
+   (قبلاً فقط تعداد پیشوندهای یکتا شمرده می‌شد — عدد گمراه‌کننده بود!)
+   ردیف‌های بدون شهر (قدیمی/IPv6) از ip_prefix با GeoIP بازیابی می‌شوند. */
+$cityRows = $safeQuery(
+    "SELECT COALESCE(NULLIF(v.city, ''), '') AS city_key, v.ip_prefix, COUNT(DISTINCT v.session_hash) AS c
+     FROM visits v WHERE {$where} AND (v.city IS NOT NULL AND v.city != '' OR (v.ip_prefix IS NOT NULL AND v.ip_prefix != ''))
+     GROUP BY city_key, v.ip_prefix",
+    $params
+);
+$citiesDist = [];
+foreach ((array)$cityRows as $cr) {
+    $city = trim((string)$cr['city_key']);
+    if ($city === '') {
+        $city = GeoIP::city((string)($cr['ip_prefix'] ?? ''));
+        if ($city === '') { continue; }
+    }
+    $citiesDist[$city] = ($citiesDist[$city] ?? 0) + (int)$cr['c'];
+}
+arsort($citiesDist);
 
 /* 📄 صفحات پربازدید */
 $topPages = $safeQuery(
@@ -85,8 +101,40 @@ $brandShare = $brandFilter === 0 ? $safeQuery(
     []
 ) : [];
 
+/* 🆕 v2.29 — گزارش‌های جدید برای نسخه چاپی */
+$byHour = $safeQuery("SELECT HOUR(v.visited_at) AS h, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} GROUP BY h ORDER BY h", $params);
+$hourMap = array_fill(0, 24, 0);
+foreach ($byHour as $hr) { $hourMap[(int)$hr['h']] = (int)$hr['c']; }
+$bestHour = array_keys($hourMap, max($hourMap))[0] ?? null;
+
+$byWeekday = $safeQuery("SELECT WEEKDAY(v.visit_date) AS wd, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} GROUP BY wd ORDER BY wd", $params);
+$weekdayFa = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
+$weekdayMap = array_fill(0, 7, 0);
+foreach ($byWeekday as $wd) { $weekdayMap[(int)$wd['wd']] = (int)$wd['c']; }
+
+$refRows = $safeQuery("SELECT v.referrer, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} AND v.referrer IS NOT NULL GROUP BY v.referrer ORDER BY c DESC LIMIT 400", $params);
+$refGroups = ['مستقیم' => 0, 'موتور جستجو' => 0, 'شبکه اجتماعی' => 0, 'سایت‌های ارجاع‌دهنده' => 0];
+foreach ((array)$refRows as $rr) {
+    $host = strtolower((string)parse_url((string)$rr['referrer'], PHP_URL_HOST) ?: '');
+    if ($host === '') { $refGroups['مستقیم'] += (int)$rr['c']; }
+    elseif (preg_match('#google|bing|yahoo|duckduckgo|yandex#', $host)) { $refGroups['موتور جستجو'] += (int)$rr['c']; }
+    elseif (preg_match('#instagram|telegram|whatsapp|facebook|twitter|linkedin|aparat|youtube|bale|eitaa|rubika#', $host)) { $refGroups['شبکه اجتماعی'] += (int)$rr['c']; }
+    else { $refGroups['سایت‌های ارجاع‌دهنده'] += (int)$rr['c']; }
+}
+
+$retRow = $safeQuery(
+    "SELECT COUNT(*) AS returning_sessions FROM (
+        SELECT v.session_hash FROM visits v WHERE {$where} GROUP BY v.session_hash HAVING COUNT(DISTINCT v.visit_date) > 1
+     ) t",
+    $params
+);
+$returningSessions = $retRow ? (int)$retRow[0]['returning_sessions'] : 0;
+
+$topKeywords = $safeQuery("SELECT v.search_keyword AS kw, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} AND v.search_keyword IS NOT NULL AND v.search_keyword != '' GROUP BY kw ORDER BY c DESC LIMIT 10", $params);
+
 /* 📈 شاخص‌های کلی */
 $totalUnique = array_sum(array_column($timeline, 'unique_visits'));
+$newVisitors = max(0, $totalUnique - $returningSessions);
 $totalViews = array_sum(array_column($timeline, 'views'));
 $durRow = $safeQuery("SELECT AVG(vd.duration) AS avg_dur FROM visit_details vd JOIN visits v ON v.id = vd.visit_id WHERE {$where}", $params);
 $avgDuration = $durRow ? round((float)$durRow[0]['avg_dur']) : 0;
@@ -251,6 +299,72 @@ $recentDays = array_slice(array_reverse($timeline), 0, 35);
                 <?php if (empty($byOs)): ?><tr><td colspan="2" style="color:#94a3b8">—</td></tr><?php endif; ?>
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- 🆕 v2.29 — ساعت/روز پربازدید + منابع + جدید/بازگشتی -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+            <h2 class="sec">🕐 پربازدیدترین ساعت‌ها</h2>
+            <?php $maxHour = max($hourMap) ?: 1; ?>
+            <table class="dt">
+                <thead><tr><th>ساعت</th><th>بازدیدکننده</th><th style="width:110px">سهم</th></tr></thead>
+                <tbody>
+                <?php arsort($hourMap); $hi = 0; foreach (array_slice($hourMap, 0, 8, true) as $h => $c): if ($c == 0) continue; $hi++; ?>
+                    <tr><td class="n"><?= e(en_to_fa_digits(str_pad((string)$h, 2, '۰', STR_PAD_LEFT)) . ':۰۰') ?></td><td class="n"><?= e(en_to_fa_digits((string)$c)) ?></td><td><div class="bar-cell"><i style="width:<?= max(2, round($c / $maxHour * 100)) ?>%"></i></div></td></tr>
+                <?php endforeach; ?>
+                <?php if ($hi === 0): ?><tr><td colspan="3" style="color:#94a3b8">—</td></tr><?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+        <div>
+            <h2 class="sec">📅 بازدید بر اساس روز هفته</h2>
+            <?php $maxWd = max($weekdayMap) ?: 1; ?>
+            <table class="dt">
+                <thead><tr><th>روز</th><th>بازدیدکننده</th><th style="width:110px">سهم</th></tr></thead>
+                <tbody>
+                <?php foreach ($weekdayFa as $wi => $wname): if ($weekdayMap[$wi] == 0) continue; ?>
+                    <tr><td><?= e($wname) ?></td><td class="n"><?= e(en_to_fa_digits((string)$weekdayMap[$wi])) ?></td><td><div class="bar-cell"><i style="width:<?= max(2, round($weekdayMap[$wi] / $maxWd * 100)) ?>%"></i></div></td></tr>
+                <?php endforeach; ?>
+                <?php if (array_sum($weekdayMap) === 0): ?><tr><td colspan="3" style="color:#94a3b8">—</td></tr><?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+            <h2 class="sec">🔗 منابع ورود ترافیک</h2>
+            <?php $refTotal = max(1, array_sum($refGroups)); ?>
+            <table class="dt">
+                <thead><tr><th>منبع</th><th>بازدیدکننده</th><th style="width:110px">سهم</th></tr></thead>
+                <tbody>
+                <?php foreach ($refGroups as $rg => $rc): ?>
+                    <tr><td><?= e($rg) ?></td><td class="n"><?= e(en_to_fa_digits((string)$rc)) ?></td><td><div class="bar-cell"><i style="width:<?= max(2, round($rc / $refTotal * 100)) ?>%"></i></div></td></tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <div>
+            <h2 class="sec">🔄 جدید و بازگشتی</h2>
+            <table class="dt">
+                <thead><tr><th>نوع</th><th>تعداد</th><th style="width:110px">سهم</th></tr></thead>
+                <tbody>
+                <?php $nrTotal = max(1, $newVisitors + $returningSessions); ?>
+                <tr><td>🆕 بازدیدکننده جدید</td><td class="n"><?= e(en_to_fa_digits((string)$newVisitors)) ?></td><td><div class="bar-cell"><i style="width:<?= max(2, round($newVisitors / $nrTotal * 100)) ?>%"></i></div></td></tr>
+                <tr><td>🔁 بازگشتی (بیش از یک روز)</td><td class="n"><?= e(en_to_fa_digits((string)$returningSessions)) ?></td><td><div class="bar-cell"><i style="width:<?= max(2, round($returningSessions / $nrTotal * 100)) ?>%"></i></div></td></tr>
+                </tbody>
+            </table>
+            <?php if (!empty($topKeywords)): ?>
+            <h2 class="sec" style="margin-top:16px">🔎 کلمات کلیدی ورودی</h2>
+            <table class="dt">
+                <tbody>
+                <?php foreach ($topKeywords as $kw): ?>
+                    <tr><td><?= e(mb_substr((string)$kw['kw'], 0, 50)) ?></td><td class="n"><?= e(en_to_fa_digits((string)$kw['c'])) ?></td></tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php endif; ?>
         </div>
     </div>
 

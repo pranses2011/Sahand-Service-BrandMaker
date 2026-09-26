@@ -47,6 +47,13 @@ function api_track_visit(): void
         }
     }
 
+    /* 🚨 v2.29 — ریشه «نقشه پراکندگی جغرافیایی خالی است»: برای IPv6
+       (یا IPهای غیرمعتبر پشت پروکسی) پیشوند «xx.0.0» بی‌اعتبار ساخته
+       می‌شد → GeoIP::lookup هیچ‌وقت شهر نمی‌داد → نقشه همیشه خالی!
+       اکنون فقط برای IPv4 معتبر پیشوند ساخته می‌شود. */
+    $ipParts = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) ? explode('.', $ip) : [];
+    $ipPrefix = count($ipParts) === 4 ? ($ipParts[0] . '.' . $ipParts[1] . '.0.0') : null;
+
     // 💾 ثبت یا بروزرسانی بازدید
     $existing = $db->fetch(
         'SELECT id, entry_page FROM visits WHERE session_hash = ? AND visit_date = CURDATE() LIMIT 1',
@@ -57,7 +64,7 @@ function api_track_visit(): void
             'brand_id'    => $brandId,
             'session_hash'=> $sessionHash,
             'ip_hash'     => hash('sha256', $ip . date('Y-m')),
-            'ip_prefix'   => implode('.', array_slice(explode('.', $ip), 0, 2)) . '.0.0',
+            'ip_prefix'   => $ipPrefix,
             'user_agent'  => $ua,
             'device_type' => $deviceType,
             'browser'     => $browser,
