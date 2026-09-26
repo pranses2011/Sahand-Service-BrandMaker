@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS `brands` (
   `last_health_check` DATETIME NULL COMMENT 'آخرین بررسی سلامت',
   `health_status` ENUM('online','offline','error') NULL COMMENT 'وضعیت سلامت سایت',
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `backup_keep_count` INT UNSIGNED NULL COMMENT '🆕 v2.29 — تعداد بکاپ نگهداری‌شده این برند (NULL = از تنظیمات عمومی)',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -676,6 +677,7 @@ CREATE TABLE IF NOT EXISTS `cpanel_settings` (
   `ftp_passive` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'حالت Passive',
   `ftp_ssl` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'FTPS فعال؟',
   `backup_dir` VARCHAR(255) NOT NULL DEFAULT '' COMMENT 'پوشه بکاپ‌ها (خالی = brands/backups)',
+  `backup_keep_count` INT UNSIGNED NOT NULL DEFAULT 5 COMMENT '🆕 v2.29 — تعداد بکاپ نگهداری‌شده هر برند (پیش‌فرض عمومی)',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='تنظیمات اتصال cPanel و استقرار خودکار';

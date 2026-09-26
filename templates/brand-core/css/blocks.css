@@ -25,6 +25,8 @@
 }
 .bb-wrap * { box-sizing: border-box; }
 .bb-wrap[style*="--pg-bg"] { background: var(--pg-bg); }
+/* 🆕 v2.29 — فاصله محتوای صفحه از لبه‌ها (تنظیمات صفحه قالب‌ساز: بالا/پایین/چپ/راست) */
+.bb-wrap { padding-top: var(--pg-mt, 0); padding-bottom: var(--pg-mb, 0); padding-inline-start: var(--pg-mr, 0); padding-inline-end: var(--pg-ml, 0); }
 
 /* بلوک‌ها */
 .bb-wrap .blk { background: var(--card); padding: calc(var(--pg-section-pad) * .6) 20px; border-bottom: 1px dashed var(--border); border-radius: var(--pg-radius); margin-bottom: var(--pg-gap); }
@@ -319,3 +321,28 @@
     .bb-wrap .c2, .bb-wrap .c3, .bb-wrap .c4, .bb-wrap .c6, .bb-wrap .form-grid { grid-template-columns: 1fr; }
     .bb-wrap .fake-nav { display: none; }
 }
+
+/* ═══ 🎬 v2.29 — انیمیشن ورود عناصر (blk-anim-*) — با IntersectionObserver در app.js فعال می‌شود ═══ */
+.bb-wrap .blk-anim { opacity: 0; animation: blkAnimIn var(--anim-dur, .7s) cubic-bezier(.22,.9,.32,1.02) both; animation-delay: var(--anim-delay, 0ms); animation-play-state: paused; }
+.bb-wrap .blk-anim.in-view { animation-play-state: running; }
+.bb-wrap .blk-anim.no-js { opacity: 1; animation: none; }
+@keyframes blkAnimIn { from { opacity: 0; } to { opacity: 1; } }
+.bb-wrap .blk-anim-fade { animation-name: blkFade; }
+@keyframes blkFade { from { opacity: 0; } to { opacity: 1; } }
+.bb-wrap .blk-anim-up { animation-name: blkUp; }
+@keyframes blkUp { from { opacity: 0; transform: translateY(38px); } to { opacity: 1; transform: translateY(0); } }
+.bb-wrap .blk-anim-down { animation-name: blkDown; }
+@keyframes blkDown { from { opacity: 0; transform: translateY(-38px); } to { opacity: 1; transform: translateY(0); } }
+.bb-wrap .blk-anim-right { animation-name: blkRight; }
+@keyframes blkRight { from { opacity: 0; transform: translateX(46px); } to { opacity: 1; transform: translateX(0); } }
+.bb-wrap .blk-anim-left { animation-name: blkLeft; }
+@keyframes blkLeft { from { opacity: 0; transform: translateX(-46px); } to { opacity: 1; transform: translateX(0); } }
+.bb-wrap .blk-anim-zoom { animation-name: blkZoom; }
+@keyframes blkZoom { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: scale(1); } }
+.bb-wrap .blk-anim-flip { animation-name: blkFlip; }
+@keyframes blkFlip { from { opacity: 0; transform: perspective(700px) rotateX(-52deg); } to { opacity: 1; transform: perspective(700px) rotateX(0); } }
+.bb-wrap .blk-anim-bounce { animation-name: blkBounce; }
+@keyframes blkBounce { 0% { opacity: 0; transform: translateY(-46px); } 55% { opacity: 1; transform: translateY(8px); } 75% { transform: translateY(-5px); } 100% { transform: translateY(0); } }
+.bb-wrap .blk-anim-rotate { animation-name: blkRotate; }
+@keyframes blkRotate { from { opacity: 0; transform: rotate(-4.5deg) scale(.94); } to { opacity: 1; transform: rotate(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .bb-wrap .blk-anim { opacity: 1 !important; animation: none !important; } }

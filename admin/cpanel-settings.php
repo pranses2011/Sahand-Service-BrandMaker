@@ -108,6 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         'ftp_passive'     => isset($_POST['ftp_passive']) ? 1 : 0,
         'ftp_ssl'         => isset($_POST['ftp_ssl']) ? 1 : 0,
         'backup_dir'      => trim(post('backup_dir', '')),
+        'backup_keep_count' => max(1, min(50, (int)post('backup_keep_count', '5'))),
         'updated_at'      => date('Y-m-d H:i:s'),
     ];
 
@@ -300,6 +301,11 @@ $cronBase = rtrim(str_replace('\\', '/', dirname(__DIR__)), '/');
                 <div class="form-group">
                     <label>پوشه بکاپ‌ها (خالی = پیش‌فرض brands/backups)</label>
                     <input type="text" name="backup_dir" class="form-control" dir="ltr" value="<?= e($s['backup_dir'] ?? '') ?>" placeholder="public_html/brands/backups">
+                </div>
+                <div class="form-group">
+                    <label>💾 تعداد بکاپ نگهداری‌شده هر برند (🆕 v2.29)</label>
+                    <input type="number" name="backup_keep_count" class="form-control" dir="ltr" min="1" max="50" value="<?= (int)($s['backup_keep_count'] ?? 5) ?>">
+                    <div class="hint" style="margin-top:5px">سقف پیش‌فرض نگهداری بکاپ برای همه برندها (۱ تا ۵۰) — با ساخته شدن بکاپ جدیدتر، قدیمی‌ترین‌ها خودکار حذف می‌شوند. برای یک برند خاص می‌توانید از صفحه «بکاپ‌ها» سقف اختصاصی تعیین کنید.</div>
                 </div>
             </div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">

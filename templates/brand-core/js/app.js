@@ -2,6 +2,8 @@
  * ⚡ اسکریپت اصلی سایت برند
  * ===========================
  * مسیریابی SPA ساده + شمارنده + اسکرول نرم + سال جاری
+ * 🆕 v2.29: اسلایدر واقعی چندمقداری (sahand-slider) + انیمیشن ورود
+ * عناصر با IntersectionObserver (blk-anim) + لمس موبایل اسلایدر
  */
 
 /* 🔗 آدرس API ردیاب (تزریق در header) */
@@ -21,6 +23,81 @@ document.addEventListener('DOMContentLoaded', function () {
             el.textContent = new Intl.NumberFormat('fa-IR').format(current);
         }, 35);
     });
+
+    /* 🎞 v2.29 — اسلایدرهای چندمقداری (hero-slider / universal-slider)
+       اسلاید واقعی: دکمه‌های ‹ › + نقطه‌ها + پخش خودکار + لمس/کشیدن */
+    document.querySelectorAll('.sahand-slider').forEach(function (slider) {
+        var track = slider.querySelector('.ss-track');
+        if (!track) { return; }
+        var slides = track.children;
+        var n = slides.length;
+        if (n < 1) { return; }
+        var idx = 0;
+        var dotsWrap = slider.querySelector('.ss-dots');
+        var dots = dotsWrap ? dotsWrap.querySelectorAll('span') : [];
+        var auto = slider.dataset.autoplay === '1';
+        var timer2 = null;
+        var isRTL = (document.documentElement.dir || 'rtl') !== 'ltr';
+
+        function go(i) {
+            idx = (i + n) % n;
+            var off = idx * 100;
+            track.style.transform = 'translateX(' + (isRTL ? off : -off) + '%)';
+            if (dotsWrap) {
+                for (var d = 0; d < dots.length; d++) {
+                    dots[d].textContent = d === idx ? '●' : '○';
+                    dots[d].style.opacity = d === idx ? '1' : '.55';
+                }
+            }
+        }
+        var prev = slider.querySelector('.ss-prev');
+        var next = slider.querySelector('.ss-next');
+        if (prev) { prev.addEventListener('click', function () { go(idx - 1); restart(); }); }
+        if (next) { next.addEventListener('click', function () { go(idx + 1); restart(); }); }
+        if (dotsWrap) {
+            dotsWrap.addEventListener('click', function (e) {
+                if (e.target.tagName === 'SPAN') {
+                    var arr = Array.prototype.slice.call(dots);
+                    go(arr.indexOf(e.target));
+                    restart();
+                }
+            });
+        }
+        /* 👆👇 لمس/کشیدن در موبایل */
+        var touchX = null;
+        track.addEventListener('touchstart', function (e) { touchX = e.touches[0].clientX; }, { passive: true });
+        track.addEventListener('touchend', function (e) {
+            if (touchX === null) { return; }
+            var dx = e.changedTouches[0].clientX - touchX;
+            if (Math.abs(dx) > 42) { go(dx > 0 ? idx - 1 : idx + 1); restart(); }
+            touchX = null;
+        }, { passive: true });
+        function restart() {
+            if (timer2) { clearInterval(timer2); }
+            if (auto && n > 1) { timer2 = setInterval(function () { go(idx + 1); }, 4500); }
+        }
+        go(0);
+        restart();
+    });
+
+    /* 🎬 v2.29 — انیمیشن ورود عناصر (blk-anim): با اسکرول فعال می‌شود.
+       اگر IntersectionObserver نبود، فوراً نمایش داده می‌شوند (no-js). */
+    var animEls = document.querySelectorAll('.blk-anim');
+    if (animEls.length) {
+        if ('IntersectionObserver' in window) {
+            var animObs = new IntersectionObserver(function (entries) {
+                entries.forEach(function (en) {
+                    if (en.isIntersecting) {
+                        en.target.classList.add('in-view');
+                        animObs.unobserve(en.target);
+                    }
+                });
+            }, { threshold: 0.12, rootMargin: '0px 0px -36px 0px' });
+            animEls.forEach(function (el) { animObs.observe(el); });
+        } else {
+            animEls.forEach(function (el) { el.classList.add('no-js'); });
+        }
+    }
 
     /* 📅 بروزرسانی سال شمسی فوتر */
     var yearEl = document.querySelector('.footer-year');

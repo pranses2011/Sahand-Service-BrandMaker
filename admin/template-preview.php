@@ -62,6 +62,17 @@ $pageCssVars = static function (array $p): string {
         if ($val !== '' && $val !== 'default' && isset($cfg[$val])) { $v[$cfg['var']] = $cfg[$val]; }
     }
     if (!empty($p['titleColor'])) { $v['--pg-title'] = (string)$p['titleColor']; }
+    /* 🆕 v2.29 — فاصله محتوای صفحه از لبه‌ها (بالا/پایین/چپ/راست) */
+    $pgPad = static function ($val): string {
+        $n = (int)$val;
+        return ($val === '' || $val === null || $n < 0 || $n > 400) ? '' : $n . 'px';
+    };
+    $pt = $pgPad($p['padTop'] ?? ''); $pb = $pgPad($p['padBottom'] ?? '');
+    $pl = $pgPad($p['padLeft'] ?? ''); $pr = $pgPad($p['padRight'] ?? '');
+    if ($pt !== '') { $v['--pg-mt'] = $pt; }
+    if ($pb !== '') { $v['--pg-mb'] = $pb; }
+    if ($pl !== '') { $v['--pg-ml'] = $pl; }
+    if ($pr !== '') { $v['--pg-mr'] = $pr; }
     $out = '';
     foreach ($v as $k => $val) { $out .= $k . ':' . $val . ';'; }
     return $out;
@@ -81,10 +92,13 @@ function pvItems(array $props, array $fallback): array
         $out = [];
         foreach ((array)$arr as $it) {
             if (is_array($it)) {
+                $isList = is_int(array_key_first($it));
                 $out[] = [
-                    'icon' => is_int(array_key_first($it)) ? (string)($it[0] ?? '') : (string)($it['icon'] ?? ''),
-                    'text' => is_int(array_key_first($it)) ? (string)($it[1] ?? '') : (string)($it['text'] ?? ''),
-                    'desc' => is_int(array_key_first($it)) ? (string)($it[2] ?? '') : (string)($it['desc'] ?? ''),
+                    'icon' => $isList ? (string)($it[0] ?? '') : (string)($it['icon'] ?? ''),
+                    'text' => $isList ? (string)($it[1] ?? '') : (string)($it['text'] ?? ''),
+                    'desc' => $isList ? (string)($it[2] ?? '') : (string)($it['desc'] ?? ''),
+                    /* 🖱 v2.29 — لینک آیتم حفظ می‌شود */
+                    'link' => $isList ? (string)($it[3] ?? '') : (string)($it['link'] ?? ''),
                 ];
             }
         }
@@ -213,6 +227,60 @@ if (!function_exists('pv_pelement_doc')) {
     }
 }
 
+
+if (!function_exists('pvSliderSlides')) {
+    /** 🎞 v2.29 — اسلایدهای اسلایدر چندمقداری (آینه JS sliderSlidesHtml)
+     *  هر آیتم: text=عنوان | desc=آدرس تصویر/متن | link=لینک اسلاید */
+    function pvSliderSlides(array $props, string $defType = 'image'): string
+    {
+        $type = (string)($props['slideType'] ?? $defType);
+        $its = array_values(array_filter(pvItems($props, []), static fn($i) => trim((string)$i['text']) !== '' || trim((string)$i['desc']) !== ''));
+        if (!$its) {
+            return '<div class="hero-img wide">🖼️</div><div class="slider-dots">● ○ ○</div>';
+        }
+        $out = '<div style="display:flex;flex-direction:column;gap:9px">';
+        foreach (array_slice($its, 0, 3) as $i => $it) {
+            $op = $i > 0 ? 'opacity:.75;' : '';
+            if ($type === 'text') {
+                $out .= '<div class="fake-card" style="' . $op . '"><div class="card-t" style="font-size:15px">' . e($it['text']) . '</div>' . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div>';
+            } elseif ($type === 'card' || $type === 'article' || $type === 'brand') {
+                $ico = $type === 'article' ? '📰' : ($type === 'brand' ? '🏷️' : ($it['icon'] !== '' ? $it['icon'] : '🃏'));
+                $out .= '<div class="fake-card" style="' . $op . '"><div class="card-ico">' . e($ico) . '</div><div class="card-t">' . e($it['text']) . '</div>' . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div>';
+            } else {
+                $url = trim((string)$it['desc']);
+                $inner = preg_match('#^(https?://|/|uploads/)#i', $url)
+                    ? '<img src="' . e($url) . '" alt="" style="width:100%;height:100%;object-fit:cover">'
+                    : e($it['icon'] !== '' ? $it['icon'] : '🖼️');
+                $out .= '<div style="position:relative"><div class="fake-img" style="min-height:' . (count($its) > 2 ? '110' : '150') . 'px;' . $op . '">' . $inner . '</div>' . ($it['text'] !== '' ? '<div class="feat-d" style="text-align:center;margin-top:4px;font-weight:700">' . e($it['text']) . '</div>' : '') . '</div>';
+            }
+        }
+        $out .= '</div><div class="slider-dots">' . implode(' ', array_map(static fn($i) => $i === 0 ? '●' : '○', array_keys($its))) . '</div>';
+        return $out;
+    }
+}
+if (!function_exists('pv_anim_style')) {
+    /** 🎬 v2.29 — استایل/کلاس انیمیشن ورود عنصر */
+    function pv_anim_style(array $props): array
+    {
+        $anim = trim((string)($props['anim'] ?? ''));
+        if ($anim === '' || $anim === 'none') { return ['', '']; }
+        $speed = ['slow' => '1.2s', 'normal' => '.7s', 'fast' => '.4s'][($props['animSpeed'] ?? 'normal')] ?? '.7s';
+        $delay = max(0, min(3000, (int)($props['animDelay'] ?? 0)));
+        return ['blk-anim blk-anim-' . $anim, '--anim-dur:' . $speed . ';--anim-delay:' . $delay . 'ms;'];
+    }
+}
+if (!function_exists('pv_link_wrap')) {
+    /** 🖱 v2.29 — پیچیدن HTML در لینک وقتی عنصر کلیک‌پذیر است */
+    function pv_link_wrap(array $props, string $html): string
+    {
+        if (empty($props['clickable'])) { return $html; }
+        $link = trim((string)($props['link'] ?? ''));
+        if ($link === '' || !preg_match('#^(https?://|/|[a-zA-Z0-9_\-./?=&%]+)#', $link)) { return $html; }
+        $target = (($props['linkTarget'] ?? 'same') === 'new') ? ' target="_blank" rel="noopener"' : '';
+        return '<a href="' . e($link) . '"' . $target . ' style="display:block;text-decoration:none;color:inherit">' . $html . '</a>';
+    }
+}
+
 function renderPreviewBlock(string $block, array $props = []): string
 {
     $html = renderPreviewBlockInner($block, $props);
@@ -241,6 +309,16 @@ function renderPreviewBlock(string $block, array $props = []): string
     if ($inject) {
         $html = preg_replace('#^<div class="blk #', '<div class="blk ' . implode(' ', $inject) . ' ', $html, 1);
     }
+    /* 🎬 v2.29 — انیمیشن ورود: کلاس + متغیرهای سرعت/تأخیر */
+    [$animCls, $animVars] = pv_anim_style($props);
+    if ($animCls !== '') {
+        $html = preg_replace('#^<div class="blk #', '<div class="blk ' . $animCls . ' ', $html, 1);
+        if (preg_match('#^(<div class="blk [^>]*?)style="([^"]*)"#', $html, $sm)) {
+            $html = preg_replace('#^(<div class="blk [^>]*?)style="[^"]*"#', '$1style="' . $sm[2] . ';' . $animVars . '"', $html, 1);
+        } else {
+            $html = preg_replace('#^<div class="blk ([^>]*)>#', '<div class="blk $1" style="' . $animVars . '">', $html, 1);
+        }
+    }
     /* استایل رنگ عنوان/گرادیانت — اگر تنظیم وجود دارد و هنوز اعمال نشده
        (div اول style دارد → ادغام؛ ندارد → افزودن) */
     $vars = pvStyleVars($props);
@@ -251,7 +329,58 @@ function renderPreviewBlock(string $block, array $props = []): string
             $html = preg_replace('#^<div class="blk ([^>]*)>#', '<div class="blk $1" style="' . $vars . '">', $html, 1);
         }
     }
-    return $html;
+    /* 🖱 v2.29 — کلیک‌پذیری: کل بلوک داخل لینک */
+    return pv_link_wrap($props, $html);
+}
+
+
+if (!function_exists('pv_generic_block')) {
+    /** 🧬 v2.29 — رندرگر عمومی عناصر جدید (۶۴ عنصر با renderType)
+     *  آینه genericBlockHtml در JS — props همه چیز را دارند (makeBlocks پیش‌فرض‌ها را کپی می‌کند) */
+    function pv_generic_block(string $block, array $props, string $PV): string
+    {
+        $type = (string)($props['renderType'] ?? 'cards');
+        $title = (string)($props['title'] ?? '');
+        $head = $title !== '' ? '<div class="blk-title">' . e($title) . '</div>' : '';
+        $its = array_values(array_filter(pvItems($props, []), static fn($i) => trim((string)$i['text']) !== '' || trim((string)$i['icon']) !== ''));
+        $sub = !empty($props['subtitle']) ? '<div class="feat-d" style="text-align:center;max-width:560px;margin:0 auto 10px">' . e((string)$props['subtitle']) . '</div>' : '';
+        $btn = !empty($props['btnText']) ? '<div class="hero-btns" style="justify-content:center;margin-top:10px"><span class="hero-btn">' . e((string)$props['btnText']) . '</span></div>' : '';
+        if ($type === 'features') {
+            return $PV($head . '<div class="feat-list">' . implode('', array_map(static fn($it) => '<div class="feat-row"><span class="feat-ico">' . e($it['icon'] ?: '✨') . '</span><div><b>' . e($it['text']) . '</b>' . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div></div>', $its)) . '</div>');
+        }
+        if ($type === 'stats') {
+            $n = max(2, min(6, count($its) ?: 3));
+            return $PV($head . '<div class="cols c' . $n . '" style="gap:14px">' . implode('', array_map(static fn($i) => '<div class="stat"><div class="stat-n">' . e($i['icon'] !== '' ? $i['icon'] : '۰') . '</div><div class="stat-l">' . e($i['text'] !== '' ? $i['text'] : 'آمار') . '</div></div>', $its)) . '</div>');
+        }
+        if ($type === 'chips') {
+            return $PV($head . '<div class="chip-row">' . implode('', array_map(static fn($i) => '<span class="chip">' . ($i['icon'] !== '' ? e($i['icon']) . ' ' : '') . e($i['text']) . ($i['desc'] !== '' ? ' — ' . e($i['desc']) : '') . '</span>', $its)) . '</div>');
+        }
+        if ($type === 'banner') {
+            $bIts = $its ? '<div class="cols c' . min(4, max(2, count($its))) . '" style="margin-top:11px">' . implode('', array_map(static fn($i) => '<div class="fake-card"><div class="card-ico">' . e($i['icon'] ?: '✨') . '</div><div class="card-t">' . e($i['text']) . '</div>' . ($i['desc'] !== '' ? '<div class="feat-d">' . e($i['desc']) . '</div>' : '') . '</div>', $its)) . '</div>' : '';
+            return $PV('<div class="hero-title" style="font-size:22px">' . e($title !== '' ? $title : 'بنر ویژه') . '</div>' . $sub . $bIts . $btn);
+        }
+        if ($type === 'steps') {
+            $out = '';
+            foreach ($its as $i => $it) {
+                $fa = static fn($x) => strtr((string)$x, ['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹']);
+                $out .= ($i > 0 ? '<div class="step-arrow">←</div>' : '') . '<div class="step"><span class="step-n">' . e($it['icon'] !== '' ? $it['icon'] : $fa($i + 1)) . '</span><div class="step-t">' . e($it['text']) . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div></div>';
+            }
+            return $PV($head . '<div class="steps-row" style="flex-wrap:wrap">' . $out . '</div>');
+        }
+        if ($type === 'price') {
+            return $PV($head . '<div class="price-table">' . implode('', array_map(static fn($it) => '<div class="price-row"><span>' . e($it['text']) . '</span><b>' . e($it['desc']) . '</b></div>', $its)) . '</div>');
+        }
+        if ($type === 'quote') {
+            $qt = trim((string)($props['text'] ?? ''));
+            if ($qt === '' && $its) { $qt = (string)$its[0]['text']; }
+            return $PV($head . '<div class="quote">«' . e($qt !== '' ? $qt : 'متن نقل‌قول') . '»</div>');
+        }
+        if ($type === 'divider') {
+            return $PV('<div style="text-align:center;font-size:22px;letter-spacing:3px;opacity:.5">' . e($its ? (string)$its[0]['text'] : '〰️〰️〰️') . '</div>');
+        }
+        $cols = pvCols($props, 3);
+        return $PV($head . '<div class="cols c' . $cols . '">' . implode('', array_map(static fn($it) => '<div class="fake-card">' . ($it['icon'] !== '' ? '<div class="card-ico">' . e($it['icon']) . '</div>' : '') . '<div class="card-t">' . e($it['text']) . '</div>' . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div>', $its)) . '</div>');
+    }
 }
 
 function renderPreviewBlockInner(string $block, array $props = []): string
@@ -295,7 +424,9 @@ function renderPreviewBlockInner(string $block, array $props = []): string
         case 'hero':
             return $PV('<div class="hero-title">' . ($title ?: 'تعمیرات تخصصی با قطعات اصلی') . '</div><div class="hero-sub">' . e($props['subtitle'] ?? 'نمایندگی رسمی — پاسخگویی ۷ روز هفته') . '</div><div class="hero-btns"><span class="hero-btn">📞 تماس فوری</span><span class="hero-btn ghost">ثبت درخواست آنلاین</span></div>', 'hero-blk');
         case 'hero-slider':
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' hero-blk slider"><div class="hero-title">' . ($title ?: 'اسلایدر تصویری') . '</div><div class="hero-img wide">🖼️</div><div class="slider-dots">● ○ ○</div></div>';
+        case 'universal-slider':
+            /* 🎞 v2.29 — اسلایدر چندمقداری: هر تعداد اسلاید (تصویر/متن/کارت) */
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' hero-blk slider"' . $styleAttr . '><div class="hero-title">' . ($title ?: ($block === 'universal-slider' ? 'اسلایدر همه‌کاره' : 'اسلایدر تصویری')) . '</div>' . pvSliderSlides($props, $block === 'universal-slider' ? 'card' : 'image') . '</div>';
         case 'hero-split':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . ' hero-blk split-hero"' . $styleAttr . '><div class="hero-split"><div><div class="hero-title">' . ($title ?: 'تعمیر لوازم خانگی در محل') . '</div><div class="hero-sub">' . e($props['subtitle'] ?? 'متن معرفی + دکمه فراخوان') . '</div><div class="hero-btns"><span class="hero-btn">شروع کنید</span></div></div>' . pvImg($props, '🛠️') . '</div></div>';
         case 'hero-video':
@@ -308,9 +439,14 @@ function renderPreviewBlockInner(string $block, array $props = []): string
         case 'intro':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . ' split"' . $styleAttr . '><div><div class="blk-title">' . ($title ?: 'درباره برند') . '</div><div class="pv-text" style="font-size:12.5px">' . nl2br(e($props['text'] ?? 'معرفی کوتاه برند و خدمات تخصصی — این متن از پنل ویژگی‌ها قابل ویرایش است.')) . '</div></div>' . pvImg($props, '🖼️') . '</div>';
         case 'rich-text': {
-            /* 🎛 v2.14: متن واردشده خط‌به‌خط آیتم لیست می‌شود */
-            $lines = array_values(array_filter(array_map('trim', explode("\n", (string)($props['text'] ?? ''))), static fn($l) => $l !== ''));
-            $items = $lines ?: ['نصب و راه‌اندازی تخصصی', 'تعمیر با قطعات اصلی', '۶ ماه ضمانت قطعه و خدمات'];
+            /* 🎛 v2.14: متن خط‌به‌خط آیتم می‌شود — 🆕 v2.29: آیتم‌های ویرایشگر مقدم‌اند */
+            $its = array_values(array_filter(pvItems($props, []), static fn($i) => trim((string)$i['text']) !== ''));
+            if ($its) {
+                $items = array_map(static fn($i) => (string)$i['text'], $its);
+            } else {
+                $lines = array_values(array_filter(array_map('trim', explode("\n", (string)($props['text'] ?? ''))), static fn($l) => $l !== ''));
+                $items = $lines ?: ['نصب و راه‌اندازی تخصصی', 'تعمیر با قطعات اصلی', '۶ ماه ضمانت قطعه و خدمات'];
+            }
             return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<ul class="pv-list">' . implode('', array_map(static fn($i) => '<li>✅ ' . e($i) . '</li>', $items)) . '</ul></div>';
         }
         case 'quote':
@@ -363,14 +499,12 @@ function renderPreviewBlockInner(string $block, array $props = []): string
         case 'stats':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . ' stats-blk"><div class="stat"><div class="stat-n">۱۲+</div><div class="stat-l">سال تجربه</div></div><div class="stat"><div class="stat-n">۵۰هزار+</div><div class="stat-l">تعمیر موفق</div></div><div class="stat"><div class="stat-n">۹۸٪</div><div class="stat-l">رضایت</div></div></div>';
         case 'progress-bars':
-            $its = pvItems($props, [['', 'سرعت تعمیر', '90'], ['', 'کیفیت قطعات', '95'], ['', 'رضایت مشتری', '98']]);
-            $out = '';
-            foreach ($its as $it) { $p = max(3, min(100, (int)(preg_replace('/[^0-9]/', '', $it['desc'] ?: $it['icon']) ?: 80))); $out .= '<div class="pbar"><span>' . e($it['text']) . '</span><div class="track"><div class="fill" style="width:' . $p . '%"></div></div></div>'; }
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . $out . '</div>';
         case 'skill-bars':
-            $its = pvItems($props, [['', 'تعمیر برد و الکترونیک', '88'], ['', 'یخچال و فریزر', '92'], ['', 'ماشین لباس', '95']]);
+            /* 🎨 v2.29 — رنگ نوارها قابل تنظیم (barColor) */
+            $its = pvItems($props, $block === 'skill-bars' ? [['', 'تعمیر برد و الکترونیک', '88'], ['', 'یخچال و فریزر', '92'], ['', 'ماشین لباس', '95']] : [['', 'سرعت تعمیر', '90'], ['', 'کیفیت قطعات', '95'], ['', 'رضایت مشتری', '98']]);
+            $barC = preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($props['barColor'] ?? '')) ? 'background:' . e((string)$props['barColor']) . ';' : '';
             $out = '';
-            foreach ($its as $it) { $p = max(3, min(100, (int)(preg_replace('/[^0-9]/', '', $it['desc'] ?: $it['icon']) ?: 80))); $out .= '<div class="pbar"><span>' . e($it['text']) . '</span><div class="track"><div class="fill" style="width:' . $p . '%"></div></div></div>'; }
+            foreach ($its as $it) { $p = max(3, min(100, (int)(preg_replace('/[^0-9]/', '', $it['desc'] ?: $it['icon']) ?: 80))); $out .= '<div class="pbar"><span>' . e($it['text']) . '</span><div class="track"><div class="fill" style="width:' . $p . '%;' . $barC . '"></div></div></div>'; }
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . $out . '</div>';
         case 'testimonials':
             $its = pvItems($props, [['علی محمدی', 'سرویس سریع و منظم بود؛ راضی بودم.'], ['مریم احمدی', 'قیمت شفاف و ضمانت واقعی.']]);
@@ -767,6 +901,10 @@ function renderPreviewBlockInner(string $block, array $props = []): string
                     . '<iframe class="pelement-frame" sandbox="allow-same-origin" srcdoc="' . $frameDoc . '" style="width:100%;min-height:210px;border:none;border-radius:11px;background:#fff" loading="lazy" onload="try{var d=this.contentDocument;if(d){this.style.height=Math.max(200,d.documentElement.scrollHeight+18)+\'px\'}}catch(e){}" title="' . e($pe['name']) . '"></iframe></div>';
             }
         default:
+            /* 🧬 v2.29 — عناصر جدید با رندرگر عمومی (renderType از props) */
+            if (!empty($props['renderType'])) {
+                return pv_generic_block($block, $props, $PV);
+            }
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">📦 ' . e($block) . '</div><div class="fake-lines"><div class="fl w90"></div><div class="fl w70"></div></div></div>';
     }
 }
@@ -1125,6 +1263,35 @@ body { font-family: var(--font-body, Vazirmatn, Tahoma, 'Segoe UI', sans-serif);
 .stats-strip .ss-sep { width:1px; height:22px; background:#cbd5e1; }
 /* ⚙️ v2.25: تنظیمات صفحه — متغیرها روی body */
 body { --pg-section-pad: 54px; --pg-gap: 26px; --pg-width: 1080px; --pg-radius: 14px; --pg-text: 14.5px; font-size: var(--pg-text); }
+
+/* ═══════════════════════════════════════════════════════════════
+   🎬 v2.29 — انیمیشن ورود عناصر (blk-anim-*)
+   انتخاب از تنظیمات انیمیشن هر عنصر + سرعت + تأخیر (موجی)
+   ═══════════════════════════════════════════════════════════════ */
+.blk-anim { animation: blkAnimIn var(--anim-dur, .7s) cubic-bezier(.22,.9,.32,1.02) both; animation-delay: var(--anim-delay, 0ms); }
+@keyframes blkAnimIn { from { opacity: 0; } to { opacity: 1; } }
+.blk-anim-fade { animation-name: blkFade; }
+@keyframes blkFade { from { opacity: 0; } to { opacity: 1; } }
+.blk-anim-up { animation-name: blkUp; }
+@keyframes blkUp { from { opacity: 0; transform: translateY(38px); } to { opacity: 1; transform: translateY(0); } }
+.blk-anim-down { animation-name: blkDown; }
+@keyframes blkDown { from { opacity: 0; transform: translateY(-38px); } to { opacity: 1; transform: translateY(0); } }
+.blk-anim-right { animation-name: blkRight; }
+@keyframes blkRight { from { opacity: 0; transform: translateX(46px); } to { opacity: 1; transform: translateX(0); } }
+.blk-anim-left { animation-name: blkLeft; }
+@keyframes blkLeft { from { opacity: 0; transform: translateX(-46px); } to { opacity: 1; transform: translateX(0); } }
+.blk-anim-zoom { animation-name: blkZoom; }
+@keyframes blkZoom { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: scale(1); } }
+.blk-anim-flip { animation-name: blkFlip; }
+@keyframes blkFlip { from { opacity: 0; transform: perspective(700px) rotateX(-52deg); } to { opacity: 1; transform: perspective(700px) rotateX(0); } }
+.blk-anim-bounce { animation-name: blkBounce; }
+@keyframes blkBounce { 0% { opacity: 0; transform: translateY(-46px); } 55% { opacity: 1; transform: translateY(8px); } 75% { transform: translateY(-5px); } 100% { transform: translateY(0); } }
+.blk-anim-rotate { animation-name: blkRotate; }
+@keyframes blkRotate { from { opacity: 0; transform: rotate(-4.5deg) scale(.94); } to { opacity: 1; transform: rotate(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .blk-anim { animation: none !important; } }
+
+/* 🆕 v2.29 — فاصله محتوای صفحه از لبه‌ها (تنظیمات صفحه قالب‌ساز) */
+body { padding-top: var(--pg-mt, 0); padding-bottom: var(--pg-mb, 0); padding-inline-start: var(--pg-mr, 0); padding-inline-end: var(--pg-ml, 0); }
 .preview-wrap { max-width: var(--pg-width); margin: 0 auto; padding: 16px; }
 body[style*="--pg-bg"] { background: var(--pg-bg); }
 .preview-wrap .blk { border-radius: var(--pg-radius); margin-bottom: var(--pg-gap); }

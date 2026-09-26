@@ -1,21 +1,26 @@
 <?php
 /**
- * 💾 مدیر بکاپ — با تاریخ شمسی و سیاست نگهداری ۵ نسخه
+ * 💾 مدیر بکاپ — با تاریخ شمسی و سیاست نگهداری قابل تنظیم
  * ===================================================
- * طبق سند بخش ۲۱ (پرامپت تکمیلی بخش ۱):
- *   - دقیقاً ۵ بکاپ آخر هر برند نگهداری می‌شود (ثابت)
+ * 🆕 v2.29 (درخواست کاربر «تعداد بکاپ‌ها از تنظیمات تعیین شود»):
+ *   - سقف نگهداری دیگر ثابت ۵تایی نیست:
+ *     ① override اختصاصی برند: brands.backup_keep_count
+ *     ② پیش‌فرض عمومی: cpanel_settings.backup_keep_count
+ *     ③ عدد نهایی: بین ۱ تا ۵۰
  *   - نامگذاری: {brand-slug}_{YYYY-MM-DD}_{HH-mm-ss}.zip (تاریخ شمسی)
  *   - حذف خودکار بکاپ‌های اضافی پس از هر بکاپ جدید
- *   - الگوریتم تبدیل تاریخ کاملاً داخلی (ShamsiDate)
  *   - انواع بکاپ: manual / auto_before_update / weekly_scheduled / before_delete
  *
  * @package SahandBrandMaker
- * @version 1.0.0
+ * @version 1.1.0
  */
 class BackupManager
 {
-    /** @var int تعداد بکاپ‌های نگهداری‌شده — ثابت طبق سند */
+    /** @var int سقف پایه (فقط زمانی استفاده می‌شود که هیچ تنظیماتی نباشد) */
     const KEEP_COUNT = 5;
+
+    /** @var int حداکثر مجاز */
+    const KEEP_MAX = 50;
 
     /** @var CpanelAPI کلاینت cPanel */
     private $api;
@@ -25,6 +30,9 @@ class BackupManager
 
     /** @var string پوشه ریشه بکاپ‌ها روی سرور میزبان */
     private $backupsRoot;
+
+    /** @var int|null کش سقف نگهداری عمومی (از cpanel_settings) */
+    private static $globalKeep = null;
 
     /**
      * 🔧 سازنده
@@ -133,13 +141,48 @@ class BackupManager
     }
 
     /**
-     * 🧹 اجرای سیاست نگهداری — حذف بکاپ‌های اضافی (بیش از ۵)
+     * 🔢 سقف نگهداری بکاپ برای یک برند — v2.29
+     * اولویت: override اختصاصی برند ← پیش‌فرض عمومی ← ۵
+     * عدد نهایی همیشه بین ۱ و ۵۰ محدود می‌شود.
+     */
+    public function keepCount(int $brandId): int
+    {
+        $brandKeep = null;
+        if ($brandId > 0) {
+            try {
+                $row = $this->db->fetchValue('SELECT backup_keep_count FROM brands WHERE id = ?', [$brandId]);
+                $brandKeep = $row !== null && $row !== false && $row !== '' ? (int)$row : null;
+            } catch (Throwable $bkE) {
+                $brandKeep = null; /* ستون هنوز مهاجرت نشده — عمومی استفاده می‌شود */
+            }
+        }
+        if ($brandKeep !== null && $brandKeep > 0) {
+            return max(1, min(self::KEEP_MAX, $brandKeep));
+        }
+        if (self::$globalKeep === null) {
+            self::$globalKeep = self::KEEP_COUNT;
+            try {
+                $g = $this->db->fetchValue('SELECT backup_keep_count FROM cpanel_settings WHERE id = 1');
+                if ($g !== null && $g !== false && (int)$g > 0) {
+                    self::$globalKeep = (int)$g;
+                }
+            } catch (Throwable $gkE) {
+                /* تنظیمات قدیمی — پیش‌فرض ۵ */
+            }
+        }
+        return max(1, min(self::KEEP_MAX, self::$globalKeep));
+    }
+
+    /**
+     * 🧹 اجرای سیاست نگهداری — حذف بکاپ‌های اضافی (بیش از سقف تنظیم‌شده)
      *
      * @param int $brandId شناسه برند
      * @return int تعداد بکاپ‌های حذف‌شده
      */
     public function enforceRetentionPolicy(int $brandId): int
     {
+        $keep = $this->keepCount($brandId);
+
         // مرتب‌سازی بر اساس زمان — قدیمی‌ها آخر
         $backups = $this->db->fetchAll(
             'SELECT * FROM backups WHERE brand_id = ? ORDER BY id DESC',
@@ -147,12 +190,12 @@ class BackupManager
         );
 
         $count = count($backups);
-        if ($count <= self::KEEP_COUNT) {
+        if ($count <= $keep) {
             return 0;
         }
 
-        // بکاپ‌های اضافی (بعد از ۵ تای اول)
-        $toDelete = array_slice($backups, self::KEEP_COUNT);
+        // بکاپ‌های اضافی (بعد از N تای اول)
+        $toDelete = array_slice($backups, $keep);
         $deleted = 0;
 
         foreach ($toDelete as $backup) {
@@ -164,20 +207,20 @@ class BackupManager
         }
 
         if ($deleted > 0) {
-            Logger::info('[Backup] سیاست نگهداری اجرا شد', ['brand_id' => $brandId, 'deleted' => $deleted]);
+            Logger::info('[Backup] سیاست نگهداری اجرا شد', ['brand_id' => $brandId, 'deleted' => $deleted, 'keep' => $keep]);
         }
         return $deleted;
     }
 
     /**
-     * 📋 لیست بکاپ‌های برند (جدیدترین اول)
+     * 📋 لیست بکاپ‌های برند (جدیدترین اول — تا سقف تنظیم‌شده)
      *
      * @param int $brandId شناسه برند
      */
     public function getBackupsList(int $brandId): array
     {
         return $this->db->fetchAll(
-            'SELECT * FROM backups WHERE brand_id = ? ORDER BY id DESC LIMIT ' . self::KEEP_COUNT,
+            'SELECT * FROM backups WHERE brand_id = ? ORDER BY id DESC LIMIT ' . $this->keepCount($brandId),
             [$brandId]
         );
     }
@@ -193,7 +236,7 @@ class BackupManager
         );
         return [
             'count'      => (int)($row['cnt'] ?? 0),
-            'max'        => self::KEEP_COUNT,
+            'max'        => $this->keepCount($brandId),
             'total_size' => (int)($row['total_size'] ?? 0),
         ];
     }

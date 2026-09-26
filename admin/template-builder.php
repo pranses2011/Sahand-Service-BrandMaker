@@ -217,9 +217,11 @@ if ($templateId > 0) {
 }
 $layout = $template ? (json_decode($template['layout_json'] ?? '[]', true) ?: []) : [];
 
-/* 🆕 v2.25: تنظیمات صفحه — گره مخفی «_page» در ابتدای چیدمان ذخیره می‌شود
+/* 🆕 v2.25: تنظیمات صفحه — گره مخفی «_page» در ابتدای layout_json ذخیره می‌شود
    (فاصله‌ها، زمینه، عرض محتوا، گردی گوشه‌ها و ...). قدیمی‌ها بدون آن‌اند و
-   همچنان کار می‌کنند؛ بوم فقط بلوک‌های واقعی را رندر می‌کند. */
+   همچنان کار می‌کنند؛ بوم فقط بلوک‌های واقعی را رندر می‌کند.
+   🚨 v2.29 — فاصله‌های چهارجهته صفحه (بالا/پایین/چپ/راست) مطابق درخواست
+   کاربر «فاصله محتوای صفحه از بالا و پایین و چپ و راست» اضافه شد. */
 $pageProps = [];
 if (!empty($layout) && is_array($layout[0]) && ($layout[0]['block'] ?? '') === '_page') {
     $pageProps = is_array($layout[0]['props'] ?? null) ? $layout[0]['props'] : [];
@@ -448,6 +450,92 @@ $blockLibrary = [
         'payment-methods' => ['💳', 'روش‌های پرداخت', []],
         'copyright' => ['©️', 'نوار کپی‌رایت', []],
     ],
+    /* ═══════════════════════════════════════════════════════════════
+     * 🆕 v2.29 — ۶۴ عنصر جدید در ۸ دسته تازه (درخواست کاربر: «تعداد عناصر
+     * رو خیلی زیاد بکن تا هیچ محدودیتی از بابت طراحی نداشته باشیم»)
+     * همه با renderType عمومی: cards | features | stats | chips | banner |
+     * steps | price | quote — در هر سه صحنه (بوم/پیش‌نمایش/سایت برند) رندر می‌شوند
+     * ═══════════════════════════════════════════════════════════════ */
+    '🛒 فروش و تخفیف' => [
+        'promo-banner' => ['🎁', 'بنر تخفیف بزرگ', ['renderType' => 'banner', 'title' => '🔥 جشنواره تخفیف بهاره', 'subtitle' => 'تا ۳۰٪ تخفیف سرویس دوره‌ای — فقط تا پایان هفته', 'btnText' => 'همین حالا رزرو کنید', 'items' => [['icon' => '⚡', 'text' => 'ثبت فوری', 'desc' => 'ظرفیت محدود'], ['icon' => '🛡️', 'text' => 'ضمانت کامل', 'desc' => 'کتبی و رسمی']]]],
+        'discount-coupon' => ['🎫', 'کارت کد تخفیف', ['renderType' => 'banner', 'title' => 'کد تخفیف ویژه', 'subtitle' => 'SPRING25 را وارد کنید و ۲۵٪ تخفیف بگیرید', 'btnText' => 'کپی کد تخفیف', 'items' => [['icon' => '🎫', 'text' => 'SPRING25', 'desc' => '۲۵٪ سرویس دوره‌ای'], ['icon' => '⏳', 'text' => '۳ روز اعتبار', 'desc' => 'دیر نکنید']]]],
+        'product-cards' => ['📦', 'کارت محصولات/قطعات', ['renderType' => 'cards', 'columns' => 3, 'title' => 'قطعات پرتقاضا', 'items' => [['icon' => '🌀', 'text' => 'بلبرینگ لباسشویی', 'desc' => 'از ۸۵۰ هزار تومان'], ['icon' => '❄️', 'text' => 'کمپرسور یخچال', 'desc' => 'از ۴٫۲ میلیون'], ['icon' => '🔥', 'text' => 'المنت فر', 'desc' => 'از ۶۵۰ هزار تومان'], ['icon' => '📺', 'text' => 'برد پاور تلویزیون', 'desc' => 'از ۱٫۸ میلیون']]]],
+        'category-grid' => ['🗂', 'شبکه دسته‌بندی خدمات', ['renderType' => 'cards', 'columns' => 4, 'title' => 'دسته‌بندی خدمات', 'items' => [['icon' => '🌀', 'text' => 'لباسشویی'], ['icon' => '🧊', 'text' => 'یخچال'], ['icon' => '🍽️', 'text' => 'ظرفشویی'], ['icon' => '📺', 'text' => 'تلویزیون'], ['icon' => '❄️', 'text' => 'کولر'], ['icon' => '♨️', 'text' => 'پکیج'], ['icon' => '📻', 'text' => 'ماکروویو'], ['icon' => '🔥', 'text' => 'فر و اجاق']]]],
+        'price-ticker' => ['💹', 'تیکر قیمت لحظه‌ای', ['renderType' => 'chips', 'title' => 'تعرفه امروز', 'items' => [['text' => 'سرویس لباسشویی ۹۵۰ هزار'], ['text' => 'شارژ گاز ۱٫۲ میلیون'], ['text' => 'عیب‌یابی رایگان*'], ['text' => 'تعمیر برد از ۹۰۰ هزار']]]],
+        'installment-plans' => ['🧾', 'پلن‌های اقساطی', ['renderType' => 'price', 'title' => 'خرید اقساطی قطعات', 'items' => [['text' => 'پلن ۳ ماهه', 'desc' => 'بدون سود — چک صیادی'], ['text' => 'پلن ۶ ماهه', 'desc' => 'سود ۴٪ — تنها برای قطعات بالای ۳ میلیون'], ['text' => 'پلن ۹ ماهه', 'desc' => 'ویژه سرویس‌های سازمانی']]]],
+        'payment-options' => ['💳', 'روش‌های پرداخت', ['renderType' => 'cards', 'columns' => 4, 'title' => 'پرداخت آسان و امن', 'items' => [['icon' => '💵', 'text' => 'نقدی در محل'], ['icon' => '💳', 'text' => 'کارت‌خوان سیار'], ['icon' => '📲', 'text' => 'انتقال کارت‌به‌کارت'], ['icon' => '🧾', 'text' => 'فاکتور رسمی']]]],
+        'gift-card' => ['🎀', 'کارت هدیه سرویس', ['renderType' => 'banner', 'title' => '🎁 کارت هدیه تعمیر', 'subtitle' => 'هدیه‌ای کاربردی برای عزیزانتان — از ۵۰۰ هزار تومان', 'btnText' => 'سفارش کارت هدیه', 'items' => [['icon' => '🎨', 'text' => 'طرح دلخواه', 'desc' => 'چاپ اختصاصی'], ['icon' => '♻️', 'text' => 'اعتبار ۱ ساله', 'desc' => 'قابل تمدید']]]],
+    ],
+    '🏅 اعتماد و اعتبار' => [
+        'trust-metrics' => ['📏', 'شاخص‌های اعتماد', ['renderType' => 'stats', 'title' => 'چرا به ما اعتماد کنند؟', 'items' => [['icon' => '۱۵+', 'text' => 'سال سابقه'], ['icon' => '۵۰k', 'text' => 'تعمیر موفق'], ['icon' => '۹۸٪', 'text' => 'رضایت'], ['icon' => '۰', 'text' => 'شکایت حل‌نشده']]]],
+        'partners-grid' => ['🤝', 'همکاران و شرکا', ['renderType' => 'cards', 'columns' => 4, 'title' => 'همکاران تجاری ما', 'items' => [['icon' => '🏢', 'text' => 'شرکت‌های ساختمانی'], ['icon' => '🏨', 'text' => 'هتل‌ها و رستوران‌ها'], ['icon' => '🏬', 'text' => 'مراکز خرید'], ['icon' => '🏥', 'text' => 'درمانگاه‌ها']]]],
+        'awards-row' => ['🏆', 'ردیف جوایز و افتخارات', ['renderType' => 'cards', 'columns' => 3, 'title' => 'افتخارات ما', 'items' => [['icon' => '🥇', 'text' => 'برند برتر سال', 'desc' => 'رأی مشتریان ۱۴۰۲'], ['icon' => '🏆', 'text' => 'بهترین خدمات پس از فروش', 'desc' => 'نمایندگی رسمی'], ['icon' => '🎖️', 'text' => 'گواهینامه فنی', 'desc' => 'سازمان فنی و حرفه‌ای']]]],
+        'case-studies' => ['📈', 'مطالعات موردی (کیس)', ['renderType' => 'features', 'title' => 'پروژه‌های شاخص', 'items' => [['icon' => '🏨', 'text' => 'تعمیر ۴۰ دستگاه هتل ...', 'desc' => 'در ۵ روز کاری — با قرارداد رسمی'], ['icon' => '🏬', 'text' => 'سرویس دوره‌ای مرکز خرید', 'desc' => 'ماهانه ۲۵ دستگاه'], ['icon' => '🏥', 'text' => 'راه‌اندازی آشپزخانه درمانگاه', 'desc' => 'تحویل فوری و ضمانت‌دار']]]],
+        'success-stories' => ['🌟', 'داستان‌های موفقیت', ['renderType' => 'features', 'title' => 'از زبان مشتریان', 'items' => [['icon' => '❄️', 'text' => 'یخچال ۱۵ ساله دوباره جوان شد', 'desc' => 'خانم احمدی — تهران'], ['icon' => '📺', 'text' => 'تلویزیون از مرجوعی نجات یافت', 'desc' => 'آقای کریمی — کرج']]]],
+        'video-testimonials' => ['🎬', 'نظرات ویدیویی مشتریان', ['renderType' => 'cards', 'columns' => 3, 'title' => 'مشتریان ما چه می‌گویند', 'items' => [['icon' => '▶️', 'text' => 'رضایت از سرویس لباسشویی', 'desc' => '۱:۳۰ دقیقه'], ['icon' => '▶️', 'text' => 'تجربه تعمیر فوری', 'desc' => '۲:۱۰ دقیقه'], ['icon' => '▶️', 'text' => 'پشتیبانی عالی', 'desc' => '۱:۴۵ دقیقه']]]],
+        'licenses-grid' => ['📜', 'مجوزها و گواهینامه‌ها', ['renderType' => 'cards', 'columns' => 3, 'title' => 'مجوزهای رسمی', 'items' => [['icon' => '📋', 'text' => 'پروانه کسب اتحادیه', 'desc' => 'شماره ثبت ۱۲۳۴۵'], ['icon' => '🛡️', 'text' => 'بیمه مسئولیت', 'desc' => 'پوشش کامل حوادث'], ['icon' => '🔬', 'text' => 'گواهی تخصص برد', 'desc' => 'مدرک بین‌المللی']]]],
+        'satisfaction-score' => ['💯', 'امتیاز رضایت درشت', ['renderType' => 'stats', 'title' => 'امتیاز رضایت مشتریان', 'items' => [['icon' => '۴٫۸', 'text' => 'از ۵ — نظرسنجی مستقل'], ['icon' => '۲٬۱۴۰', 'text' => 'رأی ثبت‌شده']]]],
+    ],
+    '🎯 بازاریابی' => [
+        'lead-magnet' => ['🧲', 'آهنربای مشتری (راهنمای رایگان)', ['renderType' => 'banner', 'title' => '📚 راهنمای رایگان نگهداری دستگاه', 'subtitle' => '۳۰ صفحه نکات طلایی + چک‌لیست سرویس دوره‌ای — ایمیلتان را وارد کنید', 'btnText' => 'دریافت رایگان', 'items' => [['icon' => '📚', 'text' => 'PDF 30 صفحه', 'desc' => 'دانلود فوری'], ['icon' => '🔒', 'text' => 'بدون اسپم', 'desc' => 'احترام کامل']]]],
+        'webinar-card' => ['🖥', 'کارت وبینار/رویداد', ['renderType' => 'banner', 'title' => '🎥 وبینار رایگان: افزایش عمر لوازم خانگی', 'subtitle' => 'پنجشنبه ساعت ۱۸ — همراه با پرسش و پاسخ زنده', 'btnText' => 'ثبت‌نام وبینار', 'items' => [['icon' => '🎥', 'text' => 'آنلاین و زنده', 'desc' => 'لینک اختصاصی'], ['icon' => '📜', 'text' => 'گواهی حضور', 'desc' => 'قابل دانلود']]]],
+        'free-audit' => ['🔍', 'پیشنهاد بررسی رایگان', ['renderType' => 'banner', 'title' => '🩺 چکاپ رایگان دستگاه شما', 'subtitle' => 'کارشناس ما وضعیت دستگاه را بررسی و صورت‌حساب شفاف می‌دهد — بدون تعهد', 'btnText' => 'رزرو چکاپ رایگان', 'items' => [['icon' => '🩺', 'text' => 'کاملاً رایگان', 'desc' => 'بدون تعهد خرید'], ['icon' => '🧾', 'text' => 'گزارش کتبی', 'desc' => 'با قیمت شفاف']]]],
+        'trial-offer' => ['🆓', 'پیشنهاد تست/ضمانت بازگشت', ['renderType' => 'banner', 'title' => '💚 ۷ روز ضمانت بازگشت وجه', 'subtitle' => 'اگر از سرویس راضی نبودید، هزینه برمی‌گردد — بدون سوال', 'btnText' => 'اطمینان از خرید', 'items' => [['icon' => '💚', 'text' => '۷ روز مهلت', 'desc' => 'بازگشت کامل'], ['icon' => '🤝', 'text' => 'بدون قید و شرط', 'desc' => 'حرف ما سند ما']]]],
+        'bundle-offer' => ['📦', 'پکیج ترکیبی خدمات', ['renderType' => 'price', 'title' => 'پکیج صرفه‌جویی خانواده', 'items' => [['text' => 'سرویس ۲ دستگاه', 'desc' => '۱۵٪ ارزان‌تر از تکی'], ['text' => 'سرویس ۳ دستگاه', 'desc' => '۲۵٪ ارزان‌تر + اولویت اعزام'], ['text' => 'سرویس ۵ دستگاه', 'desc' => '۳۵٪ ارزان‌تر + بازدید فصلی رایگان']]]],
+        'membership-tiers' => ['👑', 'سطوح عضویت', ['renderType' => 'cards', 'columns' => 3, 'title' => 'باشگاه مشتریان', 'items' => [['icon' => '🥉', 'text' => 'برنزی', 'desc' => '۵٪ تخفیف دائمی'], ['icon' => '🥈', 'text' => 'نقره‌ای', 'desc' => '۱۰٪ تخفیف + سرویس رایگان سالانه'], ['icon' => '🥇', 'text' => 'طلایی', 'desc' => '۱۵٪ تخفیف + اعزام VIP اولویت‌دار']]]],
+        'loyalty-program' => ['⭐', 'برنامه وفاداری', ['renderType' => 'steps', 'title' => 'هر تعمیر = امتیاز هدیه', 'items' => [['text' => 'ثبت سفارش', 'desc' => '۱۰ امتیاز'], ['text' => 'معرفی دوست', 'desc' => '۵۰ امتیاز'], ['text' => 'سرویس دوره‌ای', 'desc' => '۲۰۰ امتیاز'], ['text' => 'دریافت هدیه', 'desc' => 'از ۵۰۰ امتیاز']]]],
+        'referral-program' => ['👥', 'برنامه معرفی دوستان', ['renderType' => 'banner', 'title' => '🤝 دوستتان را معرفی کنید — هر دو برنده شوید', 'subtitle' => 'شما ۲۰۰ هزار تومان اعتبار، دوستتان ۱۵٪ تخفیف اولین سرویس', 'btnText' => 'کد معرفی بگیرم', 'items' => [['icon' => '💰', 'text' => '۲۰۰ هزار', 'desc' => 'اعتبار شما'], ['icon' => '🎁', 'text' => '۱۵٪', 'desc' => 'تخفیف دوست']]]],
+    ],
+    '📞 پشتیبانی' => [
+        'support-channels' => ['🛟', 'کانال‌های پشتیبانی', ['renderType' => 'cards', 'columns' => 4, 'title' => 'همیشه در دسترس', 'items' => [['icon' => '☎️', 'text' => 'تلفن', 'desc' => 'پاسخ فوری'], ['icon' => '💬', 'text' => 'چت آنلاین', 'desc' => 'در سایت'], ['icon' => '✉️', 'text' => 'ایمیل', 'desc' => 'زیر ۲۴ ساعت'], ['icon' => '📨', 'text' => 'پیام‌رسان', 'desc' => 'پاسخ سریع']]]],
+        'ticket-status' => ['🎫', 'پیگیری تیکت/درخواست', ['renderType' => 'banner', 'title' => '🔎 وضعیت درخواست خود را ببینید', 'subtitle' => 'کد رهگیری را وارد کنید و آخرین وضعیت تعمیر را دنبال کنید', 'btnText' => 'پیگیری درخواست', 'items' => [['icon' => '🎫', 'text' => 'کد رهگیری', 'desc' => 'در پیامک'], ['icon' => '⏱', 'text' => 'به‌روز زنده', 'desc' => 'لحظه‌ای']]]],
+        'knowledge-base' => ['📚', 'مرکز دانش و راهنما', ['renderType' => 'cards', 'columns' => 3, 'title' => 'خودتان عیب‌یابی کنید', 'items' => [['icon' => '🔢', 'text' => 'دیکشنری کد خطا', 'desc' => 'معنی هر کد + راه‌حل'], ['icon' => '🔧', 'text' => 'آموزش‌های تصویری', 'desc' => 'گام‌به‌گام'], ['icon' => '❓', 'text' => 'سوالات متداول', 'desc' => 'پاسخ کوتاه']]]],
+        'downloads-center' => ['⬇️', 'مرکز دانلود', ['renderType' => 'features', 'title' => 'دانلود فایل‌های مفید', 'items' => [['icon' => '📖', 'text' => 'دفترچه راهنمای دستگاه‌ها', 'desc' => 'PDF — همه برندها'], ['icon' => '🧾', 'text' => 'چک‌لیست سرویس دوره‌ای', 'desc' => 'قابل چاپ'], ['icon' => '📅', 'text' => 'تقویم نگهداری سالانه', 'desc' => 'دانلود رایگان']]]],
+        'live-chat-card' => ['💬', 'کارت گفتگوی زنده', ['renderType' => 'banner', 'title' => '💬 همین حالا با کارشناس چت کنید', 'subtitle' => 'میانگین زمان پاسخ: کمتر از ۲ دقیقه — بدون نیاز به ثبت‌نام', 'btnText' => 'شروع گفتگو', 'items' => [['icon' => '⚡', 'text' => 'پاسخ < ۲ دقیقه', 'desc' => 'کارشناس واقعی'], ['icon' => '🕐', 'text' => '۷ روز هفته', 'desc' => '۹ تا ۲۴']]]],
+        'support-hours' => ['🕘', 'ساعات پشتیبانی', ['renderType' => 'features', 'title' => 'چه زمانی در دسترس هستیم؟', 'items' => [['icon' => '🌅', 'text' => 'شیفت صبح', 'desc' => '۹ تا ۱۴ — تعمیرات عادی'], ['icon' => '🌆', 'text' => 'شیفت عصر', 'desc' => '۱۴ تا ۲۰ — تعمیرات عادی'], ['icon' => '🌙', 'text' => 'امداد شبانه', 'desc' => '۲۰ تا ۹ فردا — موارد فوری']]]],
+        'sla-guarantee' => ['⏱', 'تعهد سطح خدمات (SLA)', ['renderType' => 'stats', 'title' => 'تعهد ما در اعداد', 'items' => [['icon' => '۲ ساعت', 'text' => 'اعزام در تهران'], ['icon' => '۴ ساعت', 'desc' => 'حداکثر عیب‌یابی', 'text' => 'اعلام نتیجه'], ['icon' => '۹۸٪', 'text' => 'تعمیر همان روز'], ['icon' => '۲۴/۷', 'text' => 'خط امداد']]]],
+        'remote-support' => ['📡', 'پشتیبانی راه دور (تلفنی)', ['renderType' => 'features', 'title' => 'بدون مراجعه هم حل می‌شود!', 'items' => [['icon' => '📞', 'text' => 'راهنمایی تلفنی', 'desc' => 'برای ایرادهای ساده — رایگان'], ['icon' => '🎥', 'text' => 'تماس تصویری', 'desc' => 'کارشناس دوربین را می‌بیند'], ['icon' => '🔢', 'text' => 'راهنمای کد خطا', 'desc' => 'پیامکی و آنلاین']]]],
+    ],
+    '📊 داده و وضعیت' => [
+        'status-board' => ['🚦', 'تابلوی وضعیت خدمات', ['renderType' => 'stats', 'title' => 'وضعیت امروز سرویس‌ها', 'items' => [['icon' => '🟢', 'text' => 'لباسشویی — فعال'], ['icon' => '🟢', 'text' => 'یخچال — فعال'], ['icon' => '🟡', 'text' => 'ظرفشویی — ظرفیت محدود'], ['icon' => '🟢', 'text' => 'تلویزیون — فعال']]]],
+        'inventory-status' => ['📦', 'وضعیت موجودی قطعات', ['renderType' => 'features', 'title' => 'قطعات موجود امروز', 'items' => [['icon' => '✅', 'text' => 'بلبرینگ و آب‌بندی', 'desc' => 'موجود — تحویل فوری'], ['icon' => '✅', 'text' => 'المنت و هیتر', 'desc' => 'موجود — همه برندها'], ['icon' => '⏳', 'text' => 'برد الکترونیک', 'desc' => 'سفارش ۴۸ ساعته']]]],
+        'queue-display' => ['📋', 'نمایش صف فعلی', ['renderType' => 'stats', 'title' => 'صف تعمیر امروز', 'items' => [['icon' => '۷', 'text' => 'در نوبت'], ['icon' => '۲', 'text' => 'در حال تعمیر'], ['icon' => '۱۴', 'text' => 'تحویل‌شده امروز'], ['icon' => '۴۵ دقیقه', 'text' => 'میانگین انتظار']]]],
+        'weather-info' => ['🌤', 'نکته آب‌وهوایی سرویس', ['renderType' => 'chips', 'title' => 'امروز چه خبر؟', 'items' => [['text' => '🌡 هوای گرم — فشار روی کولر‌ها زیاد است'], ['text' => '❄️ پیش‌فصل سرویس کولر را رزرو کنید'], ['text' => '🧺 روز عالی برای شست‌وشوی لباسشویی']]]],
+        'capacity-meter' => ['📊', 'متر ظرفیت امروز', ['renderType' => 'stats', 'title' => 'ظرفیت اعزام تکنسین', 'items' => [['icon' => '۸۵٪', 'text' => 'ظرفیت امروز پر شده'], ['icon' => '۵', 'text' => 'نوبت باقی‌مانده'], ['icon' => '۲ دقیقه', 'text' => 'زمان ثبت']]]],
+        'open-closed' => ['🟢', 'نشان باز/بسته بودن', ['renderType' => 'banner', 'title' => '🟢 همین حالا باز هستیم', 'subtitle' => 'پاسخگویی تلفنی و اعزام فوری — تا ۲۰ امشب', 'btnText' => 'تماس همین حالا', 'items' => [['icon' => '🟢', 'text' => 'باز', 'desc' => 'تا ۲۰:۰۰'], ['icon' => '🚑', 'text' => 'امداد ۲۴ ساعته', 'desc' => 'همیشه']]]],
+        'service-coverage' => ['🗺', 'پوشش خدمات روی نقشه', ['renderType' => 'chips', 'title' => 'مناطق تحت پوشش امروز', 'items' => [['text' => 'تهران — همه مناطق'], ['text' => 'کرج — حصارک تا مهرشهر'], ['text' => 'شهریار — با هزینه ایاب‌وذهاب']]]],
+        'stats-live' => ['🔴', 'آمار زنده خدمات', ['renderType' => 'stats', 'title' => 'لحظه به لحظه با ما', 'items' => [['icon' => '۱۲', 'text' => 'تعمیر در حال انجام'], ['icon' => '۳', 'text' => 'تکنسین در راه'], ['icon' => '۹۸٪', 'text' => 'رضایت امروز']]]],
+    ],
+    '🎨 دکوراتیو' => [
+        'gradient-banner' => ['🌈', 'بنر گرادیانت تزئینی', ['renderType' => 'banner', 'background' => 'gradient', 'title' => 'زیبایی در سادگی', 'subtitle' => 'این بنر با رنگ‌های گرادیانت قابل تنظیم شما می‌درخشد', 'btnText' => 'اطمینان از کیفیت']],
+        'icon-matrix' => ['🔢', 'ماتریس آیکون تزئینی', ['renderType' => 'cards', 'columns' => 6, 'title' => 'نمادهای خدمات', 'items' => [['icon' => '🌀'], ['icon' => '🧊'], ['icon' => '🍽️'], ['icon' => '📺'], ['icon' => '❄️'], ['icon' => '🔥'], ['icon' => '♨️'], ['icon' => '📻'], ['icon' => '☕'], ['icon' => '🌪'], ['icon' => '💧'], ['icon' => '🔌']]]],
+        'big-number' => ['🔟', 'عدد درشت تزئینی', ['renderType' => 'stats', 'items' => [['icon' => '۵۰٬۰۰۰+', 'text' => 'تعمیر موفق از سال ۱۳۸۹']]]],
+        'quote-typography' => ['✍️', 'نقل‌قول تایپوگرافیک', ['renderType' => 'quote', 'title' => 'فلسفه ما', 'text' => 'هر دستگاه، اعتماد یک خانواده است — و اعتماد، فقط با کیفیت پاسخ داده می‌شود.']],
+        'pattern-strip' => ['♓', 'نوار الگودار تزئینی', ['renderType' => 'chips', 'items' => [['text' => '✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦']]]],
+        'shape-divider' => ['⛰', 'جداکننده موجی', ['renderType' => 'divider', 'items' => [['text' => '〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️']]]],
+        'decorative-frame' => ['🖼', 'قاب تزئینی محتوا', ['renderType' => 'features', 'title' => 'محتوای ویژه در قاب', 'items' => [['icon' => '✨', 'text' => 'این قاب دور محتوا', 'desc' => 'با تنظیمات ظاهر (شیشه‌ای/خط‌دار/...) شخصی شود']]]],
+        'color-showcase' => ['🎨', 'نمایش پالت رنگ', ['renderType' => 'cards', 'columns' => 5, 'title' => 'رنگ‌های سازمانی ما', 'items' => [['icon' => '🔵', 'text' => 'آبی اعتماد'], ['icon' => '🟢', 'text' => 'سبز تازگی'], ['icon' => '🟠', 'text' => 'نارنجی انرژی'], ['icon' => '⚫', 'text' => 'مشکی شکوه'], ['icon' => '⚪', 'text' => 'سفید سادگی']]]],
+    ],
+    '👤 کسب‌وکار' => [
+        'about-timeline' => ['📅', 'خط زمانی شرکت', ['renderType' => 'steps', 'title' => 'مسیر رشد ما', 'items' => [['text' => '۱۳۸۹', 'desc' => 'شروع با یک تعمیرگاه کوچک'], ['text' => '۱۳۹۵', 'desc' => 'اولین نمایندگی رسمی'], ['text' => '۱۴۰۰', 'desc' => 'گسترش به ۳۰ تکنسین'], ['text' => '۱۴۰۴', 'desc' => '۵۰ هزارمین تعمیر موفق']]]],
+        'mission-vision' => ['🎯', 'مأموریت و چشم‌انداز', ['renderType' => 'features', 'title' => 'چرا وجود داریم؟', 'items' => [['icon' => '🎯', 'text' => 'مأموریت', 'desc' => 'تعمیر قابل‌اعتماد برای هر خانواده ایرانی'], ['icon' => '🔭', 'text' => 'چشم‌انداز', 'desc' => 'استاندارد طلایی خدمات پس از فروش کشور'], ['icon' => '💎', 'text' => 'ارزش‌ها', 'desc' => 'صداقت، تخصص، احترام']]]],
+        'careers-jobs' => ['💼', 'فرصت‌های شغلی', ['renderType' => 'cards', 'columns' => 3, 'title' => 'به تیم ما بپیوندید', 'items' => [['icon' => '👨‍🔧', 'text' => 'تکنسین تعمیرکار', 'desc' => 'تمام وقت — تهران'], ['icon' => '☎️', 'text' => 'کارشناس پشتیبانی', 'desc' => 'شیفت چرخشی'], ['icon' => '🚗', 'text' => 'راننده ویدرو', 'desc' => 'پاره وقت']]]],
+        'press-reviews' => ['📰', 'نگاه رسانه‌ها', ['renderType' => 'quote', 'title' => 'رسانه‌ها درباره ما', 'text' => '«این مجموعه نشان داد خدمات پس از فروش می‌تواند هم حرفه‌ای باشد و هم صادقانه.» — هفته‌نامه فنی کشور']],
+        'company-size' => ['🏢', 'معرفی ابعاد شرکت', ['renderType' => 'stats', 'title' => 'سهند سرویس در یک نگاه', 'items' => [['icon' => '۳۲', 'text' => 'تکنسین متخصص'], ['icon' => '۴', 'text' => 'مرکز خدمات'], ['icon' => '۱۵', 'text' => 'سال تجربه'], ['icon' => '۲۴/۷', 'text' => 'پشتیبانی']]]],
+        'csr-activities' => ['🌱', 'مسئولیت اجتماعی', ['renderType' => 'features', 'title' => 'دست‌دادن به جامعه', 'items' => [['icon' => '♻️', 'text' => 'بازیافت قطعات', 'desc' => '۹۰٪ قطعات فرسوده بازیافت می‌شود'], ['icon' => '🎓', 'text' => 'آموزش کارآموز', 'desc' => 'هر سال ۲۰ کارآموز آموزش‌دیده'], ['icon' => '🤲', 'text' => 'سرویس خیریه', 'desc' => 'ماهانه ۵ خانواده نیازمند']]]],
+        'team-culture' => ['🌿', 'فرهنگ تیم', ['renderType' => 'chips', 'title' => 'چطور با هم کار می‌کنیم؟', 'items' => [['text' => '🎯 هدف مشترک: مشتری راضی'], ['text' => '📚 یادگیری هفتگی'], ['text' => '🤝 بازخورد صادقانه'], ['text' => '🎉 جشن موفقیت‌ها']]]],
+        'history-quick' => ['⏪', 'خلاصه تاریخچه', ['renderType' => 'quote', 'title' => 'از ۱۳۸۹ تا امروز', 'text' => 'از یک میز کار کوچک در گوشه شهر تا بزرگ‌ترین تیم تخصصی تعمیر لوازم خانگی منطقه — همه با اعتماد شما.']],
+    ],
+    '🔧 خدمات فنی' => [
+        'repair-process' => ['🔧', 'فرآیند تعمیر گام‌به‌گام', ['renderType' => 'steps', 'title' => 'دستگاه شما چه می‌گذرد؟', 'items' => [['text' => 'دریافت و ثبت', 'desc' => 'برچسب رهگیری'], ['text' => 'عیب‌یابی کامل', 'desc' => 'با دستگاه تست'], ['text' => 'تعمیر تخصصی', 'desc' => 'قطعه اصلی'], ['text' => 'کنترل کیفیت', 'desc' => 'تست ۲۴ ساعته'], ['text' => 'تحویل + ضمانت', 'desc' => 'سند رسمی']]]],
+        'diagnostics-steps' => ['🩺', 'مراحل عیب‌یابی', ['renderType' => 'features', 'title' => 'چطور ایراد را پیدا می‌کنیم؟', 'items' => [['icon' => '🔌', 'text' => 'تست برق و اتصالات', 'desc' => 'اولویت ایمنی'], ['icon' => '💻', 'text' => 'دیاگ برد و سنسورها', 'desc' => 'با دستگاه دیاگ'], ['icon' => '🔊', 'text' => 'بررسی صدا و لرزش', 'desc' => 'تجربه ۱۵ ساله']]]],
+        'spare-parts' => ['⚙️', 'قطعات یدکی اصلی', ['renderType' => 'cards', 'columns' => 4, 'title' => 'قطعاتی که استفاده می‌کنیم', 'items' => [['icon' => '✅', 'text' => 'اصلی کارخانه', 'desc' => 'با فاکتور'], ['icon' => '🛡️', 'text' => 'ضمانت ۶ ماهه', 'desc' => 'قطعه + نصب'], ['icon' => '📦', 'text' => 'موجودی انبار', 'desc' => 'تحویل فوری'], ['icon' => '🔍', 'text' => 'قابل استعلام', 'desc' => 'قیمت شفاف']]]],
+        'tool-showcase' => ['🧰', 'ابزار و تجهیزات', ['renderType' => 'chips', 'title' => 'با بهترین ابزار کار می‌کنیم', 'items' => [['text' => '🔬 میکروسکوپ برد'], ['text' => '⚡ تستر عایقی'], ['text' => '🌡 مانیفولد گاز'], ['text' => '💻 دیاگ حرفه‌ای']]]],
+        'technician-profile' => ['👨‍🔧', 'پروفایل تکنسین', ['renderType' => 'features', 'title' => 'تکنسین شما چه کسی است؟', 'items' => [['icon' => '🪪', 'text' => 'کارت شناسایی', 'desc' => 'با عکس و کد'], ['icon' => '🎓', 'text' => 'مدرک فنی', 'desc' => 'قابل استعلام'], ['icon' => '⭐', 'text' => 'امتیاز مشتریان', 'desc' => '۴٫۸ از ۵']]]],
+        'service-packages' => ['📦', 'بسته‌های خدماتی', ['renderType' => 'price', 'title' => 'کدام بسته مناسب شماست؟', 'items' => [['text' => 'بسته امداد فوری', 'desc' => 'عیب‌یابی + تعمیر تا ۲ ساعت'], ['text' => 'بسته سرویس کامل', 'desc' => 'شست‌وشو + تنظیم + گارانتی ۶ ماهه'], ['text' => 'بسته سازمانی', 'desc' => 'قرارداد سالانه با اولویت']]]],
+        'maintenance-plan' => ['🗓', 'برنامه نگهداری پیشگیرانه', ['renderType' => 'steps', 'title' => 'سرویس دوره‌ای = عمر بیشتر', 'items' => [['text' => 'هر ۶ ماه', 'desc' => 'لباسشویی و ظرفشویی'], ['text' => 'سالانه', 'desc' => 'یخچال و فریزر'], ['text' => 'فصلی', 'desc' => 'کولر و پکیج']]]],
+        'emergency-protocol' => ['🚨', 'پروتکل اضطراری', ['renderType' => 'features', 'title' => 'اگر وضعیت اضطراری است', 'items' => [['icon' => '🔌', 'text' => 'برق را قطع کنید', 'desc' => 'اول ایمنی'], ['icon' => '💧', 'text' => 'شیر آب را ببندید', 'desc' => 'جلوگیری از سیل'], ['icon' => '🚱', 'text' => 'دست نزنید', 'desc' => 'منتظر تکنسین بمانید']]]],
+    ],
 ];
 
 /* 🧩 v2.12: بلوک‌های ترکیبی ذخیره‌شده کاربر (از جدول builder_blocks)
@@ -470,6 +558,14 @@ foreach ($savedBlocks as $sb) {
     }
 }
 $totalBlockCount = array_sum(array_map('count', $blockLibrary));
+
+/* 🧬 v2.29 — کلیدهای عناصر عمومی (دارای renderType) برای فیلدهای خودکار JS */
+$genericBlockKeys = [];
+foreach ($blockLibrary as $gCat) {
+    foreach ($gCat as $gKey => $gDef) {
+        if (isset($gDef[2]['renderType'])) { $genericBlockKeys[$gKey] = true; }
+    }
+}
 
 /* ⭐ v2.26: عناصر شخصی استخراج‌شده از سایت‌ها — کتابخانه قابل درج در چیدمان */
 $personalElements = [];
@@ -1002,7 +1098,12 @@ const PAGE_DEFAULTS = {
     titleColor: '',          /* رنگ پیش‌فرض همه عنوان‌ها */
     textSize: 'default',     /* اندازه متن: sm | default | lg */
     cardShadow: 'default',   /* سایه کارت‌ها: none | soft | default | strong */
-    darkPreview: 0           /* پیش‌نمایش بوم در حالت تیره */
+    darkPreview: 0,          /* پیش‌نمایش بوم در حالت تیره */
+    /* 🆕 v2.29 — فاصله محتوای صفحه از لبه‌ها (px) */
+    padTop: '',              /* فاصله از بالا */
+    padBottom: '',           /* فاصله از پایین */
+    padLeft: '',             /* فاصله از چپ */
+    padRight: ''             /* فاصله از راست */
 };
 function pageProp(k) {
     return (pageProps && pageProps[k] !== undefined && pageProps[k] !== '') ? pageProps[k] : (PAGE_DEFAULTS[k] !== undefined ? PAGE_DEFAULTS[k] : '');
@@ -1034,10 +1135,19 @@ function applyPageSettings() {
     const tsize = { sm: '13px', default: '14.5px', lg: '16px' }[pageProp('textSize')] || '14.5px';
     const shadow = { none: 'none', soft: '0 2px 8px rgba(2,8,23,.05)', default: '0 5px 18px rgba(2,8,23,.08)', strong: '0 12px 32px rgba(2,8,23,.16)' }[pageProp('cardShadow')] || '0 5px 18px rgba(2,8,23,.08)';
     const tc = pageProp('titleColor');
+    /* 🆕 v2.29 — فاصله‌های چهارجهته محتوا (px خالی = خودکار) */
+    const px = v => { const n = parseInt(v, 10); return (isNaN(n) || n < 0 || n > 400) ? '' : (n + 'px'); };
+    const mT = px(pageProp('padTop')), mB = px(pageProp('padBottom'));
+    const mL = px(pageProp('padLeft')), mR = px(pageProp('padRight'));
+    const padCss = (mT || mB || mL || mR)
+        ? ';padding-top:' + (mT || '0') + ';padding-bottom:' + (mB || '0') + ';padding-inline-start:' + (mR || '0') + ';padding-inline-end:' + (mL || '0')
+        : '';
     stage.style.cssText = '--pg-section-pad:' + spacing + ';--pg-gap:' + gap + ';--pg-width:' + width +
         ';--pg-radius:' + radius + ';--pg-text:' + tsize + ';--pg-shadow:' + shadow +
-        ';--pg-title:' + (tc !== '' ? tc : 'inherit') + ';max-width:100%' +
-        (bgCss !== '' ? ';background:' + bgCss + ';border-radius:12px;padding:6px' : '');
+        ';--pg-title:' + (tc !== '' ? tc : 'inherit') +
+        (mT ? ';--pg-mt:' + mT : '') + (mB ? ';--pg-mb:' + mB : '') + (mR ? ';--pg-mr:' + mR : '') + (mL ? ';--pg-ml:' + mL : '') +
+        ';max-width:100%' + padCss +
+        (bgCss !== '' ? ';background:' + bgCss + ';border-radius:12px' : '');
 }
 /* پنل تنظیمات صفحه — در ستون ویژگی‌ها */
 function renderPageProps() {
@@ -1057,6 +1167,12 @@ function renderPageProps() {
         '<div class="form-group"><label>🔤 اندازه متن</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'textSize\',this.value)">' + opt('textSize', [['sm', 'کوچک'], ['default', 'پیش‌فرض'], ['lg', 'بزرگ']]) + '</select></div>' +
         '<div class="form-group"><label>🌫 سایه کارت‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'cardShadow\',this.value)">' + opt('cardShadow', [['none', 'بدون سایه'], ['soft', 'ملایم'], ['default', 'پیش‌فرض'], ['strong', 'قوی']]) + '</select></div>' +
         '<label class="form-check" style="font-size:12px"><input type="checkbox" ' + (pageProp('darkPreview') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'darkPreview\',this.checked?1:0)"> 🌙 پیش‌نمایش بوم در حالت تیره</label>' +
+        '<hr style="border:none;border-top:1px dashed var(--border);margin:12px 0">' +
+        '<div style="font-size:11px;font-weight:800;color:var(--primary);margin:0 0 7px">📐 فاصله محتوای صفحه از لبه‌ها (🆕)</div>' +
+        '<div class="form-group"><label>⬆️ فاصله از بالا (px — خالی = خودکار)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="400" value="' + pageProp(\'padTop\') + '" onchange="setPageProp(\'padTop\',this.value)"></div>' +
+        '<div class="form-group"><label>⬇️ فاصله از پایین (px — خالی = خودکار)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="400" value="' + pageProp(\'padBottom\') + '" onchange="setPageProp(\'padBottom\',this.value)"></div>' +
+        '<div class="form-group"><label>↔️ فاصله از چپ (px — خالی = خودکار)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="400" value="' + pageProp(\'padLeft\') + '" onchange="setPageProp(\'padLeft\',this.value)"></div>' +
+        '<div class="form-group"><label>↔️ فاصله از راست (px — خالی = خودکار)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="400" value="' + pageProp(\'padRight\') + '" onchange="setPageProp(\'padRight\',this.value)"></div>' +
         '<hr style="border:none;border-top:1px solid var(--border);margin:13px 0">' +
         '<button type="button" class="btn btn-outline btn-sm btn-block" onclick="resetPageProps()">↺ بازنشانی تنظیمات صفحه</button>';
     panel.innerHTML = html;
@@ -1182,6 +1298,77 @@ function statStripHtml(props) {
     const items = listItems(props, [{ icon: '۱۲+', text: 'سال تجربه' }, { icon: '۵۰k', text: 'تعمیر موفق' }, { icon: '۹۸٪', text: 'رضایت' }, { icon: '۲h', text: 'اعزام' }]);
     return items.slice(0, 8).map(i => `<span class="ss-item"><b>${esc(String(i.icon || '').trim() || '۰')}</b> ${esc(String(i.text || '').trim() || 'آمار')}</span>`).join('<span class="ss-sep"></span>');
 }
+/* 🎞 v2.29: اسلایدهای اسلایدر چندمقداری — هر تعداد آیتم (تصویر/متن/کارت)
+   هر آیتم: text=عنوان، desc=آدرس تصویر یا متن، link=لینک اسلاید */
+function sliderSlidesHtml(props, defType) {
+    const type = props.slideType || defType || 'image';
+    const items = listItems(props, []).filter(it => String(it.text || it.desc || '').trim() !== '');
+    if (!items.length) {
+        return `<div style="display:flex;flex-direction:column;gap:9px">${fakeImgHtml(props, '🖼️', 'min-height:150px').replace('fake-img', 'fake-img wide')}<div class="feat-d" style="text-align:center">از پنل ویژگی‌ها هر تعداد اسلاید می‌خواهید اضافه کنید</div></div>`;
+    }
+    const slideHtml = items.slice(0, 3).map((it, i) => {
+        if (type === 'text') {
+            return `<div class="fake-card" style="${i ? 'opacity:.75' : ''}"><div class="hero-title" style="font-size:16px">${esc(it.text || '')}</div>${it.desc ? `<div class="feat-d">${esc(it.desc)}</div>` : ''}${it.link ? `<div class="feat-d" style="color:#2563eb;font-size:10px">🔗 ${esc(it.link)}</div>` : ''}</div>`;
+        }
+        if (type === 'card' || type === 'article' || type === 'brand') {
+            const ico = type === 'article' ? '📰' : (type === 'brand' ? '🏷️' : (it.icon || '🃏'));
+            return `<div class="fake-card" style="${i ? 'opacity:.75' : ''}"><div class="card-ico">${esc(ico)}</div><div class="card-t">${esc(it.text || (type === 'article' ? 'عنوان مقاله' : 'عنوان'))}</div>${it.desc ? `<div class="feat-d">${esc(it.desc)}</div>` : ''}${it.link ? `<div class="feat-d" style="color:#2563eb;font-size:10px">🔗 ${esc(it.link)}</div>` : ''}</div>`;
+        }
+        /* image */
+        const imgStyle = 'min-height:' + (items.length > 2 ? 110 : 150) + 'px';
+        const url = String(it.desc || '').trim();
+        const inner = url && /^(https?:\/\/|\/|uploads\/)/.test(url)
+            ? `<img src="${esc(url)}" alt="" style="width:100%;height:100%;object-fit:cover">`
+            : esc(it.icon || '🖼️');
+        return `<div style="position:relative">${i ? `<div class="fake-img" style="${imgStyle};opacity:.8">${inner}</div>` : `<div class="fake-img" style="${imgStyle}">${inner}</div>`}${it.text ? `<div class="feat-d" style="text-align:center;margin-top:4px;font-weight:700">${esc(it.text)}</div>` : ''}${it.link ? `<span style="position:absolute;top:6px;left:6px;background:#2563eb;color:#fff;border-radius:8px;padding:2px 8px;font-size:9.5px">🔗 لینک‌دار</span>` : ''}</div>`;
+    }).join('');
+    return `<div style="display:flex;flex-direction:column;gap:9px">${slideHtml}</div><div class="slider-dots">${items.map((_, i) => i === 0 ? '●' : '○').join(' ')} <span style="font-size:9.5px;letter-spacing:0">(اسلاید ${faDigJS(1)} از ${faDigJS(items.length)})</span></div>`;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+ * 🧬 v2.29 — رندرگر عمومی عناصر جدید (۶۴ عنصر با renderType)
+ * renderType در defaults تعریف می‌شود و makeBlocks آن را داخل props
+ * کپی می‌کند → در بوم، پیش‌نمایش و سایت برند بدون کد اختصاصی رندر می‌شود.
+ * cards | features | stats | chips | banner | steps | price | quote | divider
+ * ═══════════════════════════════════════════════════════════════ */
+function genericBlockHtml(block, props) {
+    const t = props.title || '';
+    const type = props.renderType || 'cards';
+    const its = listItems(props, []);
+    const cols = gridCols(props, 3);
+    const TITLE = t ? `<div class="blk-title">${esc(t)}</div>` : '';
+    const sub = props.subtitle ? `<div class="feat-d" style="text-align:center;max-width:560px;margin:0 auto 10px">${esc(props.subtitle)}</div>` : '';
+    const btn = props.btnText ? `<div class="hero-btns" style="justify-content:center;margin-top:10px"><span class="hero-btn">${esc(props.btnText)}</span></div>` : '';
+    if (type === 'features') {
+        return `${TITLE}<div class="feat-list">${its.map(it => `<div class="feat-row"><span class="feat-ico">${esc(it.icon || '✨')}</span><div><b>${esc(it.text || '')}</b>${it.desc ? `<div class="feat-d">${esc(it.desc)}</div>` : ''}</div></div>`).join('')}</div>`;
+    }
+    if (type === 'stats') {
+        return `${TITLE}<div class="cols c${Math.min(6, Math.max(2, its.length || 3))}" style="gap:14px">${its.map(i => `<div class="stat"><div class="stat-n">${esc(String(i.icon || '۰').trim() || '۰')}</div><div class="stat-l">${esc(String(i.text || '').trim() || 'آمار')}</div></div>`).join('')}</div>`;
+    }
+    if (type === 'chips') {
+        return `${TITLE}<div class="chip-row">${its.map(i => `<span class="chip">${i.icon ? esc(i.icon) + ' ' : ''}${esc(i.text || '')}${i.desc ? ' — ' + esc(i.desc) : ''}</span>`).join('')}</div>`;
+    }
+    if (type === 'banner') {
+        return `<div class="hero-title" style="font-size:22px">${esc(t || 'بنر ویژه')}</div>${sub}${its.length ? `<div class="cols c${Math.min(4, its.length)}" style="margin-top:11px">${its.map(i => `<div class="fake-card"><div class="card-ico">${esc(i.icon || '✨')}</div><div class="card-t">${esc(i.text || '')}</div>${i.desc ? `<div class="feat-d">${esc(i.desc)}</div>` : ''}</div>`).join('')}</div>` : ''}${btn}`;
+    }
+    if (type === 'steps') {
+        return `${TITLE}<div class="steps-row" style="flex-wrap:wrap">${its.map((it, i) => `${i > 0 ? '<div class="step-arrow">←</div>' : ''}<div class="step"><span class="step-n">${esc(it.icon || faDigJS(String(i + 1)))}</span><div class="step-t">${esc(it.text || '')}${it.desc ? `<div class="feat-d">${esc(it.desc)}</div>` : ''}</div></div>`).join('')}</div>`;
+    }
+    if (type === 'price') {
+        return `${TITLE}<div class="price-table">${its.map(it => `<div class="price-row"><span>${esc(it.text || '')}</span><b>${esc(it.desc || '')}</b></div>`).join('')}</div>`;
+    }
+    if (type === 'quote') {
+        return `${TITLE}<div class="quote">«${esc(props.text || it0text(its))}»</div>`;
+    }
+    if (type === 'divider') {
+        return `<div style="text-align:center;font-size:22px;letter-spacing:3px;opacity:.5">${esc(its.length ? its[0].text : '〰️〰️〰️')}</div>`;
+    }
+    /* پیش‌فرض: cards */
+    return `${TITLE}<div class="cols c${cols}">${its.map(it => `<div class="fake-card">${it.icon ? `<div class="card-ico">${esc(it.icon)}</div>` : ''}<div class="card-t">${esc(it.text || '')}</div>${it.desc ? `<div class="feat-d">${esc(it.desc)}</div>` : ''}</div>`).join('')}</div>`;
+}
+function it0text(its) { return its.length && its[0].text ? its[0].text : 'متن نقل‌قول'; }
+
 function blockHtml(block, props) {
     const t = props.title || '';
     const padCls = 'blk-pad-' + (props.padding || 'default');
@@ -1193,10 +1380,15 @@ function blockHtml(block, props) {
     const customCls = String(props.customClass || '').trim().replace(/[^a-zA-Z0-9\-_\s]/g, '');
     /* 🎭 v2.26: کلاس‌های ظاهر — واریانت بدنه + استایل دکمه + افکت هاور */
     const varCls = variantClasses(props);
+    /* 🎬 v2.29: انیمیشن ورود — روی بوم هم همان لحظه اجرا می‌شود */
+    const animCls = props.anim && props.anim !== 'none' ? ` blk-anim blk-anim-${props.anim}` : '';
+    const animSpeed = { slow: '1.2s', normal: '.7s', fast: '.4s' }[props.animSpeed || 'normal'] || '.7s';
+    const animDelay = Math.max(0, Math.min(3000, parseInt(props.animDelay || 0, 10) || 0));
+    const animStyle = animCls ? `--anim-dur:${animSpeed};--anim-delay:${animDelay}ms;` : '';
     /* 🎨 v2.15: رنگ عنوان + رنگ گرادیانت انتخابی (تنظیمات پیشرفته) */
-    const blkStyle = blkStyleVars(props);
+    const blkStyle = blkStyleVars(props) + animStyle;
     const styleAttr = blkStyle ? ` style="${blkStyle}"` : '';
-    const B = (inner, extra) => `<div class="blk ${bgCls} ${padCls} ${sizeCls} ${alignCls} ${widthCls} ${customCls} ${varCls} ${extra || ''}"${styleAttr}>${inner}</div>`;
+    const B = (inner, extra) => `<div class="blk ${bgCls} ${padCls} ${sizeCls} ${alignCls} ${widthCls} ${customCls} ${varCls}${animCls} ${extra || ''}"${styleAttr}>${inner}</div>`;
     const TITLE = t ? `<div class="blk-title">${esc(t)}</div>` : '';
 
     switch (block) {
@@ -1213,17 +1405,26 @@ function blockHtml(block, props) {
         case 'header-v1': case 'header-v2': case 'header-v3':
             { const menu = listItems(props, [[null, 'خانه'], [null, 'خدمات'], [null, 'مقالات'], [null, 'تماس']]); return B(`${block === 'header-v2' ? `<div class="tb-row"><span>📞 ${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</span><span>🕐 ${esc(props.hours || 'پاسخگویی آنلاین')}</span></div>` : ''}<div class="h-row"><div class="fake-logo">🏗️</div><nav class="fake-nav">${menu.map(m => `<span>${esc(m.text || '')}</span>`).join('')}</nav><div class="fake-cta">${esc(props.btnText || 'ثبت درخواست')}</div></div>`, 'header-blk' + (block === 'header-v3' ? ' glass' : '') + (props.sticky ? ' sticky-demo' : '')); }
         case 'hero': return B(`<div class="hero-title">${esc(t || 'تعمیرات تخصصی با قطعات اصلی')}</div><div class="hero-sub">${esc(props.subtitle || 'نمایندگی رسمی — پاسخگویی ۷ روز هفته')}</div><div class="hero-btns"><span class="hero-btn">📞 تماس فوری</span><span class="hero-btn ghost">ثبت درخواست آنلاین</span></div>`, 'hero-blk');
-        case 'hero-slider': return B(`<div class="hero-title">${esc(t || 'اسلایدر تصویری')}</div>${fakeImgHtml(props, '🖼️', 'min-height:170px').replace('fake-img', 'fake-img wide')}<div class="slider-dots">● ○ ○</div>`, 'hero-blk slider');
+        case 'hero-slider': return B(`<div class="hero-title">${esc(t || 'اسلایدر تصویری')}</div>${sliderSlidesHtml(props, 'image')}`, 'hero-blk slider');
+        /* 🆕 v2.29 — اسلایدر همه‌کاره: هر تعداد و هر نوع اسلاید (تصویر/متن/کارت/مقاله/برند) */
+        case 'universal-slider': return B(`<div class="hero-title">${esc(t || 'اسلایدر همه‌کاره')}</div>${sliderSlidesHtml(props, 'card')}`, 'hero-blk slider');
         case 'hero-split': return B(`<div class="hero-split"><div><div class="hero-title">${esc(t || 'تعمیر لوازم خانگی در محل')}</div><div class="hero-sub">${esc(props.subtitle || 'متن معرفی + دکمه فراخوان')}</div><div class="hero-btns"><span class="hero-btn">شروع کنید</span></div></div>${fakeImgHtml(props, '🛠️')}</div>`, 'hero-blk split-hero');
         case 'hero-video': return B(`<div class="hero-title">${esc(t || 'هیرو با پس‌زمینه تصویر')}</div><div style="position:relative">${fakeImgHtml(props, '🎞️', 'min-height:160px').replace('fake-img', 'fake-img wide')}<div class="play">▶</div></div>`, 'hero-blk video');
         case 'hero-countdown': return B(`<div class="hero-title">${esc(t || 'کمپین سرویس دوره‌ای')}</div>${countdownHtml(props)}`, 'hero-blk');
         case 'text': return B(`${TITLE}<div class="pv-text">${esc(props.text || 'متن خود را اینجا بنویسید — این بخش در سایت به همین شکل نمایش داده می‌شود. می‌توانید از پنل ویژگی‌ها ویرایش کنید و نتیجه را همان لحظه ببینید.').replace(/\n/g, '<br>')}</div>`);
         case 'text-image': case 'intro': return B(`<div class="split"><div><div class="blk-title">${esc(t || 'درباره برند')}</div><div class="pv-text" style="font-size:12.5px">${esc(props.text || 'معرفی کوتاه برند و خدمات تخصصی — این متن از پنل ویژگی‌ها قابل ویرایش است.').replace(/\n/g, '<br>')}</div></div>${fakeImgHtml(props, '🖼️')}</div>`);
         case 'rich-text': {
-            /* 🎛 v2.14: متن واردشده خط‌به‌خط آیتم لیست می‌شود (قبلاً فیلد متن
-               بود ولی رندر آن را نادیده می‌گرفت!) */
-            const lines = String(props.text || '').split('\n').map(s => s.trim()).filter(Boolean);
-            const items = lines.length ? lines : ['نصب و راه‌اندازی تخصصی', 'تعمیر با قطعات اصلی', '۶ ماه ضمانت قطعه و خدمات'];
+            /* 🎛 v2.14: متن واردشده خط‌به‌خط آیتم لیست می‌شود
+               🆕 v2.29: اگر آیتم‌ها از ویرایشگر تنظیم شده باشند مقدم‌اند
+               (رفع «لیست متن غنی قابل تغییر نیست») */
+            const its = listItems(props, []).filter(it => String(it.text || '').trim() !== '');
+            let items;
+            if (its.length) {
+                items = its.map(i => i.text);
+            } else {
+                const lines = String(props.text || '').split('\n').map(s => s.trim()).filter(Boolean);
+                items = lines.length ? lines : ['نصب و راه‌اندازی تخصصی', 'تعمیر با قطعات اصلی', '۶ ماه ضمانت قطعه و خدمات'];
+            }
             return B(`${TITLE}<ul class="pv-list">${items.map(i => `<li>✅ ${esc(i)}</li>`).join('')}</ul>`);
         }
         case 'quote': return B(`<div class="quote">«${esc(props.text || 'کیفیت تعمیر، اعتبار ماست')}»</div>`, 'quote-blk');
@@ -1247,15 +1448,14 @@ function blockHtml(block, props) {
         case 'contact-form': case 'request-form': return B(`<div class="blk-title">${esc(t || (block === 'request-form' ? 'فرم درخواست خدمات' : 'فرم تماس'))}</div><div class="form-grid"><div class="fake-input">نام و نام خانوادگی</div><div class="fake-input">شماره تماس</div><div class="fake-input">شرح مشکل</div><div class="hero-btn full">${esc(props.btnText || 'ارسال درخواست')}</div></div>`);
         case 'newsletter-form': return B(`<div class="blk-title">${esc(t || 'عضویت در خبرنامه')}</div><div class="news-row"><div class="fake-input" style="flex:1">ایمیل شما</div><div class="hero-btn">${esc(props.btnText || 'عضویت')}</div></div>`);
         case 'counter-stats': case 'stats': return B(`${TITLE}<div class="cols c${gridCols(props, 3)}" style="gap:14px">${statItemsHtml(props)}</div>`, 'stats-blk');
-        case 'progress-bars': { const its = listItems(props, [['سرعت تعمیر', '90'], ['کیفیت قطعات', '95'], ['رضایت مشتری', '98']]); return B(`${TITLE}${its.map(it => { const p = Math.max(3, Math.min(100, parseInt(String(it.desc || it.icon || '80').replace(/[^0-9]/g, ''), 10) || 80)); return `<div class="pbar"><span>${esc(it.text || '')}</span><div class="track"><div class="fill" style="width:${p}%"></div></div></div>`; }).join('')}`); }
-        case 'skill-bars': { const its = listItems(props, [['تعمیر برد و الکترونیک', '88'], ['یخچال و فریزر', '92'], ['ماشین لباس', '95']]); return B(`${TITLE}${its.map(it => { const p = Math.max(3, Math.min(100, parseInt(String(it.desc || it.icon || '80').replace(/[^0-9]/g, ''), 10) || 80)); return `<div class="pbar"><span>${esc(it.text || '')}</span><div class="track"><div class="fill" style="width:${p}%"></div></div></div>`; }).join('')}`); }
+        case 'progress-bars': case 'skill-bars': { const its = listItems(props, [['سرعت تعمیر', '90'], ['کیفیت قطعات', '95'], ['رضایت مشتری', '98']]); const barC = /^#[0-9a-fA-F]{3,8}$/.test(String(props.barColor || '')) ? `background:${esc(props.barColor)};` : ''; return B(`${TITLE}${its.map(it => { const p = Math.max(3, Math.min(100, parseInt(String(it.desc || it.icon || '80').replace(/[^0-9]/g, ''), 10) || 80)); return `<div class="pbar"><span>${esc(it.text || '')}</span><div class="track"><div class="fill" style="width:${p}%;${barC}"></div></div></div>`; }).join('')}`); }
         case 'testimonials': { const its = listItems(props, [['علی محمدی', 'سرویس سریع و منظم بود؛ راضی بودم.'], ['مریم احمدی', 'قیمت شفاف و ضمانت واقعی.']]); return B(`<div class="blk-title">${esc(t || 'نظرات مشتریان')}</div><div class="quote">«${esc(its[0] ? its[0].text : '')}»</div>${its[0] && its[0].icon ? `<div class="feat-d" style="text-align:center;font-weight:800">— ${esc(its[0].icon)}</div>` : ''}<div class="slider-dots">● ○ ○</div>`); }
         case 'faq-accordion': { const its = listItems(props, [[null, 'هزینه عیب‌یابی چقدر است؟', 'در صورت تعمیر نزد ما رایگان است.'], [null, 'چقدر طول می‌کشد؟', 'اکثر تعمیرها همان روز انجام می‌شود.'], [null, 'ضمانت دارید؟', 'بله — ۶ ماه ضمانت کتبی.']]); return B(`<div class="blk-title">${esc(t || 'سوالات متداول')}</div>${its.map(it => `<div class="acc">${esc(it.text || '')} <b>＋</b></div>`).join('')}`); }
         case 'tabs': { const its = listItems(props, [[null, 'تعمیر'], [null, 'سرویس'], [null, 'نصب']]); return B(`<div class="blk-title">${esc(t || 'تب‌بندی محتوا')}</div><div class="tabs-row">${its.map((it, i) => `<span class="tab${i === 0 ? ' cur' : ''}">${esc(it.text || '')}</span>`).join('')}</div><div class="fake-card" style="text-align:right"><div class="fl w100"></div><div class="fl w90"></div><div class="fl w60"></div></div>`); }
         case 'timeline': { const its = listItems(props, [['✓', 'ثبت درخواست', 'انجام شد'], ['✓', 'عیب‌یابی و پیش‌فاکتور', 'انجام شد'], ['۳', 'تعمیر در حال انجام', 'در جریان'], ['۴', 'تحویل و ضمانت', 'در انتظار']]); return B(`<div class="blk-title">${esc(t || 'مراحل پیشرفت کار')}</div><div class="tl">${its.map((it, i) => `<div class="tl-item${i < 2 ? ' done' : i === 2 ? ' cur' : ''}"><span class="tl-dot">${esc(it.icon || String(i + 1))}</span><div>${esc(it.text || '')}${it.desc ? `<div class="feat-d">${esc(it.desc)}</div>` : ''}</div></div>`).join('')}</div>`); }
         case 'steps-process': { const its = listItems(props, [[null, 'تماس/ثبت درخواست'], [null, 'اعزام تکنسین'], [null, 'تعمیر و تست']]); return B(`<div class="blk-title">${esc(t || 'فرآیند کار ما')}</div><div class="steps-row">${its.map((it, i) => `${i > 0 ? '<div class="step-arrow">←</div>' : ''}<div class="step"><span class="step-n">${faDigJS(String(i + 1))}</span><div class="step-t">${esc(it.text || '')}</div></div>`).join('')}</div>`); }
         case 'gallery': { const gcols = gridCols(props, 4); const its = listItems(props, []).filter(it => String(it.text || '').trim() !== ''); let gimgs = ''; if (its.length) { its.slice(0, gcols + 3).forEach(it => { gimgs += itGalHtml(it); }); } else { for (let gi = 0; gi < gcols + 2; gi++) { gimgs += fakeImgHtml(props, '🖼️', 'min-height:90px').replace('fake-img', 'fake-img small'); } } return B(`<div class="blk-title">${esc(t || 'گالری')}</div><div class="cols c${gcols}">${gimgs}</div>`); }
-        case 'image-carousel': { const its = listItems(props, []).filter(it => String(it.text || '').trim() !== ''); const first = its.length ? its[0] : null; return B(`<div class="blk-title">${esc(t || 'کاروسل تصاویر')}</div><div style="position:relative">${first ? itGalHtml(first, 'min-height:170px') : fakeImgHtml(props, '🎠', 'min-height:170px').replace('fake-img', 'fake-img wide')}<span style="position:absolute;top:50%;inset-inline-start:8px;font-size:22px;text-shadow:0 1px 4px #fff">‹</span><span style="position:absolute;top:50%;inset-inline-end:8px;font-size:22px;text-shadow:0 1px 4px #fff">›</span></div><div class="slider-dots">${its.length ? its.map((_, i) => i === 0 ? '●' : '○').join(' ') : '● ○ ○'}</div>`); }
+        case 'image-carousel': { const its = listItems(props, []).filter(it => String(it.text || it.desc || '').trim() !== ''); const first = its.length ? its[0] : null; const dots = its.length ? its.map((_, i) => i === 0 ? '●' : '○').join(' ') : '● ○ ○'; const firstImg = first && String(first.desc || '').trim() && /^(https?:\/\/|\/|uploads\/)/.test(String(first.desc).trim()) ? `<div class="fake-img" style="min-height:170px"><img src="${esc(String(first.desc).trim())}" alt="" style="width:100%;height:100%;object-fit:cover"></div>` : (first && first.text && /^(https?:\/\/|\/|uploads\/)/.test(String(first.text).trim()) ? `<div class="fake-img" style="min-height:170px"><img src="${esc(String(first.text).trim())}" alt="" style="width:100%;height:100%;object-fit:cover"></div>` : fakeImgHtml(props, '🎠', 'min-height:170px').replace('fake-img', 'fake-img wide')); return B(`<div class="blk-title">${esc(t || 'کاروسل تصاویر')}</div><div style="position:relative">${firstImg}<span style="position:absolute;top:50%;inset-inline-start:8px;font-size:22px;text-shadow:0 1px 4px #fff">‹</span><span style="position:absolute;top:50%;inset-inline-end:8px;font-size:22px;text-shadow:0 1px 4px #fff">›</span></div><div class="slider-dots">${dots}</div>`); }
         case 'video-embed': { const vu = String(props.videoUrl || '').trim(); return B(`<div class="blk-title">${esc(t || 'ویدیوی آموزشی')}</div><div style="position:relative">${fakeImgHtml(props, '🎬', 'min-height:190px').replace('fake-img', 'fake-img wide')}<div class="play">▶</div>${vu ? `<a href="${esc(vu)}" target="_blank" rel="noopener" style="position:absolute;bottom:8px;inset-inline-start:8px;background:rgba(15,23,42,.82);color:#fff;border-radius:9px;padding:5px 12px;font-size:10.5px;text-decoration:none" dir="ltr">▶ پخش ویدیو</a>` : ''}</div>`); }
         case 'map': { const mu = String(props.mapUrl || '').trim(); return B(`<div class="blk-title">${esc(t || 'محدوده خدمات')}</div><div class="fake-map">${esc(props.text || '📍 نقشه محدوده خدمات')}${mu ? ` — <a href="${esc(mu)}" target="_blank" rel="noopener" style="color:#2563eb">مشاهده در نقشه ↗</a>` : ''}</div>`); }
         case 'cta-phone': return B(`<div class="hero-title">${esc(t || 'همین حالا تماس بگیرید')}</div><div class="cta-num" dir="ltr">${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</div>`, 'cta-blk');
@@ -1375,7 +1575,10 @@ function blockHtml(block, props) {
         case 'appointment-compact': return B(`<div class="apt-compact-demo"><b style="font-size:14px">${esc(t || 'نوبت تعمیر رزرو کنید')}</b><div class="news-row" style="margin-top:9px"><div class="fake-input" style="flex:1">شماره تماس شما</div><div class="fake-input" style="flex:1">دستگاه + مشکل</div><div class="hero-btn">${esc(props.btnText || 'رزرو نوبت')}</div></div></div>`);
         case 'contact-map-split': return B(`${TITLE}<div class="split"><div><div class="chip-row" style="flex-direction:column;align-items:stretch;gap:7px"><span class="chip">📞 <b dir="ltr">${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</b></span><span class="chip">📍 تهران، خیابان نمونه، پلاک ۱۲</span><span class="chip">🕐 شنبه تا پنجشنبه ۹ تا ۲۰</span></div></div><div class="fake-img" style="min-height:130px;background:linear-gradient(135deg,#e2e8f0,#cbd5e1)"><span style="font-size:30px">🗺️</span></div></div>`);
         case 'stats-inline': return B(`${TITLE}<div class="stats-strip">${statStripHtml(props)}</div>`, 'stats-strip-blk');
-        default: return B(`${TITLE}<div class="fake-lines"><div class="fl w90"></div><div class="fl w70"></div></div>`);
+        default:
+            /* 🧬 v2.29 — عناصر جدید با رندرگر عمومی (renderType از تنظیمات) */
+            if (props.renderType) { return B(genericBlockHtml(block, props)); }
+            return B(`${TITLE}<div class="fake-lines"><div class="fl w90"></div><div class="fl w70"></div></div>`);
     }
 }
 
@@ -1412,6 +1615,33 @@ function blockHtml(block, props) {
 .hero-img:not(.wide) { flex:1 1 170px; height:120px; }
 .play { width:48px; height:48px; border-radius:50%; background:rgba(255,255,255,.2); display:flex; align-items:center; justify-content:center; font-size:18px; margin:10px auto; }
 .slider-dots { letter-spacing:5px; font-size:10px; opacity:.85; text-align:center; margin-top:6px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   🎬 v2.29 — انیمیشن ورود عناصر (blk-anim-*)
+   انتخاب از تنظیمات انیمیشن هر عنصر + سرعت + تأخیر (موجی)
+   ═══════════════════════════════════════════════════════════════ */
+.blk-anim { animation: blkAnimIn var(--anim-dur, .7s) cubic-bezier(.22,.9,.32,1.02) both; animation-delay: var(--anim-delay, 0ms); }
+@keyframes blkAnimIn { from { opacity: 0; } to { opacity: 1; } }
+.blk-anim-fade { animation-name: blkFade; }
+@keyframes blkFade { from { opacity: 0; } to { opacity: 1; } }
+.blk-anim-up { animation-name: blkUp; }
+@keyframes blkUp { from { opacity: 0; transform: translateY(38px); } to { opacity: 1; transform: translateY(0); } }
+.blk-anim-down { animation-name: blkDown; }
+@keyframes blkDown { from { opacity: 0; transform: translateY(-38px); } to { opacity: 1; transform: translateY(0); } }
+.blk-anim-right { animation-name: blkRight; }
+@keyframes blkRight { from { opacity: 0; transform: translateX(46px); } to { opacity: 1; transform: translateX(0); } }
+.blk-anim-left { animation-name: blkLeft; }
+@keyframes blkLeft { from { opacity: 0; transform: translateX(-46px); } to { opacity: 1; transform: translateX(0); } }
+.blk-anim-zoom { animation-name: blkZoom; }
+@keyframes blkZoom { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: scale(1); } }
+.blk-anim-flip { animation-name: blkFlip; }
+@keyframes blkFlip { from { opacity: 0; transform: perspective(700px) rotateX(-52deg); } to { opacity: 1; transform: perspective(700px) rotateX(0); } }
+.blk-anim-bounce { animation-name: blkBounce; }
+@keyframes blkBounce { 0% { opacity: 0; transform: translateY(-46px); } 55% { opacity: 1; transform: translateY(8px); } 75% { transform: translateY(-5px); } 100% { transform: translateY(0); } }
+.blk-anim-rotate { animation-name: blkRotate; }
+@keyframes blkRotate { from { opacity: 0; transform: rotate(-4.5deg) scale(.94); } to { opacity: 1; transform: rotate(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .blk-anim { animation: none !important; } }
+
 .count-row { display:flex; gap:10px; justify-content:center; }
 .count-box { background:rgba(255,255,255,.15); border-radius:10px; padding:8px 14px; font-size:11px; }
 .count-box b { display:block; font-size:20px; }
@@ -1661,7 +1891,11 @@ function render() {
     container.innerHTML = '';
     document.getElementById('canvas-empty').style.display = layout.length ? 'none' : 'block';
     renderLevel(layout, container, '');
-    document.getElementById('layout-json').value = JSON.stringify(layout);
+    /* 🚨 v2.29 — ریشه «تنظیمات صفحه ذخیره نمی‌شود»: این خط قبلاً چیدمان را «بدون»
+       گره _page در فیلد مخفی می‌نوشت و چون render() بعد از syncAndRender()
+       صدا زده می‌شد، آخرین نوشتن همیشه تنظیمات صفحه را پاک می‌کرد! اکنون
+       همیشه fullLayout (شامل _page) نوشته می‌شود. */
+    document.getElementById('layout-json').value = JSON.stringify(fullLayout());
 }
 
 function renderLevel(arr, container, prefix) {
@@ -2048,6 +2282,8 @@ const PROP_LABELS = {
     titleColor: '🎨 رنگ عنوان', gradientFrom: 'رنگ شروع گرادیانت', gradientTo: 'رنگ پایان گرادیانت',
     /* 🆕 v2.25 */
     textAfter: 'متن دوم (بعد / پاسخ)', videoUrl: '🎬 آدرس ویدیو (embed)', mapUrl: '🗺 لینک نقشه',
+    /* 🆕 v2.29 */
+    barColor: '🎨 رنگ نوارها', slideType: 'نوع اسلایدها',
 };
 
 /* 🧩 تعریف فیلدها — نوع + پیش‌فرض + گزینه‌ها */
@@ -2069,18 +2305,22 @@ const FIELD_DEFS = {
    T = عنوان | S = زیرعنوان | X = متن | P = تلفن | I = آیکون | C = ستون کارت
    B = متن دکمه | G = برچسب | $ = قیمت | A = پخش خودکار | H = ارتفاع | W = ساعات
    CD = زمان شمارش معکوس | IMG = آدرس تصویر | IT = ویرایشگر آیتم‌ها */
+/* 🧬 v2.29 — فیلدهای عناصر جدید: عنوان/زیرعنوان/متن/ستون/تصویر/آیتم‌ها */
+const GENERIC_BLOCK_FIELDS_V229 = <?= json_encode(array_fill_keys(array_keys($genericBlockKeys), ['T', 'S', 'X', 'C', 'IMG', 'IT'])) ?>;
 const BLOCK_FIELDS = {
     /* هدر */
     'header-v1': ['IT'], 'header-v2': ['P', 'W', 'B', 'IT'], 'header-v3': ['B', 'IT'],
     'top-bar': ['P', 'W'],
     'notification-bar': ['X', 'notifC'],
-    /* هیرو */
-    'hero': ['T', 'S'], 'hero-slider': ['T', 'A', 'IMG'], 'hero-split': ['T', 'S', 'IMG'],
+    /* هیرو — 🆕 v2.29: اسلایدر تصویری چندمقداری (هر تعداد اسلاید + لینک) */
+    'hero': ['T', 'S'], 'hero-slider': ['T', 'A', 'SLT', 'IT'], 'hero-split': ['T', 'S', 'IMG'],
     'hero-video': ['T', 'IMG'], 'hero-countdown': ['T', 'CD'], 'hero-form': ['T', 'S', 'B'],
     'hero-marquee': ['X'], 'announcement-pill': ['T'],
     'hero-minimal': ['T', 'S', 'B'], 'hero-glass': ['T', 'S'], 'logo-strip': ['T'],
-    /* محتوا */
-    'text': ['T', 'X'], 'text-image': ['T', 'X', 'IMG'], 'intro': ['T', 'X', 'IMG'], 'rich-text': ['T', 'X'],
+    /* 🆕 v2.29 — اسلایدر همه‌کاره: هر تعداد و هر نوع (تصویر/متن/کارت/مقاله/برند) */
+    'universal-slider': ['T', 'A', 'SLT', 'IT'],
+    /* محتوا — 🆕 v2.29: rich-text لیست قابل ویرایش با آیتم‌ها (رفع «لیستش رو نمیشه تغییر داد») */
+    'text': ['T', 'X'], 'text-image': ['T', 'X', 'IMG'], 'intro': ['T', 'X', 'IMG'], 'rich-text': ['T', 'X', 'IT'],
     'quote': ['X'], 'two-col': ['T', 'IT'], 'three-col': ['T', 'IT'], 'brand-story': ['T', 'IT'],
     'area-list': ['T', 'IT'], 'checklist': ['T', 'IT'], 'search-bar': ['placeholder'],
     'heading-center': ['T', 'S'], 'numbered-list': ['T', 'IT'], 'info-box': ['T', 'I', 'X'],
@@ -2104,19 +2344,19 @@ const BLOCK_FIELDS = {
     'booking-calendar': ['T'], 'warranty-check': ['T', 'B'], 'price-estimate': ['T'],
     'device-error-lookup': ['T'], 'appointment-compact': ['T', 'B'],
     'callback-form': ['T', 'B'], 'survey-form': ['T', 'IT'],
-    /* آمار */
-    'counter-stats': ['T', 'IT'], 'progress-bars': ['T', 'IT'], 'skill-bars': ['T', 'IT'],
+    /* آمار — 🆕 v2.29: رنگ نوارهای پیشرفت (رفع «نوارهای پیشرفت رنگشون عوض نمیشه») */
+    'counter-stats': ['T', 'IT'], 'progress-bars': ['T', 'CLR', 'IT'], 'skill-bars': ['T', 'CLR', 'IT'],
     'stats-grid': ['T', 'C', 'IT'], 'stats-strip': ['T', 'IT'],
     'live-queue': ['T', 'IT'], 'hourly-capacity': ['T', 'IT'], 'stats-inline': ['T', 'IT'],
-    'stats-circles': ['T', 'IT'], 'counter-big': ['T', 'IT'], 'brand-stats-bar': ['T', 'IT'],
+    'stats-circles': ['T', 'CLR', 'IT'], 'counter-big': ['T', 'IT'], 'brand-stats-bar': ['T', 'IT'],
     /* تعامل */
     'testimonials': ['T', 'A', 'IT'], 'faq-accordion': ['T', 'IT'], 'tabs': ['T', 'IT'], 'timeline': ['T', 'IT'],
     'steps-process': ['T', 'IT'], 'before-after': ['T', 'X', 'X2'], 'social-proof': ['X'],
     'warranty-steps': ['T', 'IT'], 'feature-table': ['T', 'IT'],
     'faq-search': ['T', 'placeholder'], 'faq-category': ['T', 'IT'],
     'faq-mini': ['T', 'X'], 'steps-compact': ['T', 'IT'],
-    'quote-slider': ['T', 'IT'], 'vote-poll': ['T', 'IT'],
-    /* رسانه */
+    'quote-slider': ['T', 'A', 'IT'], 'vote-poll': ['T', 'IT'],
+    /* رسانه — 🆕 v2.29: کاروسل تصاویر چندمقداری */
     'gallery': ['T', 'C', 'IMG', 'IT'], 'image-carousel': ['T', 'A', 'IMG', 'IT'], 'video-embed': ['T', 'IMG', 'V'], 'map': ['T', 'X', 'MU'],
     'before-after-slider': ['T', 'IMG'], 'social-wall': ['T', 'IT'], 'reviews-carousel': ['T', 'A', 'IT'],
     'video-grid': ['T', 'C', 'IMG'], 'logo-marquee': ['T', 'IT'], 'tag-cloud': ['T', 'IT'],
@@ -2149,7 +2389,11 @@ const CODE_MAP = {
     'CD': 'countdownTo', 'IMG': 'imageUrl', 'IT': 'items',
     /* 🆕 v2.25 */
     'X2': 'textAfter', 'V': 'videoUrl', 'MU': 'mapUrl',
+    /* 🆕 v2.29 — رنگ نوارها + نوع اسلایدها */
+    'CLR': 'barColor', 'SLT': 'slideType',
 };
+/* 🧬 v2.29 */
+Object.assign(BLOCK_FIELDS, GENERIC_BLOCK_FIELDS_V229);
 
 function renderProps() {
     const panel = document.getElementById('props-content');
@@ -2231,29 +2475,47 @@ function renderProps() {
             html += `<div class="form-group"><label>${esc(label)}</label>
                 <input type="text" class="form-control" style="font-size:11.5px;direction:ltr;text-align:left" value="${esc(props.mapUrl || '')}" oninput="setProp('${selected}','mapUrl',this.value)" placeholder="https://maps.google.com/...">
                 <div class="hint" style="margin-top:4px">لینک نقشه گوگل — در سایت قابل کلیک می‌شود.</div></div>`;
+        } else if (code === 'CLR') {
+            /* 🎨 v2.29 — رنگ نوارهای پیشرفت / حلقه‌های درصدی (رفع «نمیشه رنگشون رو تغییر داد») */
+            html += `<div class="form-group"><label>${esc(label)}</label>
+                <div style="display:flex;gap:7px;align-items:center">
+                    <input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="${esc(props.barColor || '#1e40af')}" oninput="setProp('${selected}','barColor',this.value)">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="setProp('${selected}','barColor','');renderProps()" title="رنگ پیش‌فرض">✕ پیش‌فرض</button>
+                </div>
+                <div class="hint" style="margin-top:4px">رنگ پرشدن نوارها — بلافاصله روی بوم اعمال می‌شود.</div></div>`;
+        } else if (code === 'SLT') {
+            /* 🎞 v2.29 — نوع اسلایدهای اسلایدر (تصویر/متن/کارت/مقاله/برند) */
+            html += `<div class="form-group"><label>🎞 نوع اسلایدها</label>
+                <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','slideType',this.value)">
+                    ${[['image', '🖼 تصویر (آدرس در ستون توضیح هر آیتم)'], ['text', '📝 متن / شعار'], ['card', '🃏 کارت (عنوان + متن)'], ['article', '📰 مقاله (داینامیک از سایت برند)'], ['brand', '🏷️ برند (داینامیک از سایت ساز)']].map(([v, l]) => `<option value="${v}" ${(props.slideType || 'image') === v ? 'selected' : ''}>${l}</option>`).join('')}
+                </select>
+                <div class="hint" style="margin-top:4px">هر تعداد اسلاید بخواهید از «آیتم‌های لیست» اضافه کنید — نوع مقاله/برند خودکار از محتوای سایت برند پر می‌شود.</div></div>`;
         } else if (code === 'IMG') {
             /* 🖼 v2.15: تصویر واقعی به‌جای نمای قالبی */
             html += `<div class="form-group"><label>${esc(label)}</label>
                 <input type="text" class="form-control" style="font-size:11.5px;direction:ltr;text-align:left" value="${esc(props.imageUrl || '')}" oninput="setProp('${selected}','imageUrl',this.value)" placeholder="https://example.com/photo.jpg">
                 <div class="hint" style="margin-top:4px">آدرس تصویر واقعی این بخش — خالی = نمای پیش‌فرض قالبی.</div></div>`;
         } else if (code === 'IT') {
-            /* ➕ v2.25: ویرایشگر آیتم‌ها — سه فیلد کامل (آیکون + متن + توضیح)
-               با انتخابگر آیکون ایموجی — رفع «نمیشه آیکون عوض کرد یا آیتم اضافه کرد» */
+            /* ➕ v2.25: ویرایشگر آیتم‌ها — چهار فیلد کامل (آیکون + متن + توضیح + 🔗 لینک)
+               با انتخابگر آیکون ایموجی — 🆕 v2.29: ستون لینک = کلیک‌پذیری هر آیتم */
             const items = Array.isArray(props.items) ? props.items : [];
-            const descPh = { 'progress-bars': 'درصد — مثلاً ۸۰', 'skill-bars': 'درصد — مثلاً ۹۰', 'pricing-table': 'قیمت — مثلاً ۹۵۰ هزار تومان', 'price-cards': 'قیمت پلن', 'working-hours': 'ساعت — مثلاً ۹ تا ۲۰', 'schedule-table': 'ساعت — مثلاً ۹ تا ۲۰', 'faq-accordion': 'پاسخ سوال...', 'counter-stats': 'برچسب عدد', 'stats-inline': 'برچسب', 'stats-strip': 'برچسب', 'testimonials': 'نام مشتری', 'quote-slider': 'نام گوینده', 'timeline': 'وضعیت — مثلاً در حال انجام', 'gallery': 'آدرس تصویر (اختیاری)', 'image-carousel': 'آدرس تصویر (اختیاری)', 'social-follow': 'آدرس پروفایل (اختیاری)', 'related-links': 'آدرس لینک (اختیاری)', 'footer-links': 'آدرس لینک (اختیاری)', 'tag-cloud': '', 'vote-poll': 'آدرس گزینه (اختیاری)', 'survey-form': '' }[item.block] || 'توضیح / مقدار (اختیاری)...';
+            const isSlider = ['hero-slider', 'universal-slider', 'image-carousel', 'quote-slider', 'testimonials', 'reviews-carousel'].includes(item.block);
+            const descPh = { 'progress-bars': 'درصد — مثلاً ۸۰', 'skill-bars': 'درصد — مثلاً ۹۰', 'pricing-table': 'قیمت — مثلاً ۹۵۰ هزار تومان', 'price-cards': 'قیمت پلن', 'working-hours': 'ساعت — مثلاً ۹ تا ۲۰', 'schedule-table': 'ساعت — مثلاً ۹ تا ۲۰', 'faq-accordion': 'پاسخ سوال...', 'counter-stats': 'برچسب عدد', 'stats-inline': 'برچسب', 'stats-strip': 'برچسب', 'testimonials': 'نام مشتری', 'quote-slider': 'نام گوینده', 'timeline': 'وضعیت — مثلاً در حال انجام', 'gallery': 'آدرس تصویر (اختیاری)', 'image-carousel': 'آدرس تصویر (اختیاری)', 'social-follow': 'آدرس پروفایل (اختیاری)', 'related-links': 'آدرس لینک (اختیاری)', 'footer-links': 'آدرس لینک (اختیاری)', 'tag-cloud': '', 'vote-poll': 'آدرس گزینه (اختیاری)', 'survey-form': '', 'hero-slider': isSlider ? 'آدرس تصویر اسلاید' : '', 'universal-slider': 'آدرس تصویر اسلاید (نوع تصویر)' }[item.block] || 'توضیح / مقدار (اختیاری)...';
+            const linkPh = isSlider ? 'لینک اسلاید (اختیاری)' : 'لینک آیتم (اختیاری — کلیک‌پذیر)';
             html += `<div style="font-size:11px;font-weight:800;color:var(--primary);margin:11px 0 7px">➕ آیتم‌های لیست (${faDigJS(items.length)})</div>`;
             items.forEach((it, idx) => {
                 html += `<div class="item-edit-row" style="flex-wrap:wrap">
                     <input type="text" class="form-control" style="width:42px;text-align:center;font-size:14px" value="${esc(it.icon || '')}" oninput="setItemProp('${selected}',${idx},'icon',this.value)" placeholder="⚡" onclick="openEmojiPicker(this)" title="کلیک: انتخابگر آیکون">
                     <input type="text" class="form-control" style="flex:1;min-width:110px;font-size:11.5px" value="${esc(it.text || '')}" oninput="setItemProp('${selected}',${idx},'text',this.value)" placeholder="متن آیتم...">
                     <input type="text" class="form-control" style="flex:1;min-width:110px;font-size:11px;color:var(--text-light)" value="${esc(it.desc || '')}" oninput="setItemProp('${selected}',${idx},'desc',this.value)" placeholder="${esc(descPh)}">
+                    <input type="text" class="form-control" style="flex:1;min-width:110px;font-size:11px;direction:ltr;text-align:left;color:#2563eb" value="${esc(it.link || '')}" oninput="setItemProp('${selected}',${idx},'link',this.value)" placeholder="${esc(linkPh)}" title="🔗 لینک این آیتم — در سایت برند قابل کلیک می‌شود">
                     <button type="button" class="btn btn-outline btn-sm" onclick="moveListItem('${selected}',${idx},-1)" title="بالا">↑</button>
                     <button type="button" class="btn btn-outline btn-sm" onclick="moveListItem('${selected}',${idx},1)" title="پایین">↓</button>
                     <button type="button" class="btn btn-danger btn-sm" onclick="removeListItem('${selected}',${idx})" title="حذف">✕</button>
                 </div>`;
             });
-            html += `<button type="button" class="btn btn-info btn-sm btn-block" style="margin-top:6px" onclick="addListItem('${selected}')">➕ افزودن آیتم جدید</button>
-                <div class="hint" style="margin-top:5px;font-size:10px;line-height:1.7">💡 روی کادر آیکون کلیک کنید تا <b>انتخابگر آیکون</b> باز شود — ستون سوم برای توضیح/قیمت/درصد است.</div>`;
+            html += `<button type="button" class="btn btn-info btn-sm btn-block" style="margin-top:6px" onclick="addListItem('${selected}')">➕ افزودن آیتم جدید (بدون محدودیت)</button>
+                <div class="hint" style="margin-top:5px;font-size:10px;line-height:1.7">💡 روی کادر آیکون کلیک کنید تا <b>انتخابگر آیکون</b> باز شود — ستون سوم برای توضیح/قیمت/درصد و ستون آبی <b>لینک</b> است (کلیک‌پذیری آیتم در سایت برند).</div>`;
         } else {
             /* فیلدهای متنی ساده: عنوان/زیرعنوان/تلفن/دکمه/برچسب/قیمت/ساعات */
             const isLtr = key === 'phone';
@@ -2280,6 +2542,39 @@ function renderProps() {
             <div class="hint" style="margin-top:4px">شیشه‌ای، دایره‌ای (کپسولی)، خطی، گرادیانت و ... — برای عناصری که دکمه دارند.</div></div>
         <div class="form-group"><label>✨ افکت هاور (رفت و برگشت ماوس)</label>
             ${varSel('hoverFx', BLOCK_VARIANTS.hoverFx)}</div>`;
+    }
+
+    /* 🖱 v2.29 — کلیک‌پذیری عنصر: لینک‌دار کردن کل بلوک/کارت (درخواست کاربر)
+       روی سایت برند کل عنصر داخل <a> پیچیده می‌شود. */
+    if (!STRUCTURAL.includes(item.block)) {
+        html += `
+        <div style="font-size:11px;font-weight:800;color:var(--primary);margin:12px 0 7px">🖱 کلیک‌پذیری (لینک‌دار)</div>
+        <label class="form-check" style="font-size:12px"><input type="checkbox" ${props.clickable ? 'checked' : ''} onchange="setProp('${selected}','clickable',this.checked?1:0);renderProps()"> 🔗 این عنصر کلیک‌پذیر باشد</label>
+        ${props.clickable ? `<div class="form-group" style="margin-top:7px"><label>لینک مقصد (URL)</label>
+            <input type="text" class="form-control" style="font-size:11.5px;direction:ltr;text-align:left" value="${esc(props.link || '')}" oninput="setProp('${selected}','link',this.value)" placeholder="https://example.com/page یا /services">
+            <div class="hint" style="margin-top:4px">در سایت برند، کلیک روی هر جای این عنصر به این لینک می‌رود (آیتم‌ها هم لینک اختصاصی خودشان را دارند).</div></div>
+        <div class="form-group"><label>باز شدن لینک</label>
+            <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','linkTarget',this.value)">
+                ${[['same', 'در همین تب'], ['new', 'تب جدید']].map(([v, l]) => `<option value="${v}" ${(props.linkTarget || 'same') === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select></div>` : ''}`;
+    }
+
+    /* 🎬 v2.29 — تنظیمات انیمیشن ورود (درخواست کاربر: «برای عناصر تنظیمات انیمیشن هم بزار») */
+    if (!STRUCTURAL.includes(item.block)) {
+        const animSel = `<select class="form-control" style="font-size:12px" onchange="setProp('${selected}','anim',this.value);renderProps()">
+            ${[['none', 'بدون انیمیشن'], ['fade', 'محوشدن (Fade)'], ['up', 'آمدن از پایین'], ['down', 'آمدن از بالا'], ['right', 'آمدن از راست'], ['left', 'آمدن از چپ'], ['zoom', 'بزرگ‌نمایی (Zoom)'], ['flip', 'چرخش سه‌بعدی'], ['bounce', 'پرش نرم'], ['rotate', 'چرخش ملایم']].map(([v, l]) => `<option value="${v}" ${(props.anim || 'none') === v ? 'selected' : ''}>${l}</option>`).join('')}
+        </select>`;
+        html += `
+        <div style="font-size:11px;font-weight:800;color:var(--primary);margin:12px 0 7px">🎬 انیمیشن ورود</div>
+        <div class="form-group"><label>نوع انیمیشن (هنگام دیده‌شدن با اسکرول)</label>${animSel}</div>
+        ${(props.anim && props.anim !== 'none') ? `
+        <div class="form-group"><label>سرعت انیمیشن</label>
+            <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','animSpeed',this.value)">
+                ${[['slow', 'آهسته (۱.۲s)'], ['normal', 'معمولی (۰.۷s)'], ['fast', 'سریع (۰.۴s)']].map(([v, l]) => `<option value="${v}" ${(props.animSpeed || 'normal') === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select></div>
+        <div class="form-group"><label>⏱ تأخیر شروع (میلی‌ثانیه — برای موجی‌شدن)</label>
+            <input type="number" class="form-control" style="font-size:12px" min="0" max="3000" step="50" value="${parseInt(props.animDelay || 0, 10)}" onchange="setProp('${selected}','animDelay',parseInt(this.value,10) || 0)">
+            <div class="hint" style="margin-top:4px">مثلاً برای کارت‌های پشت‌سرهم: ۰، ۱۵۰، ۳۰۰، ... تا با هم موجی ظاهر شوند.</div></div>` : ''}`;
     }
 
     /* 🎛 v3.3 + v2.15 + 🆕 v2.17: تنظیمات حرفه‌ای عمومی — رنگ عنوان/گرادیانت

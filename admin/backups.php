@@ -29,6 +29,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
     redirect('backups.php?brand_id=' . $brandId);
 }
 
+/* 🆕 v2.29 — ذخیره سقف اختصاصی بکاپ برند */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_keep_count') {
+    Auth::enforceCsrf();
+    $brandId = (int)post('brand_id');
+    $useCustom = post('use_custom') === '1';
+    $keep = max(1, min(50, (int)post('keep_count', '5')));
+    try {
+        $db->update('brands', ['backup_keep_count' => $useCustom ? $keep : null], 'id = ?', [$brandId]);
+        Logger::activity((int)$_SESSION['user_id'], 'تنظیم سقف بکاپ برند', 'برند #' . $brandId . ' — ' . ($useCustom ? $keep . ' نسخه اختصاصی' : 'بازگشت به پیش‌فرض عمومی'));
+        flash('success', '✅ سقف نگهداری بکاپ این برند ' . ($useCustom ? 'به «' . en_to_fa_digits((string)$keep) . ' نسخه»' : 'به پیش‌فرض عمومی') . ' تنظیم شد.');
+    } catch (Throwable $bkSaveE) {
+        flash('danger', 'خطا در ذخیره تنظیم بکاپ: ' . $bkSaveE->getMessage());
+    }
+    redirect('backups.php?brand_id=' . $brandId);
+}
+
 /* 🔄 بازیابی */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'restore_backup') {
     Auth::enforceCsrf();
@@ -87,6 +103,11 @@ require __DIR__ . '/includes/header.php';
 $deployedBrands = $db->fetchAll('SELECT id, name_fa, name_en, slug FROM brands WHERE is_deployed = 1 AND is_active = 1 ORDER BY name_fa');
 $brandId = (int)get_param('brand_id', (string)($deployedBrands[0]['id'] ?? '0'));
 
+/* 🆕 v2.29 — سقف اختصاصی/عمومی برند انتخاب‌شده */
+$brandKeepRow = $brandId > 0 ? $db->fetch('SELECT backup_keep_count FROM brands WHERE id = ?', [$brandId]) : null;
+$brandKeepCustom = $brandKeepRow && $brandKeepRow['backup_keep_count'] !== null && (int)$brandKeepRow['backup_keep_count'] > 0;
+$brandKeepValue = $brandKeepCustom ? (int)$brandKeepRow['backup_keep_count'] : $backupMgr->keepCount($brandId);
+
 /* 📊 لیست بکاپ‌های برند انتخاب‌شده */
 $backups = $brandId > 0 ? $backupMgr->getBackupsList($brandId) : [];
 $stats = $brandId > 0 ? $backupMgr->getStats($brandId) : ['count' => 0, 'max' => 5, 'total_size' => 0];
@@ -116,11 +137,29 @@ foreach ($deployedBrands as $b) { if ((int)$b['id'] === $brandId) { $selectedBra
     </div>
 
     <?php if ($selectedBrand): ?>
-    <div style="display:flex;gap:16px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid var(--border);font-size:13.5px">
+    <div style="display:flex;gap:16px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid var(--border);font-size:13.5px;align-items:center">
         <span>📊 وضعیت: <b><?= en_to_fa_digits((string)$stats['count']) ?> از <?= en_to_fa_digits((string)$stats['max']) ?></b> بکاپ (حداکثر)</span>
         <span>💽 حجم کل: <b dir="ltr"><?= number_format($stats['total_size'] / 1048576, 1) ?> MB</b></span>
-        <span style="color:var(--text-light)">💡 با ساخته شدن بکاپ ششم، قدیمی‌ترین بکاپ خودکار حذف می‌شود (سیاست نگهداری ۵ نسخه)</span>
+        <span style="color:var(--text-light)">💡 سیاست نگهداری: <?= $brandKeepCustom ? 'سقف اختصاصی این برند' : 'پیش‌فرض عمومی (تنظیمات cPanel)' ?> — قدیمی‌ترین بکاپ‌های مازاد خودکار حذف می‌شوند</span>
     </div>
+    <!-- 🆕 v2.29 — تنظیم سقف اختصاصی بکاپ همین برند -->
+    <form method="post" class="card-body" style="padding:13px 20px;border-bottom:1px solid var(--border);display:flex;gap:11px;align-items:center;flex-wrap:wrap;background:linear-gradient(135deg,#f0f9ff,#eff6ff)">
+        <?= Auth::csrfField() ?>
+        <input type="hidden" name="action" value="save_keep_count">
+        <input type="hidden" name="brand_id" value="<?= $brandId ?>">
+        <b style="font-size:13px">💾 تعداد بکاپ این برند:</b>
+        <label class="form-check" style="font-size:12.5px">
+            <input type="radio" name="use_custom" value="0" <?= !$brandKeepCustom ? 'checked' : '' ?> onchange="this.closest('form').querySelector('.bk-custom').style.display='none'"> پیش‌فرض عمومی
+        </label>
+        <label class="form-check" style="font-size:12.5px">
+            <input type="radio" name="use_custom" value="1" <?= $brandKeepCustom ? 'checked' : '' ?> onchange="this.closest('form').querySelector('.bk-custom').style.display='flex'"> اختصاصی این برند
+        </label>
+        <span class="bk-custom" style="display:<?= $brandKeepCustom ? 'flex' : 'none' ?>;gap:7px;align-items:center">
+            <input type="number" name="keep_count" class="form-control" dir="ltr" min="1" max="50" value="<?= (int)$brandKeepValue ?>" style="max-width:92px">
+            <span style="font-size:11.5px;color:var(--text-light)">نسخه (۱ تا ۵۰)</span>
+        </span>
+        <button type="submit" class="btn btn-primary btn-sm">💾 ذخیره سقف</button>
+    </form>
     <?php endif; ?>
 
     <div class="table-wrap">

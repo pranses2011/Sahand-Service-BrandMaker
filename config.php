@@ -19,7 +19,7 @@ if (!defined('SAHAND_INIT')) {
 /* --------------------------------------------------
  * 🌍 تنظیمات عمومی
  * -------------------------------------------------- */
-define('SAHAND_VERSION', '2.28.0');             // نسخه سیستم (۲.۲۸.۰ — ریشه‌یابی هفت‌گانه با محیط شبیه‌سازی کامل مرورگر+DB: ① خطای ۵۰۰ آمار با وجود داده واقعی (fa_num فقط در قالب برند تعریف بود → en_to_fa_digits) ② تنظیمات عناصر کاملاً ناپیدا بود (BLOCK_META تودرتو با array_map — ریشه ساختاری! → تخت شد: همه ۱۵۰ عنصر فیلدها+پیش‌فرض‌ها) ③ تم هرگز اعمال نمی‌شد (مسیر template در روتر ثبت نشده بود! → ثبت + fallback تم پیش‌فرض برای برندهای بدون تم) ④ استخراج عنصر: var(--x) حل نمی‌شد + قانون اجداد حذف می‌شد (regex معکوس!) → rootVarsCss + آخرین توکن ⑤ کادرهای زیبا: ۱۶ confirm بومی → پل‌های sahandSubmitConfirm/BtnConfirm ⑥ رنگ هیرو از accent لوگو (اصلاح درخواست: هدر خنثی شد) ⑦ محافظت شبکه در تست)
+define('SAHAND_VERSION', '2.29.0');             // نسخه سیستم (۲.۲۹.۰ — فراوان‌سازی قالب‌ساز: ① تعداد بکاپ هر برند از تنظیمات (عمومی + اختصاصی هر برند) ② کلیک‌پذیری عناصر و آیتم‌ها (لینک‌دار) ③ ۶۴ عنصر جدید با رندرگر عمومی در هر سه صحنه ④ ریشه «تنظیمات صفحه ذخیره نمی‌شود»: render() بعد از syncAndRender فیلد layout-json را بدون گره _page بازنویسی می‌کرد → fullLayout + فاصله‌های بالای/پایین/چپ/راست صفحه ⑤ عناصر از تنظیمات سایت (تلفن/ساعات/آدرس/نقشه) با fallback خودکار ⑥ اسلایدر همه‌کاره چندمقداری (تصویر/متن/کارت/مقاله/برند) با اسلاید واقعی ⑦ رنگ نوارهای پیشرفت + لیست متن غنی قابل ویرایش ⑧ انیمیشن ورود برای همه عناصر ⑨ آمار: ریشه نقشه جغرافیایی (ip_prefix معتبر + شمارش بازدیدکننده به‌جای پیشوند یکتا) + نقشه طرح‌واره ایران + ۶ گزارش جدید نموداری)
 define('SAHAND_NAME_FA', 'سایت ساز برند سهند سرویس'); // نام فارسی سیستم
 define('SAHAND_NAME_EN', 'Sahand BrandMaker');   // نام انگلیسی سیستم
 date_default_timezone_set('Asia/Tehran');        // ⏰ منطقه زمانی ایران
@@ -652,6 +652,36 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
             @file_put_contents($v222Marker, date('Y-m-d H:i:s'));
         }
     } catch (Throwable $v222SchemaE) {
+        // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
+    }
+}
+
+/* --------------------------------------------------
+ * 🆕 مهاجرت v2.29 — ستون‌های تعداد بکاپ قابل تنظیم
+ * درخواست کاربر: «تعداد بکاپ‌های هر سایت برند رو از تنظیمات
+ * بتونیم تایین کنیم» — قبلاً ثابت ۵تایی در BackupManager بود.
+ * ① cpanel_settings.backup_keep_count = پیش‌فرض عمومی همه برندها
+ * ② brands.backup_keep_count = override اختصاصی هر برند (NULL = عمومی)
+ * فقط یک بار (cache/.schema_v229).
+ * -------------------------------------------------- */
+if (!defined('SAHAND_NO_DB_MIGRATE')) {
+    try {
+        $v229Marker = ROOT_PATH . '/cache/.schema_v229';
+        if (!file_exists($v229Marker)) {
+            $pdo = Database::getInstance()->pdo();
+
+            $hasGk = $pdo->query("SHOW COLUMNS FROM `cpanel_settings` LIKE 'backup_keep_count'")->fetchAll();
+            if (empty($hasGk)) {
+                $pdo->exec("ALTER TABLE `cpanel_settings` ADD COLUMN `backup_keep_count` INT UNSIGNED NOT NULL DEFAULT 5 COMMENT 'تعداد بکاپ نگهداری‌شده هر برند (پیش‌فرض عمومی)' AFTER `backup_dir`");
+            }
+            $hasBk = $pdo->query("SHOW COLUMNS FROM `brands` LIKE 'backup_keep_count'")->fetchAll();
+            if (empty($hasBk)) {
+                $pdo->exec("ALTER TABLE `brands` ADD COLUMN `backup_keep_count` INT UNSIGNED NULL COMMENT 'تعداد بکاپ اختصاصی این برند (NULL = از تنظیمات عمومی)' AFTER `is_active`");
+            }
+
+            @file_put_contents($v229Marker, date('Y-m-d H:i:s'));
+        }
+    } catch (Throwable $v229SchemaE) {
         // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
     }
 }
