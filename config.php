@@ -745,6 +745,32 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
 }
 
 /* --------------------------------------------------
+ * 🆕 مهاجرت v2.32 — ستون منبع جغرافیای بازدیدها
+ * --------------------------------------------------
+ * visits.geo_src: منبع داده جغرافیایی هر بازدید —
+ *   api (سرویس خارجی معتبر) | cache (کش دیتابیس) | local (فقط کشور)
+ * ریشه نیاز: بک‌فیل هوشمند باید بداند جواب قدیمی «حدس استاتیک» بوده
+ * یا داده معتبر (ریشه «کاربر تبریز → خراسان رضوی») + دکمه بازحسابی
+ * جغرافیایی در پنل آمار فقط ردیف‌های ضعیف را پاک/بازحسابی کند.
+ * فقط یک بار (cache/.schema_v232).
+ * -------------------------------------------------- */
+if (!defined('SAHAND_NO_DB_MIGRATE')) {
+    try {
+        $v232Marker = ROOT_PATH . '/cache/.schema_v232';
+        if (!file_exists($v232Marker)) {
+            $pdo = Database::getInstance()->pdo();
+            $hasGeoSrc = $pdo->query("SHOW COLUMNS FROM `visits` LIKE 'geo_src'")->fetchAll();
+            if (empty($hasGeoSrc)) {
+                $pdo->exec("ALTER TABLE `visits` ADD COLUMN `geo_src` VARCHAR(10) NULL COMMENT 'منبع جغرافیا: api/cache/local' AFTER `province`");
+            }
+            @file_put_contents($v232Marker, date('Y-m-d H:i:s'));
+        }
+    } catch (Throwable $v232SchemaE) {
+        // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
+    }
+}
+
+/* --------------------------------------------------
  * 🕐 شروع امن نشست (Session)
  * -------------------------------------------------- */
 if (session_status() === PHP_SESSION_NONE && !defined('SAHAND_NO_SESSION')) {

@@ -11,6 +11,13 @@
  *      ستون DEFAULT CURRENT_TIMESTAMP زمان سرور MySQL بود نه ایران)
  *   ③ last_seen در هر پینگ بروزرسانی می‌شود (کاربران آنلاین)
  *   ④ heartbeat: پینگ ۶۰ ثانیه‌ای بدون درج صفحه جدید
+ * 🆕 v2.32 (ریشه «کاربر تبریز → خراسان رضوی»):
+ *   ⑤ ip_prefix به‌صورت /24 (a.b.c.0) ذخیره می‌شود — هم‌کلید با کش
+ *      GeoIP؛ قبلاً /16 بود و در نمایش برای «آدرس پایه شبکه» از سرویس
+ *      خارجی پرسیده می‌شد و محل ثبت ISP (خراسان رضوی!) برمی‌گشت
+ *   ⑥ ستون geo_src (api/cache/local) ثبت می‌شود
+ *   ⑦ بک‌فیل هوشمند: نتیجه api جای جواب حدسی local را می‌گیرد
+ *      (قبلاً استان حدسی غلط برای همیشه قفل می‌شد)
  *
  * @package SahandBrandMaker
  */
@@ -57,7 +64,7 @@ function api_track_visit(): void
         $os = ucfirst(mb_substr($os, 0, 30));
     }
 
-    // 🗺️ GeoIP سه‌لایه (کش DB + سرویس خارجی + رنج محلی)
+    /* 🗺️ GeoIP چهارلایه (کش DB + ۳ سرویس خارجی + رنج ملی) */
     $geo = GeoIP::lookup($ip);
     $keyword = null;
     if ($referrer !== '') {
@@ -67,15 +74,19 @@ function api_track_visit(): void
         }
     }
 
-    $ipParts = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) ? explode('.', $ip) : [];
-    $ipPrefix = count($ipParts) === 4 ? ($ipParts[0] . '.' . $ipParts[1] . '.0.0') : null;
+    /* 🚨 v2.32 — پیشوند /24 (هم‌کلید کش GeoIP) — قبلاً /16 بود و ریشه
+       جغرافیای غلط در نمایش بود؛ IPv6 = پیشوند /64 */
+    $ipPrefix = GeoIP::prefixOf($ip);
+    if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+        $ipPrefix = null;
+    }
 
     // 💾 ثبت یا بروزرسانی بازدید
     /* 🚨 v2.31 — مقایسه تاریخ همیشه با زمان تهران (قبلاً CURDATE()
        زمان سرور MySQL بود: بین ۰۰:۰۰ تا ۰۳:۳۰ بامداد ایران با تاریخ
        PHP می‌اخت و نشست تکراری درج می‌کرد). */
     $existing = $db->fetch(
-        'SELECT id, entry_page, city, province, country FROM visits WHERE session_hash = ? AND visit_date = ? LIMIT 1',
+        'SELECT id, entry_page, city, province, country, geo_src FROM visits WHERE session_hash = ? AND visit_date = ? LIMIT 1',
         [$sessionHash, $todayTehran]
     );
     if (!$existing) {
@@ -93,6 +104,7 @@ function api_track_visit(): void
             'country'     => $geo['country'],
             'city'        => $geo['city'] ?: null,
             'province'    => $geo['province'] ?: null,
+            'geo_src'     => $geo['source'] ?? 'local',
             'referrer'    => $referrer ?: null,
             'search_keyword' => $keyword,
             'entry_page'  => $pageUrl,
@@ -103,13 +115,28 @@ function api_track_visit(): void
         $visitId = $db->lastInsertId();
     } else {
         $visitId = (int)$existing['id'];
-        /* 🔄 جغرافیای بهتر اگر ردیف قدیمی شهر خالی/محلی داشت */
+        /* 🔄 جغرافیای بهتر — 🚨 v2.32 بک‌فیل هوشمند:
+           ① خانه خالی → پر می‌شود (مثل قبل)
+           ② جواب قدیمی با منبع local (حدس استاتیک) و جواب جدید api →
+              جایگزین می‌شود (ریشه قفل‌شدن استان غلط برای همیشه) */
         $updateGeo = [];
-        if (($existing['city'] === null || $existing['city'] === '') && $geo['city'] !== '') {
-            $updateGeo['city'] = $geo['city'];
-        }
-        if (($existing['province'] === null || $existing['province'] === '') && $geo['province'] !== '') {
-            $updateGeo['province'] = $geo['province'];
+        $oldSrc = (string)($existing['geo_src'] ?? '');
+        $newIsApi = in_array($geo['source'] ?? '', ['api', 'cache'], true);
+        $oldIsWeak = ($existing['city'] === null || $existing['city'] === '') && ($existing['province'] === null || $existing['province'] === '') || $oldSrc === 'local' || $oldSrc === '';
+        if ($newIsApi && ($geo['city'] !== '' || $geo['province'] !== '')) {
+            if ($oldIsWeak) {
+                if ($geo['city'] !== '' && $geo['city'] !== (string)$existing['city']) { $updateGeo['city'] = $geo['city']; }
+                if ($geo['province'] !== '' && $geo['province'] !== (string)$existing['province']) { $updateGeo['province'] = $geo['province']; }
+                $updateGeo['geo_src'] = $geo['source'];
+            }
+        } else {
+            if (($existing['city'] === null || $existing['city'] === '') && $geo['city'] !== '') {
+                $updateGeo['city'] = $geo['city'];
+            }
+            if (($existing['province'] === null || $existing['province'] === '') && $geo['province'] !== '') {
+                $updateGeo['province'] = $geo['province'];
+            }
+            if ($updateGeo && !empty($geo['source'])) { $updateGeo['geo_src'] = $geo['source']; }
         }
         if ($updateGeo) {
             try { $db->update('visits', $updateGeo, 'id = ?', [$visitId]); } catch (Throwable $gE) { /* قدیمی */ }

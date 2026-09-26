@@ -12,6 +12,33 @@ require_once dirname(__DIR__) . '/config.php';
 
 $db = Database::getInstance();
 
+/* ═══ 🔄 v2.32 — بازحسابی جغرافیایی (دکمه پنل) ═══
+   ریشه «کاربر تبریز → خراسان رضوی»: ① کش کامل پاک می‌شود ② پیشوندهای
+   /24 معتبر دوباره از سرویس خارجی حلابی می‌شوند ③ جغرافیای نامعتبر
+   (پیشوند /16 قدیمی یا حدس استاتیک) پاک می‌شود تا بازدید بعدی درست
+   بک‌فیل شود. */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'geo_recompute') {
+    (new Auth())->requireLogin();
+    Auth::enforceCsrf();
+    @set_time_limit(0);
+    ignore_user_abort(true);
+    try {
+        $stats = GeoIP::recompute(120);
+        Logger::activity((int)$_SESSION['user_id'], 'بازحسابی جغرافیایی بازدیدها', 'پاک‌سازی کش + ' . (int)$stats['prefixes_resolved'] . ' پیشوند بازحسابی');
+        json_response([
+            'success' => true,
+            'data' => [
+                'message' => '✅ بازحسابی انجام شد — ' .
+                    (int)$stats['prefixes_resolved'] . ' پیشوند جغرافیایی دوباره حلابی شد (' . (int)$stats['rows_updated'] . ' بازدید بروزرسانی) و ' .
+                    (int)$stats['rows_purged'] . ' ردیف جغرافیای نامعتبر پاک شد.<br><small>ردیف‌های پاک‌شده با اولین بازدید بعدی همان کاربر، با داده درست پر می‌شوند.</small>',
+                'stats' => $stats,
+            ],
+        ]);
+    } catch (Throwable $e) {
+        json_response(['success' => false, 'error' => 'خطای بازحسابی: ' . $e->getMessage()], 500);
+    }
+}
+
 $pageTitle = 'آمار و گزارش‌گیری';
 $activeMenu = 'analytics';
 require __DIR__ . '/includes/header.php';
@@ -77,6 +104,9 @@ $citiesDist = [];
 foreach ((array)$cityRows as $cr) {
     $city = trim((string)$cr['city_key']);
     if ($city === '') {
+        /* 🚨 v2.32 — پیشوند /16 قدیمی (a.b.0.0) هرگز بازحلابی نمی‌شود:
+           آدرس پایه شبکه است و سرویس خارجی محل «ثبت ISP» را برمی‌گرداند */
+        if (!GeoIP::isResolvablePrefix((string)($cr['ip_prefix'] ?? ''))) { continue; }
         $city = GeoIP::city((string)($cr['ip_prefix'] ?? ''));
         if ($city === '') { continue; }
     }
@@ -246,7 +276,10 @@ foreach ($heatMap as $wd => $hours) {
  * رشد هفتگی + عملکرد مقالات + کاربران آنلاین
  * ═══════════════════════════════════════════════════════════ */
 
-/* 🗺️ پراکندگی استانی — شهر خالی از ip_prefix با GeoIP بازیابی می‌شود */
+/* 🗺️ پراکندگی استانی — شهر خالی از ip_prefix با GeoIP بازیابی می‌شود
+   🚨 v2.32 — پیشوندهای /16 قدیمی (a.b.0.0 = آدرس پایه شبکه) هرگز
+   بازحلابی نمی‌شوند: سرویس خارجی برای آن‌ها محل «ثبت ISP» را برمی‌گرداند
+   (ریشه «کاربر تبریز → خراسان رضوی»). */
 $provRows = $safeQuery(
     "SELECT COALESCE(NULLIF(v.province, ''), '') AS prov, v.ip_prefix, COUNT(DISTINCT v.session_hash) AS c
      FROM visits v WHERE {$where} AND (v.city IS NOT NULL AND v.city != '' OR (v.ip_prefix IS NOT NULL AND v.ip_prefix != ''))
@@ -257,13 +290,27 @@ $provincesDist = [];
 foreach ((array)$provRows as $pr) {
     $prov = trim((string)$pr['prov']);
     if ($prov === '') {
-        /* ردیف قدیمی بدون استان — از GeoIP سه‌لایه بازیابی */
+        if (!GeoIP::isResolvablePrefix((string)($pr['ip_prefix'] ?? ''))) { continue; }
         $prov = GeoIP::province((string)($pr['ip_prefix'] ?? ''));
         if ($prov === '') { continue; }
     }
     $provincesDist[$prov] = ($provincesDist[$prov] ?? 0) + (int)$pr['c'];
 }
 arsort($provincesDist);
+
+/* 🧭 v2.32 — کیفیت داده جغرافیایی (برای راهنمای دکمه بازحسابی) */
+$geoQuality = $safeQuery(
+    "SELECT COALESCE(v.geo_src, '') AS src, COUNT(DISTINCT v.session_hash) AS c
+     FROM visits v WHERE {$where} GROUP BY src",
+    $params
+);
+$geoSrcCounts = ['api' => 0, 'cache' => 0, 'local' => 0, '' => 0];
+foreach ((array)$geoQuality as $gq) {
+    $src = (string)($gq['src'] ?? '');
+    if (!isset($geoSrcCounts[$src])) { $geoSrcCounts[$src] = 0; }
+    $geoSrcCounts[$src] += (int)$gq['c'];
+}
+$geoUnknown = $geoSrcCounts['local'] + $geoSrcCounts[''];
 
 /* 🧮 ماتریس مرورگر × سیستم‌عامل (۸×۶) */
 $browserOsRows = $safeQuery(
@@ -423,11 +470,20 @@ $trackerBoxStyle = $trackerHealthy
 <div class="card" style="margin-bottom:18px">
     <div class="card-header">
         <h3>🗺️ پراکندگی جغرافیایی بازدیدکنندگان — نقشه استانی ایران</h3>
-        <?php if (!empty($provincesDist)): ?>
-            <span class="badge badge-info" style="font-size:11px">🎯 <?= en_to_fa_digits((string)count($provincesDist)) ?> استان</span>
-        <?php endif; ?>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <?php if (!empty($provincesDist)): ?>
+                <span class="badge badge-info" style="font-size:11px">🎯 <?= en_to_fa_digits((string)count($provincesDist)) ?> استان</span>
+            <?php endif; ?>
+            <?php if ($geoUnknown > 0): ?>
+                <span class="badge badge-warning" style="font-size:11px" title="این بازدیدها هنوز جواب سرویس جغرافیایی معتبر نگرفته‌اند و در نقشه «نامشخص»اند">❓ <?= en_to_fa_digits((string)$geoUnknown) ?> در انتظار مکان</span>
+            <?php endif; ?>
+            <!-- 🔄 v2.32 — بازحسابی جغرافیایی (رفع «تبریز → خراسان رضوی») -->
+            <button type="button" class="btn btn-outline btn-sm" id="btn-geo-recompute" onclick="geoRecompute(this)" title="پاک‌سازی کش جغرافیایی + بازحلابی از سرویس‌های معتبر + حذف داده‌های حدسی قدیمی">🔄 بازحسابی جغرافیایی</button>
+        </div>
     </div>
     <div class="card-body">
+        <div id="geo-recompute-msg" style="display:none;margin-bottom:12px"></div>
+        <?= Auth::csrfField() /* 🔄 v2.32 — توکن درخواست بازحسابی جغرافیایی */ ?>
         <?php if (empty($provincesDist) && empty($citiesDist)): ?>
             <div class="empty-state"><div class="icon">🗺️</div><p>داده جغرافیایی ثبت نشده است.<br><small>پس از بازدید اولین کاربران، نقشه استان‌ها اینجا نمایش داده می‌شود.</small></p></div>
         <?php else: ?>
@@ -775,6 +831,47 @@ $trackerBoxStyle = $trackerHealthy
 
 <!-- 🧩 نمودار Canvas بدون وابستگی خارجی -->
 <script>
+/* ═══ 🔄 v2.32 — بازحسابی جغرافیایی ═══
+   کش جغرافیایی پاک + بازحلابی پیشوندها از سرویس‌های معتبر + حذف
+   داده‌های حدسی قدیمی (رفع «کاربر تبریز → خراسان رضوی»). */
+function geoRecompute(btn) {
+    if (!confirm('کش جغرافیایی پاک و بازدیدهای اخیر دوباره از سرویس‌های معتبر حلابی می‌شوند.\nجواب‌های حدسی قدیمی حذف و با بازدید بعدی درست می‌شوند.\n\nادامه می‌دهید؟ (تا ۲ دقیقه طول می‌کشد)')) { return; }
+    const msg = document.getElementById('geo-recompute-msg');
+    btn.disabled = true;
+    const old = btn.textContent;
+    btn.textContent = '⏳ در حال بازحسابی...';
+    if (msg) {
+        msg.style.display = 'block';
+        msg.className = 'alert alert-info';
+        msg.innerHTML = '⏳ در حال بازحسابی جغرافیایی — لطفاً این برگه را نبندید...';
+    }
+    const body = new URLSearchParams({ action: 'geo_recompute' });
+    const csrfEl = document.querySelector('input[name="csrf_token"]');
+    if (csrfEl) { body.append('csrf_token', csrfEl.value); }
+    fetch('analytics.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+    }).then(function (r) { return r.json(); }).then(function (res) {
+        btn.disabled = false;
+        btn.textContent = old;
+        if (msg) {
+            msg.style.display = 'block';
+            msg.className = 'alert ' + (res && res.success ? 'alert-success' : 'alert-danger');
+            msg.innerHTML = (res && (res.data && res.data.message || res.error)) || 'پاسخ نامعتبر';
+        }
+        if (res && res.success) { setTimeout(function () { location.reload(); }, 2600); }
+    }).catch(function () {
+        btn.disabled = false;
+        btn.textContent = old;
+        if (msg) {
+            msg.style.display = 'block';
+            msg.className = 'alert alert-danger';
+            msg.innerHTML = 'خطای ارتباط با سرور — دوباره تلاش کنید.';
+        }
+    });
+}
+
 /* 🔄 v2.30 — همه نمودارها در یک تابع؛ تغییر اندازه پنجره → بازترسیم
    (قبلاً نمودار فقط یک‌بار در لود اول با عرض لحظه‌ای ترسیم می‌شد) */
 function sahandDrawCharts() {
