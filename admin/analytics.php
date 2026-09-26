@@ -112,7 +112,10 @@ $hourMap = array_fill(0, 24, 0);
 foreach ($byHour as $hr) { $hourMap[(int)$hr['h']] = (int)$hr['c']; }
 
 /* 📅 روزهای هفته */
-$byWeekday = $safeQuery("SELECT WEEKDAY(v.visit_date) AS wd, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} GROUP BY wd ORDER BY wd", $params);
+/* 🚨 v2.31 — ریشه «بازدیدهای شنبه به پنجشنبه می‌افتد»: WEEKDAY()
+   MySQL دوشنبه=۰ ... شنبه=۶ برمی‌گرداند اما آرایه فارسی از شنبه=۰
+   شروع می‌شود → همه یک روز جابه‌جا! نگاشت صحیح: (WEEKDAY+2)%7 */
+$byWeekday = $safeQuery("SELECT ((WEEKDAY(v.visit_date) + 2) % 7) AS wd, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} GROUP BY wd ORDER BY wd", $params);
 $weekdayFa = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
 $weekdayMap = array_fill(0, 7, 0);
 foreach ($byWeekday as $wd) { $weekdayMap[(int)$wd['wd']] = (int)$wd['c']; }
@@ -189,9 +192,9 @@ $countryFa = [
     'SE' => '🇸🇪 سوئد', 'AU' => '🇦🇺 استرالیا', 'IN' => '🇮🇳 هند', 'CN' => '🇨🇳 چین',
 ];
 
-/* 🔥 نقشه حرارتی ساعت × روز هفته (۷×۲۴) */
+/* 🔥 نقشه حرارتی ساعت × روز هفته (۷×۲۴) — نگاشت درست روز هفته v2.31 */
 $heatRows = $safeQuery(
-    "SELECT WEEKDAY(v.visit_date) AS wd, HOUR(v.visited_at) AS h, COUNT(DISTINCT v.session_hash) AS c
+    "SELECT ((WEEKDAY(v.visit_date) + 2) % 7) AS wd, HOUR(v.visited_at) AS h, COUNT(DISTINCT v.session_hash) AS c
      FROM visits v WHERE {$where} GROUP BY wd, h",
     $params
 );
@@ -236,16 +239,79 @@ foreach ($heatMap as $wd => $hours) {
     }
 }
 
-/* 🗺 مختصات شهرها برای نقشه SVG (طرح‌واره ایران) — v2.30: +3 شهر جدید */
-$cityXY = [
-    'تهران' => [364.7, 143.0], 'کرج' => [346.3, 139.4], 'مشهد' => [700.1, 127.2], 'اصفهان' => [375.0, 223.4],
-    'شیراز' => [411.0, 303.8], 'تبریز' => [154.4, 80.3], 'اهواز' => [252.0, 258.5], 'قم' => [342.6, 171.0],
-    'کرمان' => [596.8, 285.6], 'رشت' => [289.3, 101.4], 'بوشهر' => [340.9, 320.4], 'زاهدان' => [737.0, 306.4],
-    'ارومیه' => [102.7, 94.3], 'ساری' => [432.0, 120.4], 'سنندج' => [183.1, 153.1], 'همدان' => [245.4, 166.8],
-    'خرم‌آباد' => [239.3, 201.3], 'اردبیل' => [236.4, 75.8], 'بیرجند' => [684.5, 217.6], 'قزوین' => [306.5, 128.0],
-    'ایلام' => [159.7, 197.3], 'یزد' => [485.7, 243.2],
-    'بندرعباس' => [508.0, 357.0], 'زنجان' => [228.0, 122.0], 'گنبد کاووس' => [476.0, 92.0],
-];
+/* 🗺 مختصات شهرها برای فهرست رتبه‌بندی (نقشه استانی جایگزین حباب‌ها شد) */
+
+/* ═══════════════════════════════════════════════════════════
+ * 🆕 v2.31 — گزارش‌های جدید: نقشه استانی + ماتریس مرورگر×سیستم +
+ * رشد هفتگی + عملکرد مقالات + کاربران آنلاین
+ * ═══════════════════════════════════════════════════════════ */
+
+/* 🗺️ پراکندگی استانی — شهر خالی از ip_prefix با GeoIP بازیابی می‌شود */
+$provRows = $safeQuery(
+    "SELECT COALESCE(NULLIF(v.province, ''), '') AS prov, v.ip_prefix, COUNT(DISTINCT v.session_hash) AS c
+     FROM visits v WHERE {$where} AND (v.city IS NOT NULL AND v.city != '' OR (v.ip_prefix IS NOT NULL AND v.ip_prefix != ''))
+     GROUP BY prov, v.ip_prefix",
+    $params
+);
+$provincesDist = [];
+foreach ((array)$provRows as $pr) {
+    $prov = trim((string)$pr['prov']);
+    if ($prov === '') {
+        /* ردیف قدیمی بدون استان — از GeoIP سه‌لایه بازیابی */
+        $prov = GeoIP::province((string)($pr['ip_prefix'] ?? ''));
+        if ($prov === '') { continue; }
+    }
+    $provincesDist[$prov] = ($provincesDist[$prov] ?? 0) + (int)$pr['c'];
+}
+arsort($provincesDist);
+
+/* 🧮 ماتریس مرورگر × سیستم‌عامل (۸×۶) */
+$browserOsRows = $safeQuery(
+    "SELECT v.browser, v.os, COUNT(DISTINCT v.session_hash) AS c
+     FROM visits v WHERE {$where} AND v.browser IS NOT NULL AND v.os IS NOT NULL
+     GROUP BY v.browser, v.os ORDER BY c DESC LIMIT 80",
+    $params
+);
+$browserOsMatrix = [];
+foreach ((array)$browserOsRows as $br) {
+    $b = (string)$br['browser'];
+    $osRaw = (string)$br['os'];
+    $osPretty = preg_match('/windows/i', $osRaw) ? 'ویندوز'
+        : (preg_match('/android/i', $osRaw) ? 'اندروید'
+        : (preg_match('/iphone|ipad|mac/i', $osRaw) ? 'iOS/مک'
+        : (preg_match('/linux/i', $osRaw) ? 'لینوکس' : mb_substr($osRaw, 0, 12))));
+    $browserOsMatrix[$b][$osPretty] = ($browserOsMatrix[$b][$osPretty] ?? 0) + (int)$br['c'];
+}
+
+/* 📈 رشد هفتگی (۸ هفته اخیر — از روز شنبه شروع) */
+$weeklyRows = $safeQuery(
+    "SELECT YEARWEEK(v.visit_date, 3) AS yw, MIN(v.visit_date) AS wk_start, COUNT(DISTINCT v.session_hash) AS u, COUNT(*) AS views
+     FROM visits v WHERE {$where} GROUP BY yw ORDER BY yw ASC",
+    $params
+);
+$weeklyGrowth = [];
+foreach ((array)$weeklyRows as $wr) {
+    $weeklyGrowth[] = ['start' => (string)$wr['wk_start'], 'u' => (int)$wr['u'], 'views' => (int)$wr['views']];
+}
+$weeklyGrowth = array_slice($weeklyGrowth, -8);
+
+/* 📰 عملکرد مقالات (صفحات /blog/) */
+$articleRows = $safeQuery(
+    "SELECT vd.page_url, COUNT(*) AS views, AVG(vd.duration) AS avg_dur
+     FROM visit_details vd JOIN visits v ON v.id = vd.visit_id
+     WHERE {$where} AND vd.page_url LIKE '%/blog/%'
+     GROUP BY vd.page_url ORDER BY views DESC LIMIT 8",
+    $params
+);
+
+/* 👥 کاربران آنلاین (۵ دقیقه اخیر) — صفحه جداگانه AJAX */
+$onlineCount = 0;
+try {
+    $onlineCount = (int)$db->fetchValue(
+        'SELECT COUNT(DISTINCT session_hash) FROM visits WHERE last_seen >= ?',
+        [date('Y-m-d H:i:s', time() - 300)]
+    );
+} catch (Throwable $onlineE) { /* ستون last_seen هنوز ساخته نشده */ }
 
 /* 📈 شاخص‌های کلی */
 $totalUnique = array_sum(array_column($timeline, 'unique_visits'));
@@ -273,7 +339,7 @@ $trackerToday = 0;
 $trackerLast = false;
 try {
     $trackerTotal = (int)$db->fetchValue('SELECT COUNT(*) FROM visits');
-    $trackerToday = (int)$db->fetchValue('SELECT COUNT(*) FROM visits WHERE visit_date = CURDATE()');
+    $trackerToday = (int)$db->fetchValue('SELECT COUNT(*) FROM visits WHERE visit_date = ?', [date('Y-m-d')]);
     $trackerLast = $db->fetchValue('SELECT MAX(visited_at) FROM visits');
 } catch (Throwable $trackerSchemaE) {
     /* جدول آمار وجود ندارد — مهاجرت v227 در اولین لود ساخته‌اش می‌کند */
@@ -355,64 +421,89 @@ $trackerBoxStyle = $trackerHealthy
 </div>
 
 <div class="card" style="margin-bottom:18px">
-    <div class="card-header"><h3>🗺️ پراکندگی جغرافیایی بازدیدکنندگان — نقشه ایران</h3></div>
+    <div class="card-header">
+        <h3>🗺️ پراکندگی جغرافیایی بازدیدکنندگان — نقشه استانی ایران</h3>
+        <?php if (!empty($provincesDist)): ?>
+            <span class="badge badge-info" style="font-size:11px">🎯 <?= en_to_fa_digits((string)count($provincesDist)) ?> استان</span>
+        <?php endif; ?>
+    </div>
     <div class="card-body">
-        <?php if (empty($citiesDist)): ?>
-            <div class="empty-state"><div class="icon">🗺️</div><p>داده جغرافیایی ثبت نشده است.<br><small>پس از بازدید اولین کاربران، نقشه شهرها اینجا نمایش داده می‌شود.</small></p></div>
+        <?php if (empty($provincesDist) && empty($citiesDist)): ?>
+            <div class="empty-state"><div class="icon">🗺️</div><p>داده جغرافیایی ثبت نشده است.<br><small>پس از بازدید اولین کاربران، نقشه استان‌ها اینجا نمایش داده می‌شود.</small></p></div>
         <?php else: ?>
             <?php
-            $maxCity = max($citiesDist) ?: 1;
-            $totalCity = array_sum($citiesDist) ?: 1;
-            /* رنگ و اندازه حباب هر شهر بر اساس سهم بازدید */
-            $bubbles = '';
-            foreach (array_slice($citiesDist, 0, 22, true) as $city => $count):
-                $xy = $cityXY[$city] ?? null;
-                if (!$xy) { continue; }
-                $share = $count / $maxCity;
-                $r = 7 + 17 * sqrt($share);
-                $op = 0.35 + 0.6 * $share;
-                $bubbles .= '<g class="ir-map-city" data-city="' . e($city) . '" data-count="' . (int)$count . '">'
-                    . '<circle cx="' . $xy[0] . '" cy="' . $xy[1] . '" r="' . round($r + 5, 1) . '" fill="rgba(30,64,175,' . round($op * 0.18, 2) . ')"></circle>'
-                    . '<circle cx="' . $xy[0] . '" cy="' . $xy[1] . '" r="' . round($r, 1) . '" fill="rgba(37,99,235,' . round($op, 2) . ')" stroke="#fff" stroke-width="1.6"></circle>'
-                    . '<text x="' . $xy[0] . '" y="' . ($xy[1] - $r - 6) . '" text-anchor="middle" font-size="11.5" font-weight="800" fill="#1e40af">' . e($city) . '</text>'
-                    . '<text x="' . $xy[0] . '" y="' . ($xy[1] + 4) . '" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">' . e(en_to_fa_digits((string)$count)) . '</text>'
-                    . '</g>';
+            /* 🎨 v2.31 — رنگ‌آمیزی استان‌ها بر اساس شدت بازدید */
+            $iranMap = GeoIP::iranMap();
+            $maxProv = max($provincesDist ?: [1]) ?: 1;
+            $totalProv = array_sum($provincesDist) ?: 1;
+            $provShown = array_slice($provincesDist, 0, 31, true);
+            $provincePaths = '';
+            foreach ($iranMap as $provName => $geo):
+                $count = (int)($provShown[$provName] ?? 0);
+                if ($count > 0) {
+                    $t = pow($count / $maxProv, 0.6);
+                    $r = (int)round(219 + (30 - 219) * $t);
+                    $g = (int)round(234 + (64 - 234) * $t);
+                    $b = (int)round(254 + (175 - 254) * $t);
+                    $fill = "rgb({$r},{$g},{$b})";
+                } else {
+                    $fill = '#f1f5f9';
+                }
+                $provincePaths .= '<path d="' . e($geo['path']) . '" fill="' . $fill . '" stroke="#94a3b8" stroke-width="1" stroke-linejoin="round" class="ir-prov" data-prov="' . e($provName) . '" data-count="' . $count . '"><title>' . e($provName) . ($count > 0 ? ' — ' . en_to_fa_digits((string)$count) . ' بازدیدکننده' : '') . '</title></path>';
+            endforeach;
+            $provLabels = '';
+            foreach ($provShown as $provName => $count):
+                if (!isset($iranMap[$provName]) || $count < $maxProv * 0.12) { continue; }
+                [$lx, $ly] = $iranMap[$provName]['xy'];
+                $provLabels .= '<text x="' . $lx . '" y="' . ($ly - 7) . '" text-anchor="middle" font-size="17" font-weight="800" fill="#0c2d6b">' . e(en_to_fa_digits((string)$count)) . '</text>'
+                    . '<text x="' . $lx . '" y="' . ($ly + 12) . '" text-anchor="middle" font-size="12.5" font-weight="700" fill="#334155">' . e($provName) . '</text>';
             endforeach;
             ?>
-            <div style="display:grid;grid-template-columns:1fr 280px;gap:18px;align-items:start">
-                <div class="ir-map-wrap" style="direction:ltr;background:linear-gradient(160deg,#f0f7ff,#eaf3fb);border-radius:14px;padding:8px;border:1px solid #dbeafe">
-                    <svg viewBox="0 0 900 460" style="width:100%;height:auto;display:block" role="img" aria-label="نقشه پراکندگی بازدید ایران">
-                        <defs>
-                            <linearGradient id="irFill" x1="0" y1="0" x2="1" y2="1">
-                                <stop offset="0" stop-color="#cfe3ff"/><stop offset="1" stop-color="#a8ccf5"/>
-                            </linearGradient>
-                        </defs>
-                        <!-- مرز ایران (نمای طرح‌واره) -->
-                        <path d="M76.9,37.6 L163.0,58.7 L224.5,58.7 L261.4,71.9 L310.6,85.1 L359.8,98.2 L409.0,100.9 L466.4,98.2 L503.3,90.3 L552.5,77.2 L605.8,77.2 L655.0,90.3 L696.0,95.6 L728.8,111.4 L753.4,127.2 L765.7,145.7 L761.6,179.9 L778.0,201.0 L765.7,235.3 L753.4,256.4 L786.2,272.2 L790.3,290.6 L769.8,309.1 L737.0,319.6 L741.1,351.2 L790.3,367.0 L831.3,364.4 L851.8,369.7 L831.3,393.4 L782.1,419.7 L696.0,414.5 L634.5,409.2 L605.8,385.5 L560.7,369.7 L511.5,380.2 L470.5,385.5 L413.1,359.1 L359.8,345.9 L314.7,319.6 L286.0,306.4 L265.5,288.0 L249.1,295.9 L224.5,280.1 L245.0,261.6 L224.5,245.8 L212.2,266.9 L199.9,280.1 L146.6,295.9 L122.0,266.9 L117.9,240.5 L146.6,216.8 L117.9,195.7 L130.2,172.0 L146.6,148.3 L117.9,135.1 L93.3,106.1 L72.8,85.1 L93.3,66.6 L68.7,45.5 Z"
-                              fill="url(#irFill)" stroke="#5b93d6" stroke-width="2.2" stroke-linejoin="round"/>
-                        <!-- دریای خزر -->
-                        <path d="M306.5,99.6 L347.5,111.4 L388.5,110.1 L437.7,108.8 L466.4,106.1 L470.5,98.2 L429.5,93.0 L380.3,95.6 L331.1,93.0 L302.4,98.2 Z" fill="#9cc3e8" opacity=".85"/>
-                        <!-- خلیج فارس -->
-                        <path d="M265.5,288.0 L306.5,309.1 L347.5,330.1 L368.0,351.2 L409.0,361.8 L450.0,374.9 L503.3,385.5 L552.5,374.9 L564.8,369.7 L519.7,367.0 L478.7,359.1 L437.7,348.6 L404.9,335.4 L372.1,319.6 L339.3,303.8 L310.6,288.0 L281.9,282.7 Z" fill="#9cc3e8" opacity=".85"/>
-                        <?= $bubbles ?>
+            <div style="display:grid;grid-template-columns:1fr 290px;gap:18px;align-items:start">
+                <div style="direction:ltr;background:linear-gradient(160deg,#f8fbff,#eef5fc);border-radius:14px;padding:6px;border:1px solid #dbeafe">
+                    <svg viewBox="0 0 1000 903" style="width:100%;height:auto;display:block" role="img" aria-label="نقشه استانی پراکندگی بازدید ایران">
+                        <?= $provincePaths ?>
+                        <?= $provLabels ?>
                     </svg>
-                    <div style="text-align:center;font-size:10px;color:#64748b;padding:4px 0 2px">نمای طرح‌واره — اندازه هر حباب = سهم بازدید شهر</div>
+                    <div style="text-align:center;font-size:10px;color:#64748b;padding:4px 0 2px">نقشه استانی واقعی (۳۱ استان) — عدد داخل هر استان = بازدیدکننده یکتا</div>
                 </div>
                 <div>
-                    <div style="font-size:12px;font-weight:800;margin-bottom:9px;color:#334155">🏆 رتبه‌بندی شهرها</div>
-                    <?php $ci = 0; foreach (array_slice($citiesDist, 0, 12, true) as $city => $count): $ci++; ?>
+                    <div style="font-size:12px;font-weight:800;margin-bottom:9px;color:#334155">🏆 رتبه‌بندی استان‌ها</div>
+                    <?php $pi = 0; foreach (array_slice($provShown, 0, 12, true) as $provName => $count): $pi++; ?>
                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-                            <span style="flex:none;width:21px;height:21px;border-radius:7px;background:<?= $ci === 1 ? '#1e40af' : ($ci === 2 ? '#3b82f6' : ($ci === 3 ? '#93c5fd' : '#e2e8f0')) ?>;color:<?= $ci <= 3 ? '#fff' : '#475569' ?>;font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center"><?= e(en_to_fa_digits((string)$ci)) ?></span>
-                            <span style="flex:1;font-size:12.5px">📍 <?= e($city) ?></span>
+                            <span style="flex:none;width:21px;height:21px;border-radius:7px;background:<?= $pi === 1 ? '#1e40af' : ($pi === 2 ? '#3b82f6' : ($pi === 3 ? '#93c5fd' : '#e2e8f0')) ?>;color:<?= $pi <= 3 ? '#fff' : '#475569' ?>;font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center"><?= e(en_to_fa_digits((string)$pi)) ?></span>
+                            <span style="flex:1;font-size:12.5px">📍 <?= e($provName) ?></span>
                             <b style="font-size:12.5px"><?= e(en_to_fa_digits((string)$count)) ?></b>
-                            <span style="font-size:10px;color:#94a3b8;flex:none;width:38px;text-align:left"><?= e(en_to_fa_digits((string)round($count / $totalCity * 100))) ?>٪</span>
+                            <span style="font-size:10px;color:#94a3b8;flex:none;width:38px;text-align:left"><?= e(en_to_fa_digits((string)round($count / $totalProv * 100))) ?>٪</span>
                         </div>
                     <?php endforeach; ?>
-                    <div class="hint" style="margin-top:10px">🛡️ تشخیص جغرافیا با GeoIP محلی — بدون API خارجی.</div>
+                    <?php if (!empty($citiesDist)): ?>
+                        <div style="font-size:12px;font-weight:800;margin:13px 0 8px;color:#334155">🏙️ شهرها</div>
+                        <?php $totalCity = array_sum($citiesDist) ?: 1; foreach (array_slice($citiesDist, 0, 8, true) as $city => $count): ?>
+                            <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:5px">
+                                <span>📍 <?= e($city) ?></span>
+                                <span><b><?= e(en_to_fa_digits((string)$count)) ?></b> <span style="color:#94a3b8;font-size:10px">(<?= e(en_to_fa_digits((string)round($count / $totalCity * 100))) ?>٪)</span></span>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                    <div class="hint" style="margin-top:10px">🛡️ تشخیص جغرافیای دقیق با سرویس GeoIP + کش ۴۵ روزه — رنج‌های موبایل سراسری‌اند و شهر دقیق هر کاربر قابل قطعیت نیست؛ استان از سرویس معتبر جغرافیایی خوانده می‌شود.</div>
                 </div>
             </div>
         <?php endif; ?>
     </div>
+</div>
+
+<!-- 🆕 v2.31 — کاربران آنلاین -->
+<div class="card" style="margin-bottom:18px">
+    <div class="card-header">
+        <h3>👥 کاربران آنلاین</h3>
+        <span class="badge <?= $onlineCount > 0 ? 'badge-success' : '' ?>" style="font-size:11px" id="online-badge">🟢 <?= en_to_fa_digits((string)$onlineCount) ?> نفر آنلاین</span>
+    </div>
+    <div class="card-body" id="online-users-body">
+        <div class="empty-state" style="padding:18px"><div class="icon">👤</div><p>در ۵ دقیقه اخیر کاربر فعالی روی سایت‌های برند مشاهده نشده است.</p></div>
+    </div>
+    <style>.online-user-btn:hover{border-color:#93c5fd !important;background:#eff6ff !important}</style>
+<div class="hint" style="padding:0 16px 12px">💡 روی نام هر کاربر کلیک کنید تا جزئیات کامل او (صفحات بازدیدشده، دستگاه، مبدأ ورود و...) در کادر باز شود — فهرست هر ۳۰ ثانیه خودکار بروزرسانی می‌شود.</div>
 </div>
 
 <!-- 🆕 v2.29 — گزارش‌های جدید -->
@@ -616,6 +707,69 @@ $trackerBoxStyle = $trackerHealthy
                 </div>
             <?php endif; ?>
         </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     🆕 v2.31 — گزارش‌های جدید: ماتریس مرورگر×سیستم + رشد هفتگی آبشاری + عملکرد مقالات
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="grid-2">
+    <!-- 🧮 ماتریس مرورگر × سیستم‌عامل -->
+    <div class="card">
+        <div class="card-header"><h3>🧮 ماتریس مرورگر × سیستم‌عامل</h3></div>
+        <div class="card-body">
+            <?php if (empty($browserOsMatrix)): ?>
+                <div class="empty-state" style="padding:18px"><div class="icon">🧮</div><p>داده مرورگر/سیستم‌عامل ثبت نشده است.</p></div>
+            <?php else: ?>
+                <?php
+                $osCols = [];
+                foreach ($browserOsMatrix as $bRow) { foreach ($bRow as $osName => $c) { $osCols[$osName] = true; } }
+                $osCols = array_keys($osCols);
+                $matrixMax = 0;
+                foreach ($browserOsMatrix as $bRow) { foreach ($bRow as $c) { $matrixMax = max($matrixMax, $c); } }
+                ?>
+                <div style="overflow-x:auto">
+                    <table class="table" style="font-size:11.5px;min-width:380px">
+                        <thead><tr><th>مرورگر</th><?php foreach ($osCols as $osName): ?><th style="text-align:center"><?= e($osName) ?></th><?php endforeach; ?></tr></thead>
+                        <tbody>
+                        <?php foreach (array_slice($browserOsMatrix, 0, 7, true) as $bName => $osRow): ?>
+                            <tr>
+                                <td><b><?= e($bName) ?></b></td>
+                                <?php foreach ($osCols as $osName): ?>
+                                    <?php $cellVal = (int)($osRow[$osName] ?? 0); ?>
+                                    <td style="text-align:center">
+                                        <?php if ($cellVal > 0): ?>
+                                            <?php $intensity = $matrixMax > 0 ? round($cellVal / $matrixMax, 2) : 0; ?>
+                                            <span style="display:inline-block;min-width:34px;padding:3px 7px;border-radius:7px;font-weight:700;color:<?= $intensity > 0.5 ? '#fff' : '#1e3a8a' ?>;background:rgba(30,64,175,<?= max(0.08, $intensity) ?>)"><?= e(en_to_fa_digits((string)$cellVal)) ?></span>
+                                        <?php else: ?>
+                                            <span style="color:#cbd5e1">—</span>
+                                        <?php endif; ?>
+                                    </td>
+                                <?php endforeach; ?>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+    <!-- 📈 رشد هفتگی -->
+    <div class="card">
+        <div class="card-header"><h3>📈 رشد هفتگی بازدید (۸ هفته اخیر)</h3></div>
+        <div class="card-body"><canvas id="weekly-chart" height="230"></canvas></div>
+    </div>
+</div>
+
+<!-- 📰 عملکرد مقالات -->
+<div class="card" style="margin-bottom:18px">
+    <div class="card-header"><h3>📰 عملکرد مقالات منتشرشده</h3></div>
+    <div class="card-body">
+        <?php if (empty($articleRows)): ?>
+            <div class="empty-state" style="padding:18px"><div class="icon">📰</div><p>هنوز بازدیدی از صفحات مقالات ثبت نشده است.</p></div>
+        <?php else: ?>
+            <canvas id="articles-chart" height="<?= max(140, count($articleRows) * 34) ?>"></canvas>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -1103,6 +1257,187 @@ function sahandBars(canvasId, data, opts) {
         ctx.fillText(faNum(d.v), pad.l + bw + 4, y + rowH / 2 + 3.5);
     });
 })();
+
+/* ═══════════════════════════════════════════════════════════════
+ * 🆕 v2.31 — نمودارهای جدید: رشد هفتگی آبشاری + عملکرد مقالات
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* 📈 رشد هفتگی — میله‌های رنگی با خط روند */
+(function () {
+    const canvas = document.getElementById('weekly-chart');
+    if (!canvas) return;
+    const data = <?= json_encode(array_map(fn($w) => ['label' => jdate_short($w['start']), 'u' => $w['u'], 'views' => $w['views']], $weeklyGrowth)) ?>;
+    if (!data.length) {
+        canvas.parentElement.innerHTML = '<div class="empty-state"><div class="icon">📈</div><p>داده هفتگی موجود نیست.</p></div>';
+        return;
+    }
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth;
+    const H = 230;
+    canvas.width = w * dpr; canvas.height = H * dpr;
+    ctx.scale(dpr, dpr);
+    const faNum = n => new Intl.NumberFormat('fa-IR').format(n);
+    const pad = { t: 22, r: 12, b: 30, l: 38 };
+    const cw = w - pad.l - pad.r, ch = H - pad.t - pad.b;
+    const maxV = Math.max(...data.map(d => d.u), 4);
+    for (let i = 0; i <= 3; i++) {
+        const y = pad.t + ch - (ch * i / 3);
+        ctx.strokeStyle = '#e2e8f0'; ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y); ctx.stroke();
+        ctx.fillStyle = '#64748b'; ctx.font = '9.5px Vazirmatn, Tahoma'; ctx.textAlign = 'right';
+        ctx.fillText(Math.round(maxV * i / 3), pad.l - 5, y + 3);
+    }
+    const bw = Math.min(40, cw / data.length - 10);
+    data.forEach((d, i) => {
+        const x = pad.l + cw - (i + 0.5) * (cw / data.length) - bw / 2; /* RTL */
+        const bh = Math.max(3, d.u / maxV * ch);
+        const y = pad.t + ch - bh;
+        /* رنگ میله بر اساس رشد نسبت به هفته قبل */
+        const prev = i > 0 ? data[i - 1].u : d.u;
+        const up = d.u >= prev;
+        const grad = ctx.createLinearGradient(0, y, 0, pad.t + ch);
+        if (up) { grad.addColorStop(0, '#1e40af'); grad.addColorStop(1, '#60a5fa'); }
+        else { grad.addColorStop(0, '#b45309'); grad.addColorStop(1, '#fbbf24'); }
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        const rr = Math.min(7, bw / 2);
+        ctx.moveTo(x + rr, y); ctx.arcTo(x + bw, y, x + bw, y + bh, rr);
+        ctx.lineTo(x + bw, y + bh); ctx.lineTo(x, y + bh);
+        ctx.arcTo(x, y + bh, x, y, rr); ctx.arcTo(x, y, x + bw, y, rr); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#334155'; ctx.font = 'bold 10px Vazirmatn, Tahoma'; ctx.textAlign = 'center';
+        ctx.fillText(faNum(d.u), x + bw / 2, y - 4);
+        ctx.fillStyle = '#64748b'; ctx.font = '9px Vazirmatn, Tahoma';
+        ctx.fillText(d.label, x + bw / 2, H - 10);
+    });
+    /* خط روند */
+    ctx.beginPath(); ctx.strokeStyle = '#0d9488'; ctx.lineWidth = 2; ctx.setLineDash([]);
+    data.forEach((d, i) => {
+        const x = pad.l + cw - (i + 0.5) * (cw / data.length);
+        const y = pad.t + ch - Math.max(3, d.u / maxV * ch);
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    ctx.stroke();
+})();
+
+/* 📰 عملکرد مقالات — میله‌های افقی با مدت مطالعه */
+(function () {
+    const canvas = document.getElementById('articles-chart');
+    if (!canvas) return;
+    const data = <?= json_encode(array_map(fn($a) => ['l' => mb_substr((string)preg_replace('#^.*/blog/#', '', $a['page_url']), 0, 30), 'v' => (int)$a['views'], 'dur' => (int)round((float)$a['avg_dur'])], $articleRows)) ?>;
+    if (!data.length) { return; }
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth;
+    const H = Math.max(140, data.length * 34);
+    canvas.width = w * dpr; canvas.height = H * dpr;
+    ctx.scale(dpr, dpr);
+    const faNum = n => new Intl.NumberFormat('fa-IR').format(n);
+    const pad = { t: 12, r: 14, b: 10, l: 190 };
+    const cw = w - pad.l - pad.r, ch = H - pad.t - pad.b;
+    const maxV = Math.max(...data.map(d => d.v), 1);
+    data.forEach((d, i) => {
+        const rowH = ch / data.length;
+        const y = pad.t + i * rowH + 3;
+        const bh = rowH - 8;
+        const bw = Math.max(4, d.v / maxV * (cw - 60));
+        const x = w - pad.r - bw;
+        const grad = ctx.createLinearGradient(x, 0, w - pad.r, 0);
+        grad.addColorStop(0, '#7c2d12'); grad.addColorStop(1, '#fb923c');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        const rr = Math.min(bh / 2, 6);
+        ctx.moveTo(x + rr, y); ctx.arcTo(w - pad.r, y, w - pad.r, y + bh, rr);
+        ctx.arcTo(w - pad.r, y + bh, x, y + bh, rr); ctx.arcTo(x, y + bh, x, y, rr);
+        ctx.arcTo(x, y, w - pad.r, y, rr); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#334155'; ctx.font = '10px Vazirmatn, Tahoma'; ctx.textAlign = 'right';
+        ctx.fillText(d.l, w - pad.r + 4, y + bh / 2 + 3.5);
+        ctx.fillStyle = '#7c2d12'; ctx.font = 'bold 10.5px Vazirmatn, Tahoma'; ctx.textAlign = 'left';
+        ctx.fillText(faNum(d.v) + (d.dur > 0 ? ' · ' + faNum(Math.round(d.dur)) + 'ث' : ''), x - 5, y + bh / 2 + 3.5);
+    });
+})();
+
+/* ═══════════════════════════════════════════════════════════════
+ * 👥 v2.31 — کاربران آنلاین: بارگذاری زنده + کادر جزئیات
+ * ═══════════════════════════════════════════════════════════════ */
+window.sahandLoadOnlineUsers = function () {
+    const body = document.getElementById('online-users-body');
+    const badge = document.getElementById('online-badge');
+    if (!body) return;
+    fetch('analytics-online.php?ajax=1<?= $brandFilter > 0 ? '&brand=' . (int)$brandFilter : '' ?>', { credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+        .then(function (res) {
+            if (!res || !res.success) { return; }
+            const faNum = n => new Intl.NumberFormat('fa-IR').format(n);
+            if (badge) {
+                badge.textContent = '🟢 ' + faNum(res.count) + ' نفر آنلاین';
+                badge.className = 'badge ' + (res.count > 0 ? 'badge-success' : '');
+            }
+            if (!res.users || !res.users.length) {
+                body.innerHTML = '<div class="empty-state" style="padding:18px"><div class="icon">👤</div><p>در ۵ دقیقه اخیر کاربر فعالی روی سایت‌های برند مشاهده نشده است.</p></div>';
+                return;
+            }
+            let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">';
+            res.users.forEach(function (u) {
+                const devIcon = { mobile: '📱', desktop: '🖥️', tablet: '📲', bot: '🤖' }[u.device_type] || '🖥️';
+                html += '<button type="button" class="online-user-btn" data-session="' + u.session + '" style="text-align:right;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:10px 13px;cursor:pointer;font-family:inherit;transition:all .15s">'
+                    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">'
+                    + '<span style="font-size:19px">' + devIcon + '</span>'
+                    + '<b style="font-size:12.5px;color:#0f172a">' + (u.brand_name || 'برند') + '</b>'
+                    + '<span style="margin-inline-start:auto;font-size:10.5px;color:#16a34a;font-weight:700">● ' + (u.minutes_ago === 0 ? 'همین حالا' : faNum(u.minutes_ago) + ' دقیقه پیش') + '</span>'
+                    + '</div>'
+                    + '<div style="font-size:11px;color:#475569">📄 ' + (u.current_page || '—') + '</div>'
+                    + '<div style="font-size:11px;color:#475569">📍 ' + (u.city || u.province || 'نامشخص') + ' · ' + (u.browser || '—') + '</div>'
+                    + '</button>';
+            });
+            html += '</div>';
+            body.innerHTML = html;
+            body.querySelectorAll('.online-user-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    sahandShowOnlineDetails(btn.getAttribute('data-session'));
+                });
+            });
+        })
+        .catch(function () { /* بی‌صدا — تلاش بعدی در ۳۰ ثانیه */ });
+};
+
+window.sahandShowOnlineDetails = function (sessionHash) {
+    fetch('analytics-online.php?ajax=1&details=' + encodeURIComponent(sessionHash) + '<?= $brandFilter > 0 ? '&brand=' . (int)$brandFilter : '' ?>', { credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+        .then(function (res) {
+            if (!res || !res.success || !res.details) { return; }
+            const d = res.details;
+            const faNum = n => new Intl.NumberFormat('fa-IR').format(n);
+            let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12.5px">';
+            const row = (k, v) => '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px"><div style="font-size:10.5px;color:#64748b;margin-bottom:3px">' + k + '</div><b>' + (v || '—') + '</b></div>';
+            html += row('🏷️ برند', d.brand_name);
+            html += row('⏰ آخرین فعالیت', d.last_seen);
+            html += row('📱 دستگاه', d.device_type);
+            html += row('🌐 مرورگر', d.browser + ' · ' + d.os);
+            html += row('📍 مکان', (d.city ? d.city : '') + (d.province ? ' / ' + d.province : '') || 'نامشخص');
+            html += row('🖥️ رزولوشن', d.resolution);
+            html += row('🗣️ زبان', d.language);
+            html += row('🚪 صفحه ورود', d.entry_page);
+            html += row('📄 صفحه فعلی', d.current_page);
+            html += row('🔗 مبدأ ورود', d.referrer);
+            html += row('👁️ صفحات دیده‌شده', faNum(d.pages_seen));
+            html += row('⏱️ مدت حضور', d.duration_text);
+            html += '</div>';
+            html += '<div style="margin-top:12px;font-size:11px;font-weight:800;color:#334155;margin-bottom:6px">📜 مسیر بازدید (آخرین ۱۰ صفحه):</div><div style="font-size:11.5px;line-height:2.1">';
+            (d.recent_pages || []).forEach(function (p) {
+                html += '<div style="display:flex;justify-content:space-between;background:#f8fafc;border-radius:8px;padding:4px 10px;margin-bottom:4px"><span style="direction:ltr">' + p.url + '</span><span style="color:#64748b;white-space:nowrap">' + p.time + (p.duration > 0 ? ' · ' + faNum(p.duration) + ' ثانیه' : '') + '</span></div>';
+            });
+            html += '</div>';
+            if (window.SahandDialog) {
+                SahandDialog.dialog({ title: '👤 جزئیات کاربر آنلاین', html: html, buttons: [{ text: 'بستن', btn: 'primary' }] });
+            } else {
+                alert(html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '));
+            }
+        })
+        .catch(function () { /* بی‌صدا */ });
+};
+
+sahandLoadOnlineUsers();
+setInterval(sahandLoadOnlineUsers, 30000);
 
 } /* پایان sahandDrawCharts */
 

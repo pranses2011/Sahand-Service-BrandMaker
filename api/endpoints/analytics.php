@@ -5,6 +5,13 @@
  * اطلاعات ثبت‌شده: صفحه، UA، رفرر، رزولوشن، زبان، مدت حضور
  * (IP خام ذخیره نمی‌شود — فقط هش برای شمارش یکتا + پیشوند GeoIP)
  *
+ * 🆕 v2.31:
+ *   ① ثبت استان (province) از GeoIP سه‌لایه
+ *   ② visited_at و viewed_at صریح با زمان تهران (ریشه ساعت/روز غلط:
+ *      ستون DEFAULT CURRENT_TIMESTAMP زمان سرور MySQL بود نه ایران)
+ *   ③ last_seen در هر پینگ بروزرسانی می‌شود (کاربران آنلاین)
+ *   ④ heartbeat: پینگ ۶۰ ثانیه‌ای بدون درج صفحه جدید
+ *
  * @package SahandBrandMaker
  */
 if (!defined('SAHAND_INIT')) { http_response_code(403); exit; }
@@ -24,6 +31,19 @@ function api_track_visit(): void
     $ua = mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? $input['user_agent'] ?? ''), 0, 490);
     $pageUrl = mb_substr((string)($input['page'] ?? ''), 0, 490);
     $referrer = mb_substr((string)($input['referrer'] ?? ($_SERVER['HTTP_REFERER'] ?? '')), 0, 490);
+    $nowTehran = date('Y-m-d H:i:s');
+    $todayTehran = date('Y-m-d');
+
+    /* 💓 heartbeat — فقط بروزرسانی last_seen؛ هیچ صفحه جدید درج نمی‌شود */
+    if (!empty($input['heartbeat'])) {
+        try {
+            $db->query(
+                'UPDATE visits SET last_seen = ? WHERE session_hash = ? AND visit_date = ?',
+                [$nowTehran, $sessionHash, $todayTehran]
+            );
+        } catch (Throwable $hbE) { /* بی‌صدا */ }
+        json_response(['success' => true]);
+    }
 
     // 🔍 تشخیص نوع دستگاه / مرورگر / سیستم‌عامل از UA
     $deviceType = preg_match('/mobile|android.*mobile|iphone/i', $ua) ? 'mobile'
@@ -37,7 +57,7 @@ function api_track_visit(): void
         $os = ucfirst(mb_substr($os, 0, 30));
     }
 
-    // 🗺️ GeoIP محلی
+    // 🗺️ GeoIP سه‌لایه (کش DB + سرویس خارجی + رنج محلی)
     $geo = GeoIP::lookup($ip);
     $keyword = null;
     if ($referrer !== '') {
@@ -47,17 +67,16 @@ function api_track_visit(): void
         }
     }
 
-    /* 🚨 v2.29 — ریشه «نقشه پراکندگی جغرافیایی خالی است»: برای IPv6
-       (یا IPهای غیرمعتبر پشت پروکسی) پیشوند «xx.0.0» بی‌اعتبار ساخته
-       می‌شد → GeoIP::lookup هیچ‌وقت شهر نمی‌داد → نقشه همیشه خالی!
-       اکنون فقط برای IPv4 معتبر پیشوند ساخته می‌شود. */
     $ipParts = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) ? explode('.', $ip) : [];
     $ipPrefix = count($ipParts) === 4 ? ($ipParts[0] . '.' . $ipParts[1] . '.0.0') : null;
 
     // 💾 ثبت یا بروزرسانی بازدید
+    /* 🚨 v2.31 — مقایسه تاریخ همیشه با زمان تهران (قبلاً CURDATE()
+       زمان سرور MySQL بود: بین ۰۰:۰۰ تا ۰۳:۳۰ بامداد ایران با تاریخ
+       PHP می‌اخت و نشست تکراری درج می‌کرد). */
     $existing = $db->fetch(
-        'SELECT id, entry_page FROM visits WHERE session_hash = ? AND visit_date = CURDATE() LIMIT 1',
-        [$sessionHash]
+        'SELECT id, entry_page, city, province, country FROM visits WHERE session_hash = ? AND visit_date = ? LIMIT 1',
+        [$sessionHash, $todayTehran]
     );
     if (!$existing) {
         $db->insert('visits', [
@@ -73,23 +92,32 @@ function api_track_visit(): void
             'language'    => mb_substr((string)($input['language'] ?? ''), 0, 10) ?: null,
             'country'     => $geo['country'],
             'city'        => $geo['city'] ?: null,
+            'province'    => $geo['province'] ?: null,
             'referrer'    => $referrer ?: null,
             'search_keyword' => $keyword,
             'entry_page'  => $pageUrl,
-            'visit_date'  => date('Y-m-d'),
+            'visit_date'  => $todayTehran,
+            'visited_at'  => $nowTehran,
+            'last_seen'   => $nowTehran,
         ]);
         $visitId = $db->lastInsertId();
     } else {
         $visitId = (int)$existing['id'];
+        /* 🔄 جغرافیای بهتر اگر ردیف قدیمی شهر خالی/محلی داشت */
+        $updateGeo = [];
+        if (($existing['city'] === null || $existing['city'] === '') && $geo['city'] !== '') {
+            $updateGeo['city'] = $geo['city'];
+        }
+        if (($existing['province'] === null || $existing['province'] === '') && $geo['province'] !== '') {
+            $updateGeo['province'] = $geo['province'];
+        }
+        if ($updateGeo) {
+            try { $db->update('visits', $updateGeo, 'id = ?', [$visitId]); } catch (Throwable $gE) { /* قدیمی */ }
+        }
+        try { $db->update('visits', ['last_seen' => $nowTehran], 'id = ?', [$visitId]); } catch (Throwable $lsE) { /* ستون جدید */ }
     }
 
     // 📄 ثبت بازدید صفحه
-    /* 🚨 v2.26 — ریشه «نرخ پرش همیشه ۰٪ / مدت حضور همیشه ۰»:
-       tracker.js هنگام ترک صفحه (pagehide) همان صفحه را با is_exit=true و
-       duration=<مدت واقعی> دوباره می‌فرستد؛ کد قبلی «همیشه» ردیف جدید با
-       is_exit=0 درج می‌کرد → مدت و خروج هرگز ثبت نمی‌شد و آمار
-       رفتاری (نرخ پرش، میانگین حضور، صفحات خروج) همیشه صفر می‌ماند.
-       ✅ اکنون: پیام خروج، «ردیف ورود همان صفحه» را بروزرسانی می‌کند. */
     $isExit = !empty($input['is_exit']);
     $duration = max(0, min(3600, (int)($input['duration'] ?? 0)));
     if ($isExit) {
@@ -105,6 +133,7 @@ function api_track_visit(): void
             'page_url'   => $pageUrl,
             'duration'   => $duration,
             'is_exit'    => 0,
+            'viewed_at'  => $nowTehran,
         ]);
     }
 

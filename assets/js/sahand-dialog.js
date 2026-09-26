@@ -114,6 +114,10 @@
         if (opts.message) {
             html += '<div class="sd-body"><div class="sd-msg">' + esc(opts.message) + '</div></div>';
         }
+        /* 🆕 v2.31 — محتوای HTML خام (جزئیات کاربر آنلاین و...) */
+        if (opts.html) {
+            html += '<div class="sd-body sd-richtext" style="max-height:62vh;overflow-y:auto;padding-top:4px">' + opts.html + '</div>';
+        }
 
         /* فیلدهای فرم */
         var fields = opts.fields || [];

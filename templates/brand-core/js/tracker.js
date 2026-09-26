@@ -62,4 +62,10 @@
         resolution: screen.width + 'x' + screen.height,
         language: navigator.language || ''
     });
+
+    /* 💓 v2.31 — پینگ ۶۰ ثانیه‌ای حضور: فقط last_seen بروزرسانی می‌شود
+       (بدون درج صفحه جدید) → «کاربران آنلاین» دقیق می‌شود. */
+    setInterval(function () {
+        beacon({ brand_id: brandId, session: session, page: pageUrl, heartbeat: 1 });
+    }, 60000);
 })();

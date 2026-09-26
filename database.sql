@@ -459,17 +459,30 @@ CREATE TABLE IF NOT EXISTS `visits` (
   `resolution` VARCHAR(20) NULL,
   `language` VARCHAR(10) NULL,
   `country` VARCHAR(5) NULL COMMENT 'کد کشور از GeoIP محلی',
-  `city` VARCHAR(100) NULL COMMENT 'شهر از GeoIP محلی',
+  `city` VARCHAR(100) NULL COMMENT 'شهر از GeoIP',
+  `province` VARCHAR(120) NULL COMMENT 'استان از GeoIP (نقشه استانی)',
   `referrer` VARCHAR(500) NULL COMMENT 'صفحه ارجاع‌دهنده',
   `search_keyword` VARCHAR(255) NULL COMMENT 'کلمه جستجو (در صورت ورود از موتور)',
   `entry_page` VARCHAR(500) NULL,
   `visit_date` DATE NOT NULL,
   `visited_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_seen` DATETIME NULL COMMENT 'آخرین فعالیت — کاربران آنلاین',
   PRIMARY KEY (`id`),
   KEY `idx_visit_brand_date` (`brand_id`, `visit_date`),
   KEY `idx_visit_session` (`session_hash`),
-  KEY `idx_visit_country` (`country`)
+  KEY `idx_visit_country` (`country`),
+  KEY `idx_visit_last_seen` (`last_seen`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='بازدیدها';
+
+CREATE TABLE IF NOT EXISTS `geoip_cache` (
+  `ip_prefix` VARCHAR(20) NOT NULL COMMENT 'پیشوند /24',
+  `city` VARCHAR(120) NULL,
+  `province` VARCHAR(120) NULL,
+  `country` VARCHAR(5) NULL,
+  `fetched_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`ip_prefix`),
+  KEY `idx_geoip_fetched` (`fetched_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='کش GeoIP سرویس خارجی';
 
 CREATE TABLE IF NOT EXISTS `visit_details` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -484,6 +497,19 @@ CREATE TABLE IF NOT EXISTS `visit_details` (
   KEY `idx_vdetail_page` (`page_url`(191)),
   CONSTRAINT `fk_vdetail_visit` FOREIGN KEY (`visit_id`) REFERENCES `visits`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='جزئیات بازدید صفحات';
+
+CREATE TABLE IF NOT EXISTS `form_entries` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `brand_id` INT UNSIGNED NOT NULL,
+  `form_block` VARCHAR(60) NOT NULL DEFAULT 'custom' COMMENT 'نوع فرم (contact/newsletter/callback/...)',
+  `page_url` VARCHAR(500) NULL,
+  `fields` JSON NULL COMMENT 'فیلدهای فرم به‌صورت JSON',
+  `ip_address` VARCHAR(60) NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_fentry_brand` (`brand_id`, `created_at`),
+  KEY `idx_fentry_form` (`form_block`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='ثبت فرم‌های سفارشی سایت برند';
 
 -- ============================================================
 -- 2️⃣2️⃣ notifications — اعلان‌های پنل

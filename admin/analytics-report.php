@@ -107,7 +107,7 @@ $hourMap = array_fill(0, 24, 0);
 foreach ($byHour as $hr) { $hourMap[(int)$hr['h']] = (int)$hr['c']; }
 $bestHour = array_keys($hourMap, max($hourMap))[0] ?? null;
 
-$byWeekday = $safeQuery("SELECT WEEKDAY(v.visit_date) AS wd, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} GROUP BY wd ORDER BY wd", $params);
+$byWeekday = $safeQuery("SELECT ((WEEKDAY(v.visit_date) + 2) % 7) AS wd, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} GROUP BY wd ORDER BY wd", $params);
 $weekdayFa = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
 $weekdayMap = array_fill(0, 7, 0);
 foreach ($byWeekday as $wd) { $weekdayMap[(int)$wd['wd']] = (int)$wd['c']; }
@@ -150,7 +150,7 @@ $countryFa = [
 
 /* 🔥 نقشه حرارتی ساعت × روز هفته */
 $heatRows = $safeQuery(
-    "SELECT WEEKDAY(v.visit_date) AS wd, HOUR(v.visited_at) AS h, COUNT(DISTINCT v.session_hash) AS c
+    "SELECT ((WEEKDAY(v.visit_date) + 2) % 7) AS wd, HOUR(v.visited_at) AS h, COUNT(DISTINCT v.session_hash) AS c
      FROM visits v WHERE {$where} GROUP BY wd, h",
     $params
 );
@@ -440,16 +440,54 @@ $recentDays = array_slice(array_reverse($timeline), 0, 35);
         </div>
     </div>
 
-    <!-- 🗺️ شهرها -->
-    <h2 class="sec">🗺️ پراکندگی جغرافیایی بازدیدکنندگان</h2>
-    <?php if (empty($citiesDist)): ?>
+    <!-- 🗺️ استان‌ها و شهرها -->
+    <h2 class="sec">🗺️ پراکندگی جغرافیایی بازدیدکنندگان — استان‌ها</h2>
+    <?php
+    /* v2.31 — تجمیع استانی همان کوئری شهرها */
+    $provincesDist = [];
+    try {
+        $provRowsR = $safeQuery(
+            "SELECT COALESCE(NULLIF(v.province, ''), '') AS prov, v.ip_prefix, COUNT(DISTINCT v.session_hash) AS c
+             FROM visits v WHERE {$where} AND (v.city IS NOT NULL AND v.city != '' OR (v.ip_prefix IS NOT NULL AND v.ip_prefix != ''))
+             GROUP BY prov, v.ip_prefix",
+            $params
+        );
+        foreach ((array)$provRowsR as $pr) {
+            $prov = trim((string)$pr['prov']);
+            if ($prov === '') {
+                $prov = GeoIP::province((string)($pr['ip_prefix'] ?? ''));
+                if ($prov === '') { continue; }
+            }
+            $provincesDist[$prov] = ($provincesDist[$prov] ?? 0) + (int)$pr['c'];
+        }
+        arsort($provincesDist);
+    } catch (Throwable $geoE) { $provincesDist = []; }
+    ?>
+    <?php if (empty($provincesDist) && empty($citiesDist)): ?>
         <p style="color:#94a3b8">داده جغرافیایی ثبت نشده است.</p>
     <?php else: ?>
+    <?php if (!empty($provincesDist)): ?>
     <table class="dt">
-        <thead><tr><th>شهر / استان</th><th>بازدیدکننده</th><th style="width:220px">سهم</th></tr></thead>
+        <thead><tr><th>استان</th><th>بازدیدکننده</th><th style="width:220px">سهم</th></tr></thead>
+        <tbody>
+        <?php $maxProvR = max($provincesDist) ?: 1; ?>
+        <?php foreach (array_slice($provincesDist, 0, 16, true) as $provName => $count): ?>
+            <tr>
+                <td><?= e($provName) ?></td>
+                <td class="n"><?= e(en_to_fa_digits((string)$count)) ?></td>
+                <td><div class="bar-cell"><i style="width:<?= max(2, round($count / $maxProvR * 100)) ?>%"></i></div></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php endif; ?>
+    <?php if (!empty($citiesDist)): ?>
+    <h2 class="sec">🏙️ شهرها</h2>
+    <table class="dt">
+        <thead><tr><th>شهر</th><th>بازدیدکننده</th><th style="width:220px">سهم</th></tr></thead>
         <tbody>
         <?php $maxCity = max($citiesDist) ?: 1; ?>
-        <?php foreach (array_slice($citiesDist, 0, 18, true) as $city => $count): ?>
+        <?php foreach (array_slice($citiesDist, 0, 14, true) as $city => $count): ?>
             <tr>
                 <td><?= e($city) ?></td>
                 <td class="n"><?= e(en_to_fa_digits((string)$count)) ?></td>
@@ -458,6 +496,7 @@ $recentDays = array_slice(array_reverse($timeline), 0, 35);
         <?php endforeach; ?>
         </tbody>
     </table>
+    <?php endif; ?>
     <?php endif; ?>
 
     <!-- 📄 صفحات پربازدید -->

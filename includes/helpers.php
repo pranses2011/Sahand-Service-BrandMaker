@@ -240,6 +240,23 @@ function jdate(string $gregorian, bool $withTime = false): string
 }
 
 /**
+ * 🗓️ تاریخ کوتاه شمسی برای برچسب نمودارها — «۱۴ مرداد»
+ * 🆕 v2.31
+ */
+function jdate_short(string $gregorian): string
+{
+    if (empty($gregorian) || $gregorian === '0000-00-00') {
+        return '—';
+    }
+    $ts = strtotime($gregorian);
+    if ($ts === false) {
+        return '—';
+    }
+    [, $jm, $jd] = gregorian_to_jalali((int)date('Y', $ts), (int)date('n', $ts), (int)date('j', $ts));
+    return en_to_fa_digits(sprintf('%02d', $jd)) . ' ' . jdate_month_name($jm);
+}
+
+/**
  * 🗓️ تبدیل تاریخ شمسی به میلادی (برای ورودی فرم‌ها)
  */
 function jalali_to_gregorian_date(string $jalali): string
