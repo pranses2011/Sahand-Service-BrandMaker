@@ -52,11 +52,18 @@ function api_brand_template(int $brandId, string $pageType): void
             }
         }
 
-        /* ③ قالب از تم برند — برای صفحه‌های درباره، تم عمومی «about» هم امتحان می‌شود */
+        /* ③ قالب از تم برند — برای صفحه‌های درباره، تم عمومی «about» هم امتحان می‌شود
+           🆕 v2.28: برندهای بدون تم اختصاصی (theme_id خالی) به «تم پیش‌فرض»
+           (is_default=1) برمی‌گردند — ریشه حالت «عمومی» در شکایت «تغییر تم
+           تکی/عمومی اعمال نمی‌شود»: make_default فقط برندهای جدید را پوشش می‌داد. */
         if ($layout === null) {
-            $theme = $db->fetch('SELECT theme_id FROM brands WHERE id = ?', [$brandId]);
-            if ($theme && $theme['theme_id']) {
-                $config = json_decode((string)$db->fetchValue('SELECT config_json FROM themes WHERE id = ?', [$theme['theme_id']]), true) ?: [];
+            $themeRow = $db->fetch('SELECT theme_id FROM brands WHERE id = ?', [$brandId]);
+            $themeId = $themeRow ? (int)($themeRow['theme_id'] ?: 0) : 0;
+            if ($themeId <= 0) {
+                $themeId = (int)$db->fetchValue('SELECT id FROM themes WHERE is_default = 1 ORDER BY id LIMIT 1');
+            }
+            if ($themeId > 0) {
+                $config = json_decode((string)$db->fetchValue('SELECT config_json FROM themes WHERE id = ?', [$themeId]), true) ?: [];
                 $tplId = $config[$pageType] ?? null;
                 if (!$tplId && str_starts_with($pageType, 'about-')) {
                     $tplId = $config['about'] ?? null;

@@ -427,7 +427,10 @@ function renderPreview() {
 function getItem(path) { let node = { children: menuData }; for (const i of path) node = node.children[i]; return node; }
 function updItem(i, path, key, value) { const item = getItem([...path, i]); item[key] = value; sync(); renderMenu(); }
 function addChild(i, path) { const item = getItem([...path, i]); item.children = item.children || []; item.children.push({ id: counter++, title: 'زیرمنو جدید', is_active: 1, children: [] }); syncAndRender(); }
-function removeItem(i, path) { if (!confirm('این آیتم (و زیرمنوهایش) حذف شود؟')) return; const parent = getItem(path); parent.children.splice(i, 1); syncAndRender(); }
+function removeItem(i, path) {
+    sahandConfirm({ title: 'حذف آیتم منو', message: 'این آیتم (و زیرمنوهایش) حذف شود؟', type: 'danger', confirmText: 'بله، حذف کن' })
+        .then(ok => { if (!ok) { return; } const parent = getItem(path); parent.children.splice(i, 1); syncAndRender(); });
+}
 function addMenuItem() { menuData.push({ id: counter++, title: 'آیتم جدید', is_active: 1, children: [] }); syncAndRender(); }
 
 /* ⚡ افزودن همه صفحات استاندارد غایب از منو */
@@ -481,9 +484,8 @@ function closeIconPicker() {
 function copyMenu() {
     const src = document.getElementById('copy-source');
     const label = src.options[src.selectedIndex].textContent.replace('📋 از ', '');
-    if (!confirm(`منوی فعلی کامل حذف و با منوی «${label}» جایگزین شود؟`)) return;
-    document.getElementById('copy-source-hidden').value = src.value;
-    document.getElementById('copy-menu-form').submit();
+    sahandConfirm({ title: 'کپی منو', message: `منوی فعلی کامل حذف و با منوی «${label}» جایگزین شود؟`, type: 'question' })
+        .then(ok => { if (!ok) { return; } document.getElementById('copy-source-hidden').value = src.value; document.getElementById('copy-menu-form').submit(); });
 }
 
 function moveItem(srcPath, destPath) {

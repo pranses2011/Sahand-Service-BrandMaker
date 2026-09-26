@@ -223,7 +223,7 @@ foreach ($keys as $k) {
                     <td><?= en_to_fa_digits((string)(int)$k['requests_count']) ?></td>
                     <td style="font-size:11.5px"><?= $k['last_used_at'] ? jdate((string)$k['last_used_at'], true) : '— هرگز' ?></td>
                     <td>
-                        <form method="post" onsubmit="return confirm('این کلید برای همیشه حذف شود؟ سایتی که از آن استفاده می‌کند قطع می‌شود.')">
+                        <form method="post" onsubmit="return sahandSubmitConfirm(this, 'این کلید برای همیشه حذف شود؟ سایتی که از آن استفاده می‌کند قطع می‌شود.', 'danger')">
                             <?= Auth::csrfField() ?>
                             <input type="hidden" name="action" value="delete_key">
                             <input type="hidden" name="key_id" value="<?= (int)$k['id'] ?>">

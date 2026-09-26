@@ -86,7 +86,7 @@
 .bb-wrap .tb-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); flex-wrap: wrap; gap: 6px; }
 
 /* هیرو */
-.bb-wrap .hero-blk { background: linear-gradient(135deg, var(--p), var(--s)); color: #fff; text-align: center; }
+.bb-wrap .hero-blk { background: var(--hero-bg, linear-gradient(135deg, var(--p), var(--s))); color: var(--hero-text, #fff); text-align: center; }
 .bb-wrap .hero-blk.split-hero { text-align: right; }
 .bb-wrap .hero-title { font-size: 21px; font-weight: 800; margin-bottom: 8px; font-family: var(--font-heading, inherit); }
 .bb-wrap .hero-sub { font-size: 13px; opacity: .88; margin-bottom: 18px; }

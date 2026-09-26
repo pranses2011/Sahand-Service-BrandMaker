@@ -122,6 +122,16 @@ $router->add('GET', 'brand/{brandId}/menu/{location}', function ($p) {
     api_brand_menu((int)$p['brandId'], $p['location']);
 });
 
+// 🧩 v2.28 — چیدمان قالب/تم صفحه برند (زنجیره ۴ لایه: چیدمان صفحه ← قالب صفحه ← تم برند ← پیش‌فرض)
+// 🚨 ریشه قطعی «تغییر تم در سایت‌ساز روی سایت برند اعمال نمی‌شود (تکی/عمومی)»:
+// فایل endpoints/template.php از v2.27 وجود داشت اما مسیرش هرگز در روتر ثبت
+// نشده بود → fetchFromAPI('brand/X/template/home') همیشه ۴۰۴ «مسیر API یافت
+// نشد» می‌گرفت → سایت برند هرگز چیدمان تم را نمی‌دید و ساختار ثابت می‌آمد.
+$router->add('GET', 'brand/{brandId}/template/{pageType}', function ($p) {
+    require __DIR__ . '/endpoints/template.php';
+    api_brand_template((int)$p['brandId'], $p['pageType']);
+});
+
 // 📨 ثبت درخواست خدمات (از فرم سایت برند) — عمومی با API Key بدنه
 $router->add('POST', 'brand/{brandId}/request', function ($p) {
     require __DIR__ . '/endpoints/request.php';

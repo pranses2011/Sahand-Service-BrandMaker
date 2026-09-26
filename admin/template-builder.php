@@ -914,11 +914,20 @@ try {
 
 <script>
 /* 🎭 موتور قالب‌ساز v3.1 — طراحی زنده + ستون‌بندی تودرتو + بلوک‌های ترکیبی */
-const BLOCK_META = <?= json_encode(array_map(function ($cats) {
-    $flat = [];
-    foreach ($cats as $key => $meta) { $flat[$key] = ['label' => $meta[1], 'defaults' => $meta[2]]; }
-    return $flat;
-}, $blockLibrary), JSON_UNESCAPED_UNICODE) ?>;
+<?php
+/* 🚨 v2.28 — ریشه قطعی «تنظیمات عناصر ناقص»: array_map با یک آرایه،
+   کلید دسته‌ها را حفظ می‌کند و خروجی «تودرتو» بود: {'هدر':{...},'محتوا':{...}}
+   → BLOCK_META['checklist'] همیشه undefined → هر بلوکی «ترکیبی» فرض می‌شد →
+   هیچ فیلد ویرایشی (متن/رنگ/تصویر/آیتم) رندر نمی‌شد و پیش‌فرض‌ها هم اعمال
+   نمی‌شد. اکنون ساختار واقعاً تخت ساخته می‌شود. */
+$flatBlockMeta = [];
+foreach ($blockLibrary as $blockCats) {
+    foreach ($blockCats as $blockKey => $blockMetaRow) {
+        $flatBlockMeta[$blockKey] = ['label' => $blockMetaRow[1], 'defaults' => $blockMetaRow[2] ?? []];
+    }
+}
+?>
+const BLOCK_META = <?= json_encode($flatBlockMeta, JSON_UNESCAPED_UNICODE) ?>;
 
 /* ==================================================
  * 🎭 v2.26 — ظواهر متعدد برای هر عنصر
@@ -2528,12 +2537,11 @@ function removeBlock(path) {
     renderProps();
 }
 function clearLayout() {
-    if (!layout.length || confirm('همه بلوک‌های بوم پاک شوند؟')) {
-        layout = [];
-        selected = '';
-        syncAndRender();
-        renderProps();
-    }
+    const doClear = () => { layout = []; selected = ''; syncAndRender(); renderProps(); };
+    if (!layout.length) { doClear(); return; }
+    /* 🌉 کادر زیبا (v2.28) */
+    sahandConfirm({ title: 'خالی‌کردن بوم', message: 'همه بلوک‌های بوم پاک شوند؟', type: 'warning', confirmText: 'بله، پاک کن' })
+        .then(ok => { if (ok) { doClear(); } });
 }
 function syncAndRender() {
     document.getElementById('layout-json').value = JSON.stringify(fullLayout());
@@ -2639,11 +2647,9 @@ async function uiuxDesign() {
         };
         if (!layout.length) {
             applyLayout();
-        } else if (window.sahandConfirm) {
+        } else {
             const ok = await sahandConfirm({ title: 'جایگزینی چیدمان', message: 'چیدمان حرفه‌ای «' + (d.page_name_fa || '') + '» جایگزین چیدمان فعلی شود؟', type: 'question', confirmText: 'بله، جایگزین کن', confirmIcon: '🪄' });
             if (ok) { applyLayout(); }
-        } else if (window.confirm('چیدمان حرفه‌ای «' + (d.page_name_fa || '') + '» جایگزین چیدمان فعلی شود؟')) {
-            applyLayout();
         }
         let html = '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px">' +
             uiuxScoreBadge(d.ux_score) +
@@ -2883,7 +2889,9 @@ async function saveCurrentElement() {
 }
 
 async function deletePersonalElement(id, btn) {
-    if (!confirm('این عنصر شخصی حذف شود؟')) { return; }
+    /* 🌉 کادر زیبا (v2.28) */
+    const okDel = await sahandConfirm({ title: 'حذف عنصر شخصی', message: 'این عنصر شخصی حذف شود؟', type: 'danger', confirmText: 'بله، حذف کن' });
+    if (!okDel) { return; }
     try {
         const fd = new FormData();
         fd.append('action', 'delete_personal_element');

@@ -149,7 +149,7 @@ $trackerBoxStyle = $trackerHealthy
         <?= en_to_fa_digits((string)$trackerToday) ?> بازدید امروز،
         <?= en_to_fa_digits((string)$trackerTotal) ?> بازدید کل ثبت‌شده
         <?php if ($trackerLast): ?>
-            — آخرین بازدید: <?= e(fa_num((string)$trackerLast)) ?>
+            — آخرین بازدید: <?= e(en_to_fa_digits((string)$trackerLast)) ?>
         <?php endif; ?>
     <?php else: ?>
         <b>🟡 هنوز هیچ بازدیدی ثبت نشده است</b> — ردیاب داخلی (js/tracker.js) از نسخه ۲.۲۵ به بعد

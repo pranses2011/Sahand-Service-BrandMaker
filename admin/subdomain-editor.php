@@ -90,7 +90,7 @@ $csrf = e($_SESSION['csrf_token'] ?? '');
         <h3>✏️ ویرایش نام زیردامنه — <?= e($brand['name_fa']) ?></h3>
         <a href="deploy.php?brand_id=<?= $brandId ?>" class="btn btn-outline">← بازگشت</a>
     </div>
-    <form method="post" onsubmit="return validateBeforeSubmit()">
+    <form method="post" onsubmit="return subdomainSubmitCheck(this)">
         <?= Auth::csrfField() ?>
         <input type="hidden" name="action" value="save_subdomain">
         <div class="card-body">
@@ -177,9 +177,10 @@ function pick(name) {
     liveValidate();
 }
 
-function validateBeforeSubmit() {
-    if (!isValidNow) { alert('❌ نام زیردامنه معتبر نیست — ابتدا خطا را برطرف کنید.'); return false; }
-    return confirm('نام زیردامنه اعمال شود؟');
+function subdomainSubmitCheck(form) {
+    if (!isValidNow) { sahandAlert({ title: 'نام نامعتبر', message: '❌ نام زیردامنه معتبر نیست — ابتدا خطا را برطرف کنید.', type: 'danger' }); return false; }
+    /* 🌉 کادر زیبا (v2.28) — تأیید async؛ ارسال واقعی پس از پاسخ کاربر */
+    return sahandSubmitConfirm(form, 'نام زیردامنه اعمال شود؟', 'question');
 }
 </script>
 

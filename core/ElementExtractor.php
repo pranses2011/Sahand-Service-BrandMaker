@@ -375,8 +375,14 @@ class ElementExtractor
             }
         }
 
+        /* 🆕 v2.28 — متغیرهای CSS سفارشی (:root / html / body):
+           استایل‌های var(--x) بدون تعریف متغیر در زمینه ایزوله بی‌اثرند
+           (رنگ/فونت گم می‌شود — ریشه «عنصر مثل سایت مبدا نیست»). تعریف‌های
+           :root به ابتدای استایل هر عنصر افزوده می‌شوند تا var() حل شود. */
+        $rootVars = $this->rootVarsCss($rules);
+
         /* ② پالایش قوانین — فقط بخش‌هایی که زیردرخت را لمس می‌کنند */
-        $out = '';
+        $out = $rootVars;
         $scanned = 0;
         foreach ($rules as [$sel, $decl]) {
             if (++$scanned > 9000 || strlen($out) > 54000) {
@@ -396,17 +402,59 @@ class ElementExtractor
     }
 
     /**
+     * 🎨 v2.28 — تعریف متغیرهای CSS از :root / html / body
+     * قوانینی که انتخابگرشان فقط :root (یا html/body با شبه‌کلاس ساده) است
+     * و declaration آن‌ها «--name: value» دارد جمع می‌شوند تا در زمینه ایزوله
+     * (پیش‌نمایش iframe / بوم / سایت برند) var(--x) درست حل شود.
+     */
+    private function rootVarsCss(array $rules): string
+    {
+        $vars = '';
+        $scanned = 0;
+        foreach ($rules as [$sel, $decl]) {
+            if (++$scanned > 4000 || strlen($vars) > 8000) {
+                break;
+            }
+            if (strpos($decl, '--') === false) {
+                continue;
+            }
+            /* فقط انتخابگرهای ریشه‌ای — بدون نوادگان (وگرنه متغیر محلیِ بخش دیگری قاطی می‌شود) */
+            $isRoot = false;
+            foreach (array_map('trim', explode(',', $sel)) as $part) {
+                if ($part === ':root') { $isRoot = true; break; }
+                $stripped = trim((string)preg_replace('/::?[a-zA-Z-]+(\([^)]*\))?/', '', $part)); /* حذف شبه‌کلاس ساده */
+                /* ':root' پس از حذف شبه‌کلاس تهی می‌شود؛ html/body حتی با شبه‌کلاس */
+                if ($stripped === '' || $stripped === 'html' || $stripped === 'body') { $isRoot = true; break; }
+            }
+            if (!$isRoot) {
+                continue;
+            }
+            /* فقط declaration های متغیر --name: value را نگه دار */
+            if (preg_match_all('/(--[\w-]+\s*:\s*[^;{}]+)/', $decl, $vm)) {
+                foreach ($vm[1] as $v) {
+                    $vars .= trim($v) . ';';
+                }
+            }
+        }
+        return $vars !== '' ? ':root{' . $vars . '}' : '';
+    }
+
+    /**
      * 🔎 آیا این بخش انتخابگر، زیردرخت را لمس می‌کند؟
-     * راست‌ترین ترکیب (بعد از آخرین جداکننده) بررسی می‌شود:
+     * راست‌ترین ترکیب (فاعل انتخابگر — آخرین توکن) بررسی می‌شود:
      * .class / #id / tag یا * باید با امضای زیردرخت تطبیق کند.
+     * 🚨 v2.28 — قبلاً regex آخرین توکن را «حذف» می‌کرد و باقی‌مانده
+     * (بخش اجداد!) بررسی می‌شد: «.price-card .badge» برای عنصرِ badge
+     * مستخرج → بررسی «.price-card» → عدم تطابق → قانون لازم حذف می‌شد!
      */
     private function partTouchesSubtree(string $part, array $classes, array $ids, array $tags): bool
     {
-        /* راست‌ترین ترکیب: بعد از آخرین فاصله/>/+/~ */
-        $rightmost = trim(preg_replace('#[\s>+~][^\s>+~]*$#', '', $part) ?? $part);
-        if ($rightmost === '') {
-            $rightmost = trim($part);
+        /* آخرین توکن = فاعل انتخابگر (راست‌ترین ترکیب) */
+        $tokens = preg_split('/[\s>+~]+/', trim($part), -1, PREG_SPLIT_NO_EMPTY);
+        if (!$tokens) {
+            return false;
         }
+        $rightmost = (string)end($tokens);
         if ($rightmost === '' || $rightmost === '*') {
             return $rightmost === '*';
         }
@@ -458,7 +506,7 @@ class ElementExtractor
             if ($child instanceof DOMElement) {
                 $cur = trim((string)$child->getAttribute('style'));
                 /* semicolon تکراری نگذار (flat ممکن است خودش ; داشته باشد) */
-                $flatNorm = rtrim($flat, "; 	");
+                $flatNorm = rtrim($flat, ";     ");
                 $child->setAttribute('style', $flatNorm . ($cur !== '' ? ';' . $cur : ''));
                 break;
             }

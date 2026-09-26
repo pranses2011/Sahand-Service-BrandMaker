@@ -179,3 +179,72 @@ if (!function_exists('brand_header_vars_css')) {
             . '--header-hover-bg:' . $hover . ';';
     }
 }
+
+if (!function_exists('brand_hero_vars_css')) {
+    /**
+     * 🦸 رنگ هیرو از رنگ‌های تاکیدی لوگو (v2.28)
+     * ==========================================================
+     * اصلاح درخواست کاربر: در v2.26 «هدر» با رنگ تاکیدی لوگو هماهنگ شده
+     * بود که اشتباه از فهم درخواست بود — منظور «هیرو» بود. هدر به حالت
+     * خنثی (زمینه تم + خط زیرین) بازگشت و این تابع گرادیانت هیرو را از
+     * --color-accent (رنگ تاکیدی استخراج‌شده از لوگو برند) می‌سازد.
+     *
+     * خروجی: '--hero-bg:linear-gradient(...);--hero-text:#fff;'
+     * یا رشته خالی اگر پالت خودش --hero-bg تعریف کرده باشد (تقدم پالت).
+     *
+     * منطق (آینه brand_header_vars_css):
+     *  ① دو سر گرادیانت از مشتقات accent (تیره‌تر ← خود accent)
+     *  ② متن سفید یا تیره — هر کدام کنتراست بیشتری روی دو سر بدهد
+     *  ③ تضمین WCAG ≥ ۴.۵:۱ با شیفت تدریجی گرادیانت (تا ۲۵ گام ۳٪)
+     *
+     * @param array $palette پالت تم (light یا dark) — کلید '--color-accent'
+     * @param bool  $dark    تم تاریک؟
+     */
+    function brand_hero_vars_css(array $palette, bool $dark): string
+    {
+        /* 🎨 رنگ تاکیدی از پالت (اگر نبود: آبی برند در روشن / آبی روشن در تیره) */
+        $accent = strtolower(ltrim(trim((string)($palette['--color-accent'] ?? '')), '#'));
+        if (preg_match('/^[0-9a-f]{3}$/', $accent)) {
+            $accent = $accent[0] . $accent[0] . $accent[1] . $accent[1] . $accent[2] . $accent[2];
+        }
+        if (!preg_match('/^[0-9a-f]{6}$/', $accent)) {
+            $accent = $dark ? '3b82f6' : '1e40af';
+        }
+        /* اگر پالت از قبل --hero-bg دارد، همان معتبر است */
+        if (trim((string)($palette['--hero-bg'] ?? '')) !== '') {
+            return '';
+        }
+
+        /* ① دو سر گرادیانت — تیره‌تر در ابتدای خط (RTL) */
+        $end1 = brand_shift_hex($accent, $dark ? -26 : -22);
+        $end2 = brand_shift_hex($accent, $dark ? -12 : 0);
+
+        /* ② انتخاب متن با بیشترین کمینه کنتراست */
+        $pickText = static function (string $e1, string $e2): string {
+            $whiteMin = min(brand_contrast_ratio('ffffff', $e1), brand_contrast_ratio('ffffff', $e2));
+            $darkMin  = min(brand_contrast_ratio('0f172a', $e1), brand_contrast_ratio('0f172a', $e2));
+            return $whiteMin >= $darkMin ? 'ffffff' : '0f172a';
+        };
+        $text = $pickText($end1, $end2);
+
+        /* ③ تضمین WCAG — شیفت هم‌جهت گرادیانت تا متن خوانا شود */
+        $dir = ($text === 'ffffff') ? -3 : 3;
+        for ($i = 0; $i < 25; $i++) {
+            $minC = min(brand_contrast_ratio($text, $end1), brand_contrast_ratio($text, $end2));
+            if ($minC >= 4.5) {
+                break;
+            }
+            $end1 = brand_shift_hex($end1, $dir);
+            $end2 = brand_shift_hex($end2, $dir);
+        }
+
+        /* ④ نشان‌های هیرو — شیشه‌ای هم‌خانواده متن */
+        $badge = ($text === 'ffffff')
+            ? 'rgba(255,255,255,.16)'
+            : 'rgba(15,23,42,.10)';
+
+        return '--hero-bg:linear-gradient(135deg,#' . $end1 . ' 0%,#' . $end2 . ' 100%);'
+            . '--hero-text:#' . $text . ';'
+            . '--hero-badge:' . $badge . ';';
+    }
+}

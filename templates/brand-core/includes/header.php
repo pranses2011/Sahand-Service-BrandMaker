@@ -83,17 +83,19 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
         return $lines !== '' ? $selector . '{' . $lines . '}' : '';
     };
     $inlinePalette = $cssVars($liveLight, ':root') . $cssVars($liveDark, 'html[data-theme="dark"]');
-    /* 🎨 v2.26 — رنگ هیدر از رنگ تاکیدی لوگو: اگر پالت متغیرهای هیدر را
-       نداشته باشد (همه پالت‌های موجود)، از --color-accent (رنگ تاکیدی
-       استخراج‌شده از لوگو) با تضمین کنتراست WCAG محاسبه می‌شود.
-       زنده و بدون استقرار مجدد: تغییر لوگو/پالت ← هیدر جدید بعد از کش. */
-    $hdrLight = brand_header_vars_css($liveLight ?: ['--color-accent' => ''], false);
-    $hdrDark  = brand_header_vars_css($liveDark ?: ['--color-accent' => ''], true);
-    if ($hdrLight !== '') {
-        $inlinePalette .= ':root{' . $hdrLight . '}';
+    /* 🦸 v2.28 — رنگ هیرو از رنگ‌های تاکیدی لوگو (اصلاح درخواست کاربر):
+       در v2.26 اشتباهاً «هدر» با رنگ تاکیدی لوگو هماهنگ شده بود؛ منظور
+       کاربر «هیرو» بود. هدر به حالت خنثی بازگشت (style.css) و گرادیانت
+       هیرو از --color-accent (رنگ تاکیدی استخراج‌شده از لوگو) با تضمین
+       کنتراست WCAG ≥ ۴.۵:۱ محاسبه می‌شود.
+       زنده و بدون استقرار مجدد: تغییر لوگو/پالت ← هیروی جدید بعد از کش. */
+    $heroLight = function_exists('brand_hero_vars_css') ? brand_hero_vars_css($liveLight ?: [], false) : '';
+    $heroDark  = function_exists('brand_hero_vars_css') ? brand_hero_vars_css($liveDark ?: [], true) : '';
+    if ($heroLight !== '') {
+        $inlinePalette .= ':root{' . $heroLight . '}';
     }
-    if ($hdrDark !== '') {
-        $inlinePalette .= 'html[data-theme="dark"]{' . $hdrDark . '}';
+    if ($heroDark !== '') {
+        $inlinePalette .= 'html[data-theme="dark"]{' . $heroDark . '}';
     }
     if ($inlinePalette !== ''): ?>
     <style id="brand-palette-live"><?= $inlinePalette ?></style>

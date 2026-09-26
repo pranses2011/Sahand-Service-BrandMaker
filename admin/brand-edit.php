@@ -654,7 +654,7 @@ foreach ($pages as $p) {
                 <div class="tools" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                     <?php if ($dupDeviceCount > 0): ?>
                         <form method="post" id="dedupe-form"
-                              onsubmit="return confirm('🧹 <?= e($brand['name_fa']) ?>: <?= $dupDeviceCount ?> دستگاه تکراری شناسایی شد.\n\nبرای هر دستگاه تکراری، بهترین رکورد (با توضیح/برجستگی) نگه داشته می‌شود و بقیه حذف.\nکدهای خطای تکراری ادغام و کدهای غیرتکراری دست‌نخورده می‌مانند.\n\nادامه می‌دهید؟')">
+                              onsubmit="return sahandSubmitConfirm(this, '🧹 <?= e($brand['name_fa']) ?>: <?= $dupDeviceCount ?> دستگاه تکراری شناسایی شد.\n\nبرای هر دستگاه تکراری، بهترین رکورد (با توضیح/برجستگی) نگه داشته می‌شود و بقیه حذف.\nکدهای خطای تکراری ادغام و کدهای غیرتکراری دست‌نخورده می‌مانند.\n\nادامه می‌دهید؟', 'warning')">
                             <?= Auth::csrfField() ?>
                             <input type="hidden" name="action" value="dedupe_devices">
                             <button type="submit" class="btn btn-warning btn-sm">🧹 حذف دستگاه‌های تکراری (<?= en_to_fa_digits((string)$dupDeviceCount) ?>)</button>
@@ -691,7 +691,7 @@ foreach ($pages as $p) {
                                 <td><?= $device['description'] ? '<span class="badge badge-success">✅ تولید شد</span>' : '<span class="badge badge-secondary">—</span>' ?></td>
                                 <td>
                                     <form method="post" style="display:inline"
-                                          onsubmit="return confirm('دستگاه «<?= e($device['name_fa']) ?>» از لیست این برند حذف شود؟\nکدهای خطای ثبت‌شده حفظ می‌شوند و با افزودن مجدد دستگاه، دوباره فعال می‌شوند.')">
+                                          onsubmit="return sahandSubmitConfirm(this, 'دستگاه «<?= e($device['name_fa']) ?>» از لیست این برند حذف شود؟\nکدهای خطای ثبت‌شده حفظ می‌شوند و با افزودن مجدد دستگاه، دوباره فعال می‌شوند.', 'danger')">
                                         <?= Auth::csrfField() ?>
                                         <input type="hidden" name="action" value="remove_device">
                                         <input type="hidden" name="device_id" value="<?= (int)$device['id'] ?>">
@@ -1308,12 +1308,8 @@ foreach ($pages as $p) {
             });
         };
 
-        if (window.sahandConfirm) {
-            sahandConfirm({ title: 'طراحی با UI/UX Pro', message: confirmMsg, type: 'question', confirmText: 'بله، طراحی کن', confirmIcon: '✨' })
-                .then(function (ok) { if (ok) { doDesign(); } });
-        } else if (window.confirm(confirmMsg)) {
-            doDesign();
-        }
+        sahandConfirm({ title: 'طراحی با UI/UX Pro', message: confirmMsg, type: 'question', confirmText: 'بله، طراحی کن', confirmIcon: '✨' })
+            .then(function (ok) { if (ok) { doDesign(); } });
     };
 })();
 </script>

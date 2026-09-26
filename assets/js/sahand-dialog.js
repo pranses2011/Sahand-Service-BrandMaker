@@ -378,6 +378,41 @@
     global.sahandToast = toast;
 
     /* ═══════════════════════════════════════════════════════════
+     * 🌉 v2.28 — پل‌های هم‌ساز برای confirm فرم‌ها:
+     * confirm() پیش‌فرض مرورگر مقدار بازگشتی همزمان لازم دارد و
+     * جایگزینی شفاف ناممکن است؛ این دو پل الگوی استاندارد پروژه‌اند:
+     *
+     * 📌 داخل onsubmit فرم:
+     *   <form onsubmit="return sahandSubmitConfirm(this, 'پیام', 'question')">
+     *   (sahandSubmitConfirm همیشه false برمی‌گرداند تا ارسال فوری متوقف
+     *    شود؛ پس از تأیید کاربر، فرم با form.submit() ارسال می‌شود که
+     *    onsubmit را دور می‌زند و حلقه بی‌نهایت نمی‌سازد)
+     *
+     * 📌 روی دکمه submit با formmethod/formaction:
+     *   <button onclick="return sahandBtnConfirm(this, 'پیام')">
+     *   (formmethod/formaction دکمه قبل از submit روی فرم اعمال می‌شود)
+     * ═══════════════════════════════════════════════════════════ */
+    global.sahandSubmitConfirm = function (form, message, type) {
+        if (!form) { return true; }
+        sahandConfirm({ message: String(message || 'ادامه می‌دهید؟'), type: type || 'question' })
+            .then(function (ok) { if (ok) { form.submit(); } });
+        return false; /* ارسال فوری متوقف — ارسال واقعی پس از تأیید */
+    };
+    global.sahandBtnConfirm = function (btn, message, type) {
+        if (!btn || !btn.form) { return true; }
+        sahandConfirm({ message: String(message || 'ادامه می‌دهید؟'), type: type || 'question' })
+            .then(function (ok) {
+                if (!ok) { return; }
+                var fm = btn.getAttribute('formmethod');
+                if (fm) { btn.form.method = fm; }
+                var fa = btn.getAttribute('formaction');
+                if (fa) { btn.form.action = fa; }
+                btn.form.submit(); /* onsubmit فرم دور می‌زند — تأیید همین‌جا صورت گرفته */
+            });
+        return false;
+    };
+
+    /* ═══════════════════════════════════════════════════════════
      * 📜 قانون کادر زیبا (قانون دائمی پروژه):
      * هر alert() ساده در تمام پنل مدیریت، خودکار به کادر زیبای
      * SahandDialog تبدیل می‌شود — دیگر هرگز کادر پیش‌فرض زشت

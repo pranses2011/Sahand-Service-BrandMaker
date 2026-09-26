@@ -107,7 +107,7 @@ foreach ($deployedBrands as $b) { if ((int)$b['id'] === $brandId) { $selectedBra
                 <?php endforeach; ?>
             </select>
             <?php if ($selectedBrand): ?>
-            <button type="submit" class="btn btn-primary" formmethod="post" onclick="if(!confirm('بکاپ فوری از «<?= e(addslashes((string)$selectedBrand['name_fa'])) ?>» گرفته شود؟'))return false">
+            <button type="submit" class="btn btn-primary" formmethod="post" onclick="return sahandBtnConfirm(this, 'بکاپ فوری از «<?= e(addslashes((string)$selectedBrand['name_fa'])) ?>» گرفته شود؟', 'question')">
                 <?= Auth::csrfField() ?><input type="hidden" name="action" value="create_backup"><input type="hidden" name="brand_id" value="<?= $brandId ?>">
                 💾 بکاپ‌گیری فوری
             </button>
@@ -141,13 +141,13 @@ foreach ($deployedBrands as $b) { if ((int)$b['id'] === $brandId) { $selectedBra
                 <td><?= BackupManager::typeLabel((string)$b['backup_type']) ?></td>
                 <td style="display:flex;gap:6px">
                     <a class="btn btn-outline btn-sm" href="backups.php?download=<?= (int)$b['id'] ?>" title="دانلود">⬇️</a>
-                    <form method="post" style="display:inline" onsubmit="return confirm('🔄 بازیابی از این بکاپ؟\n⚠️ وضعیت فعلی سایت جایگزین می‌شود (ابتدا بکاپ ایمنی گرفته می‌شود)')">
+                    <form method="post" style="display:inline" onsubmit="return sahandSubmitConfirm(this, '🔄 بازیابی از این بکاپ؟\n⚠️ وضعیت فعلی سایت جایگزین می‌شود (ابتدا بکاپ ایمنی گرفته می‌شود)', 'warning')">
                         <?= Auth::csrfField() ?>
                         <input type="hidden" name="action" value="restore_backup">
                         <input type="hidden" name="backup_id" value="<?= (int)$b['id'] ?>">
                         <button type="submit" class="btn btn-warning btn-sm" title="بازیابی">🔄</button>
                     </form>
-                    <form method="post" style="display:inline" onsubmit="return confirm('🗑️ این بکاپ حذف شود؟')">
+                    <form method="post" style="display:inline" onsubmit="return sahandSubmitConfirm(this, '🗑️ این بکاپ حذف شود؟', 'danger')">
                         <?= Auth::csrfField() ?>
                         <input type="hidden" name="action" value="delete_backup">
                         <input type="hidden" name="backup_id" value="<?= (int)$b['id'] ?>">
