@@ -36,8 +36,9 @@ if (!function_exists('pvItems')) {
                         'icon' => $isList ? (string)($it[0] ?? '') : (string)($it['icon'] ?? ''),
                         'text' => $isList ? (string)($it[1] ?? '') : (string)($it['text'] ?? ''),
                         'desc' => $isList ? (string)($it[2] ?? '') : (string)($it['desc'] ?? ''),
-                        /* 🖱 v2.29 — لینک آیتم حفظ می‌شود (کلیک‌پذیری) */
+                        /* 🖱 v2.29 — لینک + 🎨 v2.31 رنگ آیتم */
                         'link' => $isList ? (string)($it[3] ?? '') : (string)($it['link'] ?? ''),
+                        'color' => $isList ? (string)($it[4] ?? '') : (string)($it['color'] ?? ''),
                     ];
                 }
             }
@@ -399,6 +400,17 @@ if (!function_exists('bb_render_block')) {
                 $html = preg_replace('#^<div class="blk ([^>]*)>#', '<div class="blk $1" style="' . $animVars . '">', $html, 1);
             }
         }
+        /* 🔗 v2.31 — لینک دکمه‌های عنصر (btnLink): همه .hero-btn داخل بلوک
+           (درخواست کاربر: «عناصری که داخلشان دکمه هست، بتوان برای آن دکمه لینک تنظیم کرد») */
+        $btnLink = trim((string)($props['btnLink'] ?? ''));
+        if ($btnLink !== '') {
+            $ext = preg_match('#^https?://#i', $btnLink) ? ' target="_blank" rel="noopener"' : '';
+            $html = preg_replace(
+                '#<span class="(hero-btn[^"]*)">([^<]*)</span>#',
+                '<a class="$1" href="' . e($btnLink) . '"' . $ext . ' style="text-decoration:none;display:inline-block">$2</a>',
+                $html
+            );
+        }
         /* 🖱 v2.29 — کلیک‌پذیری: کل عنصر داخل لینک */
         return pv_link_wrap($props, $html);
     }
@@ -453,6 +465,56 @@ if (!function_exists('pv_generic_block')) {
         }
         if ($type === 'divider') {
             return $PV('<div style="text-align:center;font-size:22px;letter-spacing:3px;opacity:.5">' . e($its ? (string)$its[0]['text'] : '〰️〰️〰️') . '</div>');
+        }
+        /* 🆕 v2.31 — progress: نوارهای پیشرفت با رنگ هر آیتم */
+        if ($type === 'progress') {
+            $out = '';
+            $striped = !empty($props['striped']) ? ' pb-stripes' : '';
+            foreach ($its as $it) {
+                $p = max(3, min(100, (int)(preg_replace('/[^0-9]/', '', (string)($it['desc'] ?: $it['icon'])) ?: 80)));
+                $c = preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($it['color'] ?? '')) ? (string)$it['color']
+                    : (preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($props['barColor'] ?? '')) ? (string)$props['barColor'] : '#1e40af');
+                $out .= '<div class="pbar"><span>' . e($it['text']) . '</span><div class="track"><div class="fill' . $striped . '" style="width:' . $p . '%;background:' . e($c) . '"></div></div></div>';
+            }
+            return $PV($head . $out);
+        }
+        /* 🆕 v2.31 — wheels: گردونه‌های درصدی */
+        if ($type === 'wheels') {
+            $out = '';
+            $n = max(2, min(4, count($its) ?: 3));
+            $faDig = static fn($x) => strtr((string)$x, ['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹']);
+            foreach ($its as $it) {
+                $num = preg_replace('/[^0-9]/', '', (string)($it['icon'] ?: $it['desc'])) ?: '80';
+                $deg = (int)round((int)$num / 100 * 360);
+                $c = preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($it['color'] ?? '')) ? (string)$it['color']
+                    : (preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($props['barColor'] ?? '')) ? (string)$props['barColor'] : '#2563eb');
+                $out .= '<div style="text-align:center"><div style="width:92px;height:92px;margin:0 auto;border-radius:50%;background:conic-gradient(' . e($c) . ' ' . $deg . 'deg,#e2e8f0 ' . $deg . 'deg);display:flex;align-items:center;justify-content:center"><div style="width:70px;height:70px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;color:' . e($c) . '">' . e($faDig($num) . '٪') . '</div></div><div class="feat-d" style="margin-top:8px;font-weight:700">' . e($it['text']) . '</div></div>';
+            }
+            return $PV($head . '<div class="cols c' . $n . '" style="gap:16px">' . $out . '</div>');
+        }
+        /* 🆕 v2.31 — gauge: حلقه بزرگ تک‌مقدار */
+        if ($type === 'gauge') {
+            $it = $its[0] ?? ['text' => 'شاخص', 'desc' => '80', 'color' => '#16a34a'];
+            $num = preg_replace('/[^0-9]/', '', (string)($it['desc'] ?: $it['icon'])) ?: '80';
+            $deg = (int)round((int)$num / 100 * 360);
+            $c = preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($it['color'] ?? '')) ? (string)$it['color'] : '#16a34a';
+            $faDig = static fn($x) => strtr((string)$x, ['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹']);
+            return $PV($head . '<div style="display:flex;justify-content:center"><div><div style="width:170px;height:170px;border-radius:50%;background:conic-gradient(' . e($c) . ' ' . $deg . 'deg,#e2e8f0 ' . $deg . 'deg);display:flex;align-items:center;justify-content:center"><div style="width:132px;height:132px;background:#fff;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center"><b style="font-size:34px;color:' . e($c) . '">' . e($faDig($num)) . '</b><span style="font-size:11px;color:#64748b">' . e($it['text']) . '</span></div></div>' . (!empty($props['gaugeText']) ? '<div class="feat-d" style="text-align:center;margin-top:9px">' . e((string)$props['gaugeText']) . '</div>' : '') . '</div></div>');
+        }
+        /* 🆕 v2.31 — buttons: مجموعه دکمه با استایل/رنگ/لینک هر آیتم */
+        if ($type === 'buttons') {
+            $out = '';
+            foreach ($its as $it) {
+                $st = trim((string)($it['desc'] ?? 'primary')) ?: 'primary';
+                $cls = 'hero-btn' . ($st === 'ghost' || $st === 'outline' ? ' ghost' : '');
+                $style = preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($it['color'] ?? '')) ? ' style="background:' . e((string)$it['color']) . '"' : ($st === 'gradient' ? ' style="background:linear-gradient(135deg,#1e40af,#0ea5e9)"' : '');
+                $inner = '<span class="' . $cls . '"' . $style . '>' . ($it['icon'] !== '' ? e($it['icon']) . ' ' : '') . e($it['text'] !== '' ? $it['text'] : 'دکمه') . '</span>';
+                $lk = trim((string)($it['link'] ?? ''));
+                $out .= $lk !== ''
+                    ? '<a href="' . e($lk) . '"' . (preg_match('#^https?://#i', $lk) ? ' target="_blank" rel="noopener"' : '') . ' style="text-decoration:none;display:inline-block">' . $inner . '</a>'
+                    : $inner;
+            }
+            return $PV($head . $sub . '<div class="hero-btns" style="justify-content:flex-start;flex-wrap:wrap;gap:10px">' . $out . '</div>');
         }
         $cols = pvCols($props, 3);
         return $PV($head . '<div class="cols c' . $cols . '">' . implode('', array_map(static fn($it) => pvA($it, '<div class="fake-card">' . ($it['icon'] !== '' ? '<div class="card-ico">' . e($it['icon']) . '</div>' : '') . '<div class="card-t">' . e($it['text']) . '</div>' . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div>'), $its)) . '</div>');
@@ -560,21 +622,37 @@ if (!function_exists('pv_generic_block')) {
             case 'brands-links':
                 $its = pvItems($props, [['🏷️', 'ال‌جی'], ['🏷️', 'سامسونگ'], ['🏷️', 'بوش'], ['🏷️', 'سونی'], ['🏷️', 'اسنوا'], ['🏷️', 'پاکس']]);
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'برندهای مورد خدمت') . '</div><div class="cols c' . max(3, pvCols($props, 6)) . '">' . implode('', array_map(static fn($it) => '<div class="fake-logo-s" title="' . e($it['text']) . '">' . e($it['icon'] ?: '🏷️') . '</div>', $its)) . '</div></div>';
+            case 'hero-form':
             case 'contact-form':
             case 'request-form':
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="blk-title">' . ($title ?: ($block === 'request-form' ? 'فرم درخواست خدمات' : 'فرم تماس')) . '</div><div class="form-grid"><div class="fake-input">نام و نام خانوادگی</div><div class="fake-input">شماره تماس</div><div class="fake-input">شرح مشکل</div><div class="hero-btn full">' . e($props['btnText'] ?? 'ارسال درخواست') . '</div></div></div>';
+                /* 📋 v2.31 — فرم واقعی با فیلدهای قابل تنظیم + مقصد ارسال
+                   (درخواست کاربر: «عنصر فرم درخواست خدمات با فیلدهای کامل باشه و
+                   امکان غیرفعال کردن هر کدام از فیلدها هم باشه» + «تنظیم کنیم که
+                   اطلاعات فرم به کجا ارسال بشه») */
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '>' . bb_real_form($block, $props, $title) . '</div>';
             case 'newsletter-form':
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="blk-title">' . ($title ?: 'عضویت در خبرنامه') . '</div><div class="news-row"><div class="fake-input" style="flex:1">ایمیل شما</div><div class="hero-btn">' . e($props['btnText'] ?? 'عضویت') . '</div></div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '>' . bb_real_form($block, $props, $title) . '</div>';
+            case 'callback-form':
+            case 'quick-contact-form':
+            case 'appointment-form':
+            case 'appointment-compact':
+            case 'survey-form':
+                /* 📋 v2.31 — همه فرم‌های دیگر هم واقعی شدند */
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '>' . bb_real_form($block, $props, $title) . '</div>';
             case 'counter-stats':
             case 'stats':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . ' stats-blk">' . pvStatStrip($props) . '</div>';
             case 'progress-bars':
             case 'skill-bars':
-                /* 🎨 v2.29 — رنگ نوارها از تنظیمات عنصر (barColor) */
+                /* 🎨 v2.29 + v2.31 — رنگ هر نوار از آیتم، بعد barColor، بعد پیش‌فرض */
                 $its = pvItems($props, [['', 'سرعت تعمیر', '90'], ['', 'کیفیت قطعات', '95'], ['', 'رضایت مشتری', '98']]);
-                $barC = preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($props['barColor'] ?? '')) ? 'background:' . e((string)$props['barColor']) . ';' : '';
                 $out = '';
-                foreach ($its as $it) { $p = max(3, min(100, (int)(preg_replace('/[^0-9]/', '', $it['desc'] ?: $it['icon']) ?: 80))); $out .= '<div class="pbar"><span>' . e($it['text']) . '</span><div class="track"><div class="fill" style="width:' . $p . '%;' . $barC . '"></div></div></div>'; }
+                foreach ($its as $it) {
+                    $p = max(3, min(100, (int)(preg_replace('/[^0-9]/', '', $it['desc'] ?: $it['icon']) ?: 80)));
+                    $ic = preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($it['color'] ?? '')) ? (string)$it['color']
+                        : (preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($props['barColor'] ?? '')) ? (string)$props['barColor'] : '');
+                    $out .= '<div class="pbar"><span>' . e($it['text']) . '</span><div class="track"><div class="fill" style="width:' . $p . '%;' . ($ic !== '' ? 'background:' . e($ic) . ';' : '') . '"></div></div></div>';
+                }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . $out . '</div>';
             case 'testimonials': {
                 $its = pvItems($props, [['علی محمدی', 'سرویس سریع و منظم بود؛ راضی بودم.'], ['مریم احمدی', 'قیمت شفاف و ضمانت واقعی.']]);
@@ -1040,6 +1118,115 @@ if (!function_exists('pv_generic_block')) {
         }
     }
 
+    /** 📋 v2.31 — رندر فرم واقعی سایت برند
+     *  فیلدها از props.formFields (on/req) + مقصد از props.formDest
+     *  ارسال با js/form.js → /js/form-submit.php → API form-entry
+     */
+    function bb_real_form(string $block, array $props, $title = ''): string
+    {
+        $FF = is_array($props['formFields'] ?? null) ? $props['formFields'] : [];
+        $FD = is_array($props['formDest'] ?? null) ? $props['formDest'] : [];
+        $on = static function (string $k, bool $def) use ($FF): bool {
+            if (!isset($FF[$k]) || !is_array($FF[$k])) { return $def; }
+            return !((int)($FF[$k]['on'] ?? 1) === 0 || ($FF[$k]['on'] ?? 1) === false);
+        };
+        $req = static function (string $k, bool $def) use ($FF, $on): bool {
+            if (!$on($k, $def)) { return false; }
+            if (!isset($FF[$k]) || !is_array($FF[$k])) { return $def; }
+            return !((int)($FF[$k]['req'] ?? ($def ? 1 : 0)) === 0);
+        };
+        $R = static function (bool $r): string { return $r ? ' <span class="req" style="color:#dc2626">*</span>' : ''; };
+        $requiredAttr = static function (bool $r): string { return $r ? ' required' : ''; };
+
+        /* مقصد ارسال — data-dest */
+        $dest = [];
+        if (!isset($FD['panel']) || (int)$FD['panel'] !== 0) { $dest[] = 'panel'; }
+        foreach (['email', 'telegram', 'bale'] as $d) { if (!empty($FD[$d])) { $dest[] = $d; } }
+        if (!$dest) { $dest = ['panel']; }
+        $btnText = (string)($props['btnText'] ?? '');
+        if ($btnText === '') {
+            $btnText = ['request-form' => '🚀 ثبت درخواست', 'hero-form' => 'ثبت درخواست سریع', 'contact-form' => '✉️ ارسال پیام', 'newsletter-form' => 'عضویت', 'callback-form' => '📞 درخواست تماس', 'quick-contact-form' => 'درخواست تماس', 'appointment-form' => 'رزرو نوبت', 'appointment-compact' => 'رزرو سریع', 'survey-form' => 'ثبت نظر'][$block] ?? 'ارسال';
+        }
+
+        $fields = '';
+        $defaults = ['fullName' => [true, true], 'phone' => [true, true]];
+        $per = [
+            'request-form' => ['phone2' => [true, false], 'address' => [true, true], 'deviceType' => [true, true], 'deviceModel' => [true, false], 'preferredTime' => [true, false], 'description' => [true, true], 'images' => [true, false]],
+            'hero-form' => ['deviceType' => [true, false], 'description' => [true, true]],
+            'contact-form' => ['email' => [true, false], 'subject' => [true, false], 'address' => [false, false], 'description' => [true, true]],
+            'newsletter-form' => ['email' => [true, true]],
+            'callback-form' => ['phone2' => [false, false], 'preferredTime' => [true, false], 'description' => [true, false]],
+            'quick-contact-form' => ['description' => [false, false]],
+            'appointment-form' => ['deviceType' => [true, false], 'preferredTime' => [true, true], 'address' => [true, false], 'description' => [true, false]],
+            'appointment-compact' => ['preferredTime' => [true, false]],
+            'survey-form' => ['description' => [true, false]],
+        ];
+        $defs = ($per[$block] ?? []) + $defaults;
+
+        /* نام */
+        if ($on('fullName', true)) {
+            $fields .= '<div class="form-group"><label>نام و نام خانوادگی' . $R($req('fullName', true)) . '</label><input type="text" name="full_name" class="sahand-fi" placeholder="نام شما"' . $requiredAttr($req('fullName', true)) . ' minlength="3"></div>';
+        }
+        /* تلفن */
+        if ($on('phone', true)) {
+            $fields .= '<div class="form-group"><label>شماره تماس' . $R($req('phone', true)) . '</label><input type="tel" name="phone" class="sahand-fi" placeholder="09123456789" dir="ltr"' . $requiredAttr($req('phone', true)) . '></div>';
+        }
+        /* تلفن دوم */
+        if ($on('phone2', false)) {
+            $fields .= '<div class="form-group"><label>شماره تماس دوم</label><input type="tel" name="phone2" class="sahand-fi" placeholder="09123456789" dir="ltr"></div>';
+        }
+        /* ایمیل */
+        if ($on('email', false)) {
+            $fields .= '<div class="form-group"><label>ایمیل' . $R($req('email', false)) . '</label><input type="email" name="email" class="sahand-fi" placeholder="you@example.com" dir="ltr"' . $requiredAttr($req('email', false)) . '></div>';
+        }
+        /* موضوع */
+        if ($on('subject', false)) {
+            $fields .= '<div class="form-group"><label>موضوع</label><input type="text" name="subject" class="sahand-fi" placeholder="موضوع پیام"></div>';
+        }
+        /* دستگاه */
+        if ($on('deviceType', false) && in_array($block, ['request-form', 'hero-form', 'appointment-form'], true)) {
+            $devices = [];
+            try { $devices = (array)(fetchFromAPI('brand/' . BRAND_ID . '/devices', 600)['data'] ?? []); } catch (Throwable $dE) { $devices = []; }
+            $opts = '<option value="">انتخاب کنید...</option>';
+            foreach ($devices as $dv) {
+                $opts .= '<option value="' . e((string)($dv['device_key'] ?? '')) . '">' . e((string)($dv['name_fa'] ?? '')) . '</option>';
+            }
+            $opts .= '<option value="other">سایر</option>';
+            $fields .= '<div class="form-group"><label>نوع دستگاه' . $R($req('deviceType', false)) . '</label><select name="device_type" class="sahand-fi"' . $requiredAttr($req('deviceType', false)) . '>' . $opts . '</select></div>'
+                . '<div class="form-group sahand-other-box" style="display:none"><label>نام دستگاه</label><input type="text" name="device_other" class="sahand-fi" placeholder="نوع دستگاه را بنویسید"></div>';
+        }
+        /* مدل */
+        if ($on('deviceModel', false) && $block === 'request-form') {
+            $fields .= '<div class="form-group"><label>مدل دستگاه</label><input type="text" name="device_model" class="sahand-fi" placeholder="مثلاً WS12T440"></div>';
+        }
+        /* زمان ترجیحی */
+        if ($on('preferredTime', false)) {
+            $fields .= '<div class="form-group"><label>زمان مراجعه ترجیحی</label><div style="display:flex;gap:8px"><input type="date" name="preferred_date" class="sahand-fi" style="flex:1"><select name="preferred_time" class="sahand-fi" style="flex:1"><option value="">بازه ساعتی...</option><option>۹ تا ۱۲</option><option>۱۲ تا ۱۵</option><option>۱۵ تا ۱۸</option><option>۱۸ تا ۲۱</option></select></div></div>';
+        }
+        /* آدرس */
+        if ($on('address', false)) {
+            $fields .= '<div class="form-group"><label>آدرس' . $R($req('address', false)) . '</label><textarea name="address" rows="2" class="sahand-fi" placeholder="آدرس دقیق"' . $requiredAttr($req('address', false)) . '></textarea></div>';
+        }
+        /* شرح */
+        if ($on('description', false)) {
+            $ph = $block === 'contact-form' || $block === 'survey-form' ? 'پیام شما...' : 'شرح ایراد دستگاه...';
+            $fields .= '<div class="form-group"><label>' . ($block === 'contact-form' || $block === 'survey-form' ? 'پیام' : 'شرح ایراد') . $R($req('description', false)) . '</label><textarea name="description" rows="4" class="sahand-fi" placeholder="' . $ph . '" minlength="10"' . $requiredAttr($req('description', false)) . '></textarea></div>';
+        }
+        /* تصویر */
+        if ($on('images', false) && $block === 'request-form') {
+            $fields .= '<div class="form-group"><label>تصویر دستگاه (اختیاری — حداکثر ۳)</label><input type="file" name="images" class="sahond-fi sahand-file" accept="image/*" multiple><div class="sahand-imgs"></div></div>';
+        }
+
+        if ($fields === '') { $fields = '<div class="feat-d">همه فیلدهای این فرم غیرفعال شده‌اند.</div>'; }
+
+        $head = $title ? '<div class="blk-title">' . e($title) . '</div>' : '';
+        return $head . '<form class="sahand-form" data-form="' . e($block) . '" data-dest="' . e(implode(',', $dest)) . '" novalidate>'
+            . '<div class="form-grid">' . $fields . '</div>'
+            . '<button type="submit" class="hero-btn full sahand-form-btn">' . e($btnText) . '</button>'
+            . '<div class="sahand-form-msg" style="display:none"></div>'
+            . '</form>';
+    }
+
     /** 🏛 رندر سطح‌بهدار — ستون‌های تودرتو */
     function bb_render_layout(array $items, array $pelements = []): string
     {
@@ -1108,6 +1295,18 @@ if (!function_exists('pv_generic_block')) {
         if ($pb !== '') { $v['--pg-mb'] = $pb; }
         if ($pl !== '') { $v['--pg-ml'] = $pl; }
         if ($pr !== '') { $v['--pg-mr'] = $pr; }
+        /* 🆕 v2.31 — تنظیمات صفحه کامل‌تر */
+        if (!empty($p['accentColor']) && preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)$p['accentColor'])) {
+            $v['--pg-accent'] = (string)$p['accentColor'];
+        }
+        $fontMap = ['default' => '', 'vazir' => "'Vazir',Vazirmatn,Tahoma,sans-serif", 'system' => 'Tahoma,Arial,sans-serif'];
+        $fam = (string)($p['fontFamily'] ?? 'default');
+        if (isset($fontMap[$fam]) && $fontMap[$fam] !== '') { $v['--pg-font'] = $fontMap[$fam]; }
+        $hw = (string)($p['headingWeight'] ?? '');
+        if (in_array($hw, ['700', '800', '900'], true)) { $v['--pg-hw'] = $hw; }
+        $ls = (string)($p['letterSpacing'] ?? 'default');
+        if ($ls === 'tight') { $v['--pg-ls'] = '-.5px'; }
+        elseif ($ls === 'wide') { $v['--pg-ls'] = '1.2px'; }
         $out = '';
         foreach ($v as $k => $val) { $out .= $k . ':' . $val . ';'; }
         return $out;
@@ -1142,6 +1341,23 @@ if (!function_exists('pv_generic_block')) {
         if (trim($inner) === '') {
             return '';
         }
-        return '<div class="bb-wrap"' . ($pageStyle !== '' ? ' style="' . e($pageStyle) . '"' : '') . '>' . $inner . '</div>';
+        /* 🆕 v2.31 — الگوی زمینه صفحه */
+        $patternCls = '';
+        $pattern = (string)($pageProps['pagePattern'] ?? 'none');
+        if (in_array($pattern, ['dots', 'grid', 'stripes'], true)) {
+            $patternCls = ' bb-pat-' . $pattern;
+            if (preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($pageProps['patternColor'] ?? ''))) {
+                $pageStyle .= '--pg-pat:' . (string)$pageProps['patternColor'] . ';';
+            }
+        }
+        /* 🆕 v2.31 — CSS سفارشی صفحه (فقط این صفحه) */
+        $customCss = trim((string)($pageProps['customCss'] ?? ''));
+        $customTag = '';
+        if ($customCss !== '' && strlen($customCss) < 8000) {
+            /* حذف تگ و برچسب خطرناک */
+            $customCss = preg_replace(["#</?[[:space:]]*script#i", "#</?[[:space:]]*style#i", "#expression[[:space:]]*\\(#i", "#url[[:space:]]*\\([[:space:]]*[\"']?javascript:#i"], '', $customCss);
+            $customTag = '<style data-page-custom>' . $customCss . '</style>';
+        }
+        return '<div class="bb-wrap' . $patternCls . '"' . ($pageStyle !== '' ? ' style="' . e($pageStyle) . '"' : '') . '>' . $inner . '</div>' . $customTag;
     }
 }

@@ -257,6 +257,126 @@ class NotificationService
     }
 
     /**
+     * 📋 ارسال فرم عمومی (تماس/خبرنامه/نظرسنجی/...) به کانال‌های انتخابی
+     * 🆕 v2.31 — درخواست کاربر: «تنظیم کنیم که اطلاعات فرم به کجا ارسال بشه»
+     *
+     * @param array $fields فیلدهای فرم (کلید => مقدار)
+     * @param array $brand  اطلاعات برند
+     * @param array $dests  مقصدها: ['email','telegram','bale']
+     * @return array گزارش کانال‌ها
+     */
+    public function sendFormEntry(array $fields, array $brand, array $dests): array
+    {
+        $result = ['email' => false, 'telegram' => false, 'bale' => false];
+        $errors = [];
+        $agencyName = (string)(Config::get(Config::KEY_AGENCY_NAME_FA) ?: 'سهند سرویس');
+
+        $formLabels = [
+            'contact-form' => 'فرم تماس', 'newsletter-form' => 'عضویت خبرنامه', 'callback-form' => 'درخواست تماس',
+            'quick-contact-form' => 'تماس سریع', 'appointment-form' => 'رزرو نوبت', 'appointment-compact' => 'رزرو سریع نوبت',
+            'survey-form' => 'نظرسنجی', 'request-form' => 'درخواست خدمات', 'hero-form' => 'درخواست سریع',
+        ];
+        $label = $formLabels[(string)($fields['form_block'] ?? '')] ?? 'فرم';
+
+        /* برچسب‌های فارسی فیلدها */
+        $labels = [
+            'full_name' => '👤 نام', 'phone' => '📞 تماس', 'phone2' => '📞 تماس دوم', 'email' => '📧 ایمیل',
+            'subject' => '📌 موضوع', 'address' => '📍 آدرس', 'description' => '📝 پیام',
+            'device_type' => '🔧 دستگاه', 'device_model' => '📋 مدل', 'preferred_date' => '📅 تاریخ',
+            'preferred_time' => '🕐 بازه', 'page' => '📄 صفحه',
+        ];
+
+        /* متن ساده (تلگرام/بله) */
+        $lines = ["📋 <b>{$label} جدید</b>\n"];
+        $lines[] = "🏷️ برند: <b>" . ($brand['name_fa'] ?? '') . "</b>\n";
+        if ($agencyName !== '') { $lines[] = "🏢 نمایندگی: {$agencyName}\n"; }
+        $lines[] = "─────────────────\n";
+        foreach ($fields as $k => $v) {
+            if ($k === 'form_block' || $k === 'request_id' || $k === 'images' || is_array($v)) { continue; }
+            $lb = $labels[$k] ?? $k;
+            $lines[] = $lb . ': ' . $v . "\n";
+        }
+        if (!empty($fields['request_id'])) { $lines[] = "🔢 کد پیگیری: " . $fields['request_id'] . "\n"; }
+        $lines[] = "⏰ " . jdate(date('Y-m-d H:i'), true);
+        $message = implode('', $lines);
+
+        /* تصاویر پیوست (فرم درخواست از قالب‌ساز) — کارت تصویری واحد */
+        $cardPath = null;
+        $images = array_values(array_filter(array_map('strval', (array)($fields['images'] ?? []))));
+        if ($images && class_exists('RequestCard')) {
+            try {
+                $requestForCard = $fields;
+                $requestForCard['device_name'] = NotificationService::deviceNameFa((int)($brand['id'] ?? 0), (string)($fields['device_type'] ?? ''), (string)($fields['device_other'] ?? ''));
+                $cardPath = RequestCard::render($requestForCard, $brand, $agencyName, (string)(Config::get(Config::KEY_AGENCY_LOGO) ?: ''), $images[0]);
+            } catch (Throwable $cE) { $cardPath = null; }
+        }
+        $caption = "📋 {$label} جدید\n🏷️ برند: " . ($brand['name_fa'] ?? '') . "\n" . ($agencyName !== '' ? "🏢 نمایندگی: {$agencyName}\n" : '') . (!empty($fields['request_id']) ? '🔢 کد پیگیری: ' . $fields['request_id'] : '');
+
+        /* 📧 ایمیل */
+        if (in_array('email', $dests, true)) {
+            $emailCfg = (array)(Config::get(Config::KEY_NOTIFY_EMAIL) ?: []);
+            if (!empty($emailCfg['enabled']) && !empty($emailCfg['to'])) {
+                try {
+                    $mailer = new Mailer();
+                    $rowsHtml = '';
+                    foreach ($fields as $k => $v) {
+                        if ($k === 'form_block' || $k === 'images' || is_array($v)) { continue; }
+                        $lb = $labels[$k] ?? $k;
+                        $rowsHtml .= '<tr><td style="padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;font-weight:bold;width:140px">' . e($lb) . '</td><td style="padding:8px 12px;border:1px solid #e2e8f0">' . nl2br(e((string)$v)) . '</td></tr>';
+                    }
+                    $result['email'] = $mailer->send(
+                        $emailCfg['to'],
+                        '📋 ' . $label . ' جدید — ' . ($brand['name_fa'] ?? ''),
+                        '<div style="font-family:Tahoma;direction:rtl;text-align:right;max-width:640px;margin:auto;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">'
+                        . '<div style="background:#1e3a8a;color:#fff;padding:14px 20px;font-weight:bold">' . e($label) . ' جدید — ' . e($brand['name_fa'] ?? '') . '</div>'
+                        . '<div style="padding:18px"><table style="width:100%;border-collapse:collapse;font-size:13px">' . $rowsHtml . '</table>'
+                        . '<p style="margin-top:14px;color:#64748b;font-size:12px">⏰ ' . e(jdate(date('Y-m-d H:i'), true)) . (!empty($fields['page']) ? ' — صفحه ' . e((string)$fields['page']) : '') . '</p></div></div>'
+                    );
+                    if (!$result['email']) { $errors[] = 'ایمیل: ' . Mailer::lastError(); }
+                } catch (Throwable $e) { $errors[] = 'ایمیل: ' . $e->getMessage(); }
+            } else {
+                $errors[] = 'ایمیل: کانال ایمیل در تنظیمات فعال نیست';
+            }
+        }
+
+        /* 📱 تلگرام */
+        if (in_array('telegram', $dests, true)) {
+            $tgCfg = (array)(Config::get(Config::KEY_NOTIFY_TELEGRAM) ?: []);
+            if (!empty($tgCfg['enabled']) && !empty($tgCfg['bot_token']) && !empty($tgCfg['chat_id'])) {
+                $base = 'https://api.telegram.org/bot' . (string)$tgCfg['bot_token'];
+                if ($cardPath !== null && is_file($cardPath)) {
+                    $result['telegram'] = $this->sendPhotoGeneric($base . '/sendPhoto', (string)$tgCfg['chat_id'], $cardPath, $caption);
+                } else {
+                    $result['telegram'] = $this->sendMessageGeneric($base . '/sendMessage', [
+                        'chat_id' => (string)$tgCfg['chat_id'],
+                        'text' => $message,
+                        'parse_mode' => 'HTML',
+                    ]);
+                }
+            }
+        }
+
+        /* 💬 بله */
+        if (in_array('bale', $dests, true)) {
+            $baleCfg = (array)(Config::get(Config::KEY_NOTIFY_BALE) ?: []);
+            if (!empty($baleCfg['enabled']) && !empty($baleCfg['bot_token']) && !empty($baleCfg['chat_id'])) {
+                $base = 'https://tapi.bale.ai/bot' . (string)$baleCfg['bot_token'];
+                if ($cardPath !== null && is_file($cardPath)) {
+                    $result['bale'] = $this->sendPhotoGeneric($base . '/sendPhoto', (string)$baleCfg['chat_id'], $cardPath, $caption);
+                } else {
+                    $result['bale'] = $this->sendMessageGeneric($base . '/sendMessage', [
+                        'chat_id' => (string)$baleCfg['chat_id'],
+                        'text' => trim(strip_tags(str_replace(['<b>', '</b>'], '', $message))),
+                    ]);
+                }
+            }
+        }
+
+        $result['errors'] = $errors;
+        return $result;
+    }
+
+    /**
      * 🔢 عدد فارسی
      */
     private static function faNum(int $n): string

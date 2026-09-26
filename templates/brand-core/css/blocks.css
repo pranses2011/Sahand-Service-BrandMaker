@@ -76,6 +76,67 @@
 .bb-wrap .blk-hover-tilt:hover { transform: rotate(-.5deg) translateY(-3px); }
 .bb-wrap .blk-hover-glow { transition: box-shadow .24s ease; }
 .bb-wrap .blk-hover-glow:hover { box-shadow: 0 0 0 3px rgba(37,99,235,.35), 0 0 30px rgba(37,99,235,.30) !important; }
+/* 🆕 v2.31 — افکت‌های هاور جدید */
+.bb-wrap .blk-hover-border { transition: box-shadow .22s ease; }
+.bb-wrap .blk-hover-border:hover { box-shadow: 0 0 0 2.5px rgba(37,99,235,.55); }
+.bb-wrap .blk-hover-shadow { transition: box-shadow .24s ease; }
+.bb-wrap .blk-hover-shadow:hover { box-shadow: 0 22px 52px rgba(2,8,23,.22); }
+.bb-wrap .blk-hover-slide { transition: transform .24s cubic-bezier(.25,.8,.3,1); }
+.bb-wrap .blk-hover-slide:hover { transform: translateX(-7px); }
+.bb-wrap .blk-hover-rotate { transition: transform .26s ease; }
+.bb-wrap .blk-hover-rotate:hover { transform: rotate(.8deg); }
+.bb-wrap .blk-hover-blur { transition: filter .25s ease; filter: saturate(.92); }
+.bb-wrap .blk-hover-blur:hover { filter: saturate(1.14) contrast(1.04); }
+.bb-wrap .blk-hover-pop { transition: transform .28s cubic-bezier(.34,1.56,.64,1); }
+.bb-wrap .blk-hover-pop:hover { transform: scale(1.035); }
+/* ♾️ v2.31 — انیمیشن‌های پیوسته */
+@keyframes blkAmbFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+@keyframes blkAmbPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.028); } }
+@keyframes blkAmbShine { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.13); } }
+@keyframes blkAmbSway { 0%,100% { transform: rotate(-.6deg); } 50% { transform: rotate(.6deg); } }
+@keyframes blkAmbBobble { 0%,100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-4px) rotate(.5deg); } 75% { transform: translateY(-4px) rotate(-.5deg); } }
+.bb-wrap .blk-amb { animation-duration: 3.2s; animation-iteration-count: infinite; animation-timing-function: ease-in-out; }
+.bb-wrap .blk-amb-float { animation-name: blkAmbFloat; }
+.bb-wrap .blk-amb-pulse { animation-name: blkAmbPulse; }
+.bb-wrap .blk-amb-shine { animation-name: blkAmbShine; }
+.bb-wrap .blk-amb-sway { animation-name: blkAmbSway; }
+.bb-wrap .blk-amb-bobble { animation-name: blkAmbBobble; }
+/* 🎬 v2.31 — انیمیشن‌های ورود جدید */
+@keyframes blkSwing { 20% { transform: rotate(2.6deg); } 40% { transform: rotate(-2.2deg); } 60% { transform: rotate(1.6deg); } 80% { transform: rotate(-.9deg); } 100% { transform: rotate(0); } }
+.bb-wrap .blk-anim-swing { animation-name: blkSwing; transform-origin: top center; }
+@keyframes blkDrop { 0% { opacity: 0; transform: translateY(-56px) scale(1.06); } 62% { opacity: 1; transform: translateY(6px) scale(.985); } 82% { transform: translateY(-2px); } 100% { transform: translateY(0); } }
+.bb-wrap .blk-anim-drop { animation-name: blkDrop; }
+@keyframes blkPop { 0% { opacity: 0; transform: scale(.4); } 62% { opacity: 1; transform: scale(1.09); } 82% { transform: scale(.972); } 100% { transform: scale(1); } }
+.bb-wrap .blk-anim-pop { animation-name: blkPop; }
+@keyframes blkJelly { 0%,100% { transform: scale(1,1); } 30% { transform: scale(1.12,.88); } 48% { transform: scale(.92,1.08); } 66% { transform: scale(1.05,.96); } 84% { transform: scale(.98,1.02); } }
+.bb-wrap .blk-anim-jelly { animation-name: blkJelly; }
+/* 📊 v2.31 — نوار راه‌راه متحرک */
+@keyframes pbStripesMove { from { background-position: 0 0; } to { background-position: 44px 0; } }
+.bb-wrap .pb-stripes { background-image: linear-gradient(115deg, rgba(255,255,255,.32) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.32) 50%, rgba(255,255,255,.32) 75%, transparent 75%); background-size: 44px 100%; animation: pbStripesMove 1.5s linear infinite; }
+/* ═══ 🆕 v2.31 — فرم‌های واقعی قالب‌ساز (sahand-form) ═══ */
+.bb-wrap .sahand-form .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.bb-wrap .sahand-form .form-group.full, .bb-wrap .sahand-form .form-group:nth-child(odd):last-child { grid-column: 1 / -1; }
+.bb-wrap .sahand-form .form-group { margin: 0; }
+.bb-wrap .sahand-form .form-group label { display: block; font-size: 12.5px; font-weight: 700; margin-bottom: 6px; color: #334155; }
+.bb-wrap .sahand-form .sahand-fi { width: 100%; padding: 10px 13px; border: 1.5px solid #e2e8f0; border-radius: 11px; font-family: inherit; font-size: 13px; background: #fff; transition: border-color .18s ease, box-shadow .18s ease; box-sizing: border-box; }
+.bb-wrap .sahand-form .sahand-fi:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3.5px rgba(37,99,235,.14); }
+.bb-wrap .sahand-form textarea.sahand-fi { resize: vertical; min-height: 84px; }
+.bb-wrap .sahand-form .sahand-form-btn { margin-top: 14px; width: 100%; border: none; cursor: pointer; font-family: inherit; font-size: 15px; font-weight: 800; }
+.bb-wrap .sahand-form .sahand-form-btn:disabled { opacity: .68; cursor: wait; }
+.bb-wrap .sahand-form .sahand-form-msg { margin-top: 11px; border-radius: 11px; padding: 11px 14px; font-size: 13px; font-weight: 700; }
+.bb-wrap .sahand-form .sahand-form-msg.ok { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+.bb-wrap .sahand-form .sahand-form-msg.err { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
+.bb-wrap .sahand-form .sahand-imgs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.bb-wrap .sahand-form .sahand-imgs img { width: 72px; height: 72px; object-fit: cover; border-radius: 9px; border: 1px solid #e2e8f0; }
+@media (max-width: 640px) { .bb-wrap .sahand-form .form-grid { grid-template-columns: 1fr; } }
+/* ═══ 🆕 v2.31 — الگوهای زمینه صفحه ═══ */
+.bb-wrap.bb-pat-dots { background-image: radial-gradient(var(--pg-pat, #e2e8f0) 1.2px, transparent 1.2px); background-size: 22px 22px; }
+.bb-wrap.bb-pat-grid { background-image: linear-gradient(var(--pg-pat, #e2e8f0) 1px, transparent 1px), linear-gradient(90deg, var(--pg-pat, #e2e8f0) 1px, transparent 1px); background-size: 32px 32px; }
+.bb-wrap.bb-pat-stripes { background-image: repeating-linear-gradient(-45deg, transparent, transparent 12px, var(--pg-pat, #e2e8f0) 12px, var(--pg-pat, #e2e8f0) 13px); }
+/* 🆕 v2.31 — متغیرهای صفحه جدید */
+.bb-wrap { --pg-accent: #1e40af; --pg-font: inherit; --pg-hw: 800; --pg-ls: 0; }
+.bb-wrap a { color: var(--pg-accent); }
+.bb-wrap .blk-title { font-family: var(--pg-font); font-weight: var(--pg-hw); letter-spacing: var(--pg-ls); }
 
 /* هدر */
 .bb-wrap .header-blk { padding: 14px 18px; }

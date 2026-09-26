@@ -340,7 +340,7 @@ $blockLibrary = [
     ],
     'فرم' => [
         'contact-form' => ['📝', 'فرم تماس', []],
-        'request-form' => ['📝', 'فرم درخواست خدمات', []],
+        'request-form' => ['📝', 'فرم درخواست خدمات (فیلدهای کامل + قابل تنظیم)', ['formFields' => ['fullName' => ['on' => 1, 'req' => 1], 'phone' => ['on' => 1, 'req' => 1], 'phone2' => ['on' => 1, 'req' => 0], 'address' => ['on' => 1, 'req' => 1], 'deviceType' => ['on' => 1, 'req' => 1], 'deviceModel' => ['on' => 1, 'req' => 0], 'preferredTime' => ['on' => 1, 'req' => 0], 'description' => ['on' => 1, 'req' => 1], 'images' => ['on' => 1, 'req' => 0]], 'formDest' => ['panel' => 1, 'email' => 1, 'telegram' => 0, 'bale' => 0]]],
         'newsletter-form' => ['📧', 'فرم عضویت خبرنامه', []],
         'appointment-form' => ['📅', 'فرم رزرو نوبت (تاریخ + ساعت)', []],
         'quick-contact-form' => ['⚡', 'فرم سریع تک‌خطی (تلفن + دکمه)', ['title' => 'در چند ثانیه درخواست دهید', 'btnText' => 'درخواست تماس']],
@@ -535,6 +535,33 @@ $blockLibrary = [
         'service-packages' => ['📦', 'بسته‌های خدماتی', ['renderType' => 'price', 'title' => 'کدام بسته مناسب شماست؟', 'items' => [['text' => 'بسته امداد فوری', 'desc' => 'عیب‌یابی + تعمیر تا ۲ ساعت'], ['text' => 'بسته سرویس کامل', 'desc' => 'شست‌وشو + تنظیم + گارانتی ۶ ماهه'], ['text' => 'بسته سازمانی', 'desc' => 'قرارداد سالانه با اولویت']]]],
         'maintenance-plan' => ['🗓', 'برنامه نگهداری پیشگیرانه', ['renderType' => 'steps', 'title' => 'سرویس دوره‌ای = عمر بیشتر', 'items' => [['text' => 'هر ۶ ماه', 'desc' => 'لباسشویی و ظرفشویی'], ['text' => 'سالانه', 'desc' => 'یخچال و فریزر'], ['text' => 'فصلی', 'desc' => 'کولر و پکیج']]]],
         'emergency-protocol' => ['🚨', 'پروتکل اضطراری', ['renderType' => 'features', 'title' => 'اگر وضعیت اضطراری است', 'items' => [['icon' => '🔌', 'text' => 'برق را قطع کنید', 'desc' => 'اول ایمنی'], ['icon' => '💧', 'text' => 'شیر آب را ببندید', 'desc' => 'جلوگیری از سیل'], ['icon' => '🚱', 'text' => 'دست نزنید', 'desc' => 'منتظر تکنسین بمانید']]]],
+    ],
+    /* ═══ 🆕 v2.31 — عناصر پیشرفته: انواع دکمه، نوار پیشرفت چندرنگ، گردونه ═══ */
+    '🔘 دکمه‌ها' => [
+        'btn-duo' => ['🔘', 'جفت دکمه اصلی + ثانویه', ['renderType' => 'buttons', 'title' => '', 'items' => [['icon' => '📞', 'text' => 'تماس فوری', 'desc' => 'primary', 'link' => ''], ['icon' => '📝', 'text' => 'ثبت درخواست', 'desc' => 'ghost', 'link' => '/request']]]],
+        'btn-gradient' => ['🌈', 'دکمه گرادیانت بزرگ', ['renderType' => 'buttons', 'items' => [['icon' => '🚀', 'text' => 'همین حالا سفارش دهید', 'desc' => 'gradient', 'link' => '/request']]]],
+        'btn-outline-row' => ['🔲', 'ردیف دکمه‌های خطی', ['renderType' => 'buttons', 'items' => [['icon' => '🔧', 'text' => 'تعمیر', 'desc' => 'outline', 'link' => '/services'], ['icon' => '🛠', 'text' => 'سرویس دوره‌ای', 'desc' => 'outline', 'link' => ''], ['icon' => '📖', 'text' => 'مقالات', 'desc' => 'outline', 'link' => '/blog']]]],
+        'btn-icon-row' => ['🔣', 'دکمه‌های آیکون‌دار', ['renderType' => 'buttons', 'items' => [['icon' => '📱', 'text' => 'شبکه‌های اجتماعی', 'desc' => 'primary', 'link' => ''], ['icon' => '💬', 'text' => 'چت آنلاین', 'desc' => 'ghost', 'link' => ''], ['icon' => '📞', 'text' => 'تماس', 'desc' => 'ghost', 'link' => 'tel:']]]],
+        'btn-mega-cta' => ['🎯', 'دکمه CTA بزرگ + نشان', ['renderType' => 'buttons', 'title' => 'آماده سفارش هستید؟', 'subtitle' => 'پاسخگویی ۷ روز هفته — اعزام فوری تکنسین', 'items' => [['icon' => '⚡', 'text' => 'سفارش آنلاین تعمیر', 'desc' => 'primary', 'link' => '/request']]]],
+        'btn-social' => ['📲', 'دکمه‌های شبکه‌های اجتماعی', ['renderType' => 'buttons', 'items' => [['icon' => '📸', 'text' => 'اینستاگرام', 'desc' => 'outline', 'link' => 'https://instagram.com/'], ['icon' => '✈️', 'text' => 'تلگرام', 'desc' => 'outline', 'link' => 'https://t.me/'], ['icon' => '💬', 'text' => 'واتساپ', 'desc' => 'outline', 'link' => 'https://wa.me/']]]],
+    ],
+    '📊 پیشرفت چندرنگ' => [
+        'progress-multi' => ['📊', 'نوارهای پیشرفت چندرنگ (هر نوار رنگ خودش)', ['renderType' => 'progress', 'title' => 'عملکرد خدمات ما', 'items' => [['text' => 'سرعت تعمیر', 'desc' => '92', 'color' => '#1e40af'], ['text' => 'کیفیت قطعات', 'desc' => '96', 'color' => '#16a34a'], ['text' => 'رضایت مشتری', 'desc' => '98', 'color' => '#f59e0b'], ['text' => 'تحویل به‌موقع', 'desc' => '94', 'color' => '#7c3aed']]]],
+        'progress-striped' => ['▰', 'نوارهای راه‌راه متحرک', ['renderType' => 'progress', 'title' => 'پیشرفت پروژه‌ها', 'items' => [['text' => 'نصب پکیج ساختمان A', 'desc' => '78', 'color' => '#0ea5e9'], ['text' => 'سرویس فروشگاه مرکزی', 'desc' => '55', 'color' => '#f97316'], ['text' => 'تعمیرات ست اداری', 'desc' => '90', 'color' => '#10b981']], 'striped' => 1]],
+        'progress-thin' => ['▬', 'نوارهای باریک مینیمال', ['renderType' => 'progress', 'title' => 'شاخص‌های کیفیت', 'items' => [['text' => 'دقت عیب‌یابی', 'desc' => '97', 'color' => '#1e40af'], ['text' => 'قطعات اصلی', 'desc' => '100', 'color' => '#0d9488'], ['text' => 'گارانتی واقعی', 'desc' => '99', 'color' => '#7c3aed']]]],
+        'progress-circles' => ['⭕', 'گردونه‌های درصدی چندرنگ', ['renderType' => 'wheels', 'title' => 'تخصص ما در یک نگاه', 'items' => [['text' => 'لباسشویی', 'desc' => '95', 'color' => '#1e40af'], ['text' => 'یخچال', 'desc' => '90', 'color' => '#16a34a'], ['text' => 'تلویزیون', 'desc' => '88', 'color' => '#f59e0b'], ['text' => 'ظرفشویی', 'desc' => '92', 'color' => '#db2777']]]],
+        'progress-ring-big' => ['💠', 'حلقه بزرگ تک‌مقدار', ['renderType' => 'gauge', 'title' => 'رضایت کلی مشتریان', 'items' => [['text' => 'رضایت مشتریان', 'desc' => '96', 'color' => '#16a34a']], 'gaugeText' => 'از ۱۰,۰۰۰ نظر ثبت‌شده']],
+        'progress-semi' => ['🌗', 'نیم‌گردونه‌های درصدی', ['renderType' => 'wheels', 'title' => 'سهم خدمات', 'semi' => 1, 'items' => [['text' => 'تعمیر در محل', 'desc' => '62', 'color' => '#1e40af'], ['text' => 'حمل به کارگاه', 'desc' => '28', 'color' => '#0ea5e9'], ['text' => 'مشاوره تلفنی', 'desc' => '10', 'color' => '#94a3b8']]]],
+    ],
+    '🆕 عناصر کاربردی' => [
+        'rating-hero' => ['⭐', 'امتیاز ستاره‌ای بزرگ', ['renderType' => 'stats', 'title' => 'امتیاز مشتریان', 'items' => [['icon' => '۴.۹', 'text' => 'از ۵ — از ۲,۴۰۰ نظر'], ['icon' => '⭐⭐⭐⭐⭐', 'text' => 'کیفیت خدمات'], ['icon' => '۹۸٪', 'text' => 'توصیه به دوستان']]]],
+        'info-tiles' => ['🧩', 'کاشی‌های اطلاعاتی رنگی', ['renderType' => 'cards', 'columns' => 4, 'title' => 'سهند سرویس در یک نگاه', 'items' => [['icon' => '🕐', 'text' => 'پاسخگویی', 'desc' => '۷ روز هفته'], ['icon' => '🚀', 'text' => 'اعزام', 'desc' => 'کمتر از ۲ ساعت'], ['icon' => '🛡️', 'text' => 'ضمانت', 'desc' => '۶ ماه کتبی'], ['icon' => '💰', 'text' => 'پرداخت', 'desc' => 'پس از رضایت']]]],
+        'feature-split' => ['⚡', 'ویژگی‌های دو ستونه', ['renderType' => 'features', 'title' => 'چرا سهند سرویس؟', 'items' => [['icon' => '🎯', 'text' => 'عیب‌یابی دقیق', 'desc' => 'با دستگاه‌های تست تخصصی'], ['icon' => '🔩', 'text' => 'قطعات فابریک', 'desc' => 'با فاکتور رسمی'], ['icon' => '⏱', 'text' => 'تعمیر همان روز', 'desc' => 'در ۸۰٪ موارد'], ['icon' => '🧾', 'text' => 'پیش‌فاکتور شفاف', 'desc' => 'قبل از شروع کار']]]],
+        'hover-cards' => ['🖱', 'کارت‌های هاوردار تعاملی', ['renderType' => 'cards', 'columns' => 3, 'title' => 'خدمات ویژه', 'items' => [['icon' => '🌀', 'text' => 'تعمیر لباسشویی', 'desc' => 'همه برندها — همان روز'], ['icon' => '🧊', 'text' => 'تعمیر یخچال', 'desc' => 'شارژ گاز و کمپرسور'], ['icon' => '♨️', 'text' => 'سرویس پکیج', 'desc' => 'آماده‌سازی فصل سرما']]]],
+        'alert-gradient' => ['🚨', 'هشدار گرادیانت', ['renderType' => 'banner', 'title' => '⚠️ سرویس فوری تعطیلات', 'subtitle' => 'تکنسین‌های ما در تعطیلات هم پاسخگو هستند', 'btnText' => 'درخواست فوری', 'items' => []]],
+        'gradient-quote' => ['💬', 'نقل‌قول گرادیانت', ['renderType' => 'quote', 'title' => 'پیام مدیرعامل', 'text' => 'هدف ما این است که هر مشتری، ما را به دوستانش توصیه کند — کیفیت تعمیر، اعتبار ماست.']],
+        'chips-filter' => ['🏷', 'چیپ‌های فیلتر خدمات', ['renderType' => 'chips', 'title' => 'دسته‌بندی سریع', 'items' => [['icon' => '🌀', 'text' => 'لباسشویی'], ['icon' => '🧊', 'text' => 'یخچال'], ['icon' => '🍽️', 'text' => 'ظرفشویی'], ['icon' => '📺', 'text' => 'تلویزیون'], ['icon' => '❄️', 'text' => 'کولر'], ['icon' => '♨️', 'text' => 'پکیج']]]],
+        'counter-cards' => ['🔢', 'کارت‌های شمارنده', ['renderType' => 'stats', 'title' => 'دستاوردها', 'items' => [['icon' => '۱۵+', 'text' => 'سال تجربه'], ['icon' => '۵۰k', 'text' => 'تعمیر موفق'], ['icon' => '۴۲', 'text' => 'تخصص دستگاه'], ['icon' => '۲۴/۷', 'text' => 'پشتیبانی']]]],
     ],
 ];
 
@@ -746,6 +773,48 @@ try {
 #canvas-blocks .blk-hover-tilt:hover { transform: rotate(-.5deg) translateY(-3px); }
 #canvas-blocks .blk-hover-glow { transition: box-shadow .24s ease; }
 #canvas-blocks .blk-hover-glow:hover { box-shadow: 0 0 0 3px rgba(37,99,235,.35), 0 0 30px rgba(37,99,235,.30) !important; }
+/* 🆕 v2.31 — افکت‌های هاور جدید */
+#canvas-blocks .blk-hover-border { transition: box-shadow .22s ease, border-color .22s ease; }
+#canvas-blocks .blk-hover-border:hover { box-shadow: 0 0 0 2.5px rgba(37,99,235,.55); }
+#canvas-blocks .blk-hover-shadow { transition: box-shadow .24s ease; }
+#canvas-blocks .blk-hover-shadow:hover { box-shadow: 0 22px 52px rgba(2,8,23,.22); }
+#canvas-blocks .blk-hover-slide { transition: transform .24s cubic-bezier(.25,.8,.3,1); }
+#canvas-blocks .blk-hover-slide:hover { transform: translateX(-7px); }
+#canvas-blocks .blk-hover-rotate { transition: transform .26s ease; }
+#canvas-blocks .blk-hover-rotate:hover { transform: rotate(.8deg); }
+#canvas-blocks .blk-hover-blur { transition: filter .25s ease; filter: saturate(.92); }
+#canvas-blocks .blk-hover-blur:hover { filter: saturate(1.14) contrast(1.04); }
+#canvas-blocks .blk-hover-pop { transition: transform .28s cubic-bezier(.34,1.56,.64,1); }
+#canvas-blocks .blk-hover-pop:hover { transform: scale(1.035); }
+/* ♾️ v2.31 — انیمیشن‌های پیوسته */
+@keyframes blkAmbFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+@keyframes blkAmbPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.028); } }
+@keyframes blkAmbShine { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.13); } }
+@keyframes blkAmbSway { 0%,100% { transform: rotate(-.6deg); } 50% { transform: rotate(.6deg); } }
+@keyframes blkAmbBobble { 0%,100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-4px) rotate(.5deg); } 75% { transform: translateY(-4px) rotate(-.5deg); } }
+#canvas-blocks .blk-amb { animation-duration: 3.2s; animation-iteration-count: infinite; animation-timing-function: ease-in-out; }
+#canvas-blocks .blk-amb-float { animation-name: blkAmbFloat; }
+#canvas-blocks .blk-amb-pulse { animation-name: blkAmbPulse; }
+#canvas-blocks .blk-amb-shine { animation-name: blkAmbShine; }
+#canvas-blocks .blk-amb-sway { animation-name: blkAmbSway; }
+#canvas-blocks .blk-amb-bobble { animation-name: blkAmbBobble; }
+/* 🎬 v2.31 — انیمیشن‌های ورود جدید */
+@keyframes blkSwing { 20% { transform: rotate(2.6deg); } 40% { transform: rotate(-2.2deg); } 60% { transform: rotate(1.6deg); } 80% { transform: rotate(-.9deg); } 100% { transform: rotate(0); } }
+.blk-anim-swing { animation-name: blkSwing; transform-origin: top center; }
+@keyframes blkDrop { 0% { opacity: 0; transform: translateY(-56px) scale(1.06); } 62% { opacity: 1; transform: translateY(6px) scale(.985); } 82% { transform: translateY(-2px); } 100% { transform: translateY(0); } }
+.blk-anim-drop { animation-name: blkDrop; }
+@keyframes blkPop { 0% { opacity: 0; transform: scale(.4); } 62% { opacity: 1; transform: scale(1.09); } 82% { transform: scale(.972); } 100% { transform: scale(1); } }
+.blk-anim-pop { animation-name: blkPop; }
+@keyframes blkJelly { 0%,100% { transform: scale(1,1); } 30% { transform: scale(1.12,.88); } 48% { transform: scale(.92,1.08); } 66% { transform: scale(1.05,.96); } 84% { transform: scale(.98,1.02); } }
+.blk-anim-jelly { animation-name: blkJelly; }
+/* 🔲 v2.31 — الگوهای زمینه صفحه روی بوم */
+#canvas-blocks.pv-pat-dots { background-image: radial-gradient(var(--pg-pat, #e2e8f0) 1.2px, transparent 1.2px); background-size: 22px 22px; }
+#canvas-blocks.pv-pat-grid { background-image: linear-gradient(var(--pg-pat, #e2e8f0) 1px, transparent 1px), linear-gradient(90deg, var(--pg-pat, #e2e8f0) 1px, transparent 1px); background-size: 32px 32px; }
+#canvas-blocks.pv-pat-stripes { background-image: repeating-linear-gradient(-45deg, transparent, transparent 12px, var(--pg-pat, #e2e8f0) 12px, var(--pg-pat, #e2e8f0) 13px); }
+#canvas-blocks .blk-title { font-weight: var(--pg-hw, 800); letter-spacing: var(--pg-ls, 0); }
+/* 📊 v2.31 — نوار راه‌راه متحرک */
+@keyframes pbStripesMove { from { background-position: 0 0; } to { background-position: 44px 0; } }
+.pb-stripes { background-image: linear-gradient(115deg, rgba(255,255,255,.32) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.32) 50%, rgba(255,255,255,.32) 75%, transparent 75%); background-size: 44px 100%; animation: pbStripesMove 1.5s linear infinite; }
 /* 🌙 سازگاری تیره: ظواهر شیشه‌ای/کارت/ملایم در پیش‌نمایش تیره */
 #canvas-blocks.pv-page-dark .blk.blk-var-glass { background: rgba(30,41,59,.55); border-color: rgba(148,163,184,.35); }
 #canvas-blocks.pv-page-dark .blk.blk-var-card { background: #1e293b; border-color: #334155; }
@@ -1065,6 +1134,13 @@ const BLOCK_VARIANTS = {
         ['zoom',  '🔍 بزرگ‌شدن ملایم'],
         ['glow',  '✨ درخشش حاشیه'],
         ['tilt',  '📐 کج شدن ظریف'],
+        /* 🆕 v2.31 — افکت‌های هاور بیشتر (درخواست کاربر: «تنظیمات انیمیشن زیادی بزار») */
+        ['border', '🖌 روشن‌شدن قاب رنگی'],
+        ['shadow', '🕯 سایه بزرگ‌تر'],
+        ['slide', '↔️ سرانداختن ظریف'],
+        ['rotate', '🔄 چرخش خیلی ظریف'],
+        ['blur',  '🌫 شفافیت + وضوح'],
+        ['pop',   '🎈 برجسته‌شدن فنری'],
     ],
 };
 /* ساخت کلاس‌های ظاهر از props — مشترک بین B() و آینه PHP */
@@ -1103,7 +1179,16 @@ const PAGE_DEFAULTS = {
     padTop: '',              /* فاصله از بالا */
     padBottom: '',           /* فاصله از پایین */
     padLeft: '',             /* فاصله از چپ */
-    padRight: ''             /* فاصله از راست */
+    padRight: '',            /* فاصله از راست */
+    /* 🆕 v2.31 — تنظیمات صفحه کامل‌تر (درخواست کاربر) */
+    accentColor: '',         /* رنگ تاکیدی لینک‌ها و دکمه‌ها */
+    pagePattern: 'none',     /* الگوی زمینه: none | dots | grid | stripes */
+    patternColor: '#e2e8f0', /* رنگ الگو */
+    titleAlign: 'start',     /* تراز پیش‌فرض عنوان‌ها */
+    fontFamily: 'default',   /* خانواده فونت: default | vazir | system */
+    letterSpacing: 'default',/* فاصله حروف عنوان‌ها */
+    headingWeight: '800',    /* ضخامت عنوان‌ها */
+    customCss: ''            /* CSS سفارشی صفحه */
 };
 function pageProp(k) {
     return (pageProps && pageProps[k] !== undefined && pageProps[k] !== '') ? pageProps[k] : (PAGE_DEFAULTS[k] !== undefined ? PAGE_DEFAULTS[k] : '');
@@ -1142,7 +1227,26 @@ function applyPageSettings() {
     const padCss = (mT || mB || mL || mR)
         ? ';padding-top:' + (mT || '0') + ';padding-bottom:' + (mB || '0') + ';padding-inline-start:' + (mR || '0') + ';padding-inline-end:' + (mL || '0')
         : '';
-    stage.style.cssText = '--pg-section-pad:' + spacing + ';--pg-gap:' + gap + ';--pg-width:' + width +
+    /* 🆕 v2.31 — تنظیمات صفحه جدید: رنگ تاکیدی + الگو + فونت + ضخامت + فاصله حروف + CSS دلخواه */
+    const accent = /^#[0-9a-fA-F]{3,8}$/.test(String(pageProp('accentColor'))) ? pageProp('accentColor') : '#1e40af';
+    const fontFam = { default: '', vazir: "'Vazir',Vazirmatn,Tahoma,sans-serif", system: 'Tahoma,Arial,sans-serif' }[pageProp('fontFamily')] || '';
+    const hWeight = ['700', '800', '900'].includes(String(pageProp('headingWeight'))) ? pageProp('headingWeight') : '800';
+    const lSpace = { tight: '-.5px', default: '0', wide: '1.2px' }[pageProp('letterSpacing')] || '0';
+    const patCls = ['dots', 'grid', 'stripes'].includes(String(pageProp('pagePattern'))) ? ' pv-pat-' + pageProp('pagePattern') : '';
+    const patColor = /^#[0-9a-fA-F]{3,8}$/.test(String(pageProp('patternColor'))) ? pageProp('patternColor') : '#e2e8f0';
+    /* حذف کلاس الگوی قبلی */
+    stage.classList.remove('pv-pat-dots', 'pv-pat-grid', 'pv-pat-stripes');
+    if (patCls) { stage.classList.add(patCls.trim()); }
+    /* CSS دلخواه صفحه — تگ style اختصاصی بوم */
+    let customStyleEl = document.getElementById('pv-page-custom-css');
+    const customCss = String(pageProp('customCss') || '').slice(0, 8000);
+    if (customCss.trim() !== '') {
+        if (!customStyleEl) { customStyleEl = document.createElement('style'); customStyleEl.id = 'pv-page-custom-css'; document.head.appendChild(customStyleEl); }
+        customStyleEl.textContent = '#canvas-blocks{' + customCss.replace(/#canvas-blocks\s*\{?/g, '') + '}';
+    } else if (customStyleEl) { customStyleEl.textContent = ''; }
+    stage.style.cssText = '--pg-accent:' + accent + ';--pg-hw:' + hWeight + ';--pg-ls:' + lSpace +
+        (fontFam ? ';--pg-font:' + fontFam : '') + (patCls ? ';--pg-pat:' + patColor : '') +
+        ';--pg-section-pad:' + spacing + ';--pg-gap:' + gap + ';--pg-width:' + width +
         ';--pg-radius:' + radius + ';--pg-text:' + tsize + ';--pg-shadow:' + shadow +
         ';--pg-title:' + (tc !== '' ? tc : 'inherit') +
         (mT ? ';--pg-mt:' + mT : '') + (mB ? ';--pg-mb:' + mB : '') + (mR ? ';--pg-mr:' + mR : '') + (mL ? ';--pg-ml:' + mL : '') +
@@ -1167,6 +1271,15 @@ function renderPageProps() {
         '<div class="form-group"><label>🔤 اندازه متن</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'textSize\',this.value)">' + opt('textSize', [['sm', 'کوچک'], ['default', 'پیش‌فرض'], ['lg', 'بزرگ']]) + '</select></div>' +
         '<div class="form-group"><label>🌫 سایه کارت‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'cardShadow\',this.value)">' + opt('cardShadow', [['none', 'بدون سایه'], ['soft', 'ملایم'], ['default', 'پیش‌فرض'], ['strong', 'قوی']]) + '</select></div>' +
         '<label class="form-check" style="font-size:12px"><input type="checkbox" ' + (pageProp('darkPreview') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'darkPreview\',this.checked?1:0)"> 🌙 پیش‌نمایش بوم در حالت تیره</label>' +
+        '<hr style="border:none;border-top:1px dashed var(--border);margin:12px 0">' +
+        '<div style="font-size:11px;font-weight:800;color:var(--primary);margin:0 0 7px">🎯 ظاهر پیشرفته (🆕 v2.31)</div>' +
+        '<div class="form-group"><label>🎨 رنگ تاکیدی (لینک‌ها و دکمه‌ها)</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="' + (pageProp('accentColor') || '#1e40af') + '" oninput="setPageProp(\'accentColor\',this.value)"><button type="button" class="btn btn-outline btn-sm" onclick="setPageProp(\'accentColor\',\'\');renderPageProps()">✕ پیش‌فرض</button></div></div>' +
+        '<div class="form-group"><label>🔲 الگوی زمینه صفحه</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'pagePattern\',this.value)">' + opt('pagePattern', [['none', 'بدون الگو'], ['dots', 'نقطه‌چین'], ['grid', 'شطرنجی'], ['stripes', 'خطوط مورب ظریف']]) + '</select></div>' +
+        '<div class="form-group" id="pg-pattern-color-box" style="' + (pageProp('pagePattern') !== 'none' ? '' : 'display:none') + '"><label>رنگ الگو</label><input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="' + pageProp('patternColor') + '" oninput="setPageProp(\'patternColor\',this.value)"></div>' +
+        '<div class="form-group"><label>🔤 خانواده فونت</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'fontFamily\',this.value)">' + opt('fontFamily', [['default', 'پیش‌فرض (وزیرمتن)'], ['vazir', 'وزیر (Vazir)'], ['system', 'فونت سیستم (Tahoma)']]) + '</select></div>' +
+        '<div class="form-group"><label>🔤 ضخامت عنوان‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'headingWeight\',this.value)">' + opt('headingWeight', [['700', 'معمولی بولد'], ['800', 'کلفت (پیش‌فرض)'], ['900', 'سیاه (Extra)']]) + '</select></div>' +
+        '<div class="form-group"><label>↔️ فاصله حروف عنوان‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'letterSpacing\',this.value)">' + opt('letterSpacing', [['tight', 'فشرده'], ['default', 'پیش‌فرض'], ['wide', 'باز (شیک)']]) + '</select></div>' +
+        '<div class="form-group"><label>📝 CSS سفارشی صفحه (پیشرفته)</label><textarea class="form-control" rows="4" style="font-size:11px;direction:ltr;text-align:left;font-family:monospace" oninput="setPageProp(\'customCss\',this.value)" placeholder="/* مثال */ .blk-title{color:#7c3aed!important}">' + esc(pageProp('customCss')) + '</textarea><div class="hint" style="margin-top:4px">کد CSS دلخواه — فقط روی همین صفحه اعمال می‌شود.</div></div>' +
         '<hr style="border:none;border-top:1px dashed var(--border);margin:12px 0">' +
         '<div style="font-size:11px;font-weight:800;color:var(--primary);margin:0 0 7px">📐 فاصله محتوای صفحه از لبه‌ها (🆕)</div>' +
         '<div class="form-group"><label>⬆️ فاصله از بالا (px — خالی = خودکار)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="400" value="' + pageProp('padTop') + '" onchange="setPageProp(\'padTop\',this.value)"></div>' +
@@ -1246,7 +1359,8 @@ function fakeImgHtml(props, emoji, style) {
    آیتم‌های fallback را داخل props.items می‌نویسد → همان‌ها در پنل ویژگی‌ها
    قابل ویرایش/حذف/جابجایی‌اند و «افزودن آیتم جدید» هم به همان لیست اضافه می‌کند. */
 function listItems(props, fallback) {
-    const norm = arr => (Array.isArray(arr) ? arr : []).map(it => Array.isArray(it) ? { icon: it[0] || '', text: it[1] || '', desc: it[2] || '' } : (it || {}));
+    /* 🎨 v2.31 — color آیتم هم حفظ می‌شود (نوارهای چندرنگ) */
+    const norm = arr => (Array.isArray(arr) ? arr : []).map(it => Array.isArray(it) ? { icon: it[0] || '', text: it[1] || '', desc: it[2] || '', link: it[3] || '', color: it[4] || '' } : Object.assign({ color: '' }, (it || {})));
     /* 🆕 v2.27 — نرمال‌سازی «قبل از» فیلتر: آیتم‌های آرایه‌ای قدیمی حذف نمی‌شوند */
     let its = norm(props.items).filter(it => it && String(it.text || '').trim() !== '');
     if (!its.length) {
@@ -1364,6 +1478,46 @@ function genericBlockHtml(block, props) {
     if (type === 'divider') {
         return `<div style="text-align:center;font-size:22px;letter-spacing:3px;opacity:.5">${esc(its.length ? its[0].text : '〰️〰️〰️')}</div>`;
     }
+    /* 🆕 v2.31 — progress: نوارهای پیشرفت با رنگ هر آیتم */
+    if (type === 'progress') {
+        const striped = props.striped ? ' pb-stripes' : '';
+        return `${TITLE}${its.map(it => {
+            const p = Math.max(3, Math.min(100, parseInt(String(it.desc || it.icon || '80').replace(/[^0-9]/g, ''), 10) || 80));
+            const c = /^#[0-9a-fA-F]{3,8}$/.test(String(it.color || '')) ? it.color : (/^#[0-9a-fA-F]{3,8}$/.test(String(props.barColor || '')) ? props.barColor : '#1e40af');
+            return `<div class="pbar"><span>${esc(it.text || '')}</span><div class="track"><div class="fill${striped}" style="width:${p}%;background:${esc(c)}"></div></div></div>`;
+        }).join('')}`;
+    }
+    /* 🆕 v2.31 — wheels: گردونه‌های درصدی با رنگ هر آیتم */
+    if (type === 'wheels') {
+        const semi = props.semi ? '半' : '';
+        return `${TITLE}<div class="cols c${Math.min(4, Math.max(2, its.length || 3))}" style="gap:16px">${its.map(it => {
+            const num = String(it.icon || it.desc || '80').replace(/[^0-9]/g, '') || '80';
+            const deg = Math.round(parseInt(num, 10) / 100 * 360);
+            const c = /^#[0-9a-fA-F]{3,8}$/.test(String(it.color || '')) ? it.color : (/^#[0-9a-fA-F]{3,8}$/.test(String(props.barColor || '')) ? props.barColor : '#2563eb');
+            return `<div style="text-align:center"><div style="width:92px;height:92px;margin:0 auto;border-radius:50%;background:conic-gradient(${esc(c)} ${deg}deg,#e2e8f0 ${deg}deg);display:flex;align-items:center;justify-content:center"><div style="width:70px;height:70px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;color:${esc(c)}">${esc(faDigJS(num) + '٪')}</div></div><div class="feat-d" style="margin-top:8px;font-weight:700">${esc(it.text || '')}</div></div>`;
+        }).join('')}</div>`;
+    }
+    /* 🆕 v2.31 — gauge: حلقه بزرگ تک‌مقدار */
+    if (type === 'gauge') {
+        const it = its[0] || { text: 'شاخص', desc: '80', color: '#16a34a' };
+        const num = String(it.desc || it.icon || '80').replace(/[^0-9]/g, '') || '80';
+        const deg = Math.round(parseInt(num, 10) / 100 * 360);
+        const c = /^#[0-9a-fA-F]{3,8}$/.test(String(it.color || '')) ? it.color : '#16a34a';
+        return `${TITLE}<div style="display:flex;justify-content:center"><div><div style="width:170px;height:170px;border-radius:50%;background:conic-gradient(${esc(c)} ${deg}deg,#e2e8f0 ${deg}deg);display:flex;align-items:center;justify-content:center"><div style="width:132px;height:132px;background:#fff;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center"><b style="font-size:34px;color:${esc(c)}">${esc(faDigJS(num))}</b><span style="font-size:11px;color:#64748b">${esc(it.text || '')}</span></div></div>${props.gaugeText ? `<div class="feat-d" style="text-align:center;margin-top:9px">${esc(props.gaugeText)}</div>` : ''}</div></div>`;
+    }
+    /* 🆕 v2.31 — buttons: مجموعه دکمه با استایل/رنگ/لینک هر آیتم */
+    if (type === 'buttons') {
+        const styleCls = { primary: '', ghost: ' ghost', outline: ' ghost', gradient: ' btn-grad' };
+        return `${TITLE}${sub}<div class="hero-btns" style="justify-content:flex-start;flex-wrap:wrap;gap:10px">${its.map(it => {
+            const st = String(it.desc || 'primary').trim();
+            const c = /^#[0-9a-fA-F]{3,8}$/.test(String(it.color || '')) ? ` style="background:${esc(it.color)}"` : (st === 'gradient' ? ' style="background:linear-gradient(135deg,#1e40af,#0ea5e9)"' : '');
+            const inner = `<span class="hero-btn${styleCls[st] !== undefined ? styleCls[st] : ''}"${st === 'outline' ? ' data-outline="1"' : ''}${c}>${it.icon ? esc(it.icon) + ' ' : ''}${esc(it.text || 'دکمه')}</span>`;
+            const lk = String(it.link || '').trim();
+            if (!lk) { return inner; }
+            const ext = /^https?:\/\//i.test(lk) ? ' target="_blank" rel="noopener"' : '';
+            return `<a href="${esc(lk)}"${ext} style="text-decoration:none;display:inline-block">${inner.replace('<span ', '<span data-in-a="1" ')}</a>`;
+        }).join('')}</div>`;
+    }
     /* پیش‌فرض: cards */
     return `${TITLE}<div class="cols c${cols}">${its.map(it => `<div class="fake-card">${it.icon ? `<div class="card-ico">${esc(it.icon)}</div>` : ''}<div class="card-t">${esc(it.text || '')}</div>${it.desc ? `<div class="feat-d">${esc(it.desc)}</div>` : ''}</div>`).join('')}</div>`;
 }
@@ -1382,13 +1536,23 @@ function blockHtml(block, props) {
     const varCls = variantClasses(props);
     /* 🎬 v2.29: انیمیشن ورود — روی بوم هم همان لحظه اجرا می‌شود */
     const animCls = props.anim && props.anim !== 'none' ? ` blk-anim blk-anim-${props.anim}` : '';
-    const animSpeed = { slow: '1.2s', normal: '.7s', fast: '.4s' }[props.animSpeed || 'normal'] || '.7s';
+    const animSpeed = { xslow: '1.8s', slow: '1.2s', normal: '.7s', fast: '.4s', xfast: '.2s' }[props.animSpeed || 'normal'] || '.7s';
+    /* ♾️ v2.31 — انیمیشن پیوسته */
+    const ambientCls = props.ambient && props.ambient !== 'none' ? ` blk-amb blk-amb-${props.ambient}` : '';
     const animDelay = Math.max(0, Math.min(3000, parseInt(props.animDelay || 0, 10) || 0));
     const animStyle = animCls ? `--anim-dur:${animSpeed};--anim-delay:${animDelay}ms;` : '';
     /* 🎨 v2.15: رنگ عنوان + رنگ گرادیانت انتخابی (تنظیمات پیشرفته) */
     const blkStyle = blkStyleVars(props) + animStyle;
     const styleAttr = blkStyle ? ` style="${blkStyle}"` : '';
-    const B = (inner, extra) => `<div class="blk ${bgCls} ${padCls} ${sizeCls} ${alignCls} ${widthCls} ${customCls} ${varCls}${animCls} ${extra || ''}"${styleAttr}>${inner}</div>`;
+    /* 🔗 v2.31 — لینک دکمه‌های این عنصر (درخواست کاربر: «برای آن دکمه لینک تنظیم کرد»)
+       همه دکمه‌های .hero-btn داخل عنصر به btnLink وصل می‌شوند */
+    const btnLink = String(props.btnLink || '').trim();
+    const linkify = html => {
+        if (!btnLink) { return html; }
+        const ext = /^https?:\/\//i.test(btnLink) ? ' target="_blank" rel="noopener"' : '';
+        return html.replace(/<span class="(hero-btn[^"]*)">([^<]*)<\/span>/g, `<a class="$1" href="${esc(btnLink)}"${ext} style="text-decoration:none;display:inline-block">$2</a>`);
+    };
+    const B = (inner, extra) => `<div class="blk ${bgCls} ${padCls} ${sizeCls} ${alignCls} ${widthCls} ${customCls} ${varCls}${animCls}${ambientCls} ${extra || ''}"${styleAttr}>${linkify(inner)}</div>`;
     const TITLE = t ? `<div class="blk-title">${esc(t)}</div>` : '';
 
     switch (block) {
@@ -1445,10 +1609,34 @@ function blockHtml(block, props) {
         case 'team': { const its = listItems(props, [['👨‍🔧', 'مهندس کریمی', 'متخصص لباسشویی'], ['👩‍🔧', 'مهندس رضایی', 'متخصص یخچال و فریزر'], ['🧑‍🔧', 'مهندس موسوی', 'متخصص تلویزیون']]); return B(`<div class="blk-title">${esc(t || 'تیم ما')}</div><div class="cols c${gridCols(props, 4)}">${its.map(it => `<div class="fake-card"><div class="fake-ava">${esc(it.icon || '👨‍🔧')}</div><div class="card-t">${esc(it.text || '')}</div><div class="feat-d">${esc(it.desc || '')}</div></div>`).join('')}</div>`); }
         case 'pricing-table': { const its = listItems(props, [[null, 'دریافت و عیب‌یابی تخصصی', 'رایگان'], [null, 'سرویس دوره‌ای لباسشویی', 'از ۴۵۰ هزار تومان'], [null, 'شارژ گاز کولر گازی', 'از ۹۰۰ هزار تومان']]); return B(`<div class="blk-title">${esc(t || 'تعرفه خدمات')}</div><div class="price-table">${its.map(it => `<div class="price-row"><span>${esc(it.text || '')}</span><b>${esc(it.desc || '')}</b></div>`).join('')}</div>`); }
         case 'brands-links': { const its = listItems(props, [['🏷️', 'ال‌جی'], ['🏷️', 'سامسونگ'], ['🏷️', 'بوش'], ['🏷️', 'سونی'], ['🏷️', 'اسنوا'], ['🏷️', 'پاکس']]); return B(`<div class="blk-title">${esc(t || 'برندهای مورد خدمت')}</div><div class="cols c${Math.max(3, gridCols(props, 6))}">${its.map(it => `<div class="fake-logo-s" title="${esc(it.text || '')}">${esc(it.icon || '🏷️')}</div>`).join('')}</div>`); }
-        case 'contact-form': case 'request-form': return B(`<div class="blk-title">${esc(t || (block === 'request-form' ? 'فرم درخواست خدمات' : 'فرم تماس'))}</div><div class="form-grid"><div class="fake-input">نام و نام خانوادگی</div><div class="fake-input">شماره تماس</div><div class="fake-input">شرح مشکل</div><div class="hero-btn full">${esc(props.btnText || 'ارسال درخواست')}</div></div>`);
+        /* 📋 v2.31 — فرم با فیلدهای واقعیِ فعال (پیکربندی از پنل ویژگی‌ها) */
+        case 'hero-form': case 'contact-form': case 'request-form': case 'newsletter-form': case 'callback-form': case 'quick-contact-form': case 'appointment-form': case 'appointment-compact': case 'survey-form': {
+            const FF = props.formFields || {};
+            const fieldsDef = formFieldsDef(block);
+            const on = (k, def) => (!FF[k] || typeof FF[k] !== 'object') ? def : !(FF[k].on === 0 || FF[k].on === false);
+            const req = (k, def) => { if (!on(k, def)) { return false; } if (!FF[k] || typeof FF[k] !== 'object') { return def; } return !(FF[k].req === 0); };
+            let fields = '';
+            fieldsDef.forEach(f => {
+                if (!on(f.key, !!f.def)) { return; }
+                const r = req(f.key, !!f.defReq);
+                const label = f.label + (r ? ' *' : '');
+                const isArea = f.key === 'description' || f.key === 'address';
+                fields += isArea
+                    ? `<div style="grid-column:1/-1"><div style="font-size:11px;font-weight:700;margin-bottom:4px;color:#334155">${esc(label)}</div><div class="fake-input" style="height:58px;text-align:right;padding-top:9px">${isArea ? 'متن...' : ''}</div></div>`
+                    : `<div><div style="font-size:11px;font-weight:700;margin-bottom:4px;color:#334155">${esc(label)}</div><div class="fake-input">—</div></div>`;
+            });
+            if (!fields) { fields = '<div class="hint" style="grid-column:1/-1">همه فیلدها غیرفعال شده‌اند</div>'; }
+            const dest = props.formDest || {};
+            const destLabels = [];
+            if (!dest.panel || dest.panel !== 0) { destLabels.push('🖥️ پنل'); }
+            if (dest.email) { destLabels.push('📧 ایمیل'); }
+            if (dest.telegram) { destLabels.push('📱 تلگرام'); }
+            if (dest.bale) { destLabels.push('💬 بله'); }
+            return B(`<div class="blk-title">${esc(t || (block === 'request-form' ? 'فرم درخواست خدمات' : 'فرم'))}</div><div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:9px">${fields}</div><div class="hero-btn full">${esc(props.btnText || 'ارسال')}</div><div class="hint" style="margin-top:7px;font-size:10px">📨 ارسال به: ${destLabels.join(' + ') || '🖥️ پنل'} — روی سایت برند، این فرم واقعی و قابل ارسال است.</div>`);
+        }
         case 'newsletter-form': return B(`<div class="blk-title">${esc(t || 'عضویت در خبرنامه')}</div><div class="news-row"><div class="fake-input" style="flex:1">ایمیل شما</div><div class="hero-btn">${esc(props.btnText || 'عضویت')}</div></div>`);
         case 'counter-stats': case 'stats': return B(`${TITLE}<div class="cols c${gridCols(props, 3)}" style="gap:14px">${statItemsHtml(props)}</div>`, 'stats-blk');
-        case 'progress-bars': case 'skill-bars': { const its = listItems(props, [['سرعت تعمیر', '90'], ['کیفیت قطعات', '95'], ['رضایت مشتری', '98']]); const barC = /^#[0-9a-fA-F]{3,8}$/.test(String(props.barColor || '')) ? `background:${esc(props.barColor)};` : ''; return B(`${TITLE}${its.map(it => { const p = Math.max(3, Math.min(100, parseInt(String(it.desc || it.icon || '80').replace(/[^0-9]/g, ''), 10) || 80)); return `<div class="pbar"><span>${esc(it.text || '')}</span><div class="track"><div class="fill" style="width:${p}%;${barC}"></div></div></div>`; }).join('')}`); }
+        case 'progress-bars': case 'skill-bars': { const its = listItems(props, [['سرعت تعمیر', '90'], ['کیفیت قطعات', '95'], ['رضایت مشتری', '98']]); const barC = /^#[0-9a-fA-F]{3,8}$/.test(String(props.barColor || '')) ? `` : ``; return B(`${TITLE}${its.map(it => { const p = Math.max(3, Math.min(100, parseInt(String(it.desc || it.icon || '80').replace(/[^0-9]/g, ''), 10) || 80)); const ic = /^#[0-9a-fA-F]{3,8}$/.test(String(it.color || '')) ? it.color : (/^#[0-9a-fA-F]{3,8}$/.test(String(props.barColor || '')) ? props.barColor : ''); return `<div class="pbar"><span>${esc(it.text || '')}</span><div class="track"><div class="fill" style="width:${p}%;${ic ? 'background:' + esc(ic) + ';' : ''}"></div></div></div>`; }).join('')}`); }
         case 'testimonials': { const its = listItems(props, [['علی محمدی', 'سرویس سریع و منظم بود؛ راضی بودم.'], ['مریم احمدی', 'قیمت شفاف و ضمانت واقعی.']]); return B(`<div class="blk-title">${esc(t || 'نظرات مشتریان')}</div><div class="quote">«${esc(its[0] ? its[0].text : '')}»</div>${its[0] && its[0].icon ? `<div class="feat-d" style="text-align:center;font-weight:800">— ${esc(its[0].icon)}</div>` : ''}<div class="slider-dots">● ○ ○</div>`); }
         case 'faq-accordion': { const its = listItems(props, [[null, 'هزینه عیب‌یابی چقدر است؟', 'در صورت تعمیر نزد ما رایگان است.'], [null, 'چقدر طول می‌کشد؟', 'اکثر تعمیرها همان روز انجام می‌شود.'], [null, 'ضمانت دارید؟', 'بله — ۶ ماه ضمانت کتبی.']]); return B(`<div class="blk-title">${esc(t || 'سوالات متداول')}</div>${its.map(it => `<div class="acc">${esc(it.text || '')} <b>＋</b></div>`).join('')}`); }
         case 'tabs': { const its = listItems(props, [[null, 'تعمیر'], [null, 'سرویس'], [null, 'نصب']]); return B(`<div class="blk-title">${esc(t || 'تب‌بندی محتوا')}</div><div class="tabs-row">${its.map((it, i) => `<span class="tab${i === 0 ? ' cur' : ''}">${esc(it.text || '')}</span>`).join('')}</div><div class="fake-card" style="text-align:right"><div class="fl w100"></div><div class="fl w90"></div><div class="fl w60"></div></div>`); }
@@ -1521,7 +1709,7 @@ function blockHtml(block, props) {
         case 'logo-marquee': { const its = listItems(props, [['🏷️', 'ال‌جی'], ['🏷️', 'سامسونگ'], ['🏷️', 'بوش'], ['🏷️', 'سونی'], ['🏷️', 'پاکس'], ['🏷️', 'اسنوا']]); return B(`<div class="blk-title">${esc(t || 'برندهای مورد خدمت')}</div><div style="overflow:hidden;background:#f8fafc;border-radius:12px;padding:11px 0"><div class="chip-row" style="animation:tickMove 18s linear infinite;white-space:nowrap;width:max-content">${its.concat(its).map(it => `<span class="chip" style="margin-inline-end:9px">${esc(it.icon || '🏷️')} ${esc(it.text || '')}</span>`).join('')}</div></div>`); }
         case 'tag-cloud': { const its = listItems(props, [[null, 'تعمیر ماشین لباس'], [null, 'کد خطا SE'], [null, 'شارژ گاز کولر'], [null, 'بک‌لایت تلویزیون'], [null, 'مگنترون'], [null, 'سرویس دوره‌ای'], [null, 'برد الکترونیک'], [null, 'نصب ظرفشویی']]); const sizes = ['12px', '14px', '13px', '15px', '12.5px', '14.5px']; return B(`${TITLE}<div class="chip-row" style="justify-content:center;gap:8px">${its.map((it, i) => `<span class="chip" style="font-size:${sizes[i % sizes.length]};font-weight:${i % 3 === 0 ? 800 : 600};opacity:${0.72 + (i % 3) * 0.09}">${esc(it.text || '')}</span>`).join('')}</div>`); }
         case 'quote-slider': { const its = listItems(props, [['علی محمدی', 'سرویس سریع و منظم بود؛ راضی بودم.'], ['مریم احمدی', 'قیمت شفاف و ضمانت واقعی.'], ['رضا کریمی', 'تکنسین دقیق و حرفه‌ای اعزام شد.']]); const q = its[0] || { text: '', icon: '' }; return B(`<div class="blk-title">${esc(t || 'مشتریان چه می‌گویند')}</div><div class="quote" style="text-align:center;font-size:15px">«${esc(q.text)}»</div><div class="feat-d" style="text-align:center;font-weight:800;margin-top:6px">— ${esc(q.icon)}</div><div class="slider-dots" style="margin-top:8px">${its.map((_, i) => i === 0 ? '●' : '○').join(' ')}</div>`); }
-        case 'stats-circles': { const its = listItems(props, [['۹۲٪', 'تعمیر در روز اول'], ['۸۷٪', 'رضایت کامل'], ['۹۶٪', 'حل قطعی ایراد']]); return B(`<div class="blk-title">${esc(t || 'عملکرد ما در آمار واقعی')}</div><div class="cols c${Math.max(2, Math.min(4, its.length))}" style="gap:14px">${its.map(it => { const num = String(it.icon || '80').replace(/[^0-9]/g, '') || '80'; const deg = Math.round(parseInt(num, 10) / 100 * 360); return `<div style="text-align:center"><div style="width:86px;height:86px;margin:0 auto;border-radius:50%;background:conic-gradient(#2563eb ${deg}deg, #e2e8f0 ${deg}deg);display:flex;align-items:center;justify-content:center"><div style="width:66px;height:66px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16.5px;color:#1e40af">${esc(it.icon || num)}</div></div><div class="feat-d" style="margin-top:8px;font-weight:700">${esc(it.text || '')}</div></div>`; }).join('')}</div>`); }
+        case 'stats-circles': { const its = listItems(props, [['۹۲٪', 'تعمیر در روز اول'], ['۸۷٪', 'رضایت کامل'], ['۹۶٪', 'حل قطعی ایراد']]); return B(`<div class="blk-title">${esc(t || 'عملکرد ما در آمار واقعی')}</div><div class="cols c${Math.max(2, Math.min(4, its.length))}" style="gap:14px">${its.map(it => { const num = String(it.icon || '80').replace(/[^0-9]/g, '') || '80'; const deg = Math.round(parseInt(num, 10) / 100 * 360); const ic = /^#[0-9a-fA-F]{3,8}$/.test(String(it.color || '')) ? it.color : (/^#[0-9a-fA-F]{3,8}$/.test(String(props.barColor || '')) ? props.barColor : '#2563eb'); return `<div style="text-align:center"><div style="width:86px;height:86px;margin:0 auto;border-radius:50%;background:conic-gradient(${esc(ic)} ${deg}deg, #e2e8f0 ${deg}deg);display:flex;align-items:center;justify-content:center"><div style="width:66px;height:66px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16.5px;color:${esc(ic)}">${esc(it.icon || num)}</div></div><div class="feat-d" style="margin-top:8px;font-weight:700">${esc(it.text || '')}</div></div>`; }).join('')}</div>`); }
         case 'counter-big': { const its = listItems(props, [['۵۰,۰۰۰+', 'تعمیر تکمیل‌شده']]); const it0 = its[0] || { icon: '۵۰,۰۰۰+', text: 'تعمیر تکمیل‌شده' }; return B(`<div style="text-align:center;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1.5px solid #93c5fd;border-radius:16px;padding:26px 18px"><div class="hero-title" style="font-size:37px;background:linear-gradient(135deg,#1e40af,#0ea5e9);-webkit-background-clip:text;background-clip:text;color:transparent">${esc(it0.icon || it0.text || '')}</div><div class="feat-d" style="font-weight:800;font-size:14px;margin-top:5px">${esc(it0.icon ? it0.text : 'شمارنده')}</div></div>`); }
         case 'brand-stats-bar': { const its = listItems(props, [['۱۵+', 'سال تجربه'], ['۴۲', 'نوع دستگاه تخصصی'], ['۲۴/۷', 'پشتیبانی'], ['۶ ماه', 'ضمانت کتبی']]); return B(`${TITLE}<div class="stats-strip" style="background:linear-gradient(135deg,#0f172a,#1e3a8a)">${its.map(it => `<span class="ss-item"><b>${esc(it.icon || '')}</b> ${esc(it.text || '')}</span>`).join('<span class="ss-sep"></span>')}</div>`); }
         case 'emergency-strip': return B(`<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border-radius:13px;padding:13px 19px"><b style="font-size:14px">${esc(props.text || '🚑 امداد تعمیر فوری — ۲۴ ساعته')}</b><span class="hero-btn" style="background:#fff;color:#b91c1c">📞 ${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</span></div>`);
@@ -2284,6 +2472,8 @@ const PROP_LABELS = {
     textAfter: 'متن دوم (بعد / پاسخ)', videoUrl: '🎬 آدرس ویدیو (embed)', mapUrl: '🗺 لینک نقشه',
     /* 🆕 v2.29 */
     barColor: '🎨 رنگ نوارها', slideType: 'نوع اسلایدها',
+    /* 🆕 v2.31 */
+    btnLink: '🔗 لینک دکمه', gaugeText: 'زیرنویس گیج',
 };
 
 /* 🧩 تعریف فیلدها — نوع + پیش‌فرض + گزینه‌ها */
@@ -2307,14 +2497,17 @@ const FIELD_DEFS = {
    CD = زمان شمارش معکوس | IMG = آدرس تصویر | IT = ویرایشگر آیتم‌ها */
 /* 🧬 v2.29 — فیلدهای عناصر جدید: عنوان/زیرعنوان/متن/ستون/تصویر/آیتم‌ها */
 const GENERIC_BLOCK_FIELDS_V229 = <?= json_encode(array_fill_keys(array_keys($genericBlockKeys), ['T', 'S', 'X', 'C', 'IMG', 'IT'])) ?>;
+/* 🆕 v2.31 — عناصر جدید progress/wheels/gauge/buttons: فیلد رنگ نوارها + آیتم‌ها */
+const GENERIC_BLOCK_FIELDS_V231 = <?= json_encode(array_fill_keys(['btn-duo','btn-gradient','btn-outline-row','btn-icon-row','btn-mega-cta','btn-social','progress-multi','progress-striped','progress-thin','progress-circles','progress-ring-big','progress-semi','rating-hero','info-tiles','feature-split','hover-cards','alert-gradient','gradient-quote','chips-filter','counter-cards'], ['T', 'S', 'CLR', 'IT'])) ?>;
+Object.assign(GENERIC_BLOCK_FIELDS_V229, GENERIC_BLOCK_FIELDS_V231);
 const BLOCK_FIELDS = {
     /* هدر */
     'header-v1': ['IT'], 'header-v2': ['P', 'W', 'B', 'IT'], 'header-v3': ['B', 'IT'],
     'top-bar': ['P', 'W'],
     'notification-bar': ['X', 'notifC'],
-    /* هیرو — 🆕 v2.29: اسلایدر تصویری چندمقداری (هر تعداد اسلاید + لینک) */
-    'hero': ['T', 'S'], 'hero-slider': ['T', 'A', 'SLT', 'IT'], 'hero-split': ['T', 'S', 'IMG'],
-    'hero-video': ['T', 'IMG'], 'hero-countdown': ['T', 'CD'], 'hero-form': ['T', 'S', 'B'],
+    /* هیرو — 🆕 v2.29: اسلایدر تصویری چندمقداری + 🆕 v2.31: LNK لینک دکمه */
+    'hero': ['T', 'S', 'LNK'], 'hero-slider': ['T', 'A', 'SLT', 'IT'], 'hero-split': ['T', 'S', 'IMG', 'LNK'],
+    'hero-video': ['T', 'IMG'], 'hero-countdown': ['T', 'CD'], 'hero-form': ['T', 'S', 'B', 'FRM', 'DST', 'LNK'],
     'hero-marquee': ['X'], 'announcement-pill': ['T'],
     'hero-minimal': ['T', 'S', 'B'], 'hero-glass': ['T', 'S'], 'logo-strip': ['T'],
     /* 🆕 v2.29 — اسلایدر همه‌کاره: هر تعداد و هر نوع (تصویر/متن/کارت/مقاله/برند) */
@@ -2336,14 +2529,14 @@ const BLOCK_FIELDS = {
     'pricing-table': ['T', 'IT'], 'brands-links': ['T', 'C', 'IT'], 'certificates': ['T', 'C', 'IT'],
     'review-grid': ['T', 'C', 'IT'], 'contact-cards': ['T', 'IT'], 'price-cards': ['T', 'IT'],
     'location-cards': ['T', 'C', 'IT'], 'expert-cards': ['T', 'C', 'IT'], 'logo-cloud': ['T', 'C', 'IT'],
-    'brand-intro-card': ['T', 'S'], 'price-highlight': ['T', 'S', '$', 'G', 'B'], 'price-compare': ['T', 'C'],
+    'brand-intro-card': ['T', 'S'], 'price-highlight': ['T', 'S', '$', 'G', 'B', 'LNK'], 'price-compare': ['T', 'C', 'LNK'],
     'service-price-cards': ['T', 'C', 'IT'], 'feature-icons-grid': ['T', 'C', 'IT'],
-    /* فرم */
-    'contact-form': ['T', 'B'], 'request-form': ['T', 'B'], 'newsletter-form': ['T', 'B'],
-    'appointment-form': ['T', 'B'], 'quick-contact-form': ['T', 'B'],
-    'booking-calendar': ['T'], 'warranty-check': ['T', 'B'], 'price-estimate': ['T'],
-    'device-error-lookup': ['T'], 'appointment-compact': ['T', 'B'],
-    'callback-form': ['T', 'B'], 'survey-form': ['T', 'IT'],
+    /* فرم — 🆕 v2.31: FRM = تنظیم فیلدها + مقصد ارسال، LNK = لینک دکمه */
+    'contact-form': ['T', 'B', 'FRM', 'DST', 'LNK'], 'request-form': ['T', 'B', 'FRM', 'DST', 'LNK'], 'newsletter-form': ['T', 'B', 'FRM', 'DST', 'LNK'],
+    'appointment-form': ['T', 'B', 'FRM', 'DST', 'LNK'], 'quick-contact-form': ['T', 'B', 'FRM', 'DST', 'LNK'],
+    'booking-calendar': ['T', 'LNK'], 'warranty-check': ['T', 'B', 'LNK'], 'price-estimate': ['T', 'LNK'],
+    'device-error-lookup': ['T', 'LNK'], 'appointment-compact': ['T', 'B', 'FRM', 'DST', 'LNK'],
+    'callback-form': ['T', 'B', 'FRM', 'DST', 'LNK'], 'survey-form': ['T', 'IT', 'FRM', 'DST', 'LNK'],
     /* آمار — 🆕 v2.29: رنگ نوارهای پیشرفت (رفع «نوارهای پیشرفت رنگشون عوض نمیشه») */
     'counter-stats': ['T', 'IT'], 'progress-bars': ['T', 'CLR', 'IT'], 'skill-bars': ['T', 'CLR', 'IT'],
     'stats-grid': ['T', 'C', 'IT'], 'stats-strip': ['T', 'IT'],
@@ -2360,12 +2553,12 @@ const BLOCK_FIELDS = {
     'gallery': ['T', 'C', 'IMG', 'IT'], 'image-carousel': ['T', 'A', 'IMG', 'IT'], 'video-embed': ['T', 'IMG', 'V'], 'map': ['T', 'X', 'MU'],
     'before-after-slider': ['T', 'IMG'], 'social-wall': ['T', 'IT'], 'reviews-carousel': ['T', 'A', 'IT'],
     'video-grid': ['T', 'C', 'IMG'], 'logo-marquee': ['T', 'IT'], 'tag-cloud': ['T', 'IT'],
-    /* فراخوان */
-    'cta-phone': ['T', 'P'], 'cta-request': ['T', 'B'], 'cta-banner': ['T', 'B'],
-    'sticky-mobile-cta': ['P', 'B'], 'cta-whatsapp': ['T'], 'warranty-banner': ['T', 'X'],
-    'link-buttons': ['T', 'IT'], 'promo-card': ['T', 'S'], 'download-card': ['T', 'S', 'B'],
-    'guarantee-card': ['T', 'S', 'B'], 'cta-timer': ['T', 'S', 'CD'], 'urgent-repair': ['T', 'P', 'B'],
-    'newsletter-popup': ['T', 'S', 'B'],
+    /* فراخوان — 🆕 v2.31: LNK */
+    'cta-phone': ['T', 'P'], 'cta-request': ['T', 'B', 'LNK'], 'cta-banner': ['T', 'B', 'LNK'],
+    'sticky-mobile-cta': ['P', 'B', 'LNK'], 'cta-whatsapp': ['T'], 'warranty-banner': ['T', 'X'],
+    'link-buttons': ['T', 'IT'], 'promo-card': ['T', 'S', 'LNK'], 'download-card': ['T', 'S', 'B', 'LNK'],
+    'guarantee-card': ['T', 'S', 'B', 'LNK'], 'cta-timer': ['T', 'S', 'CD', 'LNK'], 'urgent-repair': ['T', 'P', 'B', 'LNK'],
+    'newsletter-popup': ['T', 'S', 'B', 'LNK'],
     'emergency-strip': ['X', 'P'],
     /* ساختار */
     'breadcrumb': ['IT'], 'alert-notice': ['X', 'alertT'], 'button-group': ['B', 'IT'],
@@ -2391,6 +2584,8 @@ const CODE_MAP = {
     'X2': 'textAfter', 'V': 'videoUrl', 'MU': 'mapUrl',
     /* 🆕 v2.29 — رنگ نوارها + نوع اسلایدها */
     'CLR': 'barColor', 'SLT': 'slideType',
+    /* 🆕 v2.31 — لینک دکمه + تنظیمات فرم */
+    'LNK': 'btnLink', 'FRM': '__formFields', 'DST': '__formDest', 'GT': 'gaugeText',
 };
 /* 🧬 v2.29 */
 Object.assign(BLOCK_FIELDS, GENERIC_BLOCK_FIELDS_V229);
@@ -2483,6 +2678,35 @@ function renderProps() {
                     <button type="button" class="btn btn-outline btn-sm" onclick="setProp('${selected}','barColor','');renderProps()" title="رنگ پیش‌فرض">✕ پیش‌فرض</button>
                 </div>
                 <div class="hint" style="margin-top:4px">رنگ پرشدن نوارها — بلافاصله روی بوم اعمال می‌شود.</div></div>`;
+        } else if (code === 'LNK') {
+            /* 🔗 v2.31 — لینک دکمه‌های این عنصر */
+            html += `<div class="form-group"><label>${esc(label)}</label>
+                <input type="text" class="form-control" style="font-size:11.5px;direction:ltr;text-align:left" value="${esc(props.btnLink || '')}" oninput="setProp('${selected}','btnLink',this.value)" placeholder="https://... یا /request یا tel:021...">
+                <div class="hint" style="margin-top:4px">💡 دکمه‌های این عنصر به این لینک وصل می‌شوند — در سایت برند قابل کلیک‌اند. آدرس کامل = تب جدید.</div></div>`;
+        } else if (code === 'GT') {
+            html += `<div class="form-group"><label>${esc(label)}</label>
+                <input type="text" class="form-control" style="font-size:12px" value="${esc(props.gaugeText || '')}" oninput="setProp('${selected}','gaugeText',this.value)" placeholder="مثلاً از ۱۰,۰۰۰ نظر مشتریان"></div>`;
+        } else if (code === 'FRM') {
+            /* 📋 v2.31 — تنظیم فیلدهای فرم: فعال/الزامی هر فیلد */
+            const FF = node.props.formFields || {};
+            const fieldsDef = formFieldsDef(item.block);
+            html += `<div style="font-size:11px;font-weight:800;color:var(--primary);margin:11px 0 7px">📋 فیلدهای فرم (روی سایت واقعی فعال‌اند)</div>`;
+            fieldsDef.forEach(f => {
+                const cur = FF[f.key] || { on: f.def, req: f.defReq };
+                html += `<div style="display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:6px 10px;margin-bottom:5px">
+                    <label class="form-check" style="margin:0;font-size:11.5px;flex:1"><input type="checkbox" ${(cur.on !== 0 && cur.on !== false) ? 'checked' : ''} onchange="setFormField('${selected}','${f.key}','on',this.checked?1:0)"> ${esc(f.label)}</label>
+                    <label class="form-check" style="margin:0;font-size:10.5px;color:${(cur.on !== 0 && cur.on !== false) ? '#b45309' : '#cbd5e1'}"><input type="checkbox" ${(cur.req !== 0 && cur.req !== false) ? 'checked' : ''} onchange="setFormField('${selected}','${f.key}','req',this.checked?1:0)" ${(cur.on === 0 || cur.on === false) ? 'disabled' : ''}> الزامی</label>
+                </div>`;
+            });
+            html += `<div class="hint" style="margin-top:5px;font-size:10px">فیلد غیرفعال روی سایت برند نمایش داده نمی‌شود. «الزامی» = بدون پر کردن، فرم ارسال نمی‌شود.</div>`;
+        } else if (code === 'DST') {
+            /* 📨 v2.31 — مقصد ارسال اطلاعات فرم */
+            const FD = node.props.formDest || {};
+            html += `<div style="font-size:11px;font-weight:800;color:var(--primary);margin:11px 0 7px">📨 اطلاعات فرم به کجا ارسال شود؟</div>`;
+            [['panel', '🖥️ ثبت در پنل مدیریت (درخواست‌ها/فرم‌ها)', 'همیشه پیشنهاد می‌شود'], ['email', '📧 ایمیل', 'به ایمیل تنظیم‌شده در تنظیمات ارسال'], ['telegram', '📱 تلگرام', 'به چت تلگرام تنظیم‌شده'], ['bale', '💬 بله', 'به چت بله تنظیم‌شده']].forEach(([k, l, hint]) => {
+                html += `<label class="form-check" style="font-size:11.5px;margin-bottom:5px"><input type="checkbox" ${(k === 'panel' ? (FD.panel !== 0 && FD.panel !== false) : !!FD[k]) ? 'checked' : ''} onchange="setFormDest('${selected}','${k}',this.checked?1:0)"> ${l} <small style="color:#94a3b8">— ${hint}</small></label>`;
+            });
+            html += `<div class="hint" style="margin-top:5px;font-size:10px">ترکیب دلخواه — مثلاً «پنل + تلگرام». کانال‌های ایمیل/تلگرام/بله باید در تنظیمات ارسال فعال باشند.</div>`;
         } else if (code === 'SLT') {
             /* 🎞 v2.29 — نوع اسلایدهای اسلایدر (تصویر/متن/کارت/مقاله/برند) */
             html += `<div class="form-group"><label>🎞 نوع اسلایدها</label>
@@ -2500,6 +2724,8 @@ function renderProps() {
                با انتخابگر آیکون ایموجی — 🆕 v2.29: ستون لینک = کلیک‌پذیری هر آیتم */
             const items = Array.isArray(props.items) ? props.items : [];
             const isSlider = ['hero-slider', 'universal-slider', 'image-carousel', 'quote-slider', 'testimonials', 'reviews-carousel'].includes(item.block);
+            /* 🎨 v2.31 — ستون رنگ اختصاصی هر آیتم برای نوارها/گردونه‌ها و دکمه‌ها */
+            const COLOR_ITEMS = ['progress-bars', 'skill-bars', 'stats-circles', 'progress-multi', 'progress-striped', 'progress-thin', 'progress-circles', 'progress-ring-big', 'progress-semi', 'btn-duo', 'btn-gradient', 'btn-outline-row', 'btn-icon-row', 'btn-mega-cta', 'btn-social'].includes(item.block);
             const descPh = { 'progress-bars': 'درصد — مثلاً ۸۰', 'skill-bars': 'درصد — مثلاً ۹۰', 'pricing-table': 'قیمت — مثلاً ۹۵۰ هزار تومان', 'price-cards': 'قیمت پلن', 'working-hours': 'ساعت — مثلاً ۹ تا ۲۰', 'schedule-table': 'ساعت — مثلاً ۹ تا ۲۰', 'faq-accordion': 'پاسخ سوال...', 'counter-stats': 'برچسب عدد', 'stats-inline': 'برچسب', 'stats-strip': 'برچسب', 'testimonials': 'نام مشتری', 'quote-slider': 'نام گوینده', 'timeline': 'وضعیت — مثلاً در حال انجام', 'gallery': 'آدرس تصویر (اختیاری)', 'image-carousel': 'آدرس تصویر (اختیاری)', 'social-follow': 'آدرس پروفایل (اختیاری)', 'related-links': 'آدرس لینک (اختیاری)', 'footer-links': 'آدرس لینک (اختیاری)', 'tag-cloud': '', 'vote-poll': 'آدرس گزینه (اختیاری)', 'survey-form': '', 'hero-slider': isSlider ? 'آدرس تصویر اسلاید' : '', 'universal-slider': 'آدرس تصویر اسلاید (نوع تصویر)' }[item.block] || 'توضیح / مقدار (اختیاری)...';
             const linkPh = isSlider ? 'لینک اسلاید (اختیاری)' : 'لینک آیتم (اختیاری — کلیک‌پذیر)';
             html += `<div style="font-size:11px;font-weight:800;color:var(--primary);margin:11px 0 7px">➕ آیتم‌های لیست (${faDigJS(items.length)})</div>`;
@@ -2509,13 +2735,14 @@ function renderProps() {
                     <input type="text" class="form-control" style="flex:1;min-width:110px;font-size:11.5px" value="${esc(it.text || '')}" oninput="setItemProp('${selected}',${idx},'text',this.value)" placeholder="متن آیتم...">
                     <input type="text" class="form-control" style="flex:1;min-width:110px;font-size:11px;color:var(--text-light)" value="${esc(it.desc || '')}" oninput="setItemProp('${selected}',${idx},'desc',this.value)" placeholder="${esc(descPh)}">
                     <input type="text" class="form-control" style="flex:1;min-width:110px;font-size:11px;direction:ltr;text-align:left;color:#2563eb" value="${esc(it.link || '')}" oninput="setItemProp('${selected}',${idx},'link',this.value)" placeholder="${esc(linkPh)}" title="🔗 لینک این آیتم — در سایت برند قابل کلیک می‌شود">
+                    ${COLOR_ITEMS ? `<input type="color" class="form-control" style="width:38px;height:31px;padding:2px;cursor:pointer;flex:none" value="${esc(/^#[0-9a-fA-F]{3,8}$/.test(String(it.color || '')) ? it.color : '#1e40af')}" oninput="setItemProp('${selected}',${idx},'color',this.value)" title="🎨 رنگ اختصاصی این آیتم">` : ''}
                     <button type="button" class="btn btn-outline btn-sm" onclick="moveListItem('${selected}',${idx},-1)" title="بالا">↑</button>
                     <button type="button" class="btn btn-outline btn-sm" onclick="moveListItem('${selected}',${idx},1)" title="پایین">↓</button>
                     <button type="button" class="btn btn-danger btn-sm" onclick="removeListItem('${selected}',${idx})" title="حذف">✕</button>
                 </div>`;
             });
             html += `<button type="button" class="btn btn-info btn-sm btn-block" style="margin-top:6px" onclick="addListItem('${selected}')">➕ افزودن آیتم جدید (بدون محدودیت)</button>
-                <div class="hint" style="margin-top:5px;font-size:10px;line-height:1.7">💡 روی کادر آیکون کلیک کنید تا <b>انتخابگر آیکون</b> باز شود — ستون سوم برای توضیح/قیمت/درصد و ستون آبی <b>لینک</b> است (کلیک‌پذیری آیتم در سایت برند).</div>`;
+                <div class="hint" style="margin-top:5px;font-size:10px;line-height:1.7">💡 روی کادر آیکون کلیک کنید تا <b>انتخابگر آیکون</b> باز شود — ستون سوم برای توضیح/قیمت/درصد و ستون آبی <b>لینک</b> است${COLOR_ITEMS ? ' و ستون رنگ، <b>رنگ اختصاصی همین آیتم</b> (نوار/گردونه/دکمه)' : ''}.</div>`;
         } else {
             /* فیلدهای متنی ساده: عنوان/زیرعنوان/تلفن/دکمه/برچسب/قیمت/ساعات */
             const isLtr = key === 'phone';
@@ -2562,7 +2789,7 @@ function renderProps() {
     /* 🎬 v2.29 — تنظیمات انیمیشن ورود (درخواست کاربر: «برای عناصر تنظیمات انیمیشن هم بزار») */
     if (!STRUCTURAL.includes(item.block)) {
         const animSel = `<select class="form-control" style="font-size:12px" onchange="setProp('${selected}','anim',this.value);renderProps()">
-            ${[['none', 'بدون انیمیشن'], ['fade', 'محوشدن (Fade)'], ['up', 'آمدن از پایین'], ['down', 'آمدن از بالا'], ['right', 'آمدن از راست'], ['left', 'آمدن از چپ'], ['zoom', 'بزرگ‌نمایی (Zoom)'], ['flip', 'چرخش سه‌بعدی'], ['bounce', 'پرش نرم'], ['rotate', 'چرخش ملایم']].map(([v, l]) => `<option value="${v}" ${(props.anim || 'none') === v ? 'selected' : ''}>${l}</option>`).join('')}
+            ${[['none', 'بدون انیمیشن'], ['fade', 'محوشدن (Fade)'], ['up', 'آمدن از پایین'], ['down', 'آمدن از بالا'], ['right', 'آمدن از راست'], ['left', 'آمدن از چپ'], ['zoom', 'بزرگ‌نمایی (Zoom)'], ['flip', 'چرخش سه‌بعدی'], ['bounce', 'پرش نرم'], ['rotate', 'چرخش ملایم'], ['swing', 'تاب خوردن آویزی'], ['drop', 'افتادن از بالا (سنگین)'], ['pop', 'پاپ کاذب (rubber)'], ['jelly', 'ژله‌ای']].map(([v, l]) => `<option value="${v}" ${(props.anim || 'none') === v ? 'selected' : ''}>${l}</option>`).join('')}
         </select>`;
         html += `
         <div style="font-size:11px;font-weight:800;color:var(--primary);margin:12px 0 7px">🎬 انیمیشن ورود</div>
@@ -2570,11 +2797,17 @@ function renderProps() {
         ${(props.anim && props.anim !== 'none') ? `
         <div class="form-group"><label>سرعت انیمیشن</label>
             <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','animSpeed',this.value)">
-                ${[['slow', 'آهسته (۱.۲s)'], ['normal', 'معمولی (۰.۷s)'], ['fast', 'سریع (۰.۴s)']].map(([v, l]) => `<option value="${v}" ${(props.animSpeed || 'normal') === v ? 'selected' : ''}>${l}</option>`).join('')}
+                ${[['xslow', 'خیلی آهسته (۱.۸s)'], ['slow', 'آهسته (۱.۲s)'], ['normal', 'معمولی (۰.۷s)'], ['fast', 'سریع (۰.۴s)'], ['xfast', 'فوری (۰.۲s)']].map(([v, l]) => `<option value="${v}" ${(props.animSpeed || 'normal') === v ? 'selected' : ''}>${l}</option>`).join('')}
             </select></div>
         <div class="form-group"><label>⏱ تأخیر شروع (میلی‌ثانیه — برای موجی‌شدن)</label>
             <input type="number" class="form-control" style="font-size:12px" min="0" max="3000" step="50" value="${parseInt(props.animDelay || 0, 10)}" onchange="setProp('${selected}','animDelay',parseInt(this.value,10) || 0)">
-            <div class="hint" style="margin-top:4px">مثلاً برای کارت‌های پشت‌سرهم: ۰، ۱۵۰، ۳۰۰، ... تا با هم موجی ظاهر شوند.</div></div>` : ''}`;
+            <div class="hint" style="margin-top:4px">مثلاً برای کارت‌های پشت‌سرهم: ۰، ۱۵۰، ۳۰۰، ... تا با هم موجی ظاهر شوند.</div></div>` : ''}
+        <div style="font-size:11px;font-weight:800;color:var(--primary);margin:13px 0 7px">♾️ انیمیشن پیوسته (لوپ)</div>
+        <div class="form-group"><label>حرکت همیشگی عنصر (برای جلب توجه)</label>
+            <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','ambient',this.value)">
+                ${[['none', 'بدون حرکت'], ['float', '🎈 شناور (بالا-پایین)'], ['pulse', '💗 نبض (بزرگ-کوچک)'], ['shine', '✨ برق (درخشش متناوب)'], ['sway', '🍂 تاب خوردن ظریف'], ['bobble', '🔕 تکان ملایم']].map(([v, l]) => `<option value="${v}" ${(props.ambient || 'none') === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select>
+            <div class="hint" style="margin-top:4px">برای بنرهای تبلیغاتی و دکمه‌های مهم — با سلیقه استفاده کنید تا سایت شلوغ نشود.</div></div>`;
     }
 
     /* 🎛 v3.3 + v2.15 + 🆕 v2.17: تنظیمات حرفه‌ای عمومی — رنگ عنوان/گرادیانت
@@ -2657,6 +2890,81 @@ function ensureItems(node) {
     node.props = node.props || {};
     if (!Array.isArray(node.props.items)) { node.props.items = []; }
     return node.props.items;
+}
+/* 📋 v2.31 — تنظیم فیلد فرم (فعال/الزامی) */
+function formFieldsDef(block) {
+    const common = [
+        { key: 'fullName', label: '👤 نام و نام خانوادگی', def: 1, defReq: 1 },
+        { key: 'phone', label: '📞 شماره تماس', def: 1, defReq: 1 },
+    ];
+    const per = {
+        'request-form': [
+            { key: 'phone2', label: '📞 تماس دوم', def: 1, defReq: 0 },
+            { key: 'address', label: '📍 آدرس', def: 1, defReq: 1 },
+            { key: 'deviceType', label: '🔧 نوع دستگاه', def: 1, defReq: 1 },
+            { key: 'deviceModel', label: '📋 مدل دستگاه', def: 1, defReq: 0 },
+            { key: 'preferredTime', label: '📅 زمان مراجعه ترجیحی', def: 1, defReq: 0 },
+            { key: 'description', label: '📝 شرح ایراد', def: 1, defReq: 1 },
+            { key: 'images', label: '🖼️ تصویر دستگاه (آپلود)', def: 1, defReq: 0 },
+        ],
+        'contact-form': [
+            { key: 'email', label: '📧 ایمیل', def: 1, defReq: 0 },
+            { key: 'subject', label: '📌 موضوع', def: 1, defReq: 0 },
+            { key: 'address', label: '📍 آدرس', def: 0, defReq: 0 },
+            { key: 'description', label: '📝 پیام', def: 1, defReq: 1 },
+        ],
+        'newsletter-form': [
+            { key: 'email', label: '📧 ایمیل', def: 1, defReq: 1 },
+        ],
+        'callback-form': [
+            { key: 'phone2', label: '📞 شماره دوم', def: 0, defReq: 0 },
+            { key: 'preferredTime', label: '📅 زمان مناسب تماس', def: 1, defReq: 0 },
+            { key: 'description', label: '📝 موضوع تماس', def: 1, defReq: 0 },
+        ],
+        'quick-contact-form': [
+            { key: 'description', label: '📝 توضیح کوتاه', def: 0, defReq: 0 },
+        ],
+        'appointment-form': [
+            { key: 'deviceType', label: '🔧 نوع دستگاه', def: 1, defReq: 0 },
+            { key: 'preferredTime', label: '📅 تاریخ و ساعت نوبت', def: 1, defReq: 1 },
+            { key: 'address', label: '📍 آدرس', def: 1, defReq: 0 },
+            { key: 'description', label: '📝 شرح کار', def: 1, defReq: 0 },
+        ],
+        'appointment-compact': [
+            { key: 'preferredTime', label: '📅 زمان نوبت', def: 1, defReq: 0 },
+        ],
+        'survey-form': [
+            { key: 'description', label: '📝 نظر تکمیلی', def: 1, defReq: 0 },
+        ],
+        'hero-form': [
+            { key: 'deviceType', label: '🔧 نوع دستگاه', def: 1, defReq: 0 },
+            { key: 'description', label: '📝 شرح ایراد', def: 1, defReq: 1 },
+        ],
+    };
+    return common.concat(per[block] || [{ key: 'description', label: '📝 پیام', def: 1, defReq: 0 }]);
+}
+function setFormField(path, fkey, prop, value) {
+    const node = resolveNode(path);
+    if (!node) { return; }
+    node.props = node.props || {};
+    if (!node.props.formFields || typeof node.props.formFields !== 'object') { node.props.formFields = {}; }
+    if (!node.props.formFields[fkey]) { node.props.formFields[fkey] = {}; }
+    node.props.formFields[fkey][prop] = value;
+    if (prop === 'on' && !value) { node.props.formFields[fkey].req = 0; }
+    syncAndRender();
+    renderProps();
+}
+function setFormDest(path, key, value) {
+    const node = resolveNode(path);
+    if (!node) { return; }
+    node.props = node.props || {};
+    if (!node.props.formDest || typeof node.props.formDest !== 'object') { node.props.formDest = { panel: 1 }; }
+    node.props.formDest[key] = value;
+    if (key === 'panel' && !value && !node.props.formDest.email && !node.props.formDest.telegram && !node.props.formDest.bale) {
+        node.props.formDest.panel = 1; /* حداقل یک مقصد */
+    }
+    syncAndRender();
+    renderProps();
 }
 function setItemProp(path, idx, key, value) {
     const node = resolveNode(path);

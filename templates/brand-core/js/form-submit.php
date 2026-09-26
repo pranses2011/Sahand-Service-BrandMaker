@@ -79,6 +79,43 @@ if (empty($payload)) {
     exit;
 }
 
+/* ═══ 🆕 v2.31 — فرم‌های عمومی قالب‌ساز (sahand-form) ═══
+   اگر form_block ارسال شده باشد، درخواست از مسیر فرم‌ها می‌رود؛
+   در غیر این صورت رفتار قبلی (فرم درخواست کامل صفحه /request) حفظ می‌شود. */
+if (!empty($data['form_block']) && is_string($data['form_block'])) {
+    $formBlock = preg_replace('/[^a-z0-9_\-]/', '', (string)$data['form_block']);
+    if ($formBlock === '') { $formBlock = 'custom'; }
+    $formPayload = ['form_block' => $formBlock, 'fields' => []];
+    /* فیلدها: کلیدهای امن کوتاه + مقدار متن محدود */
+    if (is_array($data['fields'] ?? null)) {
+        foreach ($data['fields'] as $fk => $fv) {
+            $fk = preg_replace('/[^a-zA-Z0-9_]/', '', (string)$fk);
+            if ($fk === '' || strlen($fk) > 40) { continue; }
+            $formPayload['fields'][$fk] = is_string($fv) ? mb_substr($fv, 0, 2000) : '';
+        }
+    }
+    /* فیلدهای استاندارد فرم درخواست هم در سطح بالا (سازگاری) */
+    foreach (['full_name', 'phone', 'phone2', 'address', 'device_type', 'device_other', 'device_model', 'description', 'preferred_date', 'preferred_time'] as $sf) {
+        if (isset($payload[$sf])) { $formPayload[$sf] = $payload[$sf]; }
+    }
+    if (isset($payload['images'])) { $formPayload['images'] = $payload['images']; }
+    /* مقصد ارسال (panel/email/telegram/bale) */
+    if (is_array($data['dest'] ?? null)) {
+        $dests = [];
+        foreach ($data['dest'] as $dk) {
+            if (in_array($dk, ['panel', 'email', 'telegram', 'bale'], true)) { $dests[] = $dk; }
+        }
+        if ($dests) { $formPayload['dest'] = implode(',', $dests); }
+    }
+    if (!empty($data['page'])) { $formPayload['page'] = mb_substr((string)$data['page'], 0, 300); }
+
+    $response = postToAPI('brand/' . BRAND_ID . '/form-entry', $formPayload);
+    $httpCode = !empty($response['success']) ? 200 : 422;
+    http_response_code($httpCode);
+    echo json_encode($response, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 /* 🚀 ارسال به API سایت ساز (postToAPI خودش api_key را ضمیمه می‌کند) */
 $response = postToAPI('brand/' . BRAND_ID . '/request', $payload);
 

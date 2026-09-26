@@ -58,6 +58,7 @@ $router->use(function (array $params) {
     //    🤖 telegram/webhook — وب‌هوک تلگرام (با توکن مخفی خودکار تلگرام راستی‌آزمایی می‌شود)
     if (preg_match('#^brand/[^/]+/request$#', $path) || preg_match('#^request$#', $path)
         || preg_match('#^brand/[^/]+/upload-request-image$#', $path) || preg_match('#^upload-request-image$#', $path)
+        || preg_match('#^brand/[^/]+/form-entry$#', $path) || preg_match('#^form-entry$#', $path)
         || preg_match('#^track$#', $path)
         || preg_match('#^icon/#', $path)
         || preg_match('#^brands$#', $path)
@@ -158,6 +159,16 @@ $router->add('POST', 'upload-request-image', function () {
 $router->add('POST', 'track', function () {
     require __DIR__ . '/endpoints/analytics.php';
     api_track_visit();
+});
+
+/* 📋 v2.31 — ثبت فرم‌های عمومی قالب‌ساز (تماس/خبرنامه/نظرسنجی/...) */
+$router->add('POST', 'brand/{brandId}/form-entry', function ($p) {
+    require __DIR__ . '/endpoints/form-entry.php';
+    api_submit_form_entry((int)$p['brandId']);
+});
+$router->add('POST', 'form-entry', function () {
+    require __DIR__ . '/endpoints/form-entry.php';
+    api_submit_form_entry(0);
 });
 
 // ⚙️ تنظیمات عمومی قابل نمایش در سایت برند

@@ -128,6 +128,18 @@ try {
                         <span class="badge"><?= en_to_fa_digits((string)$newRequests) ?></span>
                     <?php endif; ?>
                 </a>
+                <a class="nav-link <?= $activeMenu === 'form-entries' ? 'active' : '' ?>" href="form-entries.php">
+                    <span class="icon">📋</span> فرم‌های دیگر
+                    <?php
+                    /* 🆕 v2.31 — بج فرم‌های امروز */
+                    try {
+                        $todayForms = (int)Database::getInstance()->fetchValue('SELECT COUNT(*) FROM form_entries WHERE created_at >= ?', [date('Y-m-d 00:00:00')]);
+                    } catch (Throwable $tfE) { $todayForms = 0; }
+                    if ($todayForms > 0):
+                        ?>
+                        <span class="badge"><?= en_to_fa_digits((string)$todayForms) ?></span>
+                    <?php endif; ?>
+                </a>
                 <a class="nav-link <?= $activeMenu === 'analytics' ? 'active' : '' ?>" href="analytics.php">
                     <span class="icon">📈</span> آمار و گزارش
                 </a>
