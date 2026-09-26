@@ -337,7 +337,7 @@ function renderPreviewBlock(string $block, array $props = []): string
 if (!function_exists('pv_generic_block')) {
     /** 🧬 v2.29 — رندرگر عمومی عناصر جدید (۶۴ عنصر با renderType)
      *  آینه genericBlockHtml در JS — props همه چیز را دارند (makeBlocks پیش‌فرض‌ها را کپی می‌کند) */
-    function pv_generic_block(string $block, array $props, string $PV): string
+    function pv_generic_block(string $block, array $props, callable $PV): string
     {
         $type = (string)($props['renderType'] ?? 'cards');
         $title = (string)($props['title'] ?? '');
