@@ -1467,6 +1467,47 @@ fix-cron-deploy-v2.14a → feat-images-v2.14 → feat-font-previews-v2.14 → fe
 
 ---
 
+## مرحله ۵۱ — v2.27.0 | 2026-09-26 | شش‌گانه ریشه‌یابی: متغیرهای مقالات + لوگو + پیش‌نمایش کامل عنصر + آمار ۵۰۰ + تنظیمات عناصر + اعمال تم
+
+**درخواست کاربر**: درخواست قبلی با خطا مواجه و ناقص مانده بود — ۶ گزارش: ① متغیرهای {{warranty_period}}/{{agency_name}} خام در متن مقالات ② لوگوی سایر برندها در صفحه سایر برندها نمایش نمی‌یابد ③ پیش‌نمایش عنصر استخراجی فقط متن است و باید دقیقاً مثل سایت مبدا باشد (ذخیره/استفاده مجدد هم کامل) ④ صفحه آمار و گزارش خطای ۵۰۰ ⑤ تنظیمات عناصر ناقص (متن چک‌لیست عوض نمی‌شود/گزینه اضافه نمی‌شود) ⑥ تغییر تم روی سایت برندها اعمال نمی‌شود (تکی/عمومی) + بروزرسانی راهنمای API + رلیز کامل.
+
+**وضعیت شروع**: جلسه قبل نیمه‌کاره قطع شده بود — ۲۰ فایل تغییرکرده + ۲ فایل جدید (blocks.php/blocks.css) بدون کامیت در working tree. با `git pull` (Already up to date) و اعتبارسنجی `php -l` همه فایل‌ها (سالم)، کار از همان نقطه ادامه یافت.
+
+### کارهای انجام‌شده
+
+- ✅ **بازبینی کامل تغییرات نیمه‌کاره**: هر ۶ رفع در working tree حضور داشت اما تست نشده بود؛ سه ایراد باقی‌مانده کشف و رفع شد (semicolon تکراری injectRootStyle + آدرس‌های `../` حل‌نشده + brandShare بدون safeQuery)
+- ✅ **① متغیرهای مقالات (سه لایه)**: ArticleGenerator با ۱۷ متغیر کامل + TextProcessor::sweepPlaceholders (جاروی نهایی ناشناخته‌ها) + api_article_sweep_vars هنگام خواندن مقالات قدیمی (لیست/صفحه/related/SEO)
+- ✅ **② لوگوی برندها**: اندپوینت GET /api/brands لوگو را با asset_url مطلق برمی‌گرداند
+- ✅ **③ پیش‌نمایش کامل عنصر**: subtreeCss (قوانین معتبر زیردرخت با انتخابگر — فرزندان هم استایل می‌گیرند) + injectRootStyle (تزریق style ریشه + ادغام بدون ;; ) + absolutize بازنویسی‌شده (src/href/data-src/poster + url() درون‌خطی — باگ تاریخی کالبک هرگز صدا زده نمی‌شد) + absolutizeCssUrls (نسبت به خود شیت) + normalizeUrlPath (resolve واقعی ./ و ../) + ارتفاع خودکار iframe در هر سه صحنه (استخراج/بوم/سایت برند) + سقف‌های ۹۰۰۰ قانون/۵۴KB
+- ✅ **④ آمار ۵۰۰**: مهاجرت schema_v227_stats (CREATE TABLE IF NOT EXISTS + SHOW COLUMNS + ALTER برای is_exit/duration/page_title/viewed_at — ریشه: CREATE TABLE روی جدول موجود ستون اضافه نمی‌کند) + safeQuery در analytics.php و analytics-report.php (همه کوئری‌های آماری + brandShare + شمارنده‌های ردیاب با try/catch)
+- ✅ **⑤ تنظیمات عناصر**: listItems ماده‌ساز (fallback داخل props.items نوشته می‌شود → قابل ویرایش/حذف/جابجایی/افزودن — هسته درد «نمیشه متن‌ها رو عوض کرد») + statItems/statStrip از همان مسیر + فیلد آیکون (I) با interpolation واقعی (باگ \${esc(label)} اِسکیپ) + pvItems نرمال‌سازی قبل از فیلتر (آیتم‌های آرایه‌ای قدیمی حذف نمی‌شوند) در preview و blocks
+- ✅ **⑥ اعمال تم (زنجیره کامل)**: اندپوینت template چهارلایه (چیدمان صفحه ← قالب صفحه ← تم برند ← پیش‌فرض نوع) + عناصر شخصی با HTML/CSS کامل + کش ۱۲۰ث برند×صفحه + رندرگر blocks.php (۸۲۵ خط، آینه ۱۵۰ بلوک + تنظیمات _page + ستون‌های تودرتو + pelement ایزوله) + blocks.css (۳۲۱ خط زیر چتر bb-wrap با پالت زنده) + اتصال ۵ صفحه اصلی سایت برند (خانه/خدمات/مقالات/تماس/درباره — با fallback ساختار ثابت) + پاک‌سازی کش هوشمند در themes.php/template-builder.php + require در ConfigGenerator و config.php قالب
+- ✅ **چکر JS بازنویسی**: باگ چکر قبلی کشف شد — regex ترتیبی با عبارت `?:` چندخطی، JS سالم را fail می‌کرد (false negative از جلسات قبل!)؛ چکر جدید: حذف کامل تگ‌های PHP سپس node --check → سبز
+- ✅ **تست ۸۴/۸۴ جدید** (PHP 8.3 واقعی): جاروی متغیرها ۸ + asset_url ۳ + زیردرخت/مطلق‌سازی/تزریق ۲۴ + کشف DOM محلی ۵ + آمار مقاوم ۱۱ + ماده‌سازی ۵ + زنجیره تم ۲۳ + رندر چک‌لیست/هیرو/عنصر شخصی ۶
+- ✅ **تست زنده استخراج**: example.com + w3.org — همه عناصر CSS با انتخابگر + استایل ریشه + آدرس مطلق، صفر CSS خام
+- ✅ **رگرسیون**: v2.25 (۷۳/۰) + v2.24 (۸۱/۱ نسخه‌ای) + TemplateLibrary (۲۱/۲۱) + v2.26 repro — مجموع چک‌های پروژه ۱۱۰۶ → ۱۱۹۰
+- ✅ مستندات: CHANGELOG [2.27.0] + WORKLOG (همین مرحله) + CHECKLIST بخش ۲.۲۷ + README + UPGRADE + AI-API-GUIDE
+- ✅ رلیز v2.27.0: install.zip + update.zip + ۳ راهنما + SHA256SUMS
+
+### فایل‌های تغییر‌یافته
+
+- `config.php` — نسخه 2.27.0 + مهاجرت schema_v227_stats
+- `engine/utils/TextProcessor.php` — sweepPlaceholders
+- `engine/generators/ArticleGenerator.php` — ۱۷ متغیر + جاروی نهایی
+- `api/endpoints/article.php` — سوئیپ مقالات قدیمی هنگام خواندن
+- `api/index.php` — لوگوی مطلق در brands
+- `core/ElementExtractor.php` — subtreeCss + injectRootStyle + absolutize + absolutizeCssUrls + normalizeUrlPath
+- `admin/analytics.php` + `admin/analytics-report.php` — safeQuery کامل
+- `admin/template-builder.php` — ماده‌سازی + فیلد آیکون + ارتفاع خودکار + کش
+- `admin/template-preview.php` — pvItems + ارتفاع خودکار
+- `admin/themes.php` — پاک‌سازی کش
+- `api/endpoints/template.php` — حل چهارلایه + عناصر شخصی + کش
+- `core/ConfigGenerator.php` — require blocks.php
+- `templates/brand-core/includes/blocks.php` 🆕 — رندرگر ۱۵۰ بلوک
+- `templates/brand-core/css/blocks.css` 🆕 — استایل زیر bb-wrap
+- `templates/brand-core/config.php` + `includes/header.php` — require + بارگذاری شرطی blocks.css
+- `templates/brand-core/index.php` + `pages/{services,blog,contact,about-brand}.php` — اتصال به چیدمان API
+
 ## مرحله ۵۰ — v2.26.0 | 2026-09-26 | سه‌گانه آمار/مقالات + رنگ هیدر لوگو + ظواهر متعدد + استخراج عناصر از سایت
 
 **درخواست کاربر**: آمار و گزارش با وجود بازدید خالی است + تصویر شاخص مقالات نمایش نمی‌یابد و صفحه مقاله خالی باز می‌شود + رنگ هیدر از رنگ‌های تاکیدی لوگو + ظواهر متعدد برای هر عنصر قالب‌ساز (مثلاً دکمه شیشه‌ای/دایره‌ای برای همه عناصر) + قابلیت استخراج عناصر یک سایت با استایل + پیش‌نمایش با کلیک + ذخیره در لیست عناصر شخصی + بروزرسانی راهنمای API + رلیز کامل.

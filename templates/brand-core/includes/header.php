@@ -56,6 +56,10 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
     <!-- 🎨 استایل‌ها -->
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/theme-light.css" id="theme-stylesheet">
+    <?php /* 🧱 v2.27 — استایل بلوک‌های قالب‌ساز؛ فقط وقتی صفحه چیدمان تم دارد */ ?>
+    <?php if (!empty($loadBlocksCss)): ?>
+    <link rel="stylesheet" href="/css/blocks.css">
+    <?php endif; ?>
     <?php
     /* 🎨 v2.24 — پالت زنده از API سایت ساز (دو منفعت):
        ① تغییر پالت/تم در پنل، بدون استقرار مجدد و بعد از انقضای کش (پیش‌فرض

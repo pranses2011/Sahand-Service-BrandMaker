@@ -36,7 +36,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data['is_default'] = 0;
             $id = $db->insert('themes', $data);
         }
-        flash('success', '✅ تم ذخیره شد.');
+        /* 🎨 v2.27 — پاک‌سازی کش API سایت‌های برند (ریشه «تغییر تم اعمال
+           نمی‌شود»): چیدمان تم از کش ۱۲۰ ثانیه‌ای خوانده می‌شد. */
+        (new Cache())->flush('api_brand_');
+        flash('success', '✅ تم ذخیره شد — روی سایت‌های برندِ این تم پس از چند لحظه اعمال می‌شود.');
         redirect('themes.php');
     }
 
@@ -56,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id = (int)post('theme_id');
         $db->update('themes', ['is_default' => 0], '1=1');
         $db->update('themes', ['is_default' => 1], 'id = ?', [$id]);
+        (new Cache())->flush('api_brand_');
         flash('success', '✅ تم پیش‌فرض برندهای جدید شد.');
         redirect('themes.php');
     }
@@ -64,7 +68,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $brandId = (int)post('brand_id');
         $themeId = (int)post('theme_id');
         $db->update('brands', ['theme_id' => $themeId ?: null], 'id = ?', [$brandId]);
-        flash('success', '✅ تم به برند اختصاص یافت.');
+        /* 🎨 v2.27 — کش همان برند پاک شود تا تم جدید بلافاصله دیده شود */
+        (new Cache())->flush('api_brand_' . $brandId);
+        flash('success', '✅ تم به برند اختصاص یافت — سایت برند پس از چند لحظه تم جدید را نشان می‌دهد.');
         redirect('themes.php');
     }
 }

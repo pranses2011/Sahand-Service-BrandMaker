@@ -161,6 +161,9 @@ class ElementExtractor
 
     /**
      * 🖼 سند مستقل پیش‌نمایش عنصر (iframe srcdoc)
+     *
+     * 🆕 v2.27: پارامتر css اکنون «قوانین کامل با انتخابگر» است (نه اعلان
+     * خام) — مستقیم داخل <style> می‌رود و فرزندان هم استایل می‌گیرند.
      */
     public static function previewDocument(string $html, string $css, string $bg = '#ffffff'): string
     {
@@ -246,14 +249,25 @@ class ElementExtractor
                 /* نام = نقش + بریده متن */
                 $name = $label . ' — ' . mb_substr($text !== '' ? $text : ($hasImg ? 'تصویر' : 'بدون متن'), 0, 40);
 
+                /* 🎨 v2.27 — ریشه «پیش‌نمایش فقط متن نشان می‌دهد» (سه ایراد همزمان):
+                   ① استایل «تخت‌شده» بدون انتخابگر داخل <style> می‌رفت = CSS نامعتبر
+                   که مرورگر نادیده می‌گرفت → عنصر کاملاً بی‌استایل رندر می‌شد.
+                   ② فقط استایل خودِ عنصر ریشه جمع می‌شد؛ فرزندان (متن/آیکون/…)
+                   هیچ استایلی نمی‌گرفتند.
+                   ③ absolutize کالبک $fix را هرگز صدا نمی‌زد → تصاویر نسبی 404.
+                   اکنون: css = قوانین معتبر زیردرخت (انتخابگر + اعلان، همان
+                   ترتیب آبشار سایت مبدأ) + استایل تخت ریشه به‌صورت style درون‌خطی
+                   روی خود عنصر تزریق می‌شود → پیش‌نمایش/ذخیره/استفاده مجدد همه
+                   «دقیقاً مثل سایت مبدأ» اند. */
+                $flat = $this->matchedCss($node, $rules);
                 $out[] = [
                     'type'   => $role,
                     'label'  => $label,
                     'icon'   => $icon,
                     'name'   => $name,
                     'text'   => mb_substr($text, 0, 90),
-                    'html'   => self::sanitize($raw),
-                    'css'    => $this->matchedCss($node, $rules),
+                    'html'   => self::sanitize($this->injectRootStyle($raw, $flat)),
+                    'css'    => $this->subtreeCss($node, $rules),
                     'size'   => $len,
                 ];
                 $counts[$role]++;
@@ -263,22 +277,197 @@ class ElementExtractor
     }
 
     /**
-     * 🔗 مطلق‌سازی آدرس‌های نسبی در HTML عنصر (src/href)
+     * 🔗 مطلق‌سازی آدرس‌های نسبی در HTML عنصر (src/href + url() در استایل)
+     *
+     * 🚨 v2.27 — باگ تاریخی: کالبک $fix تعریف می‌شد اما هرگز فراخوانی نمی‌شد
+     * (خروجی کالبک بیرونی همان ورودی بود!) → همه آدرس‌های نسبی، نسبی می‌ماندند
+     * → تصاویر/فونت‌های عنصر در پیش‌نمایش 404 و بی‌استایل دیده می‌شدند.
      */
     private function absolutize(string $html, string $baseUrl): string
     {
         $base = rtrim(preg_replace('#^(https?://[^/]+).*#i', '$1', $baseUrl), '/');
         $dir = rtrim(preg_replace('#/[^/]*$#', '', $baseUrl), '/');
-        $fix = static function (array $m) use ($base, $dir): string {
-            $v = trim($m[2], '\'"');
-            if ($v === '' || preg_match('#^(https?:)?//#i', $v) || str_starts_with($v, 'data:')) { return $m[0]; }
-            $abs = $v[0] === '/' ? ($base . $v) : ($dir . '/' . $v);
-            return $m[1] . $abs . $m[3];
-        };
-        return preg_replace_callback('#(src|href)=(["\'])([^"\']*)(["\'])#i', static function (array $m) use ($fix) {
-            /* گروه‌بندی متفاوت — نرمال می‌کنیم */
-            return $m[1] . '=' . $m[2] . $m[3] . $m[4];
+
+        /* ① خصیصه‌های آدرس‌دار */
+        $html = preg_replace_callback('#(src|href|data-src|poster)\s*=\s*(["\'])([^"\']*)\2#i', static function (array $m) use ($base, $dir): string {
+            $v = trim($m[3]);
+            if ($v === '' || preg_match('#^([a-z][a-z0-9+.-]*:|//)#i', $v) || $v[0] === '#' || stripos($v, 'data:') === 0) {
+                return $m[0];
+            }
+            $abs = $v[0] === '/' ? ($base . $v) : self::normalizeUrlPath($dir . '/' . $v);
+            return $m[1] . '=' . $m[2] . $abs . $m[2];
         }, $html) ?? $html;
+
+        /* ② url(...) در استایل درون‌خطی (پس‌زمینه/فونت و ...) */
+        return preg_replace_callback('#url\(\s*(["\']?)([^"\)\']+)\1\s*\)#i', static function (array $m) use ($base, $dir): string {
+            $v = trim($m[2]);
+            if ($v === '' || preg_match('#^([a-z][a-z0-9+.-]*:|//)#i', $v) || $v[0] === '#') {
+                return $m[0];
+            }
+            $abs = $v[0] === '/' ? ($base . $v) : self::normalizeUrlPath($dir . '/' . $v);
+            return 'url(' . $m[1] . $abs . $m[1] . ')';
+        }, $html) ?? $html;
+    }
+
+    /**
+     * 🧭 v2.27 — resolve واقعی segment های ./ و ../ در مسیر URL
+     * (css/../img/x.png → img/x.png — مرورگر این را می‌فهمد ولی
+     * ذخیره/استفاده مجدد باید آدرس تمیز قطعی داشته باشد)
+     */
+    private static function normalizeUrlPath(string $url): string
+    {
+        /* فقط بخش مسیر را resolve می‌کنیم — scheme/host دست‌نخورده */
+        if (!preg_match('#^(https?://[^/]+)(/.*)$#i', $url, $mu)) {
+            return $url;
+        }
+        $origin = $mu[1];
+        $segs = explode('/', ltrim($mu[2], '/'));
+        $out = [];
+        foreach ($segs as $s) {
+            if ($s === '.') { continue; }
+            if ($s === '..') { array_pop($out); continue; }
+            $out[] = $s;
+        }
+        return $origin . '/' . implode('/', $out);
+    }
+
+    /**
+     * 🎨 v2.27 — CSS کامل زیردرخت عنصر (قوانین معتبر + همان ترتیب منبع)
+     * ================================================================
+     * برای هر قانون CSS سایت مبدأ بررسی می‌شود آیا «راست‌ترین ترکیبِ» هر
+     * بخش انتخابگر با کلاس/آیدی/تگ یکی از گره‌های زیردرخت تطبیق دارد؛
+     * بخش‌های مطابق با انتخابگر خودشان (نه اعلان خام) برمی‌گردند تا در
+     * iframe ایزوله دقیقاً همان آبشار سایت مبدأ اجرا شود — فرزندان هم
+     * استایل می‌گیرند، نه فقط عنصر ریشه.
+     *
+     * ابرمجموعه‌ی امن است: قانونی که به‌اشتباه وارد شود در iframe بی‌اثر
+     * می‌ماند (چون انتخابگرش دقیق است) اما هیچ قانونِ لازمِ حذف نمی‌شود.
+     */
+    private function subtreeCss(DOMElement $node, array $rules): string
+    {
+        if (empty($rules)) {
+            return '';
+        }
+        /* ① امضای زیردرخت: همه کلاس‌ها/آیدی‌ها/تگ‌ها (سقف ۶۰۰ گره) */
+        $classes = [];
+        $ids = [];
+        $tags = [];
+        $stack = [$node];
+        $seen = 0;
+        while ($stack) {
+            /** @var DOMElement $el */
+            $el = array_pop($stack);
+            if (++$seen > 600) {
+                break;
+            }
+            $tags[strtolower($el->nodeName)] = true;
+            $id = trim((string)$el->getAttribute('id'));
+            if ($id !== '') {
+                $ids[$id] = true;
+            }
+            foreach (preg_split('/\s+/', trim((string)$el->getAttribute('class')) ?: '', -1, PREG_SPLIT_NO_EMPTY) as $c) {
+                $classes[$c] = true;
+            }
+            foreach ($el->childNodes as $ch) {
+                if ($ch instanceof DOMElement) {
+                    $stack[] = $ch;
+                }
+            }
+        }
+
+        /* ② پالایش قوانین — فقط بخش‌هایی که زیردرخت را لمس می‌کنند */
+        $out = '';
+        $scanned = 0;
+        foreach ($rules as [$sel, $decl]) {
+            if (++$scanned > 9000 || strlen($out) > 54000) {
+                break; /* سقف کار/حجم (ستون css در DB تا ۶۴KB) */
+            }
+            foreach (array_map('trim', explode(',', $sel)) as $part) {
+                if ($part === '' || $part === '@') {
+                    continue;
+                }
+                if ($this->partTouchesSubtree($part, $classes, $ids, $tags)) {
+                    $out .= $part . '{' . $decl . '}';
+                    break; /* این قانون وارد شد — بخش بعدی اگر مطابق باشد خودش می‌آید */
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * 🔎 آیا این بخش انتخابگر، زیردرخت را لمس می‌کند؟
+     * راست‌ترین ترکیب (بعد از آخرین جداکننده) بررسی می‌شود:
+     * .class / #id / tag یا * باید با امضای زیردرخت تطبیق کند.
+     */
+    private function partTouchesSubtree(string $part, array $classes, array $ids, array $tags): bool
+    {
+        /* راست‌ترین ترکیب: بعد از آخرین فاصله/>/+/~ */
+        $rightmost = trim(preg_replace('#[\s>+~][^\s>+~]*$#', '', $part) ?? $part);
+        if ($rightmost === '') {
+            $rightmost = trim($part);
+        }
+        if ($rightmost === '' || $rightmost === '*') {
+            return $rightmost === '*';
+        }
+        $touched = false;
+        /* کلاس‌های ترکیب */
+        if (preg_match_all('/\.([\w-]+)/', $rightmost, $cm)) {
+            foreach ($cm[1] as $c) {
+                if (isset($classes[$c])) {
+                    $touched = true;
+                    break;
+                }
+            }
+            if ($touched) {
+                return true;
+            }
+        }
+        /* آیدی */
+        if (preg_match('/#([\w-]+)/', $rightmost, $im) && isset($ids[$im[1]])) {
+            return true;
+        }
+        /* تگِ ابتدای ترکیب */
+        if (preg_match('/^[a-zA-Z][a-zA-Z0-9-]*/', $rightmost, $tm)) {
+            return isset($tags[strtolower($tm[0])]);
+        }
+        return false; /* ترکیب صرفاً pseudo/attr — نادیده */
+    }
+
+    /**
+     * 💉 v2.27 — تزریق استایل تخت‌شدهٔ ریشه به‌صورت style درون‌خطی
+     * (روی اولین عنصر HTML قطعه؛ اگر متن/کامنت جلوتر باشد رد می‌شود)
+     */
+    private function injectRootStyle(string $html, string $flat): string
+    {
+        if ($flat === '' || trim($html) === '') {
+            return $html;
+        }
+        $doc = new DOMDocument();
+        libxml_use_internal_errors(true);
+        $ok = $doc->loadHTML('<?xml encoding="utf-8"?><div id="__rs">' . $html . '</div>', LIBXML_NOWARNING | LIBXML_NOERROR | LIBXML_NONET);
+        libxml_clear_errors();
+        if (!$ok) {
+            return $html;
+        }
+        $root = $doc->getElementById('__rs');
+        if ($root === null) {
+            return $html;
+        }
+        foreach (iterator_to_array($root->childNodes) as $child) {
+            if ($child instanceof DOMElement) {
+                $cur = trim((string)$child->getAttribute('style'));
+                /* semicolon تکراری نگذار (flat ممکن است خودش ; داشته باشد) */
+                $flatNorm = rtrim($flat, "; 	");
+                $child->setAttribute('style', $flatNorm . ($cur !== '' ? ';' . $cur : ''));
+                break;
+            }
+        }
+        $out = '';
+        foreach (iterator_to_array($root->childNodes) as $child) {
+            $out .= $doc->saveHTML($child);
+        }
+        return $out;
     }
 
     /* ==================================================
@@ -288,9 +477,9 @@ class ElementExtractor
     private function collectCss(DOMDocument $doc, string $baseUrl): string
     {
         $css = '';
-        /* استایل‌های درون‌صفحه‌ای */
+        /* استایل‌های درون‌صفحه‌ای — آدرس‌های url() نسبت به خود صفحه مطلق می‌شوند */
         foreach (iterator_to_array($doc->getElementsByTagName('style')) as $style) {
-            $css .= "\n" . $style->textContent;
+            $css .= "\n" . $this->absolutizeCssUrls((string)$style->textContent, $baseUrl);
         }
         /* استایل‌شیت‌های خارجی هم‌مبدأ */
         $baseHost = strtolower((string)parse_url($baseUrl, PHP_URL_HOST));
@@ -310,11 +499,33 @@ class ElementExtractor
             if (strtolower((string)parse_url($abs, PHP_URL_HOST)) !== $baseHost) { continue; } /* فقط هم‌مبدأ */
             $sheet = $this->httpGet($abs);
             if ($sheet !== null) {
-                $css .= "\n" . $sheet;
+                /* 🎨 v2.27: url() داخل شیت نسبت به «آدرس خود شیت» مطلق می‌شود
+                   (قبلاً نسبی می‌ماند → فونت/پس‌زمینه در پیش‌نمایش 404) */
+                $css .= "\n" . $this->absolutizeCssUrls($sheet, $abs);
                 $fetched++;
             }
         }
         return $css;
+    }
+
+    /**
+     * 🔗 مطلق‌سازی url() های یک قطعه CSS نسبت به آدرس پایه (صفحه یا شیت)
+     */
+    private function absolutizeCssUrls(string $css, string $baseHref): string
+    {
+        if (strpos($css, 'url(') === false) {
+            return $css;
+        }
+        $origin = rtrim(preg_replace('#^(https?://[^/]+).*#i', '$1', $baseHref), '/');
+        $dir = rtrim(preg_replace('#/[^/]*$#', '', $baseHref), '/');
+        return preg_replace_callback('#url\(\s*(["\']?)([^"\)\']+)\1\s*\)#i', static function (array $m) use ($origin, $dir): string {
+            $v = trim($m[2]);
+            if ($v === '' || preg_match('#^([a-z][a-z0-9+.-]*:|//)#i', $v) || $v[0] === '#') {
+                return $m[0];
+            }
+            $abs = $v[0] === '/' ? ($origin . $v) : self::normalizeUrlPath($dir . '/' . $v);
+            return 'url(' . $m[1] . $abs . $m[1] . ')';
+        }, $css) ?? $css;
     }
 
     /**

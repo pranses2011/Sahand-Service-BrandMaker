@@ -123,12 +123,30 @@ class ArticleGenerator
         $issues = $deviceKnowledge['common_issues'] ?? [];
 
         $seed = 'article|' . $brand['id'] . '|' . $topicType . '|' . $device['device_key'] . '|' . time() . '|' . mt_rand() . '|v' . $variantIndex;
+        /* 🧩 v2.27 — متغیرهای کامل (رفع «{{warranty_period}} و {{agency_name}}
+           همینطوری در متن مقاله می‌ماند»): قبلاً فقط ۵ متغیر پاس می‌شد اما
+           قالب‌های پایگاه دانش از agency_name/warranty_period/devices_list و
+           ده‌ها متغیر دیگر استفاده می‌کنند → fillTemplate آن‌ها را باز نمی‌کرد. */
+        $agencyName = Config::get(Config::KEY_AGENCY_NAME_FA) ?: 'سهند سرویس';
+        $warrantyCfg = Config::get(Config::KEY_WARRANTY) ?: [];
+        $deviceNames = array_column($devices, 'name_fa');
         $vars = [
-            'brand_fa'  => $brand['name_fa'],
-            'brand_en'  => $brand['name_en'],
-            'device_fa' => $device['name_fa'],
-            'device_en' => $deviceKnowledge['name_en'] ?? '',
-            'agency'    => Config::get(Config::KEY_AGENCY_NAME_FA) ?: 'سهند سرویس',
+            'brand_fa'      => $brand['name_fa'],
+            'brand_en'      => $brand['name_en'],
+            'device_fa'     => $device['name_fa'],
+            'device_en'     => $deviceKnowledge['name_en'] ?? '',
+            'agency'        => $agencyName,
+            'agency_name'   => $agencyName,
+            'warranty_period' => (string)($warrantyCfg['default_period'] ?? '۶ ماه'),
+            'country'       => $brand['country_fa'] ?? '',
+            'founded'       => (string)($brand['founded'] ?? ''),
+            'devices_list'  => implode('، ', array_slice($deviceNames, 0, 6)),
+            'devices_count' => (string)max(1, count($devices)),
+            'first_device'  => $deviceNames[0] ?? 'لوازم خانگی',
+            'main_site'     => Config::get(Config::KEY_MAIN_SITE) ?: AGENCY_MAIN_SITE,
+            'year_now'      => (string)((int)(jdate(date('Y-m-d')) ?: date('Y'))),
+            'slogan'        => $brand['slogan'] ?? '',
+            'positioning'   => $brand['positioning'] ?? '',
         ];
 
         /* ---------- ۱️⃣ انتخاب عنوان: دلخواه کاربر یا قالب‌های موضوع (فاز Q.5) ---------- */
@@ -350,6 +368,18 @@ class ArticleGenerator
 
         /* ---------- ۷️⃣ 🆕 امتیاز کیفیت (QualityScorer نسخه ۲) ---------- */
         $quality = $this->scorer->score($content, $focusKeyword, 'article');
+
+        /* ---------- ۷.۵) 🧹 v2.27 — جاروی نهایی متغیرهای {{...}} ----------
+         * هر متغیری که در هیچ مرحله‌ای باز نشده باشد (قالب جدید دانش،
+         * پرسش/پاسخ FAQ، متن تحقیق و ...) اینجا با مقدار درست جایگزین و
+         * ناشناخته‌ها حذف می‌شوند — دیگر هرگز {{xxx}} خام به دیتابیس نمی‌رود. */
+        $title   = TextProcessor::sweepPlaceholders($title, $vars);
+        $content = TextProcessor::sweepPlaceholders($content, $vars);
+        $intro   = TextProcessor::sweepPlaceholders($intro, $vars);
+        foreach ($faqs as $fk => $faq) {
+            $faqs[$fk]['question'] = TextProcessor::sweepPlaceholders((string)($faq['question'] ?? ''), $vars);
+            $faqs[$fk]['answer']   = TextProcessor::sweepPlaceholders((string)($faq['answer'] ?? ''), $vars);
+        }
 
         return [
             'title'      => $title,

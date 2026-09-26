@@ -332,6 +332,36 @@ class TextProcessor
     }
 
     /**
+     * 🧹 v2.27 — جاروی متغیرهای باقی‌مانده {{...}}
+     * ===========================================
+     * ریشه باگ «در متن مقالات نوشته‌هایی مانند {{warranty_period}} و
+     * {{agency_name}} همینطوری باقی می‌ماند»: بعضی قالب‌های پایگاه دانش
+     * متغیرهایی دارند که مولد مقاله به $vars پاس نمی‌داد → fillTemplate
+     * فقط متغیرهای معلوم را جایگزین می‌کند و بقیه خام می‌مانند.
+     *
+     * این متد دو کار می‌کند:
+     *  ① متغیرهای شناخته‌شدهٔ $map را جایگزین می‌کند
+     *  ② هر {{unknown_var}} باقی‌مانده را با $fallback (یا حذف امن) پاک می‌کند
+     *
+     * الگو فقط {{identifier}} ساده است — HTML خام دست‌نخورده می‌ماند.
+     */
+    public static function sweepPlaceholders(string $text, array $map = [], string $fallback = ''): string
+    {
+        if ($text === '' || strpos($text, '{{') === false) {
+            return $text;
+        }
+        /* ① جایگزینی متغیرهای معلوم (حساس به فاصله‌های داخل آکولاد) */
+        foreach ($map as $key => $value) {
+            $text = str_replace(['{{' . $key . '}}', '{{ ' . $key . ' }}', '{{ ' . $key . '}}', '{{' . $key . ' }}'], (string)$value, $text);
+        }
+        /* ② هر متغیر ناشناختهٔ باقی‌مانده — شناسهٔ امن (\w و - و فاصله) */
+        if (strpos($text, '{{') !== false) {
+            $text = preg_replace('/\{\{\s*[\w\-\x{0600}-\x{06FF}\.]+\s*\}\}/u', $fallback, $text) ?? $text;
+        }
+        return $text;
+    }
+
+    /**
      * 📊 استخراج n-gram های متن (برای بررسی یکتایی)
      *
      * @return array آرایه از عبارت‌های n کلمه‌ای

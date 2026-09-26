@@ -324,6 +324,12 @@ if (is_file(__DIR__ . '/includes/functions.php')) {
 if (is_file(__DIR__ . '/includes/seo.php')) {
     require_once __DIR__ . '/includes/seo.php';
 }
+/* 🆕 v2.27 — رندرگر بلوک‌های قالب‌ساز (bb_render_block / bb_layout_html):
+   صفحات سایت برند چیدمان تم/قالب را از API می‌گیرند و با این فایل رندر
+   می‌کنند (ریشه «تغییر تم روی سایت برندها اعمال نمی‌شود»). */
+if (is_file(__DIR__ . '/includes/blocks.php')) {
+    require_once __DIR__ . '/includes/blocks.php';
+}
 
 PHP;
     }

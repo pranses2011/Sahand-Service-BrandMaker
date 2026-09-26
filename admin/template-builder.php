@@ -41,9 +41,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save_template')
         $bp = $db->fetch('SELECT id, brand_id, page_type FROM brand_pages WHERE id = ?', [$brandPageId]);
         if ($bp) {
             $db->update('brand_pages', ['layout_json' => $layoutJson], 'id = ?', [$brandPageId]);
+            /* 🎨 v2.27 — کش چیدمان همان برند پاک شود تا تغییر بلافاصله روی
+               سایت برند دیده شود (چیدمان از کش ۱۲۰ث خوانده می‌شد). */
+            (new Cache())->flush('api_brand_' . (int)$bp['brand_id']);
             Logger::activity((int)$_SESSION['user_id'], 'ویرایش چیدمان صفحه برند در قالب‌ساز', ($bp['page_type'] ?? '') . ' (صفحه #' . $brandPageId . ')');
             $bpName = TemplateLibrary::pageTypeLabels()[$bp['page_type']] ?? $bp['page_type'];
-            flash('success', '✅ چیدمان صفحه «' . $bpName . '» ذخیره شد — تغییری در قالب‌های عمومی داده نشد.');
+            flash('success', '✅ چیدمان صفحه «' . $bpName . '» ذخیره شد — روی سایت برند پس از چند لحظه اعمال می‌شود.');
             redirect('brand-edit.php?id=' . (int)$bp['brand_id'] . '&tab=pages');
         }
         flash('danger', 'صفحه برند یافت نشد.');
@@ -57,6 +60,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save_template')
             'layout_json' => $layoutJson, 'is_default' => 0,
         ]);
     }
+    /* 🎨 v2.27 — قالب عمومی تغییر کرد؛ کش همه برندها پاک شود (هر تم/پیش‌فرضی
+       ممکن است این قالب را ارجاع دهد). */
+    (new Cache())->flush('api_brand_');
     Logger::activity((int)$_SESSION['user_id'], 'ذخیره قالب', $name);
     flash('success', '✅ قالب «' . $name . '» ذخیره شد.');
     redirect('template-builder.php?id=' . $id);
@@ -1107,14 +1113,26 @@ function fakeImgHtml(props, emoji, style) {
 }
 
 /* ➕ v2.15: آیتم‌های لیست قابل ویرایش — همیشه فرمت شیء {icon,text,desc} برمی‌گرداند
-   (fallbackهای آرایه‌ای قدیمی هم نرمال می‌شوند) */
+   (fallbackهای آرایه‌ای قدیمی هم نرمال می‌شوند)
+   🆕 v2.27 — ماده‌سازی آیتم‌ها (رفع «برای چک‌لیست نمیشه متن‌ها رو عوض کرد یا
+   گزینه جدید اضافه کرد»): قبلاً وقتی props.items خالی بود، بوم آیتم‌های
+   «پیش‌فرض قالبی» را نشان می‌داد اما پنل ویژگی‌ها «آیتم‌ها (۰)» + دکمه افزودن
+   نشان می‌داد → آیتم‌های روی صفحه اصلاً قابل ویرایش نبودند! اکنون اولین رندر
+   آیتم‌های fallback را داخل props.items می‌نویسد → همان‌ها در پنل ویژگی‌ها
+   قابل ویرایش/حذف/جابجایی‌اند و «افزودن آیتم جدید» هم به همان لیست اضافه می‌کند. */
 function listItems(props, fallback) {
     const norm = arr => (Array.isArray(arr) ? arr : []).map(it => Array.isArray(it) ? { icon: it[0] || '', text: it[1] || '', desc: it[2] || '' } : (it || {}));
-    const its = norm(Array.isArray(props.items) ? props.items.filter(it => it && String(it.text || '').trim() !== '') : null);
-    return its.length ? its : norm(fallback);
+    /* 🆕 v2.27 — نرمال‌سازی «قبل از» فیلتر: آیتم‌های آرایه‌ای قدیمی حذف نمی‌شوند */
+    let its = norm(props.items).filter(it => it && String(it.text || '').trim() !== '');
+    if (!its.length) {
+        its = norm(fallback);
+        if (its.length && props && typeof props === 'object') { props.items = its.map(it => ({ ...it })); }
+    }
+    return its;
 }
 
-/* 📊 v2.25: آمار از آیتم‌های ویرایشگر — icon=عدد، text=برچسب (خروجی جفت‌آرایه) */
+/* 📊 v2.25: آمار از آیتم‌های ویرایشگر — icon=عدد، text=برچسب (خروجی جفت‌آرایه)
+   🆕 v2.27: ماده‌سازی مثل listItems — آیتم‌های fallback قابل ویرایش می‌شوند */
 function statItemsFromItems(props, fallback) {
     const its = listItems(props, fallback);
     return its.map(it => [it.icon !== '' ? it.icon : (it.text || '۰'), it.icon !== '' ? it.text : 'آمار']);
@@ -1145,17 +1163,14 @@ function countdownHtml(props) {
     return `<div class="count-row"${ms ? ` data-countdown="${ms}"` : ''}><span class="count-box"><b>${days}</b>روز</span><span class="count-box"><b>${hrs}</b>ساعت</span><span class="count-box"><b>${min}</b>دقیقه</span><span class="count-box"><b>${sec}</b>ثانیه</span></div>`;
 }
 
-/* 📊 v2.17: آمار از آیتم‌های ویرایشگر (IT) — icon=عدد/ایموجی، text=برچسب */
+/* 📊 v2.17: آمار از آیتم‌های ویرایشگر (IT) — icon=عدد/ایموجی، text=برچسب
+   🆕 v2.27: ماده‌سازی fallback داخل props.items → قابل ویرایش در پنل */
 function statItemsHtml(props) {
-    const items = Array.isArray(props.items) && props.items.length
-        ? props.items.filter(i => i && (i.icon || i.text))
-        : [{ icon: '۱۲+', text: 'سال تجربه' }, { icon: '۵۰هزار+', text: 'تعمیر موفق' }, { icon: '۹۸٪', text: 'رضایت مشتری' }];
+    const items = listItems(props, [{ icon: '۱۲+', text: 'سال تجربه' }, { icon: '۵۰هزار+', text: 'تعمیر موفق' }, { icon: '۹۸٪', text: 'رضایت مشتری' }]);
     return items.slice(0, 6).map(i => `<div class="stat"><div class="stat-n">${esc(String(i.icon || '۰').trim() || '۰')}</div><div class="stat-l">${esc(String(i.text || '').trim() || 'آمار')}</div></div>`).join('');
 }
 function statStripHtml(props) {
-    const items = Array.isArray(props.items) && props.items.length
-        ? props.items.filter(i => i && (i.icon || i.text))
-        : [{ icon: '۱۲+', text: 'سال تجربه' }, { icon: '۵۰k', text: 'تعمیر موفق' }, { icon: '۹۸٪', text: 'رضایت' }, { icon: '۲h', text: 'اعزام' }];
+    const items = listItems(props, [{ icon: '۱۲+', text: 'سال تجربه' }, { icon: '۵۰k', text: 'تعمیر موفق' }, { icon: '۹۸٪', text: 'رضایت' }, { icon: '۲h', text: 'اعزام' }]);
     return items.slice(0, 8).map(i => `<span class="ss-item"><b>${esc(String(i.icon || '').trim() || '۰')}</b> ${esc(String(i.text || '').trim() || 'آمار')}</span>`).join('<span class="ss-sep"></span>');
 }
 function blockHtml(block, props) {
@@ -1176,13 +1191,14 @@ function blockHtml(block, props) {
     const TITLE = t ? `<div class="blk-title">${esc(t)}</div>` : '';
 
     switch (block) {
-        /* ⭐ v2.26: عنصر شخصی استخراج‌شده — رندر ایزوله با استایل سایت مبدأ */
+        /* ⭐ v2.26: عنصر شخصی استخراج‌شده — رندر ایزوله با استایل سایت مبدأ
+           🆕 v2.27: ارتفاع خودکار + استایل کامل زیردرخت (فرزندان هم استایل دارند) */
         case 'pelement': {
             const pe = PERSONAL_ELEMENTS[parseInt(props.element_id, 10) || 0];
             if (!pe) { return B('<div class="pv-text">⭐ این عنصر شخصی حذف شده است.</div>'); }
             const frameHtml = pelementDoc(pe)
                 .replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-            return B(`${t ? `<div class="blk-title">${esc(t)}</div>` : ''}<iframe class="pelement-frame" sandbox="allow-same-origin" srcdoc="${frameHtml}" style="width:100%;min-height:210px;border:none;border-radius:11px;background:#fff" loading="lazy" title="${esc(pe.name || 'عنصر شخصی')}"></iframe>`, 'pelement-blk');
+            return B(`${t ? `<div class="blk-title">${esc(t)}</div>` : ''}<iframe class="pelement-frame" sandbox="allow-same-origin" srcdoc="${frameHtml}" style="width:100%;min-height:210px;border:none;border-radius:11px;background:#fff" loading="lazy" onload="try{var d=this.contentDocument;if(d){this.style.height=Math.max(200,d.documentElement.scrollHeight+18)+'px'}}catch(e){}" title="${esc(pe.name || 'عنصر شخصی')}"></iframe>`, 'pelement-blk');
         }
         case 'top-bar': return B(`<div class="tb-row"><span>📞 ${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</span><span>🕐 ${esc(props.hours || 'شنبه تا پنجشنبه ۹ تا ۲۰')}</span></div>`, 'topbar-blk');
         case 'header-v1': case 'header-v2': case 'header-v3':
@@ -2176,9 +2192,12 @@ function renderProps() {
                     ${FIELD_DEFS[code].options.map(([v, l]) => `<option value="${v}" ${(props[key] || def) === v ? 'selected' : ''}>${l}</option>`).join('')}
                 </select></div>`;
         } else if (code === 'I') {
-            html += `<div class="form-group"><label>\${esc(label)}</label>
+            /* 🐛 v2.27 — رشته قبلی با \${...} اِسکیپ‌شده بود (درون template
+               literal) → خروجی HTML به‌جای مقدار، متن خام «${esc(label)}» را
+               نشان می‌داد! اکنون interpolation واقعی. */
+            html += `<div class="form-group"><label>${esc(label)}</label>
                 <div style="display:flex;gap:6px">
-                    <input type="text" class="form-control" style="font-size:15px;width:60px;text-align:center" value="\${esc(props.icon || '')}" oninput="setProp('\${selected}','icon',this.value)" placeholder="\${FIELD_DEFS.icon.ph}" title="آیکون (ایموجی)">
+                    <input type="text" class="form-control" style="font-size:15px;width:60px;text-align:center" value="${esc(props.icon || '')}" oninput="setProp('${selected}','icon',this.value)" placeholder="${FIELD_DEFS.icon.ph}" title="آیکون (ایموجی)">
                     <button type="button" class="btn btn-outline btn-sm" style="flex:0 0 auto" onclick="openEmojiPicker(this.closest('.form-group').querySelector('input'))" title="انتخاب از کتابخانه آیکون‌ها">😀 انتخاب آیکون</button>
                 </div></div>`;
         } else if (code === 'placeholder') {
@@ -2788,11 +2807,21 @@ function showExtractPreview(idx) {
         n.style.background = i === idx ? 'rgba(37,99,235,.09)' : '';
     });
     document.getElementById('extract-preview-name').textContent = '— ' + (el.name || 'بدون نام');
-    /* سند مستقل: استایل تخت‌شده + HTML ایمن‌شده */
+    /* سند مستقل: قوانین کامل CSS زیردرخت (v2.27 — قبلاً اعلان خام بدون
+       انتخابگر بود = CSS نامعتبر → فقط متن بی‌استایل دیده می‌شد!) */
     const doc = '<!doctype html><html dir="rtl" lang="fa"><head><meta charset="utf-8">'
+        + '<meta name="viewport" content="width=device-width, initial-scale=1">'
         + '<style>*{box-sizing:border-box}body{margin:0;padding:20px;background:#fff;font-family:Vazirmatn,Tahoma,sans-serif}img{max-width:100%;height:auto}a{text-decoration:none}'
         + String(el.css || '').replace(/</g, '\\3C ') + '</style></head><body>' + (el.html || '') + '</body></html>';
-    document.getElementById('extract-preview-frame').srcdoc = doc;
+    const frame = document.getElementById('extract-preview-frame');
+    frame.srcdoc = doc;
+    /* 📏 ارتفاع خودکار — عنصر بزرگ (هدر/فوتر) بریده نشود */
+    frame.onload = function () {
+        try {
+            const d = this.contentDocument;
+            if (d) { this.style.minHeight = Math.max(440, d.documentElement.scrollHeight + 26) + 'px'; }
+        } catch (e) { /* دسترسی متقاطع — همان حداقل */ }
+    };
     document.getElementById('btn-save-element').style.display = '';
 }
 

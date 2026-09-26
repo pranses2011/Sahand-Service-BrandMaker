@@ -12,8 +12,18 @@ $meta = $articlesData['meta'] ?? ['pages' => 1, 'page' => 1];
 $pageTitle = 'مقالات و راهنما | ' . BRAND_NAME_FA;
 $pageDesc = 'مقالات آموزشی، راهنمای نگهداری و عیب‌یابی دستگاه‌های ' . BRAND_NAME_FA;
 $crumbTitle = 'مقالات';
+/* 🎨 v2.27 — چیدمان تم/قالب سایت ساز (اگر باشد، جای ساختار ثابت می‌آید) */
+$layoutHtml = '';
+if (function_exists('bb_layout_html')) {
+    $tplData = fetchFromAPI('brand/' . BRAND_ID . '/template/blog', 120)['data'] ?? null;
+    $layoutHtml = $tplData ? bb_layout_html($tplData) : '';
+}
+if ($layoutHtml !== '') { $loadBlocksCss = true; }
 require __DIR__ . '/_page_base.php';
 ?>
+<?php if ($layoutHtml !== ''): ?>
+<?= $layoutHtml ?>
+<?php else: ?>
 <section class="section">
     <div class="container">
         <h1 class="page-title">مقالات و راهنما</h1>
@@ -41,8 +51,9 @@ require __DIR__ . '/_page_base.php';
                 <a href="?page=<?= $p ?>" class="<?= $p === (int)$meta['page'] ? 'current' : '' ?>"><?= e(fa_num((string)$p)) ?></a>
             <?php endfor; ?>
         </nav>
-        <?php endif; ?>
-        <?php endif; ?>
+<?php endif; ?>
+<?php endif; ?>
     </div>
 </section>
+<?php endif; ?>
 <?php require __DIR__ . '/../includes/floating-btn.php'; require __DIR__ . '/../includes/footer.php'; ?>

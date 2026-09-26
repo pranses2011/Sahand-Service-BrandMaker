@@ -162,6 +162,14 @@ $router->add('GET', 'brands', function () {
         'SELECT id, name_fa, name_en, slug, logo, domain FROM brands WHERE is_active = 1 AND status = ? ORDER BY name_fa',
         ['published']
     );
+    /* 🖼️ v2.27 — ریشه «لوگوی سایر برندها در سایت برند نشان داده نمی‌شود»:
+       logo در دیتابیس «مسیر نسبی» است (uploads/brands/xx.png)؛ قبلاً همان
+       مسیر خام برمی‌گشت و مرورگر آن را نسبت به «دامنه سایت برند» می‌خواست
+       → 404 همیشگی. اکنون مثل اندپوینت brand/info با asset_url مطلق می‌شود. */
+    foreach ($brands as &$b) {
+        $b['logo'] = !empty($b['logo']) ? asset_url((string)$b['logo']) : '';
+    }
+    unset($b);
     json_response(['success' => true, 'data' => $brands]);
 });
 

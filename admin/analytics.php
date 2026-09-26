@@ -41,7 +41,16 @@ if ($dateTo !== '') {
 }
 
 /* 📈 سری زمانی بازدید */
-$timeline = $db->fetchAll(
+/* 🛡️ v2.27 — اگر جدول‌های آمار روی نصب قدیمی وجود نداشته باشند، صفحه
+   با ۵۰۰ نمی‌افتد؛ جدول‌های خالی + راهنمای راه‌حل نشان داده می‌شود. */
+$safeQuery = static function (string $sql, array $params) use ($db): array {
+    try {
+        return $db->fetchAll($sql, $params);
+    } catch (Throwable $sqlE) {
+        return [];
+    }
+};
+$timeline = $safeQuery(
     "SELECT v.visit_date,
             COUNT(DISTINCT v.session_hash) AS unique_visits,
             COUNT(*) AS views
@@ -51,16 +60,16 @@ $timeline = $db->fetchAll(
 );
 
 /* 📱 تفکیک دستگاه / مرورگر / سیستم‌عامل */
-$byDevice = $db->fetchAll("SELECT v.device_type, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} GROUP BY v.device_type ORDER BY c DESC", $params);
-$byBrowser = $db->fetchAll("SELECT v.browser, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} AND v.browser IS NOT NULL GROUP BY v.browser ORDER BY c DESC LIMIT 8", $params);
-$byOs = $db->fetchAll("SELECT v.os, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} AND v.os IS NOT NULL GROUP BY v.os ORDER BY c DESC LIMIT 6", $params);
+$byDevice = $safeQuery("SELECT v.device_type, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} GROUP BY v.device_type ORDER BY c DESC", $params);
+$byBrowser = $safeQuery("SELECT v.browser, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} AND v.browser IS NOT NULL GROUP BY v.browser ORDER BY c DESC LIMIT 8", $params);
+$byOs = $safeQuery("SELECT v.os, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} AND v.os IS NOT NULL GROUP BY v.os ORDER BY c DESC LIMIT 6", $params);
 
 /* 🗺️ پراکندگی جغرافیایی با GeoIP محلی */
-$ipPrefixes = $db->fetchAll("SELECT DISTINCT v.ip_prefix FROM visits v WHERE {$where} AND v.ip_prefix IS NOT NULL AND v.ip_prefix != ''", $params);
+$ipPrefixes = $safeQuery("SELECT DISTINCT v.ip_prefix FROM visits v WHERE {$where} AND v.ip_prefix IS NOT NULL AND v.ip_prefix != ''", $params);
 $citiesDist = GeoIP::citiesDistribution(array_column($ipPrefixes, 'ip_prefix'));
 
 /* 📄 صفحات پربازدید */
-$topPages = $db->fetchAll(
+$topPages = $safeQuery(
     "SELECT vd.page_url, COUNT(*) AS views, AVG(vd.duration) AS avg_duration
      FROM visit_details vd JOIN visits v ON v.id = vd.visit_id
      WHERE {$where} GROUP BY vd.page_url ORDER BY views DESC LIMIT 10",
@@ -68,7 +77,7 @@ $topPages = $db->fetchAll(
 );
 
 /* 🏷️ سهم برندها */
-$brandShare = $db->fetchAll(
+$brandShare = $safeQuery(
     "SELECT b.name_fa, COUNT(DISTINCT v.session_hash) AS visits
      FROM brands b LEFT JOIN visits v ON v.brand_id = b.id AND 1=1
      WHERE b.is_active = 1 " . ($brandFilter > 0 ? ' AND b.id = ' . $brandFilter : '') . "
@@ -79,9 +88,9 @@ $brandShare = $db->fetchAll(
 /* 📈 شاخص‌های کلی */
 $totalUnique = array_sum(array_column($timeline, 'unique_visits'));
 $totalViews = array_sum(array_column($timeline, 'views'));
-$durations = $db->fetchAll("SELECT AVG(vd.duration) AS avg_dur FROM visit_details vd JOIN visits v ON v.id = vd.visit_id WHERE {$where}", $params);
+$durations = $safeQuery("SELECT AVG(vd.duration) AS avg_dur FROM visit_details vd JOIN visits v ON v.id = vd.visit_id WHERE {$where}", $params);
 $avgDuration = $durations ? round((float)$durations[0]['avg_dur']) : 0;
-$bounceRow = $db->fetchAll(
+$bounceRow = $safeQuery(
     "SELECT COUNT(DISTINCT v.session_hash) AS sessions, COUNT(DISTINCT CASE WHEN exits.exit_count = 1 AND views.vc = 1 THEN v.session_hash END) AS bounced
      FROM visits v
      LEFT JOIN (SELECT visit_id, COUNT(*) AS exit_count FROM visit_details WHERE is_exit = 1 GROUP BY visit_id) exits ON exits.visit_id = v.id
@@ -89,7 +98,7 @@ $bounceRow = $db->fetchAll(
      WHERE {$where}",
     $params
 );
-$bounceRate = $bounceRow && (int)$bounceRow[0]['sessions'] > 0 ? round($bounceRow[0]['bounced'] / $bounceRow[0]['sessions'] * 100) : 0;
+$bounceRate = $bounceRow && (int)$bounceRow[0]['sessions'] > 0 ? round((int)$bounceRow[0]['bounced'] / (int)$bounceRow[0]['sessions'] * 100) : 0;
 
 $brands = $db->fetchAll('SELECT id, name_fa FROM brands ORDER BY name_fa');
 $deviceFa = ['mobile' => '📱 موبایل', 'desktop' => '🖥️ دسکتاپ', 'tablet' => '📲 تبلت', 'bot' => '🤖 ربات'];
@@ -97,9 +106,16 @@ $deviceFa = ['mobile' => '📱 موبایل', 'desktop' => '🖥️ دسکتاپ
 /* 🩺 v2.26 — نوار وضعیت ردیاب: اگر حتی یک بازدید هم ثبت نشده باشد،
    کاربر به‌جای «جدول‌های خالی بی‌توضیح» علت و راه‌حل را می‌بیند.
    شمارندها مستقل از فیلترها بازه کل را می‌سنجند تا گمراه‌کننده نباشد. */
-$trackerTotal = (int)$db->fetchValue('SELECT COUNT(*) FROM visits');
-$trackerToday = (int)$db->fetchValue('SELECT COUNT(*) FROM visits WHERE visit_date = CURDATE()');
-$trackerLast = $db->fetchValue('SELECT MAX(visited_at) FROM visits');
+$trackerTotal = 0;
+$trackerToday = 0;
+$trackerLast = false;
+try {
+    $trackerTotal = (int)$db->fetchValue('SELECT COUNT(*) FROM visits');
+    $trackerToday = (int)$db->fetchValue('SELECT COUNT(*) FROM visits WHERE visit_date = CURDATE()');
+    $trackerLast = $db->fetchValue('SELECT MAX(visited_at) FROM visits');
+} catch (Throwable $trackerSchemaE) {
+    /* جدول آمار وجود ندارد — مهاجرت v227 در اولین لود ساخته‌اش می‌کند */
+}
 $trackerHealthy = $trackerTotal > 0;
 $trackerBoxStyle = $trackerHealthy
     ? 'background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46'

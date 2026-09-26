@@ -29,8 +29,21 @@ $pageTitle = $pageData['data']['seo']['title'] ?? (BRAND_NAME_FA . ' | تعمی�
 $pageDesc = $pageData['data']['seo']['description'] ?? '';
 $pageKey = $pageData['data']['seo']['keywords'] ?? '';
 
+/* 🎨 v2.27 — چیدمان تم/قالب سایت ساز (ریشه «تغییر تم روی سایت برند اعمال
+   نمی‌شود»): اگر برای این صفحه تم/قالب/چیدمانی تعیین شده باشد، همان
+   بلوک‌ها رندر می‌شوند؛ در غیر این صورت ساختار ثابت پیش‌فرض زیر می‌آید. */
+$layoutHtml = '';
+if (function_exists('bb_layout_html')) {
+    $tplData = fetchFromAPI('brand/' . BRAND_ID . '/template/home', 120)['data'] ?? null;
+    $layoutHtml = $tplData ? bb_layout_html($tplData) : '';
+}
+if ($layoutHtml !== '') { $loadBlocksCss = true; }
+
 require __DIR__ . '/includes/header.php';
 ?>
+<?php if ($layoutHtml !== ''): ?>
+<?= $layoutHtml ?>
+<?php else: ?>
 
 <!-- 🦸 بخش هیرو -->
 <section class="hero-section">
@@ -140,6 +153,8 @@ require __DIR__ . '/includes/header.php';
         <div style="text-align:center;margin-top:24px"><a href="/blog" class="btn btn-outline">همه مقالات ←</a></div>
     </div>
 </section>
+<?php endif; ?>
+
 <?php endif; ?>
 
 <?php

@@ -246,3 +246,10 @@ if (is_file(__DIR__ . '/includes/functions.php')) {
 if (is_file(__DIR__ . '/includes/seo.php')) {
     require_once __DIR__ . '/includes/seo.php';
 }
+
+/* 🆕 v2.27 — بارگذاری رندرگر بلوک‌های قالب‌ساز (bb_render_block / bb_layout_html)
+   ریشه «تغییر تم سایت‌ساز روی سایت برند اعمال نمی‌شود»: صفحات سایت برند
+   چیدمان تم را از API می‌گیرند و با این رندرگر نمایش می‌دهند. */
+if (is_file(__DIR__ . '/includes/blocks.php')) {
+    require_once __DIR__ . '/includes/blocks.php';
+}

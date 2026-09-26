@@ -19,7 +19,7 @@ if (!defined('SAHAND_INIT')) {
 /* --------------------------------------------------
  * 🌍 تنظیمات عمومی
  * -------------------------------------------------- */
-define('SAHAND_VERSION', '2.26.0');             // نسخه سیستم (۲.۲۶.۰ — ریشه‌یابی کامل «آمار خالی» با ردیاب سه‌لایه + تصویر شاخص مقالات و رفع صفحه خالی مقاله + رنگ هیدر از رنگ‌های تاکیدی لوگو با تضمین WCAG + ظواهر متعدد برای همه عناصر قالب‌ساز (۱۲ بدنه + ۸ دکمه + ۵ هاور) + استخراج عناصر از سایت خارجی با پیش‌نمایش و کتابخانه عناصر شخصی)
+define('SAHAND_VERSION', '2.27.0');             // نسخه سیستم (۲.۲۷.۰ — ریشه‌یابی شش‌گانه: بازکردن متغیرهای {{warranty_period}}/{{agency_name}} در مقالات (مولد + API) + لوگوی مطلق سایر برندها + پیش‌نمایش کامل عنصر استخراجی مثل سایت مبدا (CSS زیردرخت + مطلق‌سازی + نرمال‌سازی URL) + رفع خطای ۵۰۰ آمار (مهاجرت ستون‌ها + safeQuery) + تکمیل تنظیمات عناصر (ماده‌سازی آیتم‌ها + فیلد آیکون) + اعمال تم/قالب روی سایت‌های برند (API چهارلایه + رندرگر blocks.php + کش هوشمند))
 define('SAHAND_NAME_FA', 'سایت ساز برند سهند سرویس'); // نام فارسی سیستم
 define('SAHAND_NAME_EN', 'Sahand BrandMaker');   // نام انگلیسی سیستم
 date_default_timezone_set('Asia/Tehran');        // ⏰ منطقه زمانی ایران
@@ -510,6 +510,86 @@ if (!file_exists($v226Marker)) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='عناصر شخصی استخراج‌شده از سایت‌ها (v2.26)'");
         @file_put_contents($v226Marker, date('Y-m-d H:i:s'));
     } catch (Throwable $v226SchemaE) {
+        // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
+    }
+}
+
+/* --------------------------------------------------
+ * 🆕 مهاجرت v2.27 — ستون‌های آمار رفتاری (is_exit / duration)
+ * 🚨 ریشه «صفحه آمار و گزارش خطای ۵۰۰ می‌دهد»: ستون‌های is_exit و
+ * duration در v2.26 به database.sql اضافه شدند اما «CREATE TABLE IF NOT
+ * EXISTS» روی نصب‌های قدیمی (که جدول visit_details از قبل را دارند)
+ * ستون جدید اضافه نمی‌کند → هر کوئری WHERE is_exit = 1 با «Unknown
+ * column» فاتل می‌شود → HTTP 500 در analytics.php و analytics-report.php.
+ * این مهاجرت جدول‌ها را در صورت نبود می‌سازد و ستون‌های غایب را اضافه
+ * می‌کند (با نشانگر cache/.schema_v227_stats فقط یک‌بار).
+ * -------------------------------------------------- */
+$v227StatsMarker = ROOT_PATH . '/cache/.schema_v227_stats';
+if (!file_exists($v227StatsMarker)) {
+    try {
+        $pdo = Database::getInstance()->pdo();
+
+        /* ① جدول بازدیدها — در نصب‌های قدیمی ممکن است نباشد */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `visits` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `brand_id` INT UNSIGNED NOT NULL,
+            `session_hash` CHAR(64) NOT NULL,
+            `ip_hash` CHAR(64) NULL,
+            `ip_prefix` VARCHAR(20) NULL,
+            `user_agent` VARCHAR(500) NULL,
+            `device_type` ENUM('mobile','desktop','tablet','bot') NOT NULL DEFAULT 'desktop',
+            `browser` VARCHAR(100) NULL,
+            `browser_version` VARCHAR(30) NULL,
+            `os` VARCHAR(100) NULL,
+            `resolution` VARCHAR(20) NULL,
+            `language` VARCHAR(10) NULL,
+            `country` VARCHAR(5) NULL,
+            `city` VARCHAR(100) NULL,
+            `referrer` VARCHAR(500) NULL,
+            `search_keyword` VARCHAR(255) NULL,
+            `entry_page` VARCHAR(500) NULL,
+            `visit_date` DATE NOT NULL,
+            `visited_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `idx_visit_brand_date` (`brand_id`, `visit_date`),
+            KEY `idx_visit_session` (`session_hash`),
+            KEY `idx_visit_country` (`country`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='بازدیدها'");
+
+        /* ② جدول جزئیات بازدید — ستون‌های رفتاری v2.26 */
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `visit_details` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `visit_id` BIGINT UNSIGNED NOT NULL,
+            `page_url` VARCHAR(500) NOT NULL,
+            `page_title` VARCHAR(255) NULL,
+            `duration` INT UNSIGNED NULL COMMENT 'مدت حضور (ثانیه)',
+            `is_exit` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'صفحه خروج',
+            `viewed_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `idx_vdetail_visit` (`visit_id`),
+            KEY `idx_vdetail_page` (`page_url`(191))
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='جزئیات بازدید صفحات'");
+
+        /* ③ جدول موجود ولی قدیمی → ستون‌های غایب اضافه شوند */
+        $hasExit = $pdo->query("SHOW COLUMNS FROM `visit_details` LIKE 'is_exit'")->fetchAll();
+        if (empty($hasExit)) {
+            $pdo->exec("ALTER TABLE `visit_details` ADD COLUMN `is_exit` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'صفحه خروج'");
+        }
+        $hasDur = $pdo->query("SHOW COLUMNS FROM `visit_details` LIKE 'duration'")->fetchAll();
+        if (empty($hasDur)) {
+            $pdo->exec("ALTER TABLE `visit_details` ADD COLUMN `duration` INT UNSIGNED NULL COMMENT 'مدت حضور (ثانیه)'");
+        }
+        $hasTitle = $pdo->query("SHOW COLUMNS FROM `visit_details` LIKE 'page_title'")->fetchAll();
+        if (empty($hasTitle)) {
+            $pdo->exec("ALTER TABLE `visit_details` ADD COLUMN `page_title` VARCHAR(255) NULL");
+        }
+        $hasViewed = $pdo->query("SHOW COLUMNS FROM `visit_details` LIKE 'viewed_at'")->fetchAll();
+        if (empty($hasViewed)) {
+            $pdo->exec("ALTER TABLE `visit_details` ADD COLUMN `viewed_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP");
+        }
+
+        @file_put_contents($v227StatsMarker, date('Y-m-d H:i:s'));
+    } catch (Throwable $v227StatsE) {
         // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
     }
 }

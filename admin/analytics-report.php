@@ -43,24 +43,34 @@ if ($dateTo !== '') {
 /* 🏷️ برند انتخابی */
 $brandRow = $brandFilter > 0 ? $db->fetch('SELECT name_fa, name_en, domain FROM brands WHERE id = ?', [$brandFilter]) : null;
 
+/* 🛡️ v2.27 — کوئری‌های آمار در برابر دیتابیس قدیمی مقاوم: اگر جدول/ستون
+   غایب باشد، همان بخش خالی برمی‌گردد و صفحه با ۵۰۰ نمی‌افتد. */
+$safeQuery = static function (string $sql, array $params) use ($db): array {
+    try {
+        return $db->fetchAll($sql, $params);
+    } catch (Throwable $sqlE) {
+        return [];
+    }
+};
+
 /* 📈 سری زمانی */
-$timeline = $db->fetchAll(
+$timeline = $safeQuery(
     "SELECT v.visit_date, COUNT(DISTINCT v.session_hash) AS unique_visits, COUNT(*) AS views
      FROM visits v WHERE {$where} GROUP BY v.visit_date ORDER BY v.visit_date",
     $params
 );
 
 /* 📱 تفکیک‌ها */
-$byDevice = $db->fetchAll("SELECT v.device_type, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} GROUP BY v.device_type ORDER BY c DESC", $params);
-$byBrowser = $db->fetchAll("SELECT v.browser, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} AND v.browser IS NOT NULL GROUP BY v.browser ORDER BY c DESC LIMIT 8", $params);
-$byOs = $db->fetchAll("SELECT v.os, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} AND v.os IS NOT NULL GROUP BY v.os ORDER BY c DESC LIMIT 6", $params);
+$byDevice = $safeQuery("SELECT v.device_type, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} GROUP BY v.device_type ORDER BY c DESC", $params);
+$byBrowser = $safeQuery("SELECT v.browser, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} AND v.browser IS NOT NULL GROUP BY v.browser ORDER BY c DESC LIMIT 8", $params);
+$byOs = $safeQuery("SELECT v.os, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE {$where} AND v.os IS NOT NULL GROUP BY v.os ORDER BY c DESC LIMIT 6", $params);
 
 /* 🗺️ شهرها */
-$ipPrefixes = $db->fetchAll("SELECT DISTINCT v.ip_prefix FROM visits v WHERE {$where} AND v.ip_prefix IS NOT NULL AND v.ip_prefix != ''", $params);
+$ipPrefixes = $safeQuery("SELECT DISTINCT v.ip_prefix FROM visits v WHERE {$where} AND v.ip_prefix IS NOT NULL AND v.ip_prefix != ''", $params);
 $citiesDist = GeoIP::citiesDistribution(array_column($ipPrefixes, 'ip_prefix'));
 
 /* 📄 صفحات پربازدید */
-$topPages = $db->fetchAll(
+$topPages = $safeQuery(
     "SELECT vd.page_url, COUNT(*) AS views, AVG(vd.duration) AS avg_duration
      FROM visit_details vd JOIN visits v ON v.id = vd.visit_id
      WHERE {$where} GROUP BY vd.page_url ORDER BY views DESC LIMIT 12",
@@ -68,7 +78,7 @@ $topPages = $db->fetchAll(
 );
 
 /* 🏷️ سهم برندها (فقط در حالت «همه برندها») */
-$brandShare = $brandFilter === 0 ? $db->fetchAll(
+$brandShare = $brandFilter === 0 ? $safeQuery(
     "SELECT b.name_fa, COUNT(DISTINCT v.session_hash) AS visits
      FROM brands b JOIN visits v ON v.brand_id = b.id
      WHERE b.is_active = 1 GROUP BY b.id HAVING visits > 0 ORDER BY visits DESC LIMIT 12",
@@ -78,9 +88,9 @@ $brandShare = $brandFilter === 0 ? $db->fetchAll(
 /* 📈 شاخص‌های کلی */
 $totalUnique = array_sum(array_column($timeline, 'unique_visits'));
 $totalViews = array_sum(array_column($timeline, 'views'));
-$durRow = $db->fetchAll("SELECT AVG(vd.duration) AS avg_dur FROM visit_details vd JOIN visits v ON v.id = vd.visit_id WHERE {$where}", $params);
+$durRow = $safeQuery("SELECT AVG(vd.duration) AS avg_dur FROM visit_details vd JOIN visits v ON v.id = vd.visit_id WHERE {$where}", $params);
 $avgDuration = $durRow ? round((float)$durRow[0]['avg_dur']) : 0;
-$bounceRow = $db->fetchAll(
+$bounceRow = $safeQuery(
     "SELECT COUNT(DISTINCT v.session_hash) AS sessions,
             COUNT(DISTINCT CASE WHEN exits.exit_count = 1 AND views.vc = 1 THEN v.session_hash END) AS bounced
      FROM visits v
@@ -89,7 +99,7 @@ $bounceRow = $db->fetchAll(
      WHERE {$where}",
     $params
 );
-$bounceRate = $bounceRow && (int)$bounceRow[0]['sessions'] > 0 ? round($bounceRow[0]['bounced'] / $bounceRow[0]['sessions'] * 100) : 0;
+$bounceRate = $bounceRow && (int)$bounceRow[0]['sessions'] > 0 ? round((int)$bounceRow[0]['bounced'] / (int)$bounceRow[0]['sessions'] * 100) : 0;
 
 /* 🗓️ برچسب بازه */
 $periodLabels = ['7' => '۷ روز اخیر', '30' => '۳۰ روز اخیر', '90' => '۳ ماه اخیر', '365' => '۱ سال اخیر', 'all' => 'همه زمان‌ها', 'custom' => 'بازه دلخواه'];

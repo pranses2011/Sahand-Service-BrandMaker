@@ -14,8 +14,18 @@ $socials = $contacts['socials'] ?? [];
 $pageTitle = 'تماس با ما | ' . BRAND_NAME_FA;
 $pageDesc = 'راه‌های ارتباطی با نمایندگی ' . BRAND_NAME_FA . ' — تلفن، موبایل، ایمیل و آدرس';
 $crumbTitle = 'تماس با ما';
+/* 🎨 v2.27 — چیدمان تم/قالب سایت ساز (اگر باشد، جای ساختار ثابت می‌آید) */
+$layoutHtml = '';
+if (function_exists('bb_layout_html')) {
+    $tplData = fetchFromAPI('brand/' . BRAND_ID . '/template/contact', 120)['data'] ?? null;
+    $layoutHtml = $tplData ? bb_layout_html($tplData) : '';
+}
+if ($layoutHtml !== '') { $loadBlocksCss = true; }
 require __DIR__ . '/_page_base.php';
 ?>
+<?php if ($layoutHtml !== ''): ?>
+<?= $layoutHtml ?>
+<?php else: ?>
 <section class="section">
     <div class="container contact-page">
         <h1 class="page-title">📞 تماس با ما</h1>
@@ -76,4 +86,5 @@ require __DIR__ . '/_page_base.php';
         </div>
     </div>
 </section>
+<?php endif; ?>
 <?php require __DIR__ . '/../includes/floating-btn.php'; require __DIR__ . '/../includes/footer.php'; ?>

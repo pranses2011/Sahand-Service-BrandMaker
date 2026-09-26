@@ -11,8 +11,18 @@ $devices = fetchFromAPI('brand/' . BRAND_ID . '/devices')['data'] ?? [];
 $pageTitle = $pageData['data']['seo']['title'] ?? ('خدمات ' . BRAND_NAME_FA);
 $pageDesc = $pageData['data']['seo']['description'] ?? '';
 $crumbTitle = 'خدمات';
+/* 🎨 v2.27 — چیدمان تم/قالب سایت ساز (اگر باشد، جای ساختار ثابت می‌آید) */
+$layoutHtml = '';
+if (function_exists('bb_layout_html')) {
+    $tplData = fetchFromAPI('brand/' . BRAND_ID . '/template/services', 120)['data'] ?? null;
+    $layoutHtml = $tplData ? bb_layout_html($tplData) : '';
+}
+if ($layoutHtml !== '') { $loadBlocksCss = true; }
 require __DIR__ . '/_page_base.php';
 ?>
+<?php if ($layoutHtml !== ''): ?>
+<?= $layoutHtml ?>
+<?php else: ?>
 <section class="section">
     <div class="container">
         <h1 class="page-title">خدمات <?= e(BRAND_NAME_FA) ?></h1>
@@ -41,4 +51,5 @@ require __DIR__ . '/_page_base.php';
         </div>
     </div>
 </section>
+<?php endif; ?>
 <?php require __DIR__ . '/../includes/floating-btn.php'; require __DIR__ . '/../includes/footer.php'; ?>

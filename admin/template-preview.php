@@ -72,7 +72,9 @@ $pageStyle = $pageCssVars($pageProps);
  * 🎨 رندر یک بلوک به HTML واقعی با محتوای نمونه فارسی (v3.0 — ۵۵+ بلوک)
  */
 
-/* ➕ v2.15: نرمال‌سازی آیتم‌های لیست — همیشه [{icon,text,desc}] */
+/* ➕ v2.15: نرمال‌سازی آیتم‌های لیست — همیشه [{icon,text,desc}]
+   🆕 v2.27 — نرمال‌سازی «قبل از» فیلتر متن: آیتم‌های آرایه‌ای قدیمی
+   [['آیکون','متن','توضیح']] قبلاً پیش از نرمال‌سازی حذف می‌شدند! */
 function pvItems(array $props, array $fallback): array
 {
     $norm = static function ($arr): array {
@@ -88,7 +90,10 @@ function pvItems(array $props, array $fallback): array
         }
         return $out;
     };
-    $items = $norm(array_values(array_filter((array)($props['items'] ?? []), static fn($i) => is_array($i) && trim((string)($i['text'] ?? '')) !== '')));
+    $items = array_values(array_filter(
+        $norm($props['items'] ?? []),
+        static fn($i) => trim((string)$i['text']) !== ''
+    ));
     return $items ?: $norm($fallback);
 }
 
@@ -747,7 +752,8 @@ function renderPreviewBlockInner(string $block, array $props = []): string
         case 'stats-inline':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . ' stats-strip-blk">' . $head . '<div class="stats-strip">' . pvStatStrip($props) . '</div></div>';
         case 'pelement':
-            /* ⭐ v2.26: عنصر شخصی استخراج‌شده — iframe ایزوله با استایل سایت مبدأ */
+            /* ⭐ v2.26: عنصر شخصی استخراج‌شده — iframe ایزوله با استایل سایت مبدأ
+               🆕 v2.27: ارتفاع خودکار + CSS کامل زیردرخت (فرزندان هم استایل دارند) */
             {
                 global $PERSONAL_ELEMENTS;
                 $peId = (int)($props['element_id'] ?? 0);
@@ -758,7 +764,7 @@ function renderPreviewBlockInner(string $block, array $props = []): string
                 $frameDoc = htmlspecialchars(pv_pelement_doc($pe), ENT_QUOTES, 'UTF-8');
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '">'
                     . ($title !== '' ? '<div class="blk-title">' . e($title) . '</div>' : '')
-                    . '<iframe class="pelement-frame" sandbox="allow-same-origin" srcdoc="' . $frameDoc . '" style="width:100%;min-height:210px;border:none;border-radius:11px;background:#fff" loading="lazy" title="' . e($pe['name']) . '"></iframe></div>';
+                    . '<iframe class="pelement-frame" sandbox="allow-same-origin" srcdoc="' . $frameDoc . '" style="width:100%;min-height:210px;border:none;border-radius:11px;background:#fff" loading="lazy" onload="try{var d=this.contentDocument;if(d){this.style.height=Math.max(200,d.documentElement.scrollHeight+18)+\'px\'}}catch(e){}" title="' . e($pe['name']) . '"></iframe></div>';
             }
         default:
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">📦 ' . e($block) . '</div><div class="fake-lines"><div class="fl w90"></div><div class="fl w70"></div></div></div>';
