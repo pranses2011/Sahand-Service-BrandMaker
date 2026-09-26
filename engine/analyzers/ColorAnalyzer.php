@@ -247,7 +247,7 @@ class ColorAnalyzer
     private function buildLightPalette(array $c): array
     {
         $primary = $c['primary'];
-        return [
+        $palette = [
             '--color-primary'        => $primary,
             '--color-primary-light'  => $this->adjustBrightness($primary, 25),
             '--color-primary-dark'   => $this->adjustBrightness($primary, -25),
@@ -266,6 +266,9 @@ class ColorAnalyzer
             '--shadow-color'         => 'rgba(0, 0, 0, 0.08)',
             '--on-primary'           => contrast_text_color($primary),
         ];
+        /* 🎨 v2.25 — تضمین خوانایی WCAG (کنتراست متن/دکمه/گرادیانت) */
+        [$palette] = self::ensureReadable($palette, 'light');
+        return $palette;
     }
 
     /**
@@ -275,7 +278,7 @@ class ColorAnalyzer
     {
         $primaryDark = $this->adjustBrightness($c['primary'], -15);
         $secondaryDark = $this->adjustBrightness($c['secondary'], -15);
-        return [
+        $palette = [
             '--color-primary'        => $primaryDark,
             '--color-primary-light'  => $c['primary'],
             '--color-primary-dark'   => $this->adjustBrightness($primaryDark, -20),
@@ -294,6 +297,9 @@ class ColorAnalyzer
             '--shadow-color'         => 'rgba(0, 0, 0, 0.4)',
             '--on-primary'           => contrast_text_color($primaryDark),
         ];
+        /* 🎨 v2.25 — در تم تاریک primary باید روی زمینه تیره «روشن» باشد */
+        [$palette] = self::ensureReadable($palette, 'dark');
+        return $palette;
     }
 
     /**
@@ -316,6 +322,201 @@ class ColorAnalyzer
         $g = max(0, min(255, (int)round($g + $amount)));
         $b = max(0, min(255, (int)round($b + $amount)));
         return sprintf('#%02x%02x%02x', $r, $g, $b);
+    }
+
+    /* ==================================================
+     * 🎨 v2.25 — موتور تضمین کنتراست WCAG
+     * ریشه شکایت «متن‌ها و دکمه‌ها دیده نمی‌شوند / تداخل رنگ»:
+     * رنگ‌های ورودی (از لوگو یا ویرایش دستی) هیچ تضمینی ندارند؛ این متد
+     * پالت را طوری اصلاح می‌کند که:
+     *   ① متن روی زمینه ≥ ۴.۵:۱ (WCAG AA)
+     *   ② متن دکمه (--on-primary) روی primary ≥ ۴.۵:۱
+     *   ③ primary خودش روی زمینه ≥ ۴.۵:۱ (لینک‌ها/دکمه‌های خطی)
+     *   ④ متن هیرو (--on-gradient) روی «هر دو» سر گرادیانت خوانا باشد
+     *   ⑤ سطح/حاشیه از زمینه قابل‌تشخیص باشد
+     * خروجی: [پالت اصلاح‌شده, یادداشت‌های اصلاح]
+     * ================================================== */
+
+    /** @var float حداقل نسبت کنتراست متن عادی (WCAG AA) */
+    const CONTRAST_TEXT = 4.5;
+    /** @var float حداقل نسبت کنتراست متن درشت/سطح (WCAG AA large) */
+    const CONTRAST_LARGE = 3.0;
+
+    /**
+     * 💡 روشنایی نسبی رنگ (WCAG relative luminance)
+     */
+    public static function luminance(string $hex): float
+    {
+        $rgb = self::hexToRgbArr($hex);
+        $ch = [];
+        foreach ($rgb as $c) {
+            $c = $c / 255;
+            $ch[] = $c <= 0.03928 ? $c / 12.92 : (($c + 0.055) / 1.055) ** 2.4;
+        }
+        return 0.2126 * $ch[0] + 0.7152 * $ch[1] + 0.0722 * $ch[2];
+    }
+
+    /**
+     * 📏 نسبت کنتراست دو رنگ (۱ تا ۲۱)
+     */
+    public static function contrastRatio(string $hex1, string $hex2): float
+    {
+        $l1 = self::luminance($hex1);
+        $l2 = self::luminance($hex2);
+        return (max($l1, $l2) + 0.05) / (min($l1, $l2) + 0.05);
+    }
+
+    /**
+     * 🔤 تبدیل HEX به RGB (استاتیک — برای موتور کنتراست)
+     */
+    private static function hexToRgbArr(string $hex): array
+    {
+        $hex = ltrim(trim($hex), '#');
+        if (strlen($hex) === 3) {
+            $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+        }
+        if (!preg_match('/^[0-9a-f]{6}$/i', $hex)) {
+            return [0, 0, 0];
+        }
+        return [(int)hexdec(substr($hex, 0, 2)), (int)hexdec(substr($hex, 2, 2)), (int)hexdec(substr($hex, 4, 2))];
+    }
+
+    /** 🔍 اعتبارسنجی HEX شش‌رقمی */
+    private static function isHex6(string $hex): bool
+    {
+        return (bool)preg_match('/^#?[0-9a-f]{6}$/i', trim($hex));
+    }
+
+    /**
+     * 🎚️ شیفت همسو رنگ به سمت روشن (+) یا تیره (−) — گام درصدی
+     */
+    private static function shiftToward(string $hex, int $percent): string
+    {
+        $rgb = self::hexToRgbArr($hex);
+        $amount = (int)round($percent / 100 * 255);
+        return sprintf('#%02x%02x%02x',
+            max(0, min(255, $rgb[0] + $amount)),
+            max(0, min(255, $rgb[1] + $amount)),
+            max(0, min(255, $rgb[2] + $amount))
+        );
+    }
+
+    /**
+     * 🎯 جابه‌جایی رنگ تا رسیدن به کنتراست هدف نسبت به زمینه
+     * جهت: زمینه روشن → تیره‌سازی؛ زمینه تیره → روشن‌سازی (حداکثر ۲۵ گام ۳٪)
+     */
+    private static function adjustForContrast(string $hex, string $bg, float $target): string
+    {
+        if (!self::isHex6($hex) || !self::isHex6($bg)) {
+            return $hex;
+        }
+        $bgLight = self::luminance($bg) > 0.35;
+        $dir = $bgLight ? -3 : 3;
+        $out = $hex;
+        for ($i = 0; $i < 25; $i++) {
+            if (self::contrastRatio($out, $bg) >= $target) {
+                break;
+            }
+            $out = self::shiftToward($out, $dir);
+        }
+        return $out;
+    }
+
+    /**
+     * 🧪 بهترین رنگ متن (سفید یا تیره) برای یک/دو پس‌زمینه — بیشترین کمینه کنتراست
+     */
+    public static function bestTextColor(string $bg1, string $bg2 = ''): string
+    {
+        $white = '#ffffff';
+        $dark = '#0f172a';
+        if (!self::isHex6($bg1)) {
+            return $dark;
+        }
+        $wMin = self::contrastRatio($white, $bg1);
+        $dMin = self::contrastRatio($dark, $bg1);
+        if ($bg2 !== '' && self::isHex6($bg2)) {
+            $wMin = min($wMin, self::contrastRatio($white, $bg2));
+            $dMin = min($dMin, self::contrastRatio($dark, $bg2));
+        }
+        return $wMin >= $dMin ? $white : $dark;
+    }
+
+    /**
+     * 🛡️ اصلاح پالت تا خوانایی تضمین‌شده — تم روشن یا تاریک
+     *
+     * @param array  $palette پالت (متغیر => مقدار)
+     * @param string $theme   'light' | 'dark'
+     * @return array [پالت اصلاح‌شده, آرایه یادداشت اصلاح‌ها]
+     */
+    public static function ensureReadable(array $palette, string $theme = 'light'): array
+    {
+        $notes = [];
+        $get = static function (array $p, string $k, string $def) {
+            $v = trim((string)($p[$k] ?? ''));
+            return self::isHex6($v) ? (strpos($v, '#') === 0 ? $v : '#' . $v) : $def;
+        };
+        $bg = $get($palette, '--color-background', $theme === 'dark' ? '#111827' : '#ffffff');
+        $isDark = $theme === 'dark';
+        $setText = $isDark ? '#f3f4f6' : '#1f2937';
+        $setTextLight = $isDark ? '#9ca3af' : '#6b7280';
+
+        /* ① متن اصلی و کم‌رنگ روی زمینه */
+        foreach (['--color-text' => $setText, '--color-text-light' => $setTextLight] as $var => $fallback) {
+            $cur = $get($palette, $var, $fallback);
+            if (self::contrastRatio($cur, $bg) < self::CONTRAST_TEXT) {
+                $fixed = self::adjustForContrast($cur, $bg, self::CONTRAST_TEXT);
+                if (self::contrastRatio($fixed, $bg) >= self::CONTRAST_TEXT) {
+                    $palette[$var] = $fixed;
+                    $notes[] = $var . ' برای خوانایی روی زمینه اصلاح شد';
+                } else {
+                    $palette[$var] = $fallback;
+                    $notes[] = $var . ' به مقدار استاندارد بازگشت (کنتراست ناکافی)';
+                }
+            }
+        }
+
+        /* ② primary باید روی زمینه خوانا باشد (لینک‌ها/دکمه‌های خطی/عنوان‌های رنگی) */
+        $primary = $get($palette, '--color-primary', $isDark ? '#3b82f6' : '#1e40af');
+        $fixedPrimary = self::adjustForContrast($primary, $bg, self::CONTRAST_TEXT);
+        if (strcasecmp($fixedPrimary, $primary) !== 0
+            && self::contrastRatio($fixedPrimary, $bg) >= self::CONTRAST_LARGE) {
+            $palette['--color-primary'] = $fixedPrimary;
+            $notes[] = 'رنگ اصلی برای دیده‌شدن روی زمینه ' . ($isDark ? 'روشن‌تر' : 'تیره‌تر') . ' شد';
+            /* تیره‌تر/روشن‌ترِ primary هم هماهنگ شود */
+            $pd = $get($palette, '--color-primary-dark', $fixedPrimary);
+            $palette['--color-primary-dark'] = self::adjustForContrast($pd, $bg, self::CONTRAST_TEXT);
+        }
+        $primary = $get($palette, '--color-primary', $isDark ? '#3b82f6' : '#1e40af');
+
+        /* ③ متن دکمه اصلی — با بهترین کنتراست ممکن */
+        $palette['--on-primary'] = self::bestTextColor($primary);
+
+        /* ④ متن هیرو — روی هر دو سر گرادیانت خوانا */
+        $secondary = $get($palette, '--color-secondary', $primary);
+        $palette['--on-gradient'] = self::bestTextColor($primary, $secondary);
+
+        /* ⑤ سطح و حاشیه باید از زمینه قابل‌تشخیص باشند */
+        $surface = $get($palette, '--color-surface', $isDark ? '#1f2937' : '#f5f7fa');
+        /* آستانه ۱.۰۵: سطح استاندارد (#f5f7fa روی سفید = ۱.۰۷) عمداً ظریف است و
+           نباید «اصلاح» شود؛ فقط رنگ‌های تقریباً یکسان با زمینه تفکیک می‌شوند */
+        if (self::contrastRatio($surface, $bg) < 1.05) {
+            $palette['--color-surface'] = self::shiftToward($bg, $isDark ? 6 : -6);
+            $notes[] = 'سطح (surface) از زمینه تفکیک شد';
+        }
+        $border = $get($palette, '--color-border', $isDark ? '#374151' : '#e5e7eb');
+        if (self::contrastRatio($border, $bg) < 1.05) {
+            $palette['--color-border'] = self::shiftToward($bg, $isDark ? 14 : -14);
+            $notes[] = 'حاشیه از زمینه تفکیک شد';
+        }
+
+        /* ⑥ گرادیانت رشته‌ای با primary اصلاح‌شده بازسازی شود */
+        if (isset($palette['--gradient-primary']) && is_string($palette['--gradient-primary'])
+            && preg_match('/^linear-gradient\(\s*135deg\s*,\s*(#[0-9a-f]{3,6})/i', (string)$palette['--gradient-primary'])) {
+            $palette['--gradient-primary'] = 'linear-gradient(135deg, ' . $palette['--color-primary'] . ' 0%, ' . $secondary . ' 100%)';
+            $palette['--on-gradient'] = self::bestTextColor($palette['--color-primary'], $secondary);
+        }
+
+        return [$palette, $notes];
     }
 
     /**

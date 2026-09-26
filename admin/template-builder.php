@@ -5,7 +5,7 @@
  * ✨ v3.0 (طبق درخواست کاربر):
  *   🏛 ستون‌بندی: بلوک «بخش چندستونی» با ۲ تا ۴ ستون — بلوک‌ها را داخل
  *      هر ستون بکشید و رها کنید؛ چیدمان تودرتو (nested layout)
- *   🧩 ۵۵+ عنصر: هدر/هیرو/محتوا/ستون/کارت/فرم/آمار/تعامل/رسانه/فراخوان/
+ *   🧩 ۱۵۰ عنصر: هدر/هیرو/محتوا/ستون/کارت/فرم/آمار/تعامل/رسانه/فراخوان/
  *      ساختار/فوتر — همه چیز برای ساخت هر صفحه‌ای
  *   ⚡ طراحی زنده: بوم «رندر واقعی» بلوک‌ها را همان‌طور که در سایت دیده
  *      می‌شوند نشان می‌دهد؛ تغییر ویژگی‌ها بلافاصله اعمال می‌شود؛ متن‌ها
@@ -142,6 +142,15 @@ if ($templateId > 0) {
 }
 $layout = $template ? (json_decode($template['layout_json'] ?? '[]', true) ?: []) : [];
 
+/* 🆕 v2.25: تنظیمات صفحه — گره مخفی «_page» در ابتدای چیدمان ذخیره می‌شود
+   (فاصله‌ها، زمینه، عرض محتوا، گردی گوشه‌ها و ...). قدیمی‌ها بدون آن‌اند و
+   همچنان کار می‌کنند؛ بوم فقط بلوک‌های واقعی را رندر می‌کند. */
+$pageProps = [];
+if (!empty($layout) && is_array($layout[0]) && ($layout[0]['block'] ?? '') === '_page') {
+    $pageProps = is_array($layout[0]['props'] ?? null) ? $layout[0]['props'] : [];
+    array_shift($layout);
+}
+
 /* 🆕 v2.21: حالت ویرایش صفحه برند — چیدمان brand_pages در بوم قالب‌ساز
    ورودی: ?brand_page=<id> — ذخیره مستقیم روی همان صفحه (نه جدول templates) */
 $brandPageId = (int)get_param('brand_page');
@@ -154,6 +163,10 @@ if ($brandPageId > 0) {
     if ($brandPage) {
         $newPageType = $brandPage['page_type'];
         $layout = json_decode($brandPage['layout_json'] ?? '[]', true) ?: [];
+        if (!empty($layout) && is_array($layout[0]) && ($layout[0]['block'] ?? '') === '_page') {
+            $pageProps = is_array($layout[0]['props'] ?? null) ? $layout[0]['props'] : [];
+            array_shift($layout);
+        }
     } else {
         flash('danger', 'صفحه برند یافت نشد.');
         redirect('templates.php');
@@ -168,7 +181,7 @@ $pageTitle = $brandPage
 $activeMenu = 'template-builder';
 require __DIR__ . '/includes/header.php';
 
-/* 📚 کتابخانه بلوک‌ها — ۵۵+ عنصر در ۱۲ دسته (v3.0)
+/* 📚 کتابخانه بلوک‌ها — ~۱۵۰ عنصر در ۱۲ دسته (v3.0 + v2.25)
  * [آیکون، برچسب، پیش‌فرض‌های ویژگی] */
 $blockLibrary = [
     'هدر' => [
@@ -212,6 +225,13 @@ $blockLibrary = [
 پاراگراف دوم..."]],
         'brand-values' => ['💎', 'ارزش‌های برند (آیکون + متن)', ['title' => 'ارزش‌های ما', 'items' => [['icon' => '🛡️', 'text' => 'صداقت در اعلام قیمت'], ['icon' => '⚡', 'text' => 'سرعت در اعزام'], ['icon' => '🔧', 'text' => 'تخصص واقعی']]]],
         'tech-tips' => ['💡', 'نکات طلایی تعمیرکار', ['title' => 'نکات فنی از تعمیرکاران ما', 'items' => [['icon' => '۱', 'text' => 'دستگاه را قبل از تماس ریست کنید'], ['icon' => '۲', 'text' => 'کد خطا را یادداشت کنید'], ['icon' => '۳', 'text' => 'قطعات فیک نخرید']]]],
+        /* 🆕 v2.25 */
+        'pros-cons' => ['🆚', 'مزایا و معایب (دو ستون)', ['title' => 'چرا تعمیر نزد ما؟', 'items' => [['icon' => '✅', 'text' => 'قطعات اصلی و ضمانت‌دار'], ['icon' => '✅', 'text' => 'اعزام سریع تکنسین'], ['icon' => '⚠️', 'text' => 'زمان تعمیر ۲ تا ۴ روز کاری']]]],
+        'text-accent-box' => ['🟦', 'جعبه متن با نوار رنگی', ['title' => 'نکته مهم', 'text' => 'متنی که باید توجه کاربر را جلب کند — با نوار رنگی کنار جعبه.']],
+        'definition-list' => ['📖', 'فهرست اصطلاحات فنی', ['title' => 'اصطلاحات پرکاربرد', 'items' => [['icon' => '🔧', 'text' => 'ایرادیابی', 'desc' => 'بررسی کامل دستگاه برای یافتن عیب'], ['icon' => '🧲', 'text' => 'مگنترون', 'desc' => 'قطعه تولید امواج مایکروویو']]]],
+        'article-highlight' => ['🌟', 'جعبه محتوای ویژه', ['title' => 'خدمات ویژه تعطیلات', 'subtitle' => 'پاسخگویی و اعزام امداد در تمام روزهای هفته', 'text' => 'خلاصه‌ای از مزیت ویژه این بخش — متن و تصویر قابل تنظیم است.']],
+        'page-header' => ['📄', 'سربرگ صفحه (عنوان + مسیر)', ['title' => 'عنوان صفحه', 'subtitle' => 'توضیح کوتاهی درباره این صفحه']],
+        'steps-vertical' => ['🪜', 'مراحل عمودی (ریزش بخش‌ها)', ['title' => 'مسیر انجام کار', 'items' => [['icon' => '۱', 'text' => 'ثبت درخواست', 'desc' => 'آنلاین یا تلفنی'], ['icon' => '۲', 'text' => 'عیب‌یابی و اعلام هزینه', 'desc' => 'شفاف و پیش از شروع'], ['icon' => '۳', 'text' => 'تعمیر و تحویل', 'desc' => 'همراه با ضمانت کتبی']]]],
     ],
     '🏛 ستون‌بندی' => [
         'section-columns' => ['🏛', 'بخش چندستونی (۲-۴ ستون)', ['columns' => 2]],
@@ -237,6 +257,9 @@ $blockLibrary = [
         'brand-intro-card' => ['🏷️', 'کارت معرفی برند (لوگو + امتیاز)', ['title' => 'نمایندگی رسمی خدمات', 'subtitle' => 'بیش از یک دهه تجربه تخصصی']],
         'price-highlight' => ['🔆', 'کارت قیمت برجسته (تک‌پلن)', ['title' => 'سرویس دوره‌ای کامل', 'price' => '۴۵۰ هزار تومان', 'badge' => 'پیشنهاد ویژه']],
         'price-compare' => ['⚖️', 'مقایسه پکیج‌های خدمات', ['title' => 'تعرفه سرویس‌ها', 'columns' => 3]],
+        /* 🆕 v2.25 */
+        'service-price-cards' => ['🛠', 'کارت خدمات با قیمت', ['title' => 'تعرفه خدمات پرتقاضا', 'columns' => 3, 'items' => [['icon' => '🧺', 'text' => 'شست‌وشوی کامل ماشین لباس', 'desc' => 'از ۹۵۰ هزار تومان'], ['icon' => '❄️', 'text' => 'شارژ گاز کولر', 'desc' => 'از ۱٫۲ میلیون تومان'], ['icon' => '🔥', 'text' => 'تعویض هیتر ماشین ظرفشویی', 'desc' => 'از ۱٫۵ میلیون تومان']]]],
+        'feature-icons-grid' => ['🔣', 'شبکه آیکون‌های بزرگ', ['title' => 'خدمات ما در یک نگاه', 'columns' => 4, 'items' => [['icon' => '🧊', 'text' => 'یخچال'], ['icon' => '🧺', 'text' => 'لباسشویی'], ['icon' => '📺', 'text' => 'تلویزیون'], ['icon' => '🔥', 'text' => 'فر و اجاق'], ['icon' => '🍵', 'text' => 'کتری برقی'], ['icon' => '☕', 'text' => 'قهوه‌ساز'], ['icon' => '🌪', 'text' => 'جاروبرقی'], ['icon' => '💧', 'text' => 'آبگرمکن']]]],
     ],
     'فرم' => [
         'contact-form' => ['📝', 'فرم تماس', []],
@@ -250,6 +273,9 @@ $blockLibrary = [
         'price-estimate' => ['🧮', 'برآوردگر هزینه فوری (دستگاه + ایراد)', []],
         'device-error-lookup' => ['🔢', 'جستجوی کد خطای دستگاه', []],
         'appointment-compact' => ['📅', 'رزرو سریع نوبت (فشرده)', ['title' => 'نوبت تعمیر رزرو کنید']],
+        /* 🆕 v2.25 */
+        'callback-form' => ['☎️', 'فرم درخواست تماس', ['title' => 'درخواست تماس کارشناس', 'btnText' => 'با من تماس بگیرید']],
+        'survey-form' => ['📊', 'نظرسنجی رضایت', ['title' => 'میزان رضایت شما از سرویس؟', 'items' => [['icon' => '⭐', 'text' => 'بسیار راضی'], ['icon' => '👍', 'text' => 'راضی'], ['icon' => '😐', 'text' => 'معمولی']]]],
     ],
     'آمار' => [
         'counter-stats' => ['📊', 'شمارنده‌ها', []],
@@ -261,6 +287,10 @@ $blockLibrary = [
         'live-queue' => ['🚦', 'وضعیت صف تعمیر زنده', []],
         'hourly-capacity' => ['⏰', 'ظرفیت سرویس امروز (ساعتی)', []],
         'stats-inline' => ['📈', 'آمار درون‌خطی فشرده', ['items' => [['icon' => '۱۲+', 'text' => 'سال تجربه'], ['icon' => '۵۰k', 'text' => 'تعمیر'], ['icon' => '۹۸٪', 'text' => 'رضایت']]]],
+        /* 🆕 v2.25 */
+        'stats-circles' => ['⭕', 'حلقه‌های درصدی', ['title' => 'عملکرد ما در آمار واقعی', 'items' => [['icon' => '۹۲٪', 'text' => 'تعمیر در روز اول'], ['icon' => '۸۷٪', 'text' => 'رضایت کامل'], ['icon' => '۹۶٪', 'text' => 'حل قطعی ایراد']]]],
+        'counter-big' => ['🔢', 'شمارنده بزرگ (تک‌عدد)', ['title' => 'تعمیر موفق از سال ۱۳۸۹', 'items' => [['icon' => '۵۰,۰۰۰+', 'text' => 'تعمیر تکمیل‌شده']]]],
+        'brand-stats-bar' => ['📊', 'نوار آمار برند (ریبون)', ['title' => 'سهند سرویس در یک نگاه', 'items' => [['icon' => '۱۵+', 'text' => 'سال تجربه'], ['icon' => '۴۲', 'text' => 'نوع دستگاه تخصصی'], ['icon' => '۲۴/۷', 'text' => 'پشتیبانی'], ['icon' => '۶ ماه', 'text' => 'ضمانت کتبی']]]],
     ],
     'تعامل' => [
         'testimonials' => ['💬', 'اسلایدر نظرات مشتریان', ['autoplay' => 1]],
@@ -277,6 +307,9 @@ $blockLibrary = [
         'faq-category' => ['🗂', 'سوالات متداول دسته‌بندی‌شده', []],
         'faq-mini' => ['❓', 'سوال و پاسخ تک‌آیتمی', ['title' => 'هزینه عیب‌یابی چقدر است؟', 'text' => 'عیب‌یابی تخصصی در صورت تعمیر نزد ما رایگان است.']],
         'steps-compact' => ['3️⃣', 'مراحل فشرده سرویس', ['title' => 'فقط ۳ قدم تا تعمیر']],
+        /* 🆕 v2.25 */
+        'quote-slider' => ['💬', 'اسلایدر نقل‌قول‌ها', ['title' => 'مشتریان چه می‌گویند', 'items' => [['icon' => 'علی محمدی', 'text' => 'سرویس سریع و منظم بود؛ راضی بودم.'], ['icon' => 'مریم احمدی', 'text' => 'قیمت شفاف و ضمانت واقعی.'], ['icon' => 'رضا کریمی', 'text' => 'تکنسین دقیق و حرفه‌ای اعزام شد.']]]],
+        'vote-poll' => ['🗳', 'رای‌گیری تعاملی', ['title' => 'کدام سرویس دوره‌ای را می‌خواهید؟', 'items' => [['icon' => '🧺', 'text' => 'لباسشویی'], ['icon' => '❄️', 'text' => 'یخچال'], ['icon' => '🔥', 'text' => 'ماکروویو']]]],
     ],
     'رسانه' => [
         'gallery' => ['🖼️', 'گالری تصاویر', []],
@@ -287,6 +320,10 @@ $blockLibrary = [
         'before-after-slider' => ['🎚', 'اسلایدر مقایسه تصویری قبل/بعد', []],
         'social-wall' => ['📲', 'دیوار شبکه‌های اجتماعی (پست‌ها)', []],
         'reviews-carousel' => ['💬', 'اسلایدر نظرات مشتریان', ['title' => 'مشتریان چه می‌گویند']],
+        /* 🆕 v2.25 */
+        'video-grid' => ['🎞', 'شبکه ویدیوهای آموزشی', ['title' => 'آموزش‌های ویدیویی', 'columns' => 3]],
+        'logo-marquee' => ['🏷', 'نوار لوگوی متحرک', ['title' => 'برندهای مورد خدمت', 'items' => [['icon' => '🏷️', 'text' => 'ال‌جی'], ['icon' => '🏷️', 'text' => 'سامسونگ'], ['icon' => '🏷️', 'text' => 'بوش'], ['icon' => '🏷️', 'text' => 'سونی'], ['icon' => '🏷️', 'text' => 'پاکس'], ['icon' => '🏷️', 'text' => 'اسنوا']]]],
+        'tag-cloud' => ['#️⃣', 'ابر برچسب (کلمات کلیدی)', ['title' => 'جستجوهای پرتکرار', 'items' => [['text' => 'تعمیر ماشین لباس'], ['text' => 'کد خطا SE'], ['text' => 'شارژ گاز کولر'], ['text' => 'بک‌لایت تلویزیون'], ['text' => 'مگنترون'], ['text' => 'سرویس دوره‌ای'], ['text' => 'برد الکترونیک'], ['text' => 'نصب ظرفشویی']]]],
     ],
     'فراخوان' => [
         'cta-phone' => ['📞', 'CTA تماس بزرگ', ['phone' => '۰۲۱-۱۲۳۴۵۶۷۸']],
@@ -303,6 +340,8 @@ $blockLibrary = [
         'guarantee-card' => ['🛡️', 'کارت ضمانت کتبی', ['title' => '۶ ماه ضمانت کتبی', 'btnText' => 'مشاهده شرایط']],
         'cta-timer' => ['⏳', 'فراخوان با تایمر محدود', ['title' => 'تخفیف سرویس دوره‌ای']],
         'urgent-repair' => ['🚨', 'باکس تعمیر فوری ۲۴/۷', ['title' => 'تعمیر فوری نیاز دارید؟', 'phone' => '۰۲۱-۱۲۳۴۵۶۷۸']],
+        /* 🆕 v2.25 */
+        'emergency-strip' => ['🚑', 'نوار امداد فوری', ['text' => '🚑 امداد تعمیر فوری — ۲۴ ساعته، ۷ روز هفته', 'phone' => '۰۲۱-۱۲۳۴۵۶۷۸']],
     ],
     'ساختار' => [
         'breadcrumb' => ['🧭', 'مسیر راهنما (Breadcrumb)', []],
@@ -324,6 +363,8 @@ $blockLibrary = [
         'ticker-bar' => ['📣', 'نوار تیکر متحرک اطلاعات', []],
         'credit-trust' => ['💎', 'کارت امتیاز اعتماد (عدد درشت)', []],
         'brand-badges-row' => ['🎗', 'ردیف نشان‌های تخصصی', []],
+        /* 🆕 v2.25 */
+        'chat-widget' => ['💬', 'ویجت گفتگوی آنلاین', ['title' => 'پشتیبانی آنلاین']],
     ],
     'فوتر' => [
         'footer-simple' => ['🦶', 'فوتر ساده', []],
@@ -443,6 +484,43 @@ $totalBlockCount = array_sum(array_map('count', $blockLibrary));
 .block-library.view-icons .bi-label { font-size: 9.5px; font-weight: 600; line-height: 1.45; padding: 0; }
 .block-library.view-icons .block-eye { display: none; }
 
+/* ⚙️ v2.25: تنظیمات صفحه — متغیرها روی بوم اعمال می‌شوند */
+#canvas-blocks { --pg-section-pad: 54px; --pg-gap: 26px; --pg-width: 1080px; --pg-radius: 14px; --pg-text: 14.5px; --pg-shadow: 0 5px 18px rgba(2,8,23,.08); --pg-title: inherit; }
+#canvas-blocks .blk { border-radius: var(--pg-radius); box-shadow: var(--pg-shadow); margin-bottom: var(--pg-gap); font-size: var(--pg-text); }
+#canvas-blocks .blk .blk-title { color: var(--pg-title); }
+#canvas-blocks .blk .blk-pad-default { padding-block: var(--pg-section-pad); }
+#canvas-blocks .blk-pad-default { padding-top: calc(var(--pg-section-pad) * .6); padding-bottom: calc(var(--pg-section-pad) * .6); }
+#canvas-blocks .blk-pad-roomy { padding-top: var(--pg-section-pad); padding-bottom: var(--pg-section-pad); }
+#canvas-blocks .blk-pad-compact { padding-top: calc(var(--pg-section-pad) * .38); padding-bottom: calc(var(--pg-section-pad) * .38); }
+#canvas-blocks .blk-pad-none { padding-top: 0; padding-bottom: 0; }
+#canvas-blocks .tb-live .blk { max-width: var(--pg-width); margin-inline: auto; }
+#canvas-blocks.pv-page-dark { background: #0f172a; }
+#canvas-blocks.pv-page-dark .blk:not(.blk-bg-gradient):not(.blk-bg-primary):not(.blk-bg-dark) { background: #1e293b; color: #e2e8f0; }
+#canvas-blocks.pv-page-dark .blk .blk-title { color: #f1f5f9; }
+#canvas-blocks.pv-page-dark .blk .fake-card { background: #273449; border-color: #334155; }
+#canvas-blocks.pv-page-dark .blk .pv-text, #canvas-blocks.pv-page-dark .blk .feat-d { color: #cbd5e1; }
+
+/* 😀 v2.25: انتخابگر آیکون ایموجی */
+.emoji-picker-pop {
+    position: absolute; z-index: 9999; width: 316px; background: #fff; border: 1.5px solid #e2e8f0;
+    border-radius: 14px; box-shadow: 0 18px 48px rgba(2,8,23,.22); overflow: hidden; direction: rtl;
+    font-family: inherit;
+}
+.emoji-picker-pop .ep-head {
+    display: flex; justify-content: space-between; align-items: center; padding: 10px 13px;
+    font-weight: 800; font-size: 12.5px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+}
+.emoji-picker-pop .ep-close { border: none; background: none; cursor: pointer; font-size: 13px; color: #64748b; }
+.emoji-picker-pop .ep-grid {
+    display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; padding: 9px; max-height: 236px; overflow: auto;
+}
+.emoji-picker-pop .ep-grid button {
+    border: none; background: none; font-size: 18px; cursor: pointer; padding: 5px 0; border-radius: 7px; line-height: 1.3;
+    transition: background .12s;
+}
+.emoji-picker-pop .ep-grid button:hover { background: #e0f2fe; transform: scale(1.14); }
+.emoji-picker-pop .ep-hint { padding: 7px 12px; font-size: 10px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
+
 /* 🧺 سبد انتخاب چند بلوکی (ترکیب گروهی) */
 .basket-bar { position: sticky; top: 8px; z-index: 40; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: rgba(15,23,42,.94); color: #e2e8f0; border-radius: 12px; padding: 8px 14px; margin-bottom: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.28); font-size: 12.5px; }
 .basket-bar.hidden { display: none; }
@@ -492,6 +570,7 @@ $totalBlockCount = array_sum(array_map('count', $blockLibrary));
                 <button type="button" class="device-tab" onclick="setDevice(this,'tablet')" title="تبلت">📱</button>
                 <button type="button" class="device-tab" onclick="setDevice(this,'mobile')" title="موبایل">📲</button>
             </div>
+            <button type="button" class="btn btn-outline" id="btn-page-settings" onclick="renderPageProps()" title="تنظیمات کل صفحه: زمینه، فاصله‌ها، عرض محتوا، گردی گوشه‌ها و ...">⚙️ تنظیمات صفحه</button>
             <div style="margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap">
                 <button type="button" class="btn btn-info" onclick="uiuxDesign()" id="btn-uiux-design" title="طراحی چیدمان حرفه‌ای با اسکیل UI/UX Pro">✨ طراحی با UI/UX Pro</button>
                 <button type="button" class="btn btn-outline" onclick="uiuxReview()" id="btn-uiux-review" title="ممیزی UX چیدمان فعلی">🔍 بررسی UX</button>
@@ -631,6 +710,88 @@ const BLOCK_META = <?= json_encode(array_map(function ($cats) {
 let layout = JSON.parse(document.getElementById('layout-json').value || '[]');
 let selected = null; // رشته مسیر مثل '3' یا '3.cols.1.0'
 
+/* ==================================================
+ * ⚙️ v2.25: تنظیمات صفحه — گره مخفی «_page»
+ * در ابتدای layout_json ذخیره می‌شود (در PHP جدا شده)؛
+ * fullLayout() هنگام ذخیره/پیش‌نمایش دوباره سرِ خودش می‌گذارد.
+ * ================================================== */
+let pageProps = <?= json_encode($pageProps, JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
+const PAGE_DEFAULTS = {
+    pageBg: 'default',       /* زمینه صفحه: default | surface | light | dark | custom */
+    pageBgColor: '#f8fafc',  /* رنگ دلخواه وقتی pageBg=custom */
+    sectionSpacing: 'default', /* فاصله عمودی داخل بخش‌ها: compact | default | roomy | airy */
+    sectionGap: 'default',   /* فاصله بین بخش‌ها: tight | default | roomy */
+    containerWidth: 'default', /* عرض محتوا: narrow | default | wide | full */
+    radius: 'default',       /* گردی گوشه‌ها: sharp | default | round | pill */
+    titleColor: '',          /* رنگ پیش‌فرض همه عنوان‌ها */
+    textSize: 'default',     /* اندازه متن: sm | default | lg */
+    cardShadow: 'default',   /* سایه کارت‌ها: none | soft | default | strong */
+    darkPreview: 0           /* پیش‌نمایش بوم در حالت تیره */
+};
+function pageProp(k) {
+    return (pageProps && pageProps[k] !== undefined && pageProps[k] !== '') ? pageProps[k] : (PAGE_DEFAULTS[k] !== undefined ? PAGE_DEFAULTS[k] : '');
+}
+function fullLayout() {
+    return (pageProps && Object.keys(pageProps).length) ? [{ block: '_page', props: pageProps }].concat(layout) : layout;
+}
+function setPageProp(key, value) {
+    pageProps = pageProps || {};
+    pageProps[key] = value;
+    applyPageSettings();
+    syncAndRender();
+}
+/* اعمال تنظیمات صفحه روی بوم — متغیرهای CSS روی #canvas-blocks */
+function applyPageSettings() {
+    const stage = document.getElementById('canvas-blocks');
+    if (!stage) { return; }
+    stage.classList.toggle('pv-page-dark', pageProp('darkPreview') == 1);
+    const bg = pageProp('pageBg');
+    let bgCss = '';
+    if (bg === 'surface') { bgCss = '#f1f5f9'; }
+    else if (bg === 'light') { bgCss = '#fafafa'; }
+    else if (bg === 'dark') { bgCss = '#0f172a'; }
+    else if (bg === 'custom' && /^#[0-9a-fA-F]{3,8}$/.test(String(pageProp('pageBgColor')))) { bgCss = pageProp('pageBgColor'); }
+    const spacing = { compact: '30px', default: '54px', roomy: '74px', airy: '96px' }[pageProp('sectionSpacing')] || '54px';
+    const gap = { tight: '14px', default: '26px', roomy: '44px' }[pageProp('sectionGap')] || '26px';
+    const width = { narrow: '860px', default: '1080px', wide: '1240px', full: '100%' }[pageProp('containerWidth')] || '1080px';
+    const radius = { sharp: '2px', default: '14px', round: '22px', pill: '34px' }[pageProp('radius')] || '14px';
+    const tsize = { sm: '13px', default: '14.5px', lg: '16px' }[pageProp('textSize')] || '14.5px';
+    const shadow = { none: 'none', soft: '0 2px 8px rgba(2,8,23,.05)', default: '0 5px 18px rgba(2,8,23,.08)', strong: '0 12px 32px rgba(2,8,23,.16)' }[pageProp('cardShadow')] || '0 5px 18px rgba(2,8,23,.08)';
+    const tc = pageProp('titleColor');
+    stage.style.cssText = '--pg-section-pad:' + spacing + ';--pg-gap:' + gap + ';--pg-width:' + width +
+        ';--pg-radius:' + radius + ';--pg-text:' + tsize + ';--pg-shadow:' + shadow +
+        ';--pg-title:' + (tc !== '' ? tc : 'inherit') + ';max-width:100%' +
+        (bgCss !== '' ? ';background:' + bgCss + ';border-radius:12px;padding:6px' : '');
+}
+/* پنل تنظیمات صفحه — در ستون ویژگی‌ها */
+function renderPageProps() {
+    selected = null;
+    document.querySelectorAll('.tb-block').forEach(b => b.classList.remove('selected'));
+    const panel = document.getElementById('props-content');
+    const opt = (key, opts) => opts.map(([v, l]) => '<option value="' + v + '" ' + (String(pageProp(key)) === String(v) ? 'selected' : '') + '>' + l + '</option>').join('');
+    let html = '<div style="font-weight:800;margin-bottom:12px;font-size:13.5px">⚙️ تنظیمات صفحه</div>' +
+        '<div class="hint" style="font-size:10.5px;margin-bottom:11px;line-height:1.8">این تنظیمات روی «کل صفحه» اعمال می‌شوند — زمینه، فاصله بخش‌ها، عرض محتوا و ظاهر عمومی. روی هر بلوک که کلیک کنید به تنظیمات همان بلوک برمی‌گردید.</div>' +
+        '<div class="form-group"><label>🎨 زمینه صفحه</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'pageBg\',this.value)">' + opt('pageBg', [['default', 'پیش‌فرض (سفید)'], ['surface', 'کمرنگ خاکستری'], ['light', 'روشن'], ['dark', 'تیره'], ['custom', 'رنگ دلخواه']]) + '</select></div>' +
+        '<div class="form-group" id="pg-bg-color-box" style="' + (pageProp('pageBg') === 'custom' ? '' : 'display:none') + '"><label>رنگ دلخواه زمینه</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="' + pageProp('pageBgColor') + '" oninput="setPageProp(\'pageBgColor\',this.value)"><code style="font-size:10.5px;direction:ltr">' + pageProp('pageBgColor') + '</code></div></div>' +
+        '<div class="form-group"><label>↕️ فاصله داخلی بخش‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'sectionSpacing\',this.value)">' + opt('sectionSpacing', [['compact', 'فشرده (۳۰px)'], ['default', 'پیش‌فرض (۵۴px)'], ['roomy', 'جادار (۷۴px)'], ['airy', 'خیلی باز (۹۶px)']]) + '</select></div>' +
+        '<div class="form-group"><label>📏 فاصله بین بخش‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'sectionGap\',this.value)">' + opt('sectionGap', [['tight', 'نزدیک (۱۴px)'], ['default', 'پیش‌فرض (۲۶px)'], ['roomy', 'باز (۴۴px)']]) + '</select></div>' +
+        '<div class="form-group"><label>📐 عرض محتوای صفحه</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'containerWidth\',this.value)">' + opt('containerWidth', [['narrow', 'باریک (۸۶۰px)'], ['default', 'پیش‌فرض (۱۰۸۰px)'], ['wide', 'عریض (۱۲۴۰px)'], ['full', 'تمام‌عرض']]) + '</select></div>' +
+        '<div class="form-group"><label>⬜ گردی گوشه‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'radius\',this.value)">' + opt('radius', [['sharp', 'تیز (۲px)'], ['default', 'پیش‌فرض (۱۴px)'], ['round', 'گرد (۲۲px)'], ['pill', 'خیلی گرد (۳۴px)']]) + '</select></div>' +
+        '<div class="form-group"><label>🎨 رنگ پیش‌فرض عنوان‌ها</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="' + (pageProp('titleColor') || '#1e40af') + '" oninput="setPageProp(\'titleColor\',this.value)"><button type="button" class="btn btn-outline btn-sm" onclick="setPageProp(\'titleColor\',\'\');renderPageProps()" title="حذف رنگ">✕ پیش‌فرض</button></div></div>' +
+        '<div class="form-group"><label>🔤 اندازه متن</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'textSize\',this.value)">' + opt('textSize', [['sm', 'کوچک'], ['default', 'پیش‌فرض'], ['lg', 'بزرگ']]) + '</select></div>' +
+        '<div class="form-group"><label>🌫 سایه کارت‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'cardShadow\',this.value)">' + opt('cardShadow', [['none', 'بدون سایه'], ['soft', 'ملایم'], ['default', 'پیش‌فرض'], ['strong', 'قوی']]) + '</select></div>' +
+        '<label class="form-check" style="font-size:12px"><input type="checkbox" ' + (pageProp('darkPreview') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'darkPreview\',this.checked?1:0)"> 🌙 پیش‌نمایش بوم در حالت تیره</label>' +
+        '<hr style="border:none;border-top:1px solid var(--border);margin:13px 0">' +
+        '<button type="button" class="btn btn-outline btn-sm btn-block" onclick="resetPageProps()">↺ بازنشانی تنظیمات صفحه</button>';
+    panel.innerHTML = html;
+}
+function resetPageProps() {
+    pageProps = {};
+    applyPageSettings();
+    syncAndRender();
+    renderPageProps();
+}
+
 /* 🧩 v2.12: بلوک‌های ترکیبی ذخیره‌شده — id → ساختار JSON کامل (با ستون‌های تودرتو)
    (بازکدگذاری با JSON_HEX_TAG تا محتوای کاربر نتواند تگ <script> را بشکند) */
 const SAVED_BLOCKS = {};
@@ -676,6 +837,21 @@ function listItems(props, fallback) {
     const norm = arr => (Array.isArray(arr) ? arr : []).map(it => Array.isArray(it) ? { icon: it[0] || '', text: it[1] || '', desc: it[2] || '' } : (it || {}));
     const its = norm(Array.isArray(props.items) ? props.items.filter(it => it && String(it.text || '').trim() !== '') : null);
     return its.length ? its : norm(fallback);
+}
+
+/* 📊 v2.25: آمار از آیتم‌های ویرایشگر — icon=عدد، text=برچسب (خروجی جفت‌آرایه) */
+function statItemsFromItems(props, fallback) {
+    const its = listItems(props, fallback);
+    return its.map(it => [it.icon !== '' ? it.icon : (it.text || '۰'), it.icon !== '' ? it.text : 'آمار']);
+}
+
+/* 🖼 v2.25: تصویر آیتم گالری — text=آدرس تصویر، icon=ایموجی جایگزین */
+function itGalHtml(it, style) {
+    const url = String(it.text || '').trim();
+    if (/^(https?:\/\/|\/|uploads\/)/i.test(url)) {
+        return `<div class="fake-img small" style="${style || 'min-height:90px'}"><img src="${esc(url)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>`;
+    }
+    return `<div class="fake-img small" style="${style || 'min-height:90px'}">${esc(it.icon || '🖼️')}</div>`;
 }
 
 /* ⏱ v2.15: جعبه‌های شمارش معکوس — زنده روی بوم هر ثانیه آپدیت می‌شود */
@@ -725,7 +901,7 @@ function blockHtml(block, props) {
     switch (block) {
         case 'top-bar': return B(`<div class="tb-row"><span>📞 ${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</span><span>🕐 ${esc(props.hours || 'شنبه تا پنجشنبه ۹ تا ۲۰')}</span></div>`, 'topbar-blk');
         case 'header-v1': case 'header-v2': case 'header-v3':
-            return B(`${block === 'header-v2' ? `<div class="tb-row"><span>📞 ${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</span><span>🕐 ${esc(props.hours || 'پاسخگویی آنلاین')}</span></div>` : ''}<div class="h-row"><div class="fake-logo">🏗️</div><nav class="fake-nav"><span>خانه</span><span>خدمات</span><span>مقالات</span><span>تماس</span></nav><div class="fake-cta">${esc(props.btnText || 'ثبت درخواست')}</div></div>`, 'header-blk' + (block === 'header-v3' ? ' glass' : '') + (props.sticky ? ' sticky-demo' : ''));
+            { const menu = listItems(props, [[null, 'خانه'], [null, 'خدمات'], [null, 'مقالات'], [null, 'تماس']]); return B(`${block === 'header-v2' ? `<div class="tb-row"><span>📞 ${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</span><span>🕐 ${esc(props.hours || 'پاسخگویی آنلاین')}</span></div>` : ''}<div class="h-row"><div class="fake-logo">🏗️</div><nav class="fake-nav">${menu.map(m => `<span>${esc(m.text || '')}</span>`).join('')}</nav><div class="fake-cta">${esc(props.btnText || 'ثبت درخواست')}</div></div>`, 'header-blk' + (block === 'header-v3' ? ' glass' : '') + (props.sticky ? ' sticky-demo' : '')); }
         case 'hero': return B(`<div class="hero-title">${esc(t || 'تعمیرات تخصصی با قطعات اصلی')}</div><div class="hero-sub">${esc(props.subtitle || 'نمایندگی رسمی — پاسخگویی ۷ روز هفته')}</div><div class="hero-btns"><span class="hero-btn">📞 تماس فوری</span><span class="hero-btn ghost">ثبت درخواست آنلاین</span></div>`, 'hero-blk');
         case 'hero-slider': return B(`<div class="hero-title">${esc(t || 'اسلایدر تصویری')}</div>${fakeImgHtml(props, '🖼️', 'min-height:170px').replace('fake-img', 'fake-img wide')}<div class="slider-dots">● ○ ○</div>`, 'hero-blk slider');
         case 'hero-split': return B(`<div class="hero-split"><div><div class="hero-title">${esc(t || 'تعمیر لوازم خانگی در محل')}</div><div class="hero-sub">${esc(props.subtitle || 'متن معرفی + دکمه فراخوان')}</div><div class="hero-btns"><span class="hero-btn">شروع کنید</span></div></div>${fakeImgHtml(props, '🛠️')}</div>`, 'hero-blk split-hero');
@@ -741,8 +917,8 @@ function blockHtml(block, props) {
             return B(`${TITLE}<ul class="pv-list">${items.map(i => `<li>✅ ${esc(i)}</li>`).join('')}</ul>`);
         }
         case 'quote': return B(`<div class="quote">«${esc(props.text || 'کیفیت تعمیر، اعتبار ماست')}»</div>`, 'quote-blk');
-        case 'two-col': return B(`${TITLE}<div class="cols c2"><div class="fake-card"><div class="card-t">ستون اول</div><div class="fl w90"></div><div class="fl w70"></div></div><div class="fake-card"><div class="card-t">ستون دوم</div><div class="fl w90"></div><div class="fl w70"></div></div></div>`);
-        case 'three-col': return B(`${TITLE}<div class="cols c3"><div class="fake-card"><div class="card-t">۱</div><div class="fl w80"></div></div><div class="fake-card"><div class="card-t">۲</div><div class="fl w80"></div></div><div class="fake-card"><div class="card-t">۳</div><div class="fl w80"></div></div></div>`);
+        case 'two-col': { const its = listItems(props, [[null, 'ستون اول', 'توضیح کوتاه ستون اول'], [null, 'ستون دوم', 'توضیح کوتاه ستون دوم']]); return B(`${TITLE}<div class="cols c2">${its.slice(0, 2).map(it => `<div class="fake-card"><div class="card-t">${esc(it.text || '')}</div><div class="feat-d">${esc(it.desc || '')}</div></div>`).join('')}</div>`); }
+        case 'three-col': { const its = listItems(props, [[null, 'موضوع اول', 'توضیح'], [null, 'موضوع دوم', 'توضیح'], [null, 'موضوع سوم', 'توضیح']]); return B(`${TITLE}<div class="cols c3">${its.slice(0, 3).map(it => `<div class="fake-card"><div class="card-t">${esc(it.text || '')}</div><div class="feat-d">${esc(it.desc || '')}</div></div>`).join('')}</div>`); }
         case 'section-columns': {
             /* 🏛 کانتینر چندستونی — ستون‌ها با ناحیه رهاسازی */
             const cols = Math.max(2, Math.min(4, parseInt(props.columns || 2, 10)));
@@ -751,37 +927,37 @@ function blockHtml(block, props) {
             return B(`${TITLE}<div class="tb-col-wrap" style="grid-template-columns:repeat(${cols},1fr)">${inner}</div>`, 'section-cols-blk');
         }
         case 'section-split': return B(`${TITLE}<div class="tb-col-wrap" style="grid-template-columns:2fr 1fr"><div style="display:flex;flex-direction:column;gap:10px"></div><div style="display:flex;flex-direction:column;gap:10px"></div></div>`, 'section-cols-blk');
-        case 'feature-list': return B(`${TITLE}<div class="feat-list"><div class="feat-row"><span class="feat-ico">⚡</span><div><b>سرعت عمل</b><div class="feat-d">اعزام تکنسین در کمتر از ۲ ساعت</div></div></div><div class="feat-row"><span class="feat-ico">🛡️</span><div><b>ضمانت کتبی</b><div class="feat-d">۶ ماه ضمانت روی قطعه و خدمات</div></div></div><div class="feat-row"><span class="feat-ico">💰</span><div><b>قیمت شفاف</b><div class="feat-d">پیش‌فاکتور قبل از شروع کار</div></div></div></div>`);
-        case 'services-grid': case 'features': return B(`<div class="blk-title">${esc(t || (block === 'features' ? 'چرا ما را انتخاب کنید؟' : 'خدمات ما'))}</div><div class="cols c${gridCols(props, 3)}">${'<div class="fake-card"><div class="card-ico">🔧</div><div class="card-t">سرویس نمونه</div><div class="fl w80"></div></div>'.repeat(3)}</div>`);
+        case 'feature-list': { const its = listItems(props, [['⚡', 'سرعت عمل', 'اعزام تکنسین در کمتر از ۲ ساعت'], ['🛡️', 'ضمانت کتبی', '۶ ماه ضمانت قطعه و خدمات']]); return B(`${TITLE}<div class="feat-list">${its.map(it => `<div class="feat-row"><span class="feat-ico">${esc(it.icon || '⚡')}</span><div><b>${esc(it.text || '')}</b>${it.desc ? `<div class="feat-d">${esc(it.desc)}</div>` : ''}</div></div>`).join('')}</div>`); }
+        case 'services-grid': case 'features': { const its = listItems(props, [['🔧', block === 'features' ? 'تخصص واقعی' : 'تعمیر لباسشویی', 'با قطعات فابریک'], ['🧊', block === 'features' ? 'سرعت اعزام' : 'تعمیر یخچال', 'همان روز'], ['⚡', block === 'features' ? 'قطعات اصلی' : 'تعمیر ماکروویو', 'ضمانت‌دار'], ['🎓', block === 'features' ? 'ضمانت کتبی' : 'سرویس دوره‌ای', 'در محل شما']]); return B(`<div class="blk-title">${esc(t || (block === 'features' ? 'چرا ما را انتخاب کنید؟' : 'خدمات ما'))}</div><div class="cols c${gridCols(props, 3)}">${its.map(it => `<div class="fake-card"><div class="card-ico">${esc(it.icon || '🔧')}</div><div class="card-t">${esc(it.text || '')}</div>${it.desc ? `<div class="feat-d">${esc(it.desc)}</div>` : ''}</div>`).join('')}</div>`); }
         case 'devices-grid': return B(`<div class="blk-title">${esc(t || 'دستگاه‌های تحت پوشش')}</div><div class="cols c${gridCols(props, 4)}">${['🌀 لباسشویی', '🧊 یخچال', '🍽️ ظرفشویی', '❄️ کولر', '📺 تلویزیون', '♨️ پکیج', '📻 مایکروویو', '🔥 فر و اجاق'].map(d => `<div class="fake-card"><div class="card-ico">${d.split(' ')[0]}</div><div class="card-t">${d.split(' ')[1]}</div></div>`).join('')}</div>`);
         case 'articles-recent': case 'articles-grid': return B(`<div class="blk-title">${esc(t || 'مقالات اخیر')}</div><div class="cols c${gridCols(props, 3)}">${'<div class="fake-card"><div class="fake-img small">📰</div><div class="card-t">عنوان مقاله نمونه</div><div class="fl w100"></div></div>'.repeat(3)}</div>`);
-        case 'team': return B(`<div class="blk-title">${esc(t || 'تیم ما')}</div><div class="cols c${gridCols(props, 4)}">${'<div class="fake-card"><div class="fake-ava">👤</div><div class="card-t">عضو تیم</div></div>'.repeat(4)}</div>`);
-        case 'pricing-table': return B(`<div class="blk-title">${esc(t || 'تعرفه خدمات')}</div><div class="price-table"><div class="price-row"><span>دریافت و عیب‌یابی تخصصی</span><b>رایگان</b></div><div class="price-row"><span>سرویس دوره‌ای لباسشویی</span><b>از ۴۵۰ هزار تومان</b></div><div class="price-row"><span>شارژ گاز کولر گازی</span><b>از ۹۰۰ هزار تومان</b></div></div>`);
-        case 'brands-links': return B(`<div class="blk-title">${esc(t || 'برندهای مورد خدمت')}</div><div class="cols c6">${'<div class="fake-logo-s">🏷️</div>'.repeat(6)}</div>`);
+        case 'team': { const its = listItems(props, [['👨‍🔧', 'مهندس کریمی', 'متخصص لباسشویی'], ['👩‍🔧', 'مهندس رضایی', 'متخصص یخچال و فریزر'], ['🧑‍🔧', 'مهندس موسوی', 'متخصص تلویزیون']]); return B(`<div class="blk-title">${esc(t || 'تیم ما')}</div><div class="cols c${gridCols(props, 4)}">${its.map(it => `<div class="fake-card"><div class="fake-ava">${esc(it.icon || '👨‍🔧')}</div><div class="card-t">${esc(it.text || '')}</div><div class="feat-d">${esc(it.desc || '')}</div></div>`).join('')}</div>`); }
+        case 'pricing-table': { const its = listItems(props, [[null, 'دریافت و عیب‌یابی تخصصی', 'رایگان'], [null, 'سرویس دوره‌ای لباسشویی', 'از ۴۵۰ هزار تومان'], [null, 'شارژ گاز کولر گازی', 'از ۹۰۰ هزار تومان']]); return B(`<div class="blk-title">${esc(t || 'تعرفه خدمات')}</div><div class="price-table">${its.map(it => `<div class="price-row"><span>${esc(it.text || '')}</span><b>${esc(it.desc || '')}</b></div>`).join('')}</div>`); }
+        case 'brands-links': { const its = listItems(props, [['🏷️', 'ال‌جی'], ['🏷️', 'سامسونگ'], ['🏷️', 'بوش'], ['🏷️', 'سونی'], ['🏷️', 'اسنوا'], ['🏷️', 'پاکس']]); return B(`<div class="blk-title">${esc(t || 'برندهای مورد خدمت')}</div><div class="cols c${Math.max(3, gridCols(props, 6))}">${its.map(it => `<div class="fake-logo-s" title="${esc(it.text || '')}">${esc(it.icon || '🏷️')}</div>`).join('')}</div>`); }
         case 'contact-form': case 'request-form': return B(`<div class="blk-title">${esc(t || (block === 'request-form' ? 'فرم درخواست خدمات' : 'فرم تماس'))}</div><div class="form-grid"><div class="fake-input">نام و نام خانوادگی</div><div class="fake-input">شماره تماس</div><div class="fake-input">شرح مشکل</div><div class="hero-btn full">${esc(props.btnText || 'ارسال درخواست')}</div></div>`);
         case 'newsletter-form': return B(`<div class="blk-title">${esc(t || 'عضویت در خبرنامه')}</div><div class="news-row"><div class="fake-input" style="flex:1">ایمیل شما</div><div class="hero-btn">${esc(props.btnText || 'عضویت')}</div></div>`);
         case 'counter-stats': case 'stats': return B(`${TITLE}<div class="cols c${gridCols(props, 3)}" style="gap:14px">${statItemsHtml(props)}</div>`, 'stats-blk');
-        case 'progress-bars': return B(`${TITLE}<div class="pbar"><span>سرعت تعمیر</span><div class="track"><div class="fill" style="width:90%"></div></div></div><div class="pbar"><span>کیفیت قطعات</span><div class="track"><div class="fill" style="width:95%"></div></div></div>`);
-        case 'skill-bars': return B(`${TITLE}<div class="pbar"><span>تعمیر برد و الکترونیک</span><div class="track"><div class="fill" style="width:88%"></div></div></div><div class="pbar"><span>کمپرسور و مدار گاز</span><div class="track"><div class="fill" style="width:82%"></div></div></div><div class="pbar"><span>سیستم‌های هیدرولیک</span><div class="track"><div class="fill" style="width:76%"></div></div></div>`);
-        case 'testimonials': return B(`<div class="blk-title">${esc(t || 'نظرات مشتریان')}</div><div class="quote">«سرویس سریع و منظم بود؛ راضی بودم.»</div><div class="slider-dots">● ○ ○</div>`);
-        case 'faq-accordion': return B(`<div class="blk-title">${esc(t || 'سوالات متداول')}</div><div class="acc">سوال نمونه اول؟ <b>＋</b></div><div class="acc">سوال نمونه دوم؟ <b>＋</b></div><div class="acc">سوال نمونه سوم؟ <b>＋</b></div>`);
-        case 'tabs': return B(`<div class="blk-title">${esc(t || 'تب‌بندی محتوا')}</div><div class="tabs-row"><span class="tab cur">تعمیر</span><span class="tab">سرویس</span><span class="tab">نصب</span></div><div class="fake-card" style="text-align:right"><div class="fl w100"></div><div class="fl w90"></div><div class="fl w60"></div></div>`);
-        case 'timeline': return B(`<div class="blk-title">${esc(t || 'مراحل پیشرفت کار')}</div><div class="tl"><div class="tl-item done"><span class="tl-dot">✓</span><div>ثبت درخواست</div></div><div class="tl-item done"><span class="tl-dot">✓</span><div>عیب‌یابی و پیش‌فاکتور</div></div><div class="tl-item cur"><span class="tl-dot">۳</span><div>تعمیر در حال انجام</div></div><div class="tl-item"><span class="tl-dot">۴</span><div>تحویل و ضمانت</div></div></div>`);
-        case 'steps-process': return B(`<div class="blk-title">${esc(t || 'فرآیند کار ما')}</div><div class="steps-row"><div class="step"><span class="step-n">۱</span><div class="step-t">تماس/ثبت درخواست</div></div><div class="step-arrow">←</div><div class="step"><span class="step-n">۲</span><div class="step-t">اعزام تکنسین</div></div><div class="step-arrow">←</div><div class="step"><span class="step-n">۳</span><div class="step-t">تعمیر و تست</div></div></div>`);
-        case 'gallery': { const gcols = gridCols(props, 4); let gimgs = ''; for (let gi = 0; gi < gcols + 2; gi++) { gimgs += fakeImgHtml(props, '🖼️', 'min-height:90px').replace('fake-img', 'fake-img small'); } return B(`<div class="blk-title">${esc(t || 'گالری')}</div><div class="cols c${gcols}">${gimgs}</div>`); }
-        case 'image-carousel': return B(`<div class="blk-title">${esc(t || 'کاروسل تصاویر')}</div><div style="position:relative">${fakeImgHtml(props, '🎠', 'min-height:170px').replace('fake-img', 'fake-img wide')}<span style="position:absolute;top:50%;inset-inline-start:8px;font-size:22px;text-shadow:0 1px 4px #fff">‹</span><span style="position:absolute;top:50%;inset-inline-end:8px;font-size:22px;text-shadow:0 1px 4px #fff">›</span></div><div class="slider-dots">● ○ ○</div>`);
-        case 'video-embed': return B(`<div class="blk-title">${esc(t || 'ویدیوی آموزشی')}</div><div style="position:relative">${fakeImgHtml(props, '🎬', 'min-height:190px').replace('fake-img', 'fake-img wide')}<div class="play">▶</div></div>`);
-        case 'map': return B(`<div class="blk-title">${esc(t || 'محدوده خدمات')}</div><div class="fake-map">📍 نقشه محدوده خدمات</div>`);
+        case 'progress-bars': { const its = listItems(props, [['سرعت تعمیر', '90'], ['کیفیت قطعات', '95'], ['رضایت مشتری', '98']]); return B(`${TITLE}${its.map(it => { const p = Math.max(3, Math.min(100, parseInt(String(it.desc || it.icon || '80').replace(/[^0-9]/g, ''), 10) || 80)); return `<div class="pbar"><span>${esc(it.text || '')}</span><div class="track"><div class="fill" style="width:${p}%"></div></div></div>`; }).join('')}`); }
+        case 'skill-bars': { const its = listItems(props, [['تعمیر برد و الکترونیک', '88'], ['یخچال و فریزر', '92'], ['ماشین لباس', '95']]); return B(`${TITLE}${its.map(it => { const p = Math.max(3, Math.min(100, parseInt(String(it.desc || it.icon || '80').replace(/[^0-9]/g, ''), 10) || 80)); return `<div class="pbar"><span>${esc(it.text || '')}</span><div class="track"><div class="fill" style="width:${p}%"></div></div></div>`; }).join('')}`); }
+        case 'testimonials': { const its = listItems(props, [['علی محمدی', 'سرویس سریع و منظم بود؛ راضی بودم.'], ['مریم احمدی', 'قیمت شفاف و ضمانت واقعی.']]); return B(`<div class="blk-title">${esc(t || 'نظرات مشتریان')}</div><div class="quote">«${esc(its[0] ? its[0].text : '')}»</div>${its[0] && its[0].icon ? `<div class="feat-d" style="text-align:center;font-weight:800">— ${esc(its[0].icon)}</div>` : ''}<div class="slider-dots">● ○ ○</div>`); }
+        case 'faq-accordion': { const its = listItems(props, [[null, 'هزینه عیب‌یابی چقدر است؟', 'در صورت تعمیر نزد ما رایگان است.'], [null, 'چقدر طول می‌کشد؟', 'اکثر تعمیرها همان روز انجام می‌شود.'], [null, 'ضمانت دارید؟', 'بله — ۶ ماه ضمانت کتبی.']]); return B(`<div class="blk-title">${esc(t || 'سوالات متداول')}</div>${its.map(it => `<div class="acc">${esc(it.text || '')} <b>＋</b></div>`).join('')}`); }
+        case 'tabs': { const its = listItems(props, [[null, 'تعمیر'], [null, 'سرویس'], [null, 'نصب']]); return B(`<div class="blk-title">${esc(t || 'تب‌بندی محتوا')}</div><div class="tabs-row">${its.map((it, i) => `<span class="tab${i === 0 ? ' cur' : ''}">${esc(it.text || '')}</span>`).join('')}</div><div class="fake-card" style="text-align:right"><div class="fl w100"></div><div class="fl w90"></div><div class="fl w60"></div></div>`); }
+        case 'timeline': { const its = listItems(props, [['✓', 'ثبت درخواست', 'انجام شد'], ['✓', 'عیب‌یابی و پیش‌فاکتور', 'انجام شد'], ['۳', 'تعمیر در حال انجام', 'در جریان'], ['۴', 'تحویل و ضمانت', 'در انتظار']]); return B(`<div class="blk-title">${esc(t || 'مراحل پیشرفت کار')}</div><div class="tl">${its.map((it, i) => `<div class="tl-item${i < 2 ? ' done' : i === 2 ? ' cur' : ''}"><span class="tl-dot">${esc(it.icon || String(i + 1))}</span><div>${esc(it.text || '')}${it.desc ? `<div class="feat-d">${esc(it.desc)}</div>` : ''}</div></div>`).join('')}</div>`); }
+        case 'steps-process': { const its = listItems(props, [[null, 'تماس/ثبت درخواست'], [null, 'اعزام تکنسین'], [null, 'تعمیر و تست']]); return B(`<div class="blk-title">${esc(t || 'فرآیند کار ما')}</div><div class="steps-row">${its.map((it, i) => `${i > 0 ? '<div class="step-arrow">←</div>' : ''}<div class="step"><span class="step-n">${faDigJS(String(i + 1))}</span><div class="step-t">${esc(it.text || '')}</div></div>`).join('')}</div>`); }
+        case 'gallery': { const gcols = gridCols(props, 4); const its = listItems(props, []).filter(it => String(it.text || '').trim() !== ''); let gimgs = ''; if (its.length) { its.slice(0, gcols + 3).forEach(it => { gimgs += itGalHtml(it); }); } else { for (let gi = 0; gi < gcols + 2; gi++) { gimgs += fakeImgHtml(props, '🖼️', 'min-height:90px').replace('fake-img', 'fake-img small'); } } return B(`<div class="blk-title">${esc(t || 'گالری')}</div><div class="cols c${gcols}">${gimgs}</div>`); }
+        case 'image-carousel': { const its = listItems(props, []).filter(it => String(it.text || '').trim() !== ''); const first = its.length ? its[0] : null; return B(`<div class="blk-title">${esc(t || 'کاروسل تصاویر')}</div><div style="position:relative">${first ? itGalHtml(first, 'min-height:170px') : fakeImgHtml(props, '🎠', 'min-height:170px').replace('fake-img', 'fake-img wide')}<span style="position:absolute;top:50%;inset-inline-start:8px;font-size:22px;text-shadow:0 1px 4px #fff">‹</span><span style="position:absolute;top:50%;inset-inline-end:8px;font-size:22px;text-shadow:0 1px 4px #fff">›</span></div><div class="slider-dots">${its.length ? its.map((_, i) => i === 0 ? '●' : '○').join(' ') : '● ○ ○'}</div>`); }
+        case 'video-embed': { const vu = String(props.videoUrl || '').trim(); return B(`<div class="blk-title">${esc(t || 'ویدیوی آموزشی')}</div><div style="position:relative">${fakeImgHtml(props, '🎬', 'min-height:190px').replace('fake-img', 'fake-img wide')}<div class="play">▶</div>${vu ? `<a href="${esc(vu)}" target="_blank" rel="noopener" style="position:absolute;bottom:8px;inset-inline-start:8px;background:rgba(15,23,42,.82);color:#fff;border-radius:9px;padding:5px 12px;font-size:10.5px;text-decoration:none" dir="ltr">▶ پخش ویدیو</a>` : ''}</div>`); }
+        case 'map': { const mu = String(props.mapUrl || '').trim(); return B(`<div class="blk-title">${esc(t || 'محدوده خدمات')}</div><div class="fake-map">${esc(props.text || '📍 نقشه محدوده خدمات')}${mu ? ` — <a href="${esc(mu)}" target="_blank" rel="noopener" style="color:#2563eb">مشاهده در نقشه ↗</a>` : ''}</div>`); }
         case 'cta-phone': return B(`<div class="hero-title">${esc(t || 'همین حالا تماس بگیرید')}</div><div class="cta-num" dir="ltr">${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</div>`, 'cta-blk');
         case 'cta-request': case 'cta-banner': return B(`<div class="hero-title">${esc(t || 'درخواست تعمیر خود را ثبت کنید')}</div><span class="hero-btn">${esc(props.btnText || '📝 ثبت درخواست')}</span>`, 'cta-blk');
         case 'sticky-mobile-cta': return B(`<span>📞 ${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</span><span class="hero-btn">${esc(props.btnText || 'ثبت درخواست')}</span>`, 'sticky-cta-demo');
-        case 'breadcrumb': return B(`خانه / خدمات / <b>صفحه فعلی</b>`, 'crumb');
+        case 'breadcrumb': { const crumbs = listItems(props, [[null, 'خانه'], [null, 'خدمات']]); return B(`${crumbs.map(c => esc(c.text || '')).join(' / ')} / <b>صفحه فعلی</b>`, 'crumb'); }
         case 'alert-notice': return B(`<div class="alert-demo ${props.alertType || 'info'}">${props.alertType === 'warning' ? '⚠️' : props.alertType === 'success' ? '✅' : 'ℹ️'} ${esc(props.text || 'سرویس در تعطیلات نیز پاسخگوی شماست')}</div>`);
-        case 'button-group': return B(`<div class="hero-btns" style="justify-content:flex-start"><span class="hero-btn">${esc(props.btnText || 'تماس فوری')}</span><span class="hero-btn ghost">مشاهده خدمات</span><span class="hero-btn ghost">مقالات</span></div>`);
+        case 'button-group': { const its = listItems(props, [[null, props.btnText || 'تماس فوری'], [null, 'مشاهده خدمات'], [null, 'مقالات']]); return B(`<div class="hero-btns" style="justify-content:flex-start">${its.map((it, i) => `<span class="hero-btn${i ? ' ghost' : ''}">${esc(it.text || '')}</span>`).join('')}</div>`); }
         case 'icon-list': return B(`${TITLE}<div class="feat-list">${listItems(props, [['📞', 'پاسخگویی تلفنی', '۷ روز هفته از ۹ تا ۲۰'], ['📍', 'اعزام در محل', 'کل تهران و کرج']]).map(it => `<div class="feat-row"><span class="feat-ico">${esc(it.icon || '📋')}</span><div><b>${esc(it.text || it[1] || '')}</b>${it.desc || it[2] ? `<div class="feat-d">${esc(it.desc || it[2] || '')}</div>` : ''}</div></div>`).join('')}</div>`);
         case 'separator': return `<hr class="blk-sep">`;
         case 'spacer': return `<div class="blk-spacer" style="height:${parseInt(props.height || 46, 10)}px" title="فاصله"></div>`;
-        case 'footer-simple': return B(`<div class="fake-logo">🏗️</div><nav class="fake-nav" style="justify-content:center"><span>خدمات</span><span>مقالات</span><span>تماس</span></nav><div class="soc-row"><span> Telegram </span><span> Instagram </span><span> WhatsApp </span></div>${props.phone ? `<div class="feat-d" style="text-align:center;margin-top:6px">📞 ${esc(props.phone)}</div>` : ''}`, 'footer-blk');
+        case 'footer-simple': { const fl = listItems(props, [[null, 'خدمات'], [null, 'مقالات'], [null, 'تماس']]); return B(`<div class="fake-logo">🏗️</div><nav class="fake-nav" style="justify-content:center">${fl.map(l => `<span>${esc(l.text || '')}</span>`).join('')}</nav><div class="soc-row"><span> Telegram </span><span> Instagram </span><span> WhatsApp </span></div>${props.phone ? `<div class="feat-d" style="text-align:center;margin-top:6px">📞 ${esc(props.phone)}</div>` : ''}`, 'footer-blk'); }
         case 'footer-contact': return B(`<div class="tb-col-wrap" style="grid-template-columns:repeat(3,1fr)"><div><div class="fake-logo">🏗️</div><div class="fl w80"></div></div><div><div class="card-t">تماس</div><div class="feat-d">📞 ${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}<br>📍 تهران، خیابان نمونه</div></div><div><div class="card-t">ساعات کاری</div><div class="feat-d">${esc(props.hours || 'شنبه تا پنجشنبه')}<br>${esc(props.hours ? '' : '۹ صبح تا ۸ شب')}</div></div></div>`, 'footer-blk');
         case 'copyright': return B(`${esc(props.text || '© تمامی حقوق برای نمایندگی محفوظ است — ساخته‌شده با ❤️')}`, 'crump-blk');
 
@@ -789,22 +965,22 @@ function blockHtml(block, props) {
         case 'notification-bar': return B(`<div class="notif-bar ${props.notifColor || 'info'}" style="padding:8px 14px">${esc(props.text || '🎉 سرویس ویژه تعطیلات — ۱۵٪ تخفیف سرویس دوره‌ای')}</div>`);
         case 'hero-form': return B(`<div class="hero-split"><div><div class="hero-title">${esc(t || 'درخواست تعمیر آنلاین')}</div><div class="hero-sub">${esc(props.subtitle || 'فرم را پر کنید — کارشناسان ما تماس می‌گیرند')}</div><div class="hero-btns"><span class="hero-btn">📞 تماس فوری</span></div></div><div class="fake-card" style="text-align:right;background:rgba(255,255,255,.14);border:none"><div class="fake-input">نام و شماره تماس</div><div class="fake-input">نوع دستگاه</div><div class="hero-btn full" style="margin-top:8px">${esc(props.btnText || 'ثبت درخواست')}</div></div></div>`, 'hero-blk split-hero');
         case 'hero-marquee': return B(`<div class="marquee-track"><span>${esc(props.text || '⚡ اعزام تکنسین در کمتر از ۲ ساعت — ⭐ بیش از ۵۰ هزار تعمیر موفق — 🛡️ ۶ ماه ضمانت کتبی')}</span></div>`, 'marquee-blk');
-        case 'brand-story': return B(`${TITLE}<div class="story-wrap"><div class="story-sec"><span class="story-year">۱۳۸۵</span><div><b>شروع فعالیت</b><div class="feat-d">اولین مرکز تعمیرات با یک تعمیرکار</div></div></div><div class="story-sec"><span class="story-year">۱۳۹۲</span><div><b>گسترش خدمات</b><div class="feat-d">پوشش تمام لوازم خانگی</div></div></div><div class="story-sec"><span class="story-year">امروز</span><div><b>نمایندگی رسمی</b><div class="feat-d">تیم ۱۲ نفره و ۵۰ هزار تعمیر موفق</div></div></div></div>`);
-        case 'area-list': return B(`${TITLE}<div class="chip-row">${['سعادت‌آباد', 'پونک', 'ولنجک', 'تجریش', 'شهرک غرب', 'نیاوران', 'میرداماد', 'جردن'].map(a => `<span class="chip">📍 ${a}</span>`).join('')}</div>`);
+        case 'brand-story': { const its = listItems(props, [['۱۳۸۵', 'شروع فعالیت', 'با یک تعمیرگاه کوچک'], ['۱۳۹۲', 'نمایندگی رسمی', 'اخذ گواهی‌های تخصصی'], ['۱۴۰۲', '۵۰ هزارمین تعمیر', 'و بیش از ۳۰ همکار']]); return B(`${TITLE}<div class="story-wrap">${its.map(it => `<div class="story-sec"><span class="story-year">${esc(it.icon || '')}</span><div><b>${esc(it.text || '')}</b><div class="feat-d">${esc(it.desc || '')}</div></div></div>`).join('')}</div>`); }
+        case 'area-list': { const its = listItems(props, [[null, 'سعادت‌آباد'], [null, 'پونک'], [null, 'ولنجک'], [null, 'تجریش'], [null, 'شهرک غرب'], [null, 'نیاوران']]); return B(`${TITLE}<div class="chip-row">${its.map(a => `<span class="chip">📍 ${esc(a.text || '')}</span>`).join('')}</div>`); }
         case 'checklist': return B(`${TITLE}<div class="feat-list">${listItems(props, [['☑️', 'دستگاه را روشن و خاموش کنید و دوباره امتحان کنید'], ['☑️', 'کد خطای نمایشگر را یادداشت کنید'], ['☑️', 'صداهای غیرعادی و بوی سوختگی را بررسی کنید'], ['☑️', 'فاکتور خرید و گارانتی را آماده داشته باشید']]).map(it => `<div class="feat-row"><span class="feat-ico" style="background:#f0fdf4">${esc(it.icon || '☑️')}</span><div>${esc(it.text || it[1] || '')}</div></div>`).join('')}</div>`);
         case 'search-bar': return B(`<div class="search-wrap"><span class="search-ico">🔎</span><div class="fake-input" style="flex:1;border:none">${esc(props.placeholder || 'جستجوی کد خطا، مقاله یا دستگاه...')}</div><span class="hero-btn">جستجو</span></div>`);
-        case 'certificates': return B(`<div class="blk-title">${esc(t || 'گواهینامه‌ها و افتخارات')}</div><div class="cols c${gridCols(props, 3)}">${[['🎖️', 'نمایندگی رسمی'], ['📋', 'گواهی ایزو ۹۰۰۱'], ['🏆', 'برترین خدمات ۱۴۰۳']].map(([i, n]) => `<div class="fake-card"><div class="card-ico">${i}</div><div class="card-t">${n}</div><div class="fl w60"></div></div>`).join('')}</div>`);
-        case 'review-grid': return B(`<div class="blk-title">${esc(t || 'مشتریان ما چه می‌گویند')}</div><div class="cols c${gridCols(props, 3)}">${'<div class="fake-card"><div class="stars">⭐⭐⭐⭐⭐</div><div class="fl w90"></div><div class="fl w70"></div><div class="fake-ava" style="margin-top:8px">👤</div></div>'.repeat(3)}</div>`);
-        case 'contact-cards': return B(`<div class="blk-title">${esc(t || 'راه‌های ارتباطی')}</div><div class="cols c3"><div class="fake-card"><div class="card-ico">📞</div><div class="card-t">تلفن</div><div class="feat-d" dir="ltr">۰۲۱-۱۲۳۴۵۶۷۸</div></div><div class="fake-card"><div class="card-ico">💬</div><div class="card-t">واتساپ</div><div class="feat-d" dir="ltr">۰۹۱۲-۰۰۰-۰۰۰۰</div></div><div class="fake-card"><div class="card-ico">📍</div><div class="card-t">آدرس</div><div class="feat-d">تهران، خیابان نمونه</div></div></div>`);
+        case 'certificates': { const its = listItems(props, [['🎖️', 'نمایندگی رسمی', 'از سال ۱۳۸۵'], ['🏆', 'برند برتر خدمات', 'رأی مشتریان ۱۴۰۲'], ['📋', 'مجوز اتحادیه', 'کد ۱۲۳۴۵']]); return B(`<div class="blk-title">${esc(t || 'گواهینامه‌ها و افتخارات')}</div><div class="cols c${gridCols(props, 3)}">${its.map(it => `<div class="fake-card"><div class="card-ico">${esc(it.icon || '🎖️')}</div><div class="card-t">${esc(it.text || '')}</div><div class="feat-d">${esc(it.desc || '')}</div></div>`).join('')}</div>`); }
+        case 'review-grid': { const its = listItems(props, [['علی محمدی', 'سرویس سریع و منظم بود؛ راضی بودم.'], ['مریم احمدی', 'قیمت شفاف و ضمانت واقعی.'], ['رضا کریمی', 'تکنسین دقیق و حرفه‌ای اعزام شد.']]); return B(`<div class="blk-title">${esc(t || 'مشتریان ما چه می‌گویند')}</div><div class="cols c${gridCols(props, 3)}">${its.map(it => `<div class="fake-card"><div class="feat-d" style="direction:ltr;text-align:left">⭐⭐⭐⭐⭐</div><div class="feat-d">«${esc(it.text || '')}»</div><b class="feat-d">${esc(it.icon || '')}</b></div>`).join('')}</div>`); }
+        case 'contact-cards': { const its = listItems(props, [['📞', 'تلفن', '۰۲۱-۱۲۳۴۵۶۷۸'], ['💬', 'واتساپ', '۰۹۱۲-۰۰۰-۰۰۰۰'], ['📍', 'آدرس', 'تهران، خیابان نمونه']]); return B(`<div class="blk-title">${esc(t || 'راه‌های ارتباطی')}</div><div class="cols c3">${its.map(it => `<div class="fake-card"><div class="card-ico">${esc(it.icon || '📞')}</div><div class="card-t">${esc(it.text || '')}</div><div class="feat-d">${esc(it.desc || '')}</div></div>`).join('')}</div>`); }
         case 'appointment-form': return B(`<div class="blk-title">${esc(t || 'رزرو نوبت سرویس')}</div><div class="form-grid"><div class="fake-input">نام و شماره تماس</div><div class="fake-input">📅 تاریخ مورد نظر</div><div class="fake-input">🕐 بازه ساعتی (۹-۱۲ / ۱۲-۱۵ / ۱۵-۱۸)</div><div class="fake-input">نوع دستگاه و شرح مشکل</div><div class="hero-btn full">${esc(props.btnText || 'رزرو نوبت')}</div></div>`);
-        case 'stats-grid': return B(`<div class="blk-title">${esc(t || 'سهند سرویس در یک نگاه')}</div><div class="cols c${gridCols(props, 3)}"><div class="fake-card"><div class="stat-n">۱۲+</div><div class="feat-d">سال تجربه</div></div><div class="fake-card"><div class="stat-n">۵۰k+</div><div class="feat-d">تعمیر موفق</div></div><div class="fake-card"><div class="stat-n">۹۸٪</div><div class="feat-d">رضایت مشتری</div></div><div class="fake-card"><div class="stat-n">۲h</div><div class="feat-d">اعزام تکنسین</div></div><div class="fake-card"><div class="stat-n">۴۲</div><div class="feat-d">نوع دستگاه</div></div><div class="fake-card"><div class="stat-n">۶ ماه</div><div class="feat-d">ضمانت کتبی</div></div></div>`);
-        case 'before-after': return B(`<div class="blk-title">${esc(t || 'نتیجه تعمیر حرفه‌ای')}</div><div class="ba-wrap"><div class="ba-side"><div class="ba-tag bad">قبل</div><div class="fake-img small" style="height:110px">🧺 فرسوده</div></div><div class="ba-arrow">⇐</div><div class="ba-side"><div class="ba-tag ok">بعد</div><div class="fake-img small" style="height:110px">✨ مثل روز اول</div></div></div>`);
-        case 'cta-whatsapp': return B(`${t ? `<div class="blk-title" style="margin-bottom:9px">${esc(t)}</div>` : ''}<div class="hero-btns"><span class="hero-btn" style="background:#16a34a">💬 گفتگو در واتساپ</span><span class="hero-btn ghost">📞 تماس تلفنی</span></div>`, 'cta-blk');
+        case 'stats-grid': { const its = statItemsFromItems(props, [['۱۲+', 'سال تجربه'], ['۵۰k', 'تعمیر موفق'], ['۹۸٪', 'رضایت'], ['۴۲', 'نوع دستگاه'], ['۲۴/۷', 'پشتیبانی'], ['۶ ماه', 'ضمانت']]); return B(`<div class="blk-title">${esc(t || 'سهند سرویس در یک نگاه')}</div><div class="cols c${gridCols(props, 3)}">${its.map(it => `<div class="fake-card" style="text-align:center"><div class="stat-n">${esc(it[0])}</div><div class="feat-d">${esc(it[1])}</div></div>`).join('')}</div>`); }
+        case 'before-after': return B(`<div class="blk-title">${esc(t || 'نتیجه تعمیر حرفه‌ای')}</div><div class="ba-wrap"><div class="ba-side"><div class="ba-tag bad">قبل</div><div class="fake-card" style="text-align:center">${esc(props.text || 'دستگاه روشن نمی‌شود — کد خطا فعال')}</div></div><div class="ba-arrow">←</div><div class="ba-side"><div class="ba-tag ok">بعد</div><div class="fake-card" style="text-align:center">${esc(props.textAfter || 'کارکرد کامل — تست‌شده و ضمانت‌دار')}</div></div></div>`);
+        case 'cta-whatsapp': return B(`${t ? `<div class="blk-title" style="margin-bottom:9px">${esc(t)}</div>` : ''}<div class="hero-btns"><span class="hero-btn" style="background:#16a34a">💬 ${props.phone ? 'گفتگو در واتساپ — ' + esc(props.phone) : 'گفتگو در واتساپ'}</span><span class="hero-btn ghost">📞 تماس تلفنی</span></div>`, 'cta-blk');
         case 'warranty-banner': return B(`<div class="feat-row" style="align-items:center"><span class="feat-ico" style="font-size:30px">🛡️</span><div><b style="font-size:15px">${esc(props.title || 'ضمانت کتبی ۶ ماهه روی قطعه و خدمات')}</b><div class="feat-d">${esc(props.text || 'در صورت ایراد مجدد، تعمیر اصلاحی رایگان — بدون بهانه و کاغذبازی')}</div></div><span class="hero-btn" style="margin-inline-start:auto">مشاهده شرایط</span></div>`, '');
-        case 'working-hours': return B(`<div class="blk-title">${esc(t || 'ساعات کاری')}</div><div class="price-table"><div class="price-row"><span>شنبه تا چهارشنبه</span><b>۹ صبح تا ۸ شب</b></div><div class="price-row"><span>پنجشنبه</span><b>۹ صبح تا ۲ ظهر</b></div><div class="price-row"><span>جمعه</span><b>⚠️ فقط امداد فوری</b></div></div>`);
-        case 'social-follow': return B(`<div class="blk-title">${esc(t || 'ما را دنبال کنید')}</div><div class="hero-btns"><span class="hero-btn" style="background:#229ED9"> Telegram</span><span class="hero-btn" style="background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)"> Instagram</span><span class="hero-btn" style="background:#25D366"> WhatsApp</span><span class="hero-btn" style="background:#e11d48"> Aparat</span></div>`);
+        case 'working-hours': { const its = listItems(props, [[null, 'شنبه تا چهارشنبه', '۹ صبح تا ۸ شب'], [null, 'پنجشنبه', '۹ صبح تا ۲ ظهر'], [null, 'جمعه', '⚠️ فقط امداد فوری']]); return B(`<div class="blk-title">${esc(t || 'ساعات کاری')}</div><div class="price-table">${its.map(it => `<div class="price-row"><span>${esc(it.text || '')}</span><b>${esc(it.desc || '')}</b></div>`).join('')}</div>`); }
+        case 'social-follow': { const its = listItems(props, [['📡', 'تلگرام'], ['📷', 'اینستاگرام'], ['💬', 'واتساپ'], ['▶️', 'آپارات']]); return B(`<div class="blk-title">${esc(t || 'ما را دنبال کنید')}</div><div class="hero-btns">${its.map(it => `<span class="hero-btn">${esc(it.icon || '📣')} ${esc(it.text || '')}</span>`).join('')}</div>`); }
         case 'trust-badges': return B(`${TITLE}<div class="chip-row" style="justify-content:space-around">${listItems(props, [['🛡️', 'ضمانت کتبی'], ['💳', 'پرداخت اقساطی'], ['⚡', 'اعزام فوری'], ['🏆', 'نمایندگی رسمی'], ['🔧', 'قطعات اصلی']]).map(it => `<div style="text-align:center;min-width:86px"><div style="font-size:26px">${esc(it.icon || '🏅')}</div><div class="feat-d" style="font-size:11px">${esc(it.text || '')}</div></div>`).join('')}</div>`, '');
-        case 'footer-links': return B(`${t ? `<div class="blk-title" style="margin-bottom:10px">${esc(t)}</div>` : ''}<div class="tb-col-wrap" style="grid-template-columns:2fr 1fr 1fr 1fr"><div><div class="fake-logo">🏗️</div><div class="fl w90"></div><div class="fl w60"></div><div class="soc-row"><span>Telegram</span><span>Instagram</span></div></div><div><div class="card-t">خدمات</div><div class="feat-d">تعمیر لباسشویی<br>تعمیر یخچال<br>سرویس کولر</div></div><div><div class="card-t">لینک‌ها</div><div class="feat-d">مقالات<br>کدهای خطا<br>سوالات متداول</div></div><div><div class="card-t">تماس</div><div class="feat-d">📞 ۰۲۱-۱۲۳۴۵۶۷۸<br>📍 تهران</div></div></div>`, 'footer-blk');
+        case 'footer-links': { const its = listItems(props, [[null, 'خدمات ما'], [null, 'مقالات آموزشی'], [null, 'کدهای خطا'], [null, 'سوالات متداول'], [null, 'قوانین و مقررات'], [null, 'حریم خصوصی']]); return B(`${t ? `<div class="blk-title" style="margin-bottom:10px">${esc(t)}</div>` : ''}<div class="tb-col-wrap" style="grid-template-columns:repeat(2,1fr)">${its.map(it => `<div class="feat-d" style="padding:3px 0">${esc(it.text || '')}${it.desc ? ` — <span dir="ltr" style="opacity:.6;font-size:10px">${esc(it.desc)}</span>` : ''}</div>`).join('')}</div>`); }
         case 'payment-methods': return B(`${t ? `<div class="blk-title" style="margin-bottom:8px">${esc(t)}</div>` : ''}<div class="chip-row" style="justify-content:center">${listItems(props, [['💳', 'پرداخت کارتی'], ['💰', 'پرداخت نقدی'], ['🧾', 'کارت به کارت'], ['📟', 'درگاه آنلاین'], ['🤝', 'اقساطی']]).map(it => `<span class="chip">${esc(it.icon || '💳')} ${esc(it.text || '')}</span>`).join('')}</div>`, '');
 
         /* ════════ 🆕 v3.3: عناصر جدید (۱۳ عنصر — کتابخانه کامل‌تر) ════════ */
@@ -812,24 +988,45 @@ function blockHtml(block, props) {
         case 'heading-center': return B(`<div style="text-align:center"><div class="blk-title" style="font-size:23px">${esc(t || 'عنوان بزرگ بخش')}</div><div class="feat-d" style="font-size:13.5px;margin-top:6px">${esc(props.subtitle || 'زیرعنوان توضیحی این بخش را اینجا بنویسید')}</div><div style="width:56px;height:4px;border-radius:4px;background:var(--p,#2563eb);margin:14px auto 0"></div></div>`, '');
         case 'numbered-list': return B(`${TITLE}<div class="num-list">${listItems(props, [[null, 'عیب‌یابی تخصصی رایگان', 'بررسی کامل با دستگاه تست'], [null, 'پیش‌فاکتور شفاف', 'تأیید قیمت قبل از شروع کار'], [null, 'تعمیر با قطعات اصلی', 'همراه با ۶ ماه ضمانت']]).map((it, idx) => `<div class="num-row"><span class="num-n">${faDigJS(String(idx + 1))}</span><div><b>${esc(it.text || it[1] || '')}</b>${it.desc || it[2] ? `<div class="feat-d">${esc(it.desc || it[2] || '')}</div>` : ''}</div></div>`).join('')}</div>`, '');
         case 'info-box': return B(`<div class="info-box-demo"><span class="feat-ico" style="font-size:22px">${esc(props.icon || '💡')}</span><div><b>${esc(t || 'نکته مهم')}</b><div class="feat-d">${esc(props.text || 'متن توضیح جعبه اطلاعات...')}</div></div></div>`);
-        case 'price-cards': return B(`<div class="blk-title">${esc(t || 'پلن‌های سرویس')}</div><div class="cols c3"><div class="fake-card"><div class="card-t">اقتصادی</div><div class="stat-n">۴۵۰<span style="font-size:11px">هزار</span></div><div class="feat-d">سرویس پایه + تست</div></div><div class="fake-card" style="border-color:#2563eb;box-shadow:0 6px 20px rgba(37,99,235,.16)"><span class="badge badge-info" style="font-size:9.5px">پیشنهاد ما</span><div class="card-t">استاندارد</div><div class="stat-n">۷۸۰<span style="font-size:11px">هزار</span></div><div class="feat-d">سرویس کامل + شست‌وشو</div></div><div class="fake-card"><div class="card-t">ویژه</div><div class="stat-n">۱۲۵۰<span style="font-size:11px">هزار</span></div><div class="feat-d">اورهال + ضمانت ۹ ماهه</div></div></div>`);
-        case 'location-cards': return B(`<div class="blk-title">${esc(t || 'شعب ما')}</div><div class="cols c${gridCols(props, 3)}">${[['🏬', 'شعبه مرکزی', 'تهران، خیابان ولیعصر'], ['🏬', 'شعبه غرب', 'شهرک غرب، بلوار دریا'], ['🏬', 'شعبه شمال', 'نیاوران، میدان ازگیری']].map(([i, n, a]) => `<div class="fake-card"><div class="card-ico">${i}</div><div class="card-t">${n}</div><div class="feat-d">📍 ${a}</div></div>`).join('')}</div>`);
-        case 'expert-cards': return B(`<div class="blk-title">${esc(t || 'متخصصین ما')}</div><div class="cols c${gridCols(props, 4)}">${[['🔧', 'مهندس کریمی', 'برد و الکترونیک'], ['❄️', 'مهندس رضایی', 'مدار برودت'], ['🌀', 'مهندس احمدی', 'سیستم شست‌وشو'], ['📺', 'مهندس موسوی', 'پنل و تاچ']].map(([i, n, s]) => `<div class="fake-card"><div class="fake-ava">${i}</div><div class="card-t">${n}</div><div class="feat-d">${s}</div><div class="stars" style="font-size:10px">⭐ ۴.۹</div></div>`).join('')}</div>`);
-        case 'logo-cloud': return B(`${TITLE}<div class="chip-row" style="justify-content:center">${['🏅', '📋', '🎖️', '✅', '🏛️', '🛡️', '💳', '⭐'].map(i => `<div class="fake-logo-s" style="width:64px">${i}</div>`).join('')}</div>`, '');
+        case 'price-cards': { const its = listItems(props, [['اقتصادی', 'سرویس پایه — ۴۵۰ هزار تومان', '✅ عیب‌یابی کامل'], ['استاندارد', 'سرویس کامل — ۹۵۰ هزار تومان', '✅ شست‌وشو + تنظیم'], ['ویژه', 'سرویس + قطعه — ۱٫۵ میلیون', '✅ قطعات فابریک']]); return B(`<div class="blk-title">${esc(t || 'پلن‌های سرویس')}</div><div class="cols c3">${its.map((it, i) => `<div class="fake-card" style="${i === 1 ? 'border:2px solid var(--p,#2563eb)' : ''}"><div class="card-t">${esc(it.text || '')}</div><div class="feat-d" style="font-weight:800;color:#1e40af">${esc(it.desc || '')}</div></div>`).join('')}</div>`); }
+        case 'location-cards': { const its = listItems(props, [['🏬', 'شعبه مرکزی', 'تهران، ولیعصر'], ['🏬', 'شعبه غرب', 'تهران، سعادت‌آباد']]); return B(`<div class="blk-title">${esc(t || 'شعب ما')}</div><div class="cols c${gridCols(props, 3)}">${its.map(it => `<div class="fake-card"><div class="card-ico">${esc(it.icon || '🏬')}</div><div class="card-t">${esc(it.text || '')}</div><div class="feat-d">${esc(it.desc || '')}</div></div>`).join('')}</div>`); }
+        case 'expert-cards': { const its = listItems(props, [['🔧', 'مهندس کریمی', 'برد و الکترونیک'], ['❄️', 'مهندس رضایی', 'سیستم سرمایش']]); return B(`<div class="blk-title">${esc(t || 'متخصصین ما')}</div><div class="cols c${gridCols(props, 4)}">${its.map(it => `<div class="fake-card"><div class="fake-ava">${esc(it.icon || '👨‍🔧')}</div><div class="card-t">${esc(it.text || '')}</div><div class="feat-d">${esc(it.desc || '')}</div></div>`).join('')}</div>`); }
+        case 'logo-cloud': { const its = listItems(props, [['🏅', 'نشان سفیر خدمت'], ['📋', 'مجوز اتحادیه'], ['🎖️', 'نمایندگی رسمی'], ['✅', 'تاییدیه کیفیت']]); return B(`${TITLE}<div class="chip-row" style="justify-content:center">${its.map(it => `<div style="text-align:center;min-width:86px"><div style="font-size:26px">${esc(it.icon || '🏅')}</div><div class="feat-d" style="font-size:11px">${esc(it.text || '')}</div></div>`).join('')}</div>`); }
 
         /* ════════ 🆕 v2.14: ۱۲ عنصر جدید (کتابخانه کامل‌تر — ۸۶ عنصر) ════════ */
+        /* ════════ 🆕 v2.25: بیست عنصر جدید ════════ */
+        case 'pros-cons': { const its = listItems(props, [['✅', 'قطعات اصلی و ضمانت‌دار'], ['✅', 'اعزام سریع تکنسین'], ['⚠️', 'زمان تعمیر ۲ تا ۴ روز کاری']]); return B(`${TITLE}<div class="cols c2"><div class="fake-card" style="border-inline-start:4px solid #16a34a"><div class="card-t" style="color:#15803d">✅ مزایا</div><div class="feat-list">${its.filter(i => !String(i.icon).startsWith('⚠')).map(i => `<div class="feat-row"><span class="feat-ico" style="background:#f0fdf4">${esc(i.icon || '✅')}</span><div>${esc(i.text || '')}</div></div>`).join('')}</div></div><div class="fake-card" style="border-inline-start:4px solid #dc2626"><div class="card-t" style="color:#b91c1c">⚠️ نکات</div><div class="feat-list">${its.filter(i => String(i.icon).startsWith('⚠') || String(i.icon).startsWith('❌')).map(i => `<div class="feat-row"><span class="feat-ico" style="background:#fef2f2">${esc(i.icon || '⚠️')}</span><div>${esc(i.text || '')}</div></div>`).join('') || '<div class="feat-d">موردی ثبت نشده — آیتم با آیکون ⚠️ یا ❌ اضافه کنید</div>'}</div></div></div>`); }
+        case 'text-accent-box': return B(`<div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-inline-start:5px solid #2563eb;border-radius:12px;padding:15px 17px">${t ? `<div class="card-t" style="margin-bottom:6px">${esc(t)}</div>` : ''}<div class="feat-d" style="color:#1e40af">${esc(props.text || 'متنی که باید توجه کاربر را جلب کند.')}</div></div>`);
+        case 'definition-list': { const its = listItems(props, [['🔧', 'ایرادیابی', 'بررسی کامل دستگاه برای یافتن عیب'], ['🧲', 'مگنترون', 'قطعه تولید امواج مایکروویو']]); return B(`${TITLE}<div class="feat-list">${its.map(it => `<div class="feat-row"><span class="feat-ico">${esc(it.icon || '📖')}</span><div><b>${esc(it.text || '')}</b><div class="feat-d">${esc(it.desc || '')}</div></div></div>`).join('')}</div>`); }
+        case 'article-highlight': return B(`<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #fdba74;border-radius:15px;padding:19px 21px">${fakeImgHtml(props, '🌟', 'width:130px;height:110px;flex:0 0 130px')}<div style="flex:1;min-width:200px"><div class="card-t" style="font-size:15px">${esc(t || 'محتوای ویژه')}</div>${props.subtitle ? `<div class="feat-d" style="font-weight:700;color:#9a3412">${esc(props.subtitle)}</div>` : ''}<div class="feat-d">${esc(props.text || 'خلاصه‌ای از مزیت ویژه این بخش.')}</div></div></div>`);
+        case 'page-header': return B(`<div style="text-align:center;padding:18px 10px 8px"><div class="hero-title" style="font-size:24px">${esc(t || 'عنوان صفحه')}</div>${props.subtitle ? `<div class="feat-d">${esc(props.subtitle)}</div>` : ''}<div class="feat-d" style="margin-top:8px;opacity:.65">خانه / ${esc(t || 'صفحه')}</div></div>`);
+        case 'steps-vertical': { const its = listItems(props, [['۱', 'ثبت درخواست', 'آنلاین یا تلفنی'], ['۲', 'عیب‌یابی و اعلام هزینه', 'شفاف و پیش از شروع'], ['۳', 'تعمیر و تحویل', 'همراه با ضمانت کتبی']]); return B(`${TITLE}<div class="feat-list">${its.map(it => `<div class="feat-row"><span class="feat-ico" style="background:linear-gradient(135deg,#2563eb,#0ea5e9);color:#fff;font-weight:800">${esc(it.icon || '•')}</span><div><b>${esc(it.text || '')}</b><div class="feat-d">${esc(it.desc || '')}</div></div></div>`).join('')}</div>`); }
+        case 'service-price-cards': { const its = listItems(props, [['🧺', 'شست‌وشوی کامل ماشین لباس', 'از ۹۵۰ هزار تومان'], ['❄️', 'شارژ گاز کولر', 'از ۱٫۲ میلیون تومان'], ['🔥', 'تعویض هیتر ماشین ظرفشویی', 'از ۱٫۵ میلیون تومان']]); return B(`<div class="blk-title">${esc(t || 'تعرفه خدمات پرتقاضا')}</div><div class="cols c${gridCols(props, 3)}">${its.map(it => `<div class="fake-card"><div class="card-ico">${esc(it.icon || '🔧')}</div><div class="card-t" style="font-size:12.5px">${esc(it.text || '')}</div><div class="feat-d" style="font-weight:800;color:#1e40af">${esc(it.desc || '')}</div></div>`).join('')}</div>`); }
+        case 'feature-icons-grid': { const its = listItems(props, [['🧊', 'یخچال'], ['🧺', 'لباسشویی'], ['📺', 'تلویزیون'], ['🔥', 'فر و اجاق'], ['🍵', 'کتری برقی'], ['☕', 'قهوه‌ساز'], ['🌪', 'جاروبرقی'], ['💧', 'آبگرمکن']]); return B(`<div class="blk-title">${esc(t || 'خدمات ما در یک نگاه')}</div><div class="cols c${gridCols(props, 4)}">${its.map(it => `<div class="fake-card" style="text-align:center;padding:15px 8px"><div style="font-size:31px">${esc(it.icon || '🔧')}</div><div class="feat-d" style="font-weight:700;margin-top:6px">${esc(it.text || '')}</div></div>`).join('')}</div>`); }
+        case 'callback-form': return B(`<div class="blk-title">${esc(t || 'درخواست تماس کارشناس')}</div><div class="news-row"><div class="fake-input" style="flex:1">شماره تماس شما</div><div class="hero-btn">${esc(props.btnText || 'با من تماس بگیرید')}</div></div><div class="feat-d" style="margin-top:7px">✅ کارشناسان ما در کمتر از ۱۵ دقیقه تماس می‌گیرند</div>`);
+        case 'survey-form': { const its = listItems(props, [['⭐', 'بسیار راضی'], ['👍', 'راضی'], ['😐', 'معمولی']]); return B(`<div class="blk-title">${esc(t || 'میزان رضایت شما از سرویس؟')}</div><div class="cols c${Math.max(2, its.length)}" style="gap:9px">${its.map(it => `<div class="fake-card" style="text-align:center;padding:13px 8px;cursor:pointer"><div style="font-size:23px">${esc(it.icon || '⭐')}</div><div class="feat-d" style="font-weight:700">${esc(it.text || '')}</div></div>`).join('')}</div>`); }
+        case 'chat-widget': return B(`<div style="display:flex;justify-content:flex-end"><div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:15px 15px 3px 15px;padding:11px 15px;max-width:290px;box-shadow:0 8px 22px rgba(2,8,23,.12)"><div style="font-size:12.5px"><b>💬 ${esc(t || 'پشتیبانی آنلاین')}</b></div><div class="feat-d">سلام! چطور می‌تونیم کمکتون کنیم؟</div><div style="display:flex;gap:6px;margin-top:8px"><span class="hero-btn" style="font-size:11px;padding:5px 12px">شروع گفتگو</span></div></div></div>`);
+        case 'vote-poll': { const its = listItems(props, [['🧺', 'لباسشویی'], ['❄️', 'یخچال'], ['🔥', 'ماکروویو']]); const total = its.length * 12 + 30; return B(`<div class="blk-title">${esc(t || 'رای‌گیری')}</div><div class="cap-demo">${its.map((it, i) => { const p = Math.round((total - i * 11) / total * 100); return `<div class="cap-row"><span class="cap-h">${esc(it.icon || '')} ${esc(it.text || '')}</span><div class="track" style="flex:1"><div class="fill" style="width:${p}%"></div></div><span class="cap-l">${faDigJS(p)}٪</span></div>`; }).join('')}</div>`); }
+        case 'video-grid': { const gcols = gridCols(props, 3); let gimgs = ''; for (let gi = 0; gi < gcols * 2; gi++) { gimgs += `<div style="position:relative">${fakeImgHtml(props, '🎬', 'min-height:96px').replace('fake-img', 'fake-img small')}<div class="play" style="width:30px;height:30px;font-size:12px">▶</div></div>`; } return B(`<div class="blk-title">${esc(t || 'ویدیوهای آموزشی')}</div><div class="cols c${gcols}">${gimgs}</div>`); }
+        case 'logo-marquee': { const its = listItems(props, [['🏷️', 'ال‌جی'], ['🏷️', 'سامسونگ'], ['🏷️', 'بوش'], ['🏷️', 'سونی'], ['🏷️', 'پاکس'], ['🏷️', 'اسنوا']]); return B(`<div class="blk-title">${esc(t || 'برندهای مورد خدمت')}</div><div style="overflow:hidden;background:#f8fafc;border-radius:12px;padding:11px 0"><div class="chip-row" style="animation:tickMove 18s linear infinite;white-space:nowrap;width:max-content">${its.concat(its).map(it => `<span class="chip" style="margin-inline-end:9px">${esc(it.icon || '🏷️')} ${esc(it.text || '')}</span>`).join('')}</div></div>`); }
+        case 'tag-cloud': { const its = listItems(props, [[null, 'تعمیر ماشین لباس'], [null, 'کد خطا SE'], [null, 'شارژ گاز کولر'], [null, 'بک‌لایت تلویزیون'], [null, 'مگنترون'], [null, 'سرویس دوره‌ای'], [null, 'برد الکترونیک'], [null, 'نصب ظرفشویی']]); const sizes = ['12px', '14px', '13px', '15px', '12.5px', '14.5px']; return B(`${TITLE}<div class="chip-row" style="justify-content:center;gap:8px">${its.map((it, i) => `<span class="chip" style="font-size:${sizes[i % sizes.length]};font-weight:${i % 3 === 0 ? 800 : 600};opacity:${0.72 + (i % 3) * 0.09}">${esc(it.text || '')}</span>`).join('')}</div>`); }
+        case 'quote-slider': { const its = listItems(props, [['علی محمدی', 'سرویس سریع و منظم بود؛ راضی بودم.'], ['مریم احمدی', 'قیمت شفاف و ضمانت واقعی.'], ['رضا کریمی', 'تکنسین دقیق و حرفه‌ای اعزام شد.']]); const q = its[0] || { text: '', icon: '' }; return B(`<div class="blk-title">${esc(t || 'مشتریان چه می‌گویند')}</div><div class="quote" style="text-align:center;font-size:15px">«${esc(q.text)}»</div><div class="feat-d" style="text-align:center;font-weight:800;margin-top:6px">— ${esc(q.icon)}</div><div class="slider-dots" style="margin-top:8px">${its.map((_, i) => i === 0 ? '●' : '○').join(' ')}</div>`); }
+        case 'stats-circles': { const its = listItems(props, [['۹۲٪', 'تعمیر در روز اول'], ['۸۷٪', 'رضایت کامل'], ['۹۶٪', 'حل قطعی ایراد']]); return B(`<div class="blk-title">${esc(t || 'عملکرد ما در آمار واقعی')}</div><div class="cols c${Math.max(2, Math.min(4, its.length))}" style="gap:14px">${its.map(it => { const num = String(it.icon || '80').replace(/[^0-9]/g, '') || '80'; const deg = Math.round(parseInt(num, 10) / 100 * 360); return `<div style="text-align:center"><div style="width:86px;height:86px;margin:0 auto;border-radius:50%;background:conic-gradient(#2563eb ${deg}deg, #e2e8f0 ${deg}deg);display:flex;align-items:center;justify-content:center"><div style="width:66px;height:66px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16.5px;color:#1e40af">${esc(it.icon || num)}</div></div><div class="feat-d" style="margin-top:8px;font-weight:700">${esc(it.text || '')}</div></div>`; }).join('')}</div>`); }
+        case 'counter-big': { const its = listItems(props, [['۵۰,۰۰۰+', 'تعمیر تکمیل‌شده']]); const it0 = its[0] || { icon: '۵۰,۰۰۰+', text: 'تعمیر تکمیل‌شده' }; return B(`<div style="text-align:center;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1.5px solid #93c5fd;border-radius:16px;padding:26px 18px"><div class="hero-title" style="font-size:37px;background:linear-gradient(135deg,#1e40af,#0ea5e9);-webkit-background-clip:text;background-clip:text;color:transparent">${esc(it0.icon || it0.text || '')}</div><div class="feat-d" style="font-weight:800;font-size:14px;margin-top:5px">${esc(it0.icon ? it0.text : 'شمارنده')}</div></div>`); }
+        case 'brand-stats-bar': { const its = listItems(props, [['۱۵+', 'سال تجربه'], ['۴۲', 'نوع دستگاه تخصصی'], ['۲۴/۷', 'پشتیبانی'], ['۶ ماه', 'ضمانت کتبی']]); return B(`${TITLE}<div class="stats-strip" style="background:linear-gradient(135deg,#0f172a,#1e3a8a)">${its.map(it => `<span class="ss-item"><b>${esc(it.icon || '')}</b> ${esc(it.text || '')}</span>`).join('<span class="ss-sep"></span>')}</div>`); }
+        case 'emergency-strip': return B(`<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border-radius:13px;padding:13px 19px"><b style="font-size:14px">${esc(props.text || '🚑 امداد تعمیر فوری — ۲۴ ساعته')}</b><span class="hero-btn" style="background:#fff;color:#b91c1c">📞 ${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</span></div>`);
         case 'stats-strip': return B(`${TITLE}<div class="stats-strip">${statStripHtml(props)}</div>`, 'stats-strip-blk');
         case 'benefits-list': return B(`${TITLE}<div class="feat-list">${listItems(props, [[null, 'اعزام تکنسین در کمتر از ۲ ساعت'], [null, 'قطعات فابریک با فاکتور معتبر'], [null, '۶ ماه ضمانت کتبی قطعه و خدمات'], [null, 'پیش‌فاکتور شفاف قبل از شروع کار'], [null, 'پیگیری وضعیت درخواست آنلاین']]).map(it => `<div class="feat-row"><span class="feat-ico" style="background:#f0fdf4">${esc(it.icon || '✅')}</span><div><b>${esc(it.text || it[1] || '')}</b></div></div>`).join('')}</div>`);
         case 'warning-box': return B(`<div class="warning-box-demo"><span class="feat-ico" style="background:#fef2f2;font-size:22px">${esc(props.icon || '⚠️')}</span><div><b style="color:#b91c1c">${esc(t || 'هشدار ایمنی مهم')}</b><div class="feat-d">${esc(props.text || 'قبل از هرگونه باز کردن دستگاه، برق را کاملاً قطع کنید.')}</div></div></div>`);
         case 'brand-intro-card': return B(`<div class="brand-intro-demo"><div class="fake-logo" style="font-size:34px">🏗️</div><div style="flex:1"><div class="blk-title" style="margin-bottom:4px">${esc(t || 'نمایندگی رسمی خدمات')}</div><div class="feat-d">${esc(props.subtitle || 'بیش از یک دهه تجربه تخصصی')}</div><div class="stars" style="font-size:11px;margin-top:5px">⭐⭐⭐⭐⭐ <b>۴.۹ از ۵</b></div></div><span class="hero-btn" style="align-self:center">مشاهده خدمات</span></div>`, '');
         case 'author-box': return B(`<div class="author-box-demo"><div class="fake-ava" style="font-size:38px">${esc(props.icon || '👨‍🔧')}</div><div style="flex:1"><b style="font-size:14px">${esc(t || 'مهندس کریمی')}</b><div class="feat-d">کارشناس برد و الکترونیک — ۱۴ سال تجربه</div><div class="feat-d" style="margin-top:4px">${esc(props.text || 'متخصص تعمیر برد‌های اصلی لباسشویی، یخچال و کولر گازی با رویکرد تعمیر اصلاحی.')}</div></div></div>`, '');
         case 'download-card': return B(`<div class="download-card-demo"><span class="feat-ico" style="font-size:30px;background:#eff6ff">📄</span><div style="flex:1"><div class="blk-title" style="margin-bottom:3px;text-align:right">${esc(t || 'بروشور خدمات ما')}</div><div class="feat-d">${esc(props.subtitle || 'فهرست کامل خدمات و تعرفه‌ها در یک فایل PDF')}</div></div><span class="hero-btn">${esc(props.btnText || '⬇ دانلود بروشور')}</span></div>`, '');
-        case 'schedule-table': return B(`<div class="blk-title">${esc(t || 'ساعات کاری ما')}</div><div class="price-table"><div class="price-row"><span>شنبه</span><b>۹ تا ۲۰</b></div><div class="price-row"><span>یکشنبه تا چهارشنبه</span><b>۹ تا ۲۰</b></div><div class="price-row"><span>پنجشنبه</span><b>۹ تا ۱۴</b></div><div class="price-row"><span>جمعه</span><b>فقط امداد فوری</b></div></div>`);
+        case 'schedule-table': { const its = listItems(props, [[null, 'شنبه', '۹ تا ۲۰'], [null, 'یکشنبه تا چهارشنبه', '۹ تا ۲۰'], [null, 'پنجشنبه', '۹ تا ۱۴'], [null, 'جمعه', 'فقط امداد فوری']]); return B(`<div class="blk-title">${esc(t || 'ساعات کاری ما')}</div><div class="price-table">${its.map(it => `<div class="price-row"><span>${esc(it.text || '')}</span><b>${esc(it.desc || '')}</b></div>`).join('')}</div>`); }
         case 'price-highlight': return B(`<div class="fake-card price-highlight-demo" style="text-align:right">${props.badge ? `<span class="badge badge-warning" style="font-size:10px">${esc(props.badge)}</span>` : ''}<div class="blk-title" style="text-align:right;margin:8px 0 3px">${esc(t || 'سرویس دوره‌ای کامل')}</div><div class="stat-n" style="font-size:31px;text-align:right">${esc(props.price || '۴۵۰ هزار تومان')}</div><div class="feat-d" style="margin:7px 0 11px">${esc(props.subtitle || 'شامل شست‌وشو، کالیبراسیون و تست ایمنی + ۶ ماه ضمانت')}</div><span class="hero-btn full">${esc(props.btnText || 'رزرو همین حالا')}</span></div>`, '');
-        case 'feature-table': return B(`<div class="blk-title">${esc(t || 'مقایسه پلن‌های سرویس')}</div><div class="feature-table-demo"><div class="ft-row ft-head"><span>ویژگی</span><b>اقتصادی</b><b class="ft-hl">استاندارد</b><b>ویژه</b></div><div class="ft-row"><span>عیب‌یابی تخصصی</span><b>✅</b><b class="ft-hl">✅</b><b>✅</b></div><div class="ft-row"><span>شست‌وشو کامل</span><b>—</b><b class="ft-hl">✅</b><b>✅</b></div><div class="ft-row"><span>ضمانت (ماه)</span><b>۳</b><b class="ft-hl">۶</b><b>۹</b></div><div class="ft-row"><span>اعزام فوری</span><b>—</b><b class="ft-hl">—</b><b>✅</b></div></div>`);
+        case 'feature-table': { const its = listItems(props, [[null, 'عیب‌یابی رایگان'], [null, 'ضمانت ۶ ماهه'], [null, 'قطعات فابریک']]); return B(`<div class="blk-title">${esc(t || 'مقایسه پلن‌های سرویس')}</div><div class="feature-table-demo"><div class="ft-row ft-head"><span>ویژگی</span><b>اقتصادی</b><b>استاندارد</b><b class="ft-hl">ویژه</b></div>${its.map(it => `<div class="ft-row"><span>${esc(it.text || '')}</span><b>—</b><b>✓</b><b class="ft-hl">✓</b></div>`).join('')}</div>`); }
         case 'quick-contact-form': return B(`<div class="quick-form-demo"><div class="fake-input" style="flex:1">📱 شماره تماس شما</div><span class="hero-btn">${esc(props.btnText || 'درخواست تماس')}</span></div><div class="feat-d" style="text-align:center;margin-top:7px">${esc(props.subtitle || t || 'کارشناسان ما در کمتر از ۱۵ دقیقه تماس می‌گیرند')}</div>`, '');
-        case 'related-links': return B(`${TITLE}<div class="feat-list">${['کد خطای LE لباسشویی ال‌جی — معنی و رفع', '۱۰ علامت خرابی کمپرسور یخچال', 'راهنمای نگهداری کولر گازی در تابستان', 'چرا ماشین لباسشویی لرزش دارد؟'].map(l => `<div class="feat-row"><span class="feat-ico">📄</span><div><b>${esc(l)}</b><div class="feat-d">مقاله راهنما — ۵ دقیقه مطالعه</div></div></div>`).join('')}</div>`);
-        case 'warranty-steps': return B(`<div class="blk-title">${esc(t || 'گارانتی ما چگونه کار می‌کند')}</div><div class="steps-row"><div class="step"><span class="step-n">۱</span><div class="step-t">صدور برگه ضمانت</div></div><div class="step-arrow">←</div><div class="step"><span class="step-n">۲</span><div class="step-t">ثبت سریال در سیستم</div></div><div class="step-arrow">←</div><div class="step"><span class="step-n">۳</span><div class="step-t">سرویس مجدد رایگان</div></div></div>`);
+        case 'related-links': { const its = listItems(props, [[null, 'کد خطای LE لباسشویی ال‌جی — معنی و رفع'], [null, '۱۰ علامت خرابی کمپرسور یخچال'], [null, 'راهنمای نگهداری ماکروویو']]); return B(`${TITLE}<div class="feat-list">${its.map(it => `<div class="feat-row"><span class="feat-ico">🔗</span><div>${esc(it.text || '')}</div></div>`).join('')}</div>`); }
+        case 'warranty-steps': { const its = listItems(props, [[null, 'ثبت سریال دستگاه'], [null, 'صدور برگه ضمانت'], [null, 'پشتیبانی ۶ ماهه']]); return B(`<div class="blk-title">${esc(t || 'گارانتی ما چگونه کار می‌کند')}</div><div class="steps-row">${its.map((it, i) => `${i > 0 ? '<div class="step-arrow">←</div>' : ''}<div class="step"><span class="step-n">${esc(it.icon || faDigJS(String(i + 1)))}</span><div class="step-t">${esc(it.text || '')}</div></div>`).join('')}</div>`); }
         case 'social-proof': return B(`<div class="soc-proof"><div class="ava-stack"><span class="fake-ava" style="width:34px;height:34px;font-size:13px">👩</span><span class="fake-ava" style="width:34px;height:34px;font-size:13px;margin-inline-start:-10px">🧑</span><span class="fake-ava" style="width:34px;height:34px;font-size:13px;margin-inline-start:-10px">👨</span><span class="fake-ava" style="width:34px;height:34px;font-size:11px;margin-inline-start:-10px">+۵۰k</span></div><div><div class="stars">⭐⭐⭐⭐⭐ <b>۴.۹ از ۵</b></div><div class="feat-d">${esc(props.text || 'بیش از ۵۰ هزار مشتری به ما اعتماد کرده‌اند')}</div></div></div>`);
         case 'link-buttons': return B(`${TITLE}<div class="hero-btns" style="justify-content:flex-start">${listItems(props, [[null, '📄 دانلود بروشور'], [null, '🔎 پیگیری درخواست'], [null, '🧾 فاکتور آنلاین']]).map((it, idx) => `<span class="hero-btn${idx ? ' ghost' : ''}">${esc(it.text || it[1] || '')}</span>`).join('')}</div>`, '');
         case 'promo-card': return B(`<div class="promo-card-demo"><div><span class="badge badge-warning" style="font-size:10.5px">🎁 پیشنهاد ویژه</span><div class="blk-title" style="font-size:19px;margin:9px 0 5px">${esc(t || 'کمپین سرویس بهاره')}</div><div class="feat-d">${esc(props.subtitle || 'تا ۲۵٪ تخفیف — تا پایان ماه')}</div></div><div style="text-align:center"><div class="stat-n" style="font-size:33px">۲۵٪</div><span class="hero-btn" style="margin-top:8px">همین حالا رزرو کنید</span></div></div>`, '');
@@ -841,14 +1038,14 @@ function blockHtml(block, props) {
         case 'warranty-check': return B(`<div class="blk-title">${esc(t || 'استعلام گارانتی')}</div><div class="quick-form-demo" style="max-width:100%"><div class="fake-input" style="flex:1;direction:ltr">SN-XXXX-1234</div><span class="hero-btn">${esc(props.btnText || 'استعلام')}</span></div><div class="feat-d" style="text-align:center;margin-top:7px">شماره سریال دستگاه را وارد کنید — وضعیت گارانتی همان لحظه نمایش داده می‌شود</div>`, '');
         case 'price-estimate': return B(`<div class="blk-title">${esc(t || 'برآورد هزینه تعمیر')}</div><div class="form-grid"><div class="fake-input">🌀 نوع دستگاه (لباسشویی، یخچال...)</div><div class="fake-input">🔧 نوع ایراد (نمایش کد، صدا، نشتی...)</div><div class="fake-input">📍 منطقه</div><div class="hero-btn full">🧮 محاسبه فوری برآورد</div></div><div class="feat-d" style="text-align:center;margin-top:7px">برآورد تقریبی + زمان لازم برای تعمیر، همین لحظه</div>`, '');
         case 'device-error-lookup': return B(`<div class="blk-title">${esc(t || 'جستجوی کد خطای دستگاه')}</div><div class="search-wrap"><span class="search-ico">🔢</span><div class="fake-input" style="flex:1;border:none;direction:ltr">E4 / LE / CH-05 ...</div><span class="hero-btn">جستجو</span></div><div class="feat-d" style="text-align:center;margin-top:7px">کد روی نمایشگر دستگاه را وارد کنید — علت، راه‌حل فوری و هزینه تعمیر را ببینید</div>`, '');
-        case 'live-queue': return B(`<div class="blk-title">${esc(t || 'وضعیت صف تعمیرات — زنده')}</div><div class="queue-demo"><div class="queue-row"><span>🟢 در نوبت امروز</span><b>${faDigJS(3)} درخواست</b></div><div class="queue-row"><span>🟡 در حال تعمیر</span><b>${faDigJS(2)} دستگاه</b></div><div class="queue-row"><span>🔵 آماده تحویل</span><b>${faDigJS(5)} دستگاه</b></div><div class="queue-row"><span>⏱ میانگین انتظار</span><b>${faDigJS(45)} دقیقه</b></div></div>`, '');
-        case 'hourly-capacity': return B(`<div class="blk-title">${esc(t || 'ظرفیت سرویس امروز')}</div><div class="cap-demo">${[['۹–۱۲', 20, 'کم‌تقاضا'], ['۱۲–۱۵', 55, 'متوسط'], ['۱۵–۱۸', 85, 'پرمشغله'], ['۱۸–۲۱', 40, 'متوسط']].map(([h, p, l]) => `<div class="cap-row"><span class="cap-h">${h}</span><div class="track" style="flex:1"><div class="fill" style="width:${p}%"></div></div><span class="cap-l">${l}</span></div>`).join('')}</div>`, '');
+        case 'live-queue': { const its = listItems(props, [['🟢', 'دریافت و عیب‌یابی', 'در حال انجام — ۲ دستگاه'], ['🟡', 'تعمیر برد', 'در صف — ۱ دستگاه'], ['🔴', 'آماده تحویل', '۳ دستگاه']]); return B(`<div class="blk-title">${esc(t || 'وضعیت صف تعمیرات — زنده')}</div><div class="queue-demo">${its.map(it => `<div class="queue-row"><span>${esc(it.icon || '🟢')} ${esc(it.text || '')}</span><b>${esc(it.desc || '')}</b></div>`).join('')}</div>`); }
+        case 'hourly-capacity': { const its = listItems(props, [['۹–۱۲', '20', 'کم‌تقاضا'], ['۱۲–۱۵', '60', 'متوسط'], ['۱۵–۱۸', '85', 'پرتقاضا']]); return B(`<div class="blk-title">${esc(t || 'ظرفیت سرویس امروز')}</div><div class="cap-demo">${its.map(it => { const p = Math.max(5, Math.min(100, parseInt(String(it.text || '50').replace(/[^0-9]/g, ''), 10) || 50)); return `<div class="cap-row"><span class="cap-h">${esc(it.icon || '')}</span><div class="track" style="flex:1"><div class="fill" style="width:${p}%"></div></div><span class="cap-l">${esc(it.desc || '')}</span></div>`; }).join('')}</div>`); }
         case 'faq-search': return B(`<div class="blk-title">${esc(t || 'جستجو در سوالات متداول')}</div><div class="search-wrap"><span class="search-ico">🔎</span><div class="fake-input" style="flex:1;border:none">${esc(props.placeholder || 'سوال خود را بنویسید...')}</div><span class="hero-btn">پرسیدن</span></div><div class="chip-row" style="margin-top:10px;justify-content:center">${['لباسشویی آب تخلیه نمی‌کند', 'یخچال برق دارد ولی خنک نمی‌کند', 'کد E4 یعنی چه؟'].map(q => `<span class="chip">❓ ${q}</span>`).join('')}</div>`, '');
-        case 'faq-category': return B(`<div class="blk-title">${esc(t || 'سوالات متداول بر اساس موضوع')}</div><div class="cols c3">${[['🌀', 'لباسشویی و ظرفشویی', '۴۸ سوال'], ['🧊', 'یخچال و فریزر', '۳۶ سوال'], ['❄️', 'کولر و پکیج', '۳۱ سوال'], ['📺', 'تلویزیون', '۲۲ سوال'], ['📡', 'لوازم کوچک', '۲۷ سوال'], ['🧾', 'گارانتی و پرداخت', '۱۹ سوال']].map(([i, n, c]) => `<div class="fake-card"><div class="card-ico">${i}</div><div class="card-t">${n}</div><div class="feat-d">${c}</div></div>`).join('')}</div>`, '');
+        case 'faq-category': { const its = listItems(props, [['🌀', 'لباسشویی و ظرفشویی', '۱۲ سوال'], ['❄️', 'یخچال و فریزر', '۹ سوال'], ['📺', 'تلویزیون', '۷ سوال']]); return B(`<div class="blk-title">${esc(t || 'سوالات متداول بر اساس موضوع')}</div><div class="cols c3">${its.map(it => `<div class="fake-card"><div class="card-ico">${esc(it.icon || '❓')}</div><div class="card-t">${esc(it.text || '')}</div><div class="feat-d">${esc(it.desc || '')}</div></div>`).join('')}</div>`); }
         case 'before-after-slider': return B(`<div class="blk-title">${esc(t || 'مقایسه تصویری قبل و بعد')}</div><div class="bas-demo"><div class="bas-before" style="${props.imageUrl ? '' : ''}">${props.imageUrl ? `<img src="${esc(props.imageUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.1)">` : '🧺 فرسوده'}<span class="bas-tag">قبل</span></div><div class="bas-handle">⇔</div><div class="bas-after">✨ <b>مثل روز اول</b><span class="bas-tag ok">بعد</span></div></div>`, '');
-        case 'social-wall': return B(`<div class="blk-title">${esc(t || 'آخرین پست‌های ما')}</div><div class="cols c3">${[['📷', 'نکته سرویس دوره‌ای', '۲ روز پیش'], ['🎥', 'ویدیوی عیب‌یابی', '۵ روز پیش'], ['🏆', 'مشتری هفته', '۱ هفته پیش']].map(([i, n, d]) => `<div class="fake-card"><div class="fake-img small">${i}</div><div class="card-t">${n}</div><div class="feat-d">${d} · ❤️ لایک و دیدگاه</div></div>`).join('')}</div>`, '');
+        case 'social-wall': { const its = listItems(props, [['📷', 'نکته سرویس دوره‌ای', '۲ روز پیش'], ['🎥', 'ویدیوی عیب‌یابی زنده', '۵ روز پیش'], ['📝', 'معرفی تکنسین هفته', '۱ هفته پیش']]); return B(`<div class="blk-title">${esc(t || 'آخرین پست‌های ما')}</div><div class="cols c3">${its.map(it => `<div class="fake-card"><div style="font-size:24px">${esc(it.icon || '📷')}</div><div class="card-t" style="font-size:12px">${esc(it.text || '')}</div><div class="feat-d">${esc(it.desc || '')}</div></div>`).join('')}</div>`); }
         case 'newsletter-popup': return B(`<div class="np-demo-wrap"><div class="np-demo"><span class="feat-ico" style="font-size:30px;background:#eff6ff">📧</span><div><b style="font-size:14px">${esc(t || 'قبل از رفتن، پیشنهاد ویژه!')}</b><div class="feat-d">${esc(props.subtitle || 'عضویت در خبرنامه = ۱۰٪ تخفیف اولین سرویس')}</div></div><div class="news-row" style="margin-top:10px"><div class="fake-input" style="flex:1">ایمیل شما</div><span class="hero-btn">${esc(props.btnText || 'دریافت کد تخفیف')}</span></div></div><div class="feat-d" style="text-align:center;margin-top:6px">پیش‌نمایش پاپ‌آپ — پس از ۳۰ ثانیه معطلی کاربر نمایش داده می‌شود</div></div>`, '');
-        case 'credit-trust': return B(`<div class="ct-demo"><div class="ct-score">${faDigJS(98)}<small>/${faDigJS(100)}</small></div><div style="flex:1"><b style="font-size:14.5px">${esc(t || 'امتیاز اعتماد خدمات')}</b><div class="feat-d">بر اساس ${faDigJS(5412)} نظر ثبت‌شده مشتریان در ${faDigJS(2)} سال گذشته</div><div class="stars" style="font-size:12px;margin-top:4px">⭐⭐⭐⭐⭐</div></div></div>`, '');
+        case 'credit-trust': { const its = listItems(props, [['98', 'امتیاز اعتماد مشتریان']]); const sc = its[0] ? String(its[0].icon || its[0].text || '98').replace(/[^0-9]/g, '') || '98' : '98'; return B(`<div class="ct-demo"><div class="ct-score">${faDigJS(sc)}<small>/${faDigJS('100')}</small></div><div style="flex:1"><b style="font-size:14px">${esc(its[0] ? its[0].text : 'امتیاز اعتماد مشتریان')}</b><div class="feat-d" style="margin-top:4px">بر اساس نظرسنجی مستقل مشتریان در ۱۲ ماه گذشته</div></div></div>`); }
         case 'brand-badges-row': return B(`${TITLE}<div class="chip-row" style="justify-content:center;gap:10px">${listItems(props, [['🎖️', 'تعمیرکار رسمی سازمان فنی'], ['🛡️', 'بیمه مسئولیت حرفه‌ای'], ['📋', 'مجوز رسمی اتحادیه'], ['🔬', 'تخصص برد و الکترونیک']]).map(it => `<span class="chip" style="padding:8px 14px;font-size:11.5px">${esc(it.icon || '🏅')} ${esc(it.text || '')}</span>`).join('')}</div>`, '');
 
         /* ════════ 🆕 v2.17: ۱۶ عنصر جدید (کتابخانه ۱۳۰ عنصر) ════════ */
@@ -1159,6 +1356,7 @@ function render() {
 
 function renderLevel(arr, container, prefix) {
     arr.forEach((item, i) => {
+        if (item && item.block === '_page') { return; } /* 🛡️ گره تنظیمات صفحه — هرگز روی بوم رندر نمی‌شود */
         const path = prefix ? prefix + '.' + i : String(i);
         const el = document.createElement('div');
         el.className = 'tb-block' + (selected === path ? ' selected' : '');
@@ -1527,6 +1725,8 @@ const PROP_LABELS = {
     btnText: 'متن دکمه', badge: 'برچسب کوچک', price: 'متن قیمت', icon: '🔣 آیکون (ایموجی)',
     hours: 'ساعات کاری', countdownTo: '⏱ زمان پایان شمارش معکوس', imageUrl: '🖼 آدرس تصویر واقعی',
     titleColor: '🎨 رنگ عنوان', gradientFrom: 'رنگ شروع گرادیانت', gradientTo: 'رنگ پایان گرادیانت',
+    /* 🆕 v2.25 */
+    textAfter: 'متن دوم (بعد / پاسخ)', videoUrl: '🎬 آدرس ویدیو (embed)', mapUrl: '🗺 لینک نقشه',
 };
 
 /* 🧩 تعریف فیلدها — نوع + پیش‌فرض + گزینه‌ها */
@@ -1550,7 +1750,7 @@ const FIELD_DEFS = {
    CD = زمان شمارش معکوس | IMG = آدرس تصویر | IT = ویرایشگر آیتم‌ها */
 const BLOCK_FIELDS = {
     /* هدر */
-    'header-v1': [], 'header-v2': ['P', 'W', 'B'], 'header-v3': ['B'],
+    'header-v1': ['IT'], 'header-v2': ['P', 'W', 'B', 'IT'], 'header-v3': ['B', 'IT'],
     'top-bar': ['P', 'W'],
     'notification-bar': ['X', 'notifC'],
     /* هیرو */
@@ -1560,53 +1760,62 @@ const BLOCK_FIELDS = {
     'hero-minimal': ['T', 'S', 'B'], 'hero-glass': ['T', 'S'], 'logo-strip': ['T'],
     /* محتوا */
     'text': ['T', 'X'], 'text-image': ['T', 'X', 'IMG'], 'intro': ['T', 'X', 'IMG'], 'rich-text': ['T', 'X'],
-    'quote': ['X'], 'two-col': ['T'], 'three-col': ['T'], 'brand-story': ['T'],
-    'area-list': ['T'], 'checklist': ['T', 'IT'], 'search-bar': ['placeholder'],
+    'quote': ['X'], 'two-col': ['T', 'IT'], 'three-col': ['T', 'IT'], 'brand-story': ['T', 'IT'],
+    'area-list': ['T', 'IT'], 'checklist': ['T', 'IT'], 'search-bar': ['placeholder'],
     'heading-center': ['T', 'S'], 'numbered-list': ['T', 'IT'], 'info-box': ['T', 'I', 'X'],
     'benefits-list': ['T', 'IT'], 'author-box': ['T', 'I', 'X'],
     'text-columns': ['T', 'X'], 'brand-values': ['T', 'IT'], 'tech-tips': ['T', 'IT'],
+    'pros-cons': ['T', 'IT'], 'text-accent-box': ['T', 'X'], 'definition-list': ['T', 'IT'],
+    'article-highlight': ['T', 'S', 'X', 'IMG'], 'page-header': ['T', 'S'], 'steps-vertical': ['T', 'IT'],
     /* ستون‌بندی */
-    'section-columns': ['T', 'SC'], 'section-split': ['T'], 'feature-list': ['T'],
+    'section-columns': ['T', 'SC'], 'section-split': ['T'], 'feature-list': ['T', 'IT'],
     /* کارت‌ها */
-    'services-grid': ['T', 'C'], 'devices-grid': ['T', 'C'], 'articles-recent': ['T', 'C'],
-    'articles-grid': ['T', 'C'], 'features': ['T', 'C'], 'team': ['T', 'C'],
-    'pricing-table': ['T'], 'brands-links': ['T', 'C'], 'certificates': ['T', 'C'],
-    'review-grid': ['T', 'C'], 'contact-cards': ['T'], 'price-cards': ['T'],
-    'location-cards': ['T', 'C'], 'expert-cards': ['T', 'C'], 'logo-cloud': ['T', 'C'],
+    'services-grid': ['T', 'C', 'IT'], 'devices-grid': ['T', 'C'], 'articles-recent': ['T', 'C'],
+    'articles-grid': ['T', 'C'], 'features': ['T', 'C', 'IT'], 'team': ['T', 'C', 'IT'],
+    'pricing-table': ['T', 'IT'], 'brands-links': ['T', 'C', 'IT'], 'certificates': ['T', 'C', 'IT'],
+    'review-grid': ['T', 'C', 'IT'], 'contact-cards': ['T', 'IT'], 'price-cards': ['T', 'IT'],
+    'location-cards': ['T', 'C', 'IT'], 'expert-cards': ['T', 'C', 'IT'], 'logo-cloud': ['T', 'C', 'IT'],
     'brand-intro-card': ['T', 'S'], 'price-highlight': ['T', 'S', '$', 'G', 'B'], 'price-compare': ['T', 'C'],
+    'service-price-cards': ['T', 'C', 'IT'], 'feature-icons-grid': ['T', 'C', 'IT'],
     /* فرم */
     'contact-form': ['T', 'B'], 'request-form': ['T', 'B'], 'newsletter-form': ['T', 'B'],
     'appointment-form': ['T', 'B'], 'quick-contact-form': ['T', 'B'],
     'booking-calendar': ['T'], 'warranty-check': ['T', 'B'], 'price-estimate': ['T'],
     'device-error-lookup': ['T'], 'appointment-compact': ['T', 'B'],
+    'callback-form': ['T', 'B'], 'survey-form': ['T', 'IT'],
     /* آمار */
-    'counter-stats': ['T', 'IT'], 'progress-bars': ['T'], 'skill-bars': ['T'],
-    'stats-grid': ['T', 'C'], 'stats-strip': ['T', 'IT'],
-    'live-queue': ['T'], 'hourly-capacity': ['T'], 'stats-inline': ['T', 'IT'],
+    'counter-stats': ['T', 'IT'], 'progress-bars': ['T', 'IT'], 'skill-bars': ['T', 'IT'],
+    'stats-grid': ['T', 'C', 'IT'], 'stats-strip': ['T', 'IT'],
+    'live-queue': ['T', 'IT'], 'hourly-capacity': ['T', 'IT'], 'stats-inline': ['T', 'IT'],
+    'stats-circles': ['T', 'IT'], 'counter-big': ['T', 'IT'], 'brand-stats-bar': ['T', 'IT'],
     /* تعامل */
-    'testimonials': ['T', 'A'], 'faq-accordion': ['T'], 'tabs': ['T'], 'timeline': ['T'],
-    'steps-process': ['T'], 'before-after': ['T'], 'social-proof': ['X'],
-    'warranty-steps': ['T'], 'feature-table': ['T'],
-    'faq-search': ['T', 'placeholder'], 'faq-category': ['T'],
+    'testimonials': ['T', 'A', 'IT'], 'faq-accordion': ['T', 'IT'], 'tabs': ['T', 'IT'], 'timeline': ['T', 'IT'],
+    'steps-process': ['T', 'IT'], 'before-after': ['T', 'X', 'X2'], 'social-proof': ['X'],
+    'warranty-steps': ['T', 'IT'], 'feature-table': ['T', 'IT'],
+    'faq-search': ['T', 'placeholder'], 'faq-category': ['T', 'IT'],
     'faq-mini': ['T', 'X'], 'steps-compact': ['T', 'IT'],
+    'quote-slider': ['T', 'IT'], 'vote-poll': ['T', 'IT'],
     /* رسانه */
-    'gallery': ['T', 'C', 'IMG'], 'image-carousel': ['T', 'A', 'IMG'], 'video-embed': ['T', 'IMG'], 'map': ['T'],
-    'before-after-slider': ['T', 'IMG'], 'social-wall': ['T'], 'reviews-carousel': ['T', 'A'],
+    'gallery': ['T', 'C', 'IMG', 'IT'], 'image-carousel': ['T', 'A', 'IMG', 'IT'], 'video-embed': ['T', 'IMG', 'V'], 'map': ['T', 'X', 'MU'],
+    'before-after-slider': ['T', 'IMG'], 'social-wall': ['T', 'IT'], 'reviews-carousel': ['T', 'A', 'IT'],
+    'video-grid': ['T', 'C', 'IMG'], 'logo-marquee': ['T', 'IT'], 'tag-cloud': ['T', 'IT'],
     /* فراخوان */
     'cta-phone': ['T', 'P'], 'cta-request': ['T', 'B'], 'cta-banner': ['T', 'B'],
     'sticky-mobile-cta': ['P', 'B'], 'cta-whatsapp': ['T'], 'warranty-banner': ['T', 'X'],
     'link-buttons': ['T', 'IT'], 'promo-card': ['T', 'S'], 'download-card': ['T', 'S', 'B'],
     'guarantee-card': ['T', 'S', 'B'], 'cta-timer': ['T', 'S', 'CD'], 'urgent-repair': ['T', 'P', 'B'],
     'newsletter-popup': ['T', 'S', 'B'],
+    'emergency-strip': ['X', 'P'],
     /* ساختار */
-    'breadcrumb': [], 'alert-notice': ['X', 'alertT'], 'button-group': ['B'],
+    'breadcrumb': ['IT'], 'alert-notice': ['X', 'alertT'], 'button-group': ['B', 'IT'],
     'icon-list': ['T', 'IT'], 'separator': [], 'divider-icon': ['I'], 'spacer': ['H'],
-    'working-hours': ['T'], 'social-follow': ['T'], 'trust-badges': ['T', 'IT'],
+    'working-hours': ['T', 'IT'], 'social-follow': ['T', 'IT'], 'trust-badges': ['T', 'IT'],
     'contact-info-bar': ['P', 'W'], 'contact-map-split': ['T', 'P'], 'warning-box': ['T', 'I', 'X'],
-    'related-links': ['T'], 'schedule-table': ['T'],
-    'ticker-bar': ['X'], 'credit-trust': ['T'], 'brand-badges-row': ['T', 'IT'],
+    'related-links': ['T', 'IT'], 'schedule-table': ['T', 'IT'],
+    'ticker-bar': ['X'], 'credit-trust': ['T', 'IT'], 'brand-badges-row': ['T', 'IT'],
+    'chat-widget': ['T'],
     /* فوتر */
-    'footer-simple': ['P'], 'footer-contact': ['P', 'W'], 'footer-links': ['T'],
+    'footer-simple': ['P', 'IT'], 'footer-contact': ['P', 'W'], 'footer-links': ['T', 'IT'],
     'payment-methods': ['T', 'IT'], 'copyright': ['X'],
 };
 
@@ -1617,6 +1826,8 @@ const CODE_MAP = {
     'H': 'height', 'W': 'hours', 'SC': 'sectionCols', 'placeholder': 'placeholder',
     'alertT': 'alertType', 'notifC': 'notifColor',
     'CD': 'countdownTo', 'IMG': 'imageUrl', 'IT': 'items',
+    /* 🆕 v2.25 */
+    'X2': 'textAfter', 'V': 'videoUrl', 'MU': 'mapUrl',
 };
 
 function renderProps() {
@@ -1668,8 +1879,11 @@ function renderProps() {
                     ${FIELD_DEFS[code].options.map(([v, l]) => `<option value="${v}" ${(props[key] || def) === v ? 'selected' : ''}>${l}</option>`).join('')}
                 </select></div>`;
         } else if (code === 'I') {
-            html += `<div class="form-group"><label>${esc(label)}</label>
-                <input type="text" class="form-control" style="font-size:15px" value="${esc(props.icon || '')}" oninput="setProp('${selected}','icon',this.value)" placeholder="${FIELD_DEFS.icon.ph}"></div>`;
+            html += `<div class="form-group"><label>\${esc(label)}</label>
+                <div style="display:flex;gap:6px">
+                    <input type="text" class="form-control" style="font-size:15px;width:60px;text-align:center" value="\${esc(props.icon || '')}" oninput="setProp('\${selected}','icon',this.value)" placeholder="\${FIELD_DEFS.icon.ph}" title="آیکون (ایموجی)">
+                    <button type="button" class="btn btn-outline btn-sm" style="flex:0 0 auto" onclick="openEmojiPicker(this.closest('.form-group').querySelector('input'))" title="انتخاب از کتابخانه آیکون‌ها">😀 انتخاب آیکون</button>
+                </div></div>`;
         } else if (code === 'placeholder') {
             html += `<div class="form-group"><label>${esc(label)}</label>
                 <input type="text" class="form-control" style="font-size:12px" value="${esc(props.placeholder || '')}" oninput="setProp('${selected}','placeholder',this.value)" placeholder="جستجوی کد خطا، مقاله یا دستگاه..."></div>`;
@@ -1678,25 +1892,43 @@ function renderProps() {
             html += `<div class="form-group"><label>${esc(label)}</label>
                 <input type="datetime-local" class="form-control" style="font-size:12px;direction:ltr" value="${esc(props.countdownTo || '')}" onchange="setProp('${selected}','countdownTo',this.value)">
                 <div class="hint" style="margin-top:4px">زمان پایان کمپین — شمارش معکوس روی بوم هر ثانیه زنده آپدیت می‌شود.</div></div>`;
+        } else if (code === 'X2') {
+            /* 🆕 v2.25: متن دوم — قبل/بعد یا سوال/پاسخ */
+            html += `<div class="form-group"><label>${esc(label)}</label>
+                <textarea class="form-control" rows="2" style="font-size:12px" oninput="setProp('${selected}','textAfter',this.value)">${esc(props.textAfter || '')}</textarea></div>`;
+        } else if (code === 'V') {
+            /* 🆕 v2.25: آدرس ویدیو (embed) */
+            html += `<div class="form-group"><label>${esc(label)}</label>
+                <input type="text" class="form-control" style="font-size:11.5px;direction:ltr;text-align:left" value="${esc(props.videoUrl || '')}" oninput="setProp('${selected}','videoUrl',this.value)" placeholder="https://www.aparat.com/v/xxxx">
+                <div class="hint" style="margin-top:4px">آدرس صفحه ویدیو (آپارات/یوتیوب) — در سایت به‌صورت embed نمایش داده می‌شود.</div></div>`;
+        } else if (code === 'MU') {
+            /* 🆕 v2.25: لینک نقشه */
+            html += `<div class="form-group"><label>${esc(label)}</label>
+                <input type="text" class="form-control" style="font-size:11.5px;direction:ltr;text-align:left" value="${esc(props.mapUrl || '')}" oninput="setProp('${selected}','mapUrl',this.value)" placeholder="https://maps.google.com/...">
+                <div class="hint" style="margin-top:4px">لینک نقشه گوگل — در سایت قابل کلیک می‌شود.</div></div>`;
         } else if (code === 'IMG') {
             /* 🖼 v2.15: تصویر واقعی به‌جای نمای قالبی */
             html += `<div class="form-group"><label>${esc(label)}</label>
                 <input type="text" class="form-control" style="font-size:11.5px;direction:ltr;text-align:left" value="${esc(props.imageUrl || '')}" oninput="setProp('${selected}','imageUrl',this.value)" placeholder="https://example.com/photo.jpg">
                 <div class="hint" style="margin-top:4px">آدرس تصویر واقعی این بخش — خالی = نمای پیش‌فرض قالبی.</div></div>`;
         } else if (code === 'IT') {
-            /* ➕ v2.15: ویرایشگر آیتم‌ها — افزودن/حذف/جابجایی با آیکون و متن */
+            /* ➕ v2.25: ویرایشگر آیتم‌ها — سه فیلد کامل (آیکون + متن + توضیح)
+               با انتخابگر آیکون ایموجی — رفع «نمیشه آیکون عوض کرد یا آیتم اضافه کرد» */
             const items = Array.isArray(props.items) ? props.items : [];
+            const descPh = { 'progress-bars': 'درصد — مثلاً ۸۰', 'skill-bars': 'درصد — مثلاً ۹۰', 'pricing-table': 'قیمت — مثلاً ۹۵۰ هزار تومان', 'price-cards': 'قیمت پلن', 'working-hours': 'ساعت — مثلاً ۹ تا ۲۰', 'schedule-table': 'ساعت — مثلاً ۹ تا ۲۰', 'faq-accordion': 'پاسخ سوال...', 'counter-stats': 'برچسب عدد', 'stats-inline': 'برچسب', 'stats-strip': 'برچسب', 'testimonials': 'نام مشتری', 'quote-slider': 'نام گوینده', 'timeline': 'وضعیت — مثلاً در حال انجام', 'gallery': 'آدرس تصویر (اختیاری)', 'image-carousel': 'آدرس تصویر (اختیاری)', 'social-follow': 'آدرس پروفایل (اختیاری)', 'related-links': 'آدرس لینک (اختیاری)', 'footer-links': 'آدرس لینک (اختیاری)', 'tag-cloud': '', 'vote-poll': 'آدرس گزینه (اختیاری)', 'survey-form': '' }[item.block] || 'توضیح / مقدار (اختیاری)...';
             html += `<div style="font-size:11px;font-weight:800;color:var(--primary);margin:11px 0 7px">➕ آیتم‌های لیست (${faDigJS(items.length)})</div>`;
             items.forEach((it, idx) => {
-                html += `<div class="item-edit-row">
-                    <input type="text" class="form-control" style="width:46px;text-align:center;font-size:14px" value="${esc(it.icon || '')}" oninput="setItemProp('${selected}',${idx},'icon',this.value)" placeholder="⚡">
-                    <input type="text" class="form-control" style="flex:1;font-size:11.5px" value="${esc(it.text || '')}" oninput="setItemProp('${selected}',${idx},'text',this.value)" placeholder="متن آیتم...">
+                html += `<div class="item-edit-row" style="flex-wrap:wrap">
+                    <input type="text" class="form-control" style="width:42px;text-align:center;font-size:14px" value="${esc(it.icon || '')}" oninput="setItemProp('${selected}',${idx},'icon',this.value)" placeholder="⚡" onclick="openEmojiPicker(this)" title="کلیک: انتخابگر آیکون">
+                    <input type="text" class="form-control" style="flex:1;min-width:110px;font-size:11.5px" value="${esc(it.text || '')}" oninput="setItemProp('${selected}',${idx},'text',this.value)" placeholder="متن آیتم...">
+                    <input type="text" class="form-control" style="flex:1;min-width:110px;font-size:11px;color:var(--text-light)" value="${esc(it.desc || '')}" oninput="setItemProp('${selected}',${idx},'desc',this.value)" placeholder="${esc(descPh)}">
                     <button type="button" class="btn btn-outline btn-sm" onclick="moveListItem('${selected}',${idx},-1)" title="بالا">↑</button>
                     <button type="button" class="btn btn-outline btn-sm" onclick="moveListItem('${selected}',${idx},1)" title="پایین">↓</button>
                     <button type="button" class="btn btn-danger btn-sm" onclick="removeListItem('${selected}',${idx})" title="حذف">✕</button>
                 </div>`;
             });
-            html += `<button type="button" class="btn btn-info btn-sm btn-block" style="margin-top:6px" onclick="addListItem('${selected}')">➕ افزودن آیتم جدید</button>`;
+            html += `<button type="button" class="btn btn-info btn-sm btn-block" style="margin-top:6px" onclick="addListItem('${selected}')">➕ افزودن آیتم جدید</button>
+                <div class="hint" style="margin-top:5px;font-size:10px;line-height:1.7">💡 روی کادر آیکون کلیک کنید تا <b>انتخابگر آیکون</b> باز شود — ستون سوم برای توضیح/قیمت/درصد است.</div>`;
         } else {
             /* فیلدهای متنی ساده: عنوان/زیرعنوان/تلفن/دکمه/برچسب/قیمت/ساعات */
             const isLtr = key === 'phone';
@@ -1812,6 +2044,80 @@ function removeListItem(path, idx) {
     syncAndRender();
     renderProps();
 }
+/* ==================================================
+ * 😀 v2.25: انتخابگر آیکون (ایموجی) — کتابخانه ۱۲۶ آیکون موضوعی
+ * رفع «نمیشه آیکون عوض کرد» — روی هر کادر آیکون (فیلد تکی یا آیتم
+ * لیست) کلیک کنید؛ انتخاب، همان لحظه در بوم اعمال می‌شود.
+ * ================================================== */
+const EMOJI_LIBRARY = [
+    /* تعمیرات و ابزار */
+    '🔧','🔨','🛠','⚙️','🔩','🧰','🪛','🔧','⚡','🔋','🔌','💡','🧲','🧯','🛢',
+    /* لوازم خانگی */
+    '🧊','🧺','🫧','🍲','🚿','🚽','🚰','🔥','❄️','🌬','🌡','🧹','🌪','💧','🫗',
+    /* الکترونیک */
+    '📺','🖥','📱','💻','⌨️','🖱','🎮','📷','🎥','🔊','🎧','📻','⏰','⌚','🔋',
+    /* پخت‌وپز */
+    '🍳','🍳','🍞','🥘','♨️','🫕','🍜','☕','🍵','🧊','🥤','🍽','🔪','🧑‍🍳','📦',
+    /* وضعیت و کیفیت */
+    '✅','☑️','✔️','❌','⚠️','🚫','⭐','🌟','💯','🏆','🎖','🏅','🥇','👍','👎',
+    /* ارتباط و خدمات */
+    '📞','📱','💬','📨','📧','📮','🗺','📍','🚗','🚚','🛵','🚑','🆘','🔔','📣',
+    /* زمان و سرعت */
+    '⏱','⏳','⌛','🕐','📅','🗓','⚡','🚀','🏃','⏩','⏪','🔄','🔁','♻️','💫',
+    /* امنیت و اعتماد */
+    '🛡','🔒','🔓','🔑','🪪','📋','📝','📄','🗂','📁','🖇','✍️','🧾','💼','🎫',
+    /* افراد و تیم */
+    '👨‍🔧','👩‍🔧','🧑‍🔧','👷','🧑‍⚕️','👨‍💼','🙋','🤝','🙏','💪','🧠','👀','🗣','👥','🧑‍🎓',
+    /* نمادین و برند */
+    '🏷️','💠','💎','🎨','🌈','🎯','🔍','🔎','📊','📈','📉','💰','💳','🎁','🎉'
+];
+let emojiPickerEl = null;
+function closeEmojiPicker() {
+    if (emojiPickerEl && emojiPickerEl.parentNode) { emojiPickerEl.parentNode.removeChild(emojiPickerEl); }
+    emojiPickerEl = null;
+    document.removeEventListener('mousedown', emojiOutside, true);
+}
+function emojiOutside(e) {
+    if (emojiPickerEl && !emojiPickerEl.contains(e.target)) { closeEmojiPicker(); }
+}
+function openEmojiPicker(inputEl) {
+    if (!inputEl) { return; }
+    if (emojiPickerEl) { closeEmojiPicker(); }
+    emojiPickerEl = document.createElement('div');
+    emojiPickerEl.className = 'emoji-picker-pop';
+    let grid = '';
+    const seen = new Set();
+    EMOJI_LIBRARY.forEach(em => {
+        if (seen.has(em)) { return; }
+        seen.add(em);
+        grid += '<button type="button" data-em="' + em.replace(/"/g, '&quot;') + '">' + em + '</button>';
+    });
+    emojiPickerEl.innerHTML = '<div class="ep-head">😀 انتخاب آیکون <button type="button" class="ep-close">✕</button></div>' +
+        '<div class="ep-grid">' + grid + '</div>' +
+        '<div class="ep-hint">روی آیکون کلیک کنید — انتخاب فوری</div>';
+    document.body.appendChild(emojiPickerEl);
+    /* جای‌گذاری کنار فیلد */
+    const r = inputEl.getBoundingClientRect();
+    const pw = 316, ph = 330;
+    let left = Math.max(8, Math.min(window.innerWidth - pw - 8, r.left));
+    let top = r.bottom + 6;
+    if (top + ph > window.innerHeight - 8) { top = Math.max(8, r.top - ph - 6); }
+    emojiPickerEl.style.left = left + 'px';
+    emojiPickerEl.style.top = (top + window.scrollY) + 'px';
+    emojiPickerEl.querySelector('.ep-close').onclick = closeEmojiPicker;
+    emojiPickerEl.querySelectorAll('.ep-grid button').forEach(btn => {
+        btn.onclick = function () {
+            inputEl.value = this.dataset.em;
+            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            closeEmojiPicker();
+        };
+    });
+    document.addEventListener('mousedown', emojiOutside, true);
+}
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { closeEmojiPicker(); }
+});
+
 function moveListItem(path, idx, dir) {
     const node = resolveNode(path);
     if (!node) { return; }
@@ -1896,7 +2202,7 @@ function clearLayout() {
     }
 }
 function syncAndRender() {
-    document.getElementById('layout-json').value = JSON.stringify(layout);
+    document.getElementById('layout-json').value = JSON.stringify(fullLayout());
     render();
 }
 
@@ -1913,7 +2219,7 @@ function setDevice(btn, device) {
 function openLivePreview() {
     const backdrop = document.getElementById('preview-backdrop');
     const frame = document.getElementById('preview-frame');
-    frame.src = 'template-preview.php?json=' + encodeURIComponent(JSON.stringify(layout));
+    frame.src = 'template-preview.php?json=' + encodeURIComponent(JSON.stringify(fullLayout()));
     backdrop.classList.add('show');
 }
 function closeLivePreview() {
@@ -1955,6 +2261,7 @@ async function uiuxRequest(action, extra) {
     fd.append('action', action);
     fd.append('page_type', (document.querySelector('select[name="page_type"]') || {}).value || 'home');
     fd.append('csrf_token', UIUX_CSRF);
+    /* UIUX فقط بلوک‌های واقعی را می‌بیند — گره تنظیمات صفحه (_page) حذف می‌شود */
     fd.append('layout_json', JSON.stringify(layout));
     if (extra) { Object.keys(extra).forEach(k => fd.append(k, extra[k])); }
     const res = await fetch('template-builder.php', {
@@ -2078,6 +2385,7 @@ async function uiuxImprove() {
 }
 
 /* شروع */
+applyPageSettings();
 render();
 renderProps();
 </script>

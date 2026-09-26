@@ -12,7 +12,10 @@ if (!defined('BRAND_INIT')) {
 }
 
 // 📥 داده‌های برند و تنظیمات (با کش)
-$brandData = fetchFromAPI('brand/' . BRAND_ID)['data'] ?? null;
+/* ⏱️ v2.25: TTL اطلاعات برند ۱۲۰ ثانیه (قبلاً ۳۰۰) — تغییر پالت/لوگو در
+   پنل حداکثر تا ۲ دقیقه بعد روی سایت برند دیده می‌شود (رفع بخشی از
+   «رنگ پیش‌نمایش با سایت فرق دارد» که ریشه‌اش کش طولانی سایت برند بود). */
+$brandData = fetchFromAPI('brand/' . BRAND_ID, 120)['data'] ?? null;
 $brand = $brandData['brand'] ?? [];
 $palette = $brandData['palette'] ?? [];
 $agency = $brandData['agency'] ?? [];
@@ -88,19 +91,45 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
 </head>
 <body>
-<!-- ⚙️ تغییر تم روشن/تاریک -->
+<!-- ⚙️ تغییر تم روشن/تاریک — v2.25: آنی + آیکون پویا
+     🚨 ریشه باگ قبلی: toggleTheme فقط href استایل‌شیت را عوض می‌کرد اما
+     خصیصه data-theme را تنظیم نمی‌کرد؛ پالت زنده (html[data-theme="dark"])
+     و قوانین تیره فقط با این خصیصه فعال می‌شوند → تغییر تم تا رفرش بعدی
+     اثر نمی‌کرد و آیکون دکمه هم ثابت می‌ماند. -->
 <script>
     (function () {
-        var theme = localStorage.getItem('brand-theme');
-        if (theme === 'dark') {
-            document.getElementById('theme-stylesheet').href = '/css/theme-dark.css';
+        var stored = null;
+        try { stored = localStorage.getItem('brand-theme'); } catch (e) {}
+        if (stored === 'dark') {
             document.documentElement.setAttribute('data-theme', 'dark');
+            var l = document.getElementById('theme-stylesheet');
+            if (l) { l.href = '/css/theme-dark.css'; }
+        }
+        if (stored !== 'dark' && stored !== 'light') {
+            /* 🌓 پیش‌فرض هوشمند: تم سیستم کاربر */
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                applyTheme('dark', false);
+            }
         }
     })();
+    function applyTheme(t, save) {
+        document.documentElement.setAttribute('data-theme', t);
+        document.documentElement.style.colorScheme = t === 'dark' ? 'dark' : 'light';
+        var link = document.getElementById('theme-stylesheet');
+        if (link) { link.href = t === 'dark' ? '/css/theme-dark.css' : '/css/theme-light.css'; }
+        var btn = document.querySelector('.theme-toggle');
+        if (btn) {
+            btn.textContent = t === 'dark' ? '☀️' : '🌙';
+            btn.title = t === 'dark' ? 'تغییر به تم روشن' : 'تغییر به تم تاریک';
+            btn.setAttribute('aria-label', btn.title);
+        }
+        if (save !== false) {
+            try { localStorage.setItem('brand-theme', t); } catch (e) {}
+        }
+    }
     function toggleTheme() {
-        var current = localStorage.getItem('brand-theme') === 'dark' ? 'light' : 'dark';
-        localStorage.setItem('brand-theme', current);
-        document.getElementById('theme-stylesheet').href = current === 'dark' ? '/css/theme-dark.css' : '/css/theme-light.css';
+        var cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(cur, true);
     }
 </script>
 

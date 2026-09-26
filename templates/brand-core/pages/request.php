@@ -129,30 +129,44 @@ require __DIR__ . '/_page_base.php';
         var data = {};
         new FormData(form).forEach(function (v, k) { data[k] = v; });
 
-        fetch('/js/form-submit.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
-            .then(function (r) { return r.json(); })
+        /* 🚀 v2.25 — زنجیره سه‌مرحله‌ای ارسال:
+           ① پروکسی همان‌مبدأ /js/form-submit.php (بدون CORS/SSL مرورگر — مسیر اصلی)
+           ② ارسال مستقیم به API سایت ساز (پشتیبان — برای بسته‌های قدیمی‌تر)
+           ③ پیام خطای دقیق و اقدام‌پذیر به کاربر */
+        var apiBase = <?= json_encode((string)BRANDMAKER_API) ?>;
+        function postJson(url, body) {
+            return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+                .then(function (r) {
+                    if (!r.ok && r.status !== 422 && r.status !== 401 && r.status !== 429) { throw new Error('http-' + r.status); }
+                    return r.text();
+                })
+                .then(function (txt) {
+                    try { return JSON.parse(txt); }
+                    catch (err) { throw new Error('bad-json'); }
+                });
+        }
+        postJson('/js/form-submit.php', data)
             .catch(function () {
-                // fallback: ارسال مستقیم به API سایت ساز
-                return fetch('<?= e(BRANDMAKER_API) ?>/brand/<?= BRAND_ID ?>/request', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(Object.assign(data, { api_key: '<?= e(BRAND_API_KEY) ?>' }))
-                }).then(function (r) { return r.json(); });
+                /* پروکسی موجود نبود (بسته قدیمی) یا خطا داد → مسیر مستقیم */
+                return postJson(apiBase + '/brand/<?= (int)BRAND_ID ?>/request',
+                    Object.assign({}, data, { api_key: <?= json_encode((string)BRAND_API_KEY) ?> }));
             })
             .then(function (res) {
-                if (res.success) {
+                if (res && res.success) {
                     form.classList.add('hidden');
                     document.getElementById('request-result').classList.remove('hidden');
-                    document.getElementById('result-message').textContent = res.data.message || 'درخواست شما با موفقیت ثبت شد.';
-                    document.getElementById('result-id').textContent = 'کد پیگیری: ' + res.data.request_id;
+                    document.getElementById('result-message').textContent = (res.data && res.data.message) || 'درخواست شما با موفقیت ثبت شد.';
+                    document.getElementById('result-id').textContent = res.data && res.data.request_id ? 'کد پیگیری: ' + res.data.request_id : '';
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 } else {
-                    alert(res.error || (res.errors || []).join('\n') || 'خطا در ثبت درخواست');
+                    var msg = (res && (res.error || (res.errors || []).join('\n'))) || 'خطا در ثبت درخواست';
+                    alert(msg);
                     btn.disabled = false;
                     btn.innerHTML = '🚀 ثبت درخواست';
                 }
             })
             .catch(function () {
-                alert('خطای ارتباط با سرور — لطفاً دوباره تلاش کنید');
+                alert('خطای ارتباط با سرور — لطفاً اتصال اینترنت را بررسی کرده و دوباره تلاش کنید.\nاگر خطا تکرار شد با شماره تماس سایت تماس بگیرید.');
                 btn.disabled = false;
                 btn.innerHTML = '🚀 ثبت درخواست';
             });

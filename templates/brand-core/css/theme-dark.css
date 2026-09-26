@@ -1,6 +1,9 @@
-/* 🌙 تم تاریک — متغیرها از پالت برند (هنگام تولید ZIP تزریق می‌شود) */
+/* 🌙 تم تاریک — متغیرها از پالت برند (هنگام تولید ZIP تزریق می‌شود)
+   v2.25: پیش‌فرض‌های on-primary/on-gradient از style.css (:root) به ارث
+   می‌رسند — این فایل فقط مقادیر پالت را روی آن‌ها بازنویسی می‌کند. */
 :root {
-{{PALETTE_DARK_CSS}}}
+{{PALETTE_DARK_CSS}}
+}
 
 /* تنظیمات مخصوص تم تاریک */
 [data-theme="dark"] .site-header { background: var(--color-background); }

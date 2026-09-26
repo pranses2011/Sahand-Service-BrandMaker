@@ -299,6 +299,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ((array)($_POST['dark_vars'] ?? []) as $i => $var) {
             $dark[clean_input($var)] = clean_input(($_POST['dark_vals'] ?? [])[$i] ?? '');
         }
+        /* 🛡️ v2.25 — تضمین خوانایی WCAG: ویرایش دستی می‌تواند متن را هم‌رنگ
+           زمینه کند؛ هر دو تم از موتور کنتراست عبور می‌کنند و رنگ‌های ناخوانا
+           به‌صورت خودکار اصلاح می‌شوند (رفع «رنگ نوشته‌ها با زمینه یکی است»). */
+        $contrastNotes = [];
+        if (class_exists('ColorAnalyzer')) {
+            [$light, $n1] = ColorAnalyzer::ensureReadable($light, 'light');
+            [$dark, $n2] = ColorAnalyzer::ensureReadable($dark, 'dark');
+            $contrastNotes = array_merge($n1, $n2);
+        }
         $exists = $db->fetchValue('SELECT COUNT(*) FROM color_palettes WHERE brand_id = ?', [$brandId]);
         if ($exists) {
             $db->update('color_palettes', [
@@ -310,11 +319,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->insert('color_palettes', [
                 'brand_id' => $brandId,
                 'light_palette' => json_encode($light, JSON_UNESCAPED_UNICODE),
-                'dark_palette' => json_encode($dark, JSON_UNESCAPED_UNICODE),
+                'dark_palette'  => json_encode($dark, JSON_UNESCAPED_UNICODE),
                 'is_manual_edited' => 1,
             ]);
         }
-        flash('success', '✅ پالت رنگ ذخیره شد.');
+        /* 🧹 کش صفحه‌های برند پاک شود تا پنل و سایت هم‌زمان شوند */
+        try { (new Cache())->delete('brand_' . $brandId . '_pages'); } catch (Throwable $cE) {}
+        $note = $contrastNotes
+            ? '<br><small>🎨 ' . count($contrastNotes) . ' رنگ برای خوانایی بهتر (WCAG) خودکار تنظیم شد.</small>'
+            : '';
+        flash('success', '✅ پالت رنگ ذخیره شد.' . $note);
         redirect('brand-edit.php?id=' . $brandId . '&tab=palette');
     }
 
@@ -1477,13 +1491,20 @@ foreach ($pages as $p) {
      * 🖥 پیش‌نمایش زنده پالت — مینی‌سایت با رنگ‌های فعلی
      * ================================================== */
     function collectTheme(theme) {
-        /* متغیرها از ردیف‌های همان تم خوانده می‌شوند */
+        /* متغیرها از ردیف‌های همان تم خوانده می‌شوند (v2.25: مقادیر غیر hex مثل
+           گرادیانت هم گرفته می‌شوند تا پیش‌نمایش «دقیقاً» با سایت برند یکی باشد) */
         var vars = {};
         var prefix = theme === 'light' ? 'light' : 'dark';
-        document.querySelectorAll('input[name="' + prefix + '_vars[]"]').forEach(function (vIn, idx) {
-            var valIn = document.querySelectorAll('input[name="' + prefix + '_vals[]"]')[idx];
-            if (valIn && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(valIn.value)) {
-                vars[vIn.value] = valIn.value;
+        var vIns = document.querySelectorAll('input[name="' + prefix + '_vars[]"]');
+        var valIns = document.querySelectorAll('input[name="' + prefix + '_vals[]"]');
+        vIns.forEach(function (vIn, idx) {
+            var valIn = valIns[idx];
+            if (valIn) {
+                var val = String(valIn.value || '').trim();
+                /* hex یا مقدار مرکب (گرادیانت/سایه) */
+                if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(val) || /gradient\(/i.test(val) || /rgba?\(/i.test(val)) {
+                    vars[vIn.value] = val;
+                }
             }
         });
         return vars;
@@ -1514,27 +1535,33 @@ foreach ($pages as $p) {
         var text = findVar(v, ['text', 'color'], '#1e293b');
         var muted = findVar(v, ['text_light', 'muted', 'text_secondary'], '#64748b');
         var border = findVar(v, ['border', 'line'], '#e2e8f0');
-        var btnText = findVar(v, ['btn_primary_text', 'on_primary'], '#ffffff');
+        /* 🎨 v2.25 — دقیقاً مثل سایت برند: گرادیانت واقعی --gradient-primary
+           (نه ترکیب primary+accent که باعث «فرق رنگ پیش‌نمایش با سایت» می‌شد)
+           + متن دکمه از --on-primary (نه #fff هاردکد) */
+        var gradient = v['--gradient-primary'] || ('linear-gradient(135deg,' + primary + ',' + (v['--color-secondary'] || accent) + ')');
+        var btnText = v['--on-primary'] || '#ffffff';
+        var heroText = v['--on-gradient'] || '#ffffff';
+        var heroBtnBg = heroText === '#ffffff' ? '#ffffff' : '#0f172a';
+        var heroBtnTx = v['--color-primary'] || primary;
         box.innerHTML =
         '<div style="background:' + bg + ';color:' + text + ';padding:18px;font-family:inherit;transition:background .2s">' +
           '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:' + surface + ';border-radius:12px;border:1px solid ' + border + ';margin-bottom:14px">' +
             '<span style="font-weight:800">🏗️ ' + <?= json_encode($brand['name_fa'], JSON_UNESCAPED_UNICODE) ?> + '</span>' +
             '<span style="background:' + primary + ';color:' + btnText + ';padding:6px 14px;border-radius:9px;font-size:12px;font-weight:700">ثبت درخواست</span>' +
           '</div>' +
-          '<div style="background:linear-gradient(135deg,' + primary + ',' + accent + ');border-radius:14px;padding:26px 18px;text-align:center;color:#fff;margin-bottom:14px">' +
+          '<div style="background:' + gradient + ';border-radius:14px;padding:26px 18px;text-align:center;color:' + heroText + ';margin-bottom:14px">' +
             '<div style="font-size:16px;font-weight:800;margin-bottom:6px">تعمیرات تخصصی و سریع</div>' +
             '<div style="font-size:12px;opacity:.9;margin-bottom:12px">نمایندگی رسمی با قطعات اصلی</div>' +
-            '<span style="background:#fff;color:' + primary + ';padding:7px 16px;border-radius:9px;font-size:12px;font-weight:800">📞 تماس فوری</span>' +
+            '<span style="background:' + heroBtnBg + ';color:' + heroBtnTx + ';padding:7px 16px;border-radius:9px;font-size:12px;font-weight:800">📞 تماس فوری</span>' +
           '</div>' +
           '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">' +
             '<div style="background:' + surface + ';border:1px solid ' + border + ';border-radius:11px;padding:13px;text-align:center"><div style="font-size:22px">🔧</div><div style="font-size:11.5px;font-weight:700;margin-top:5px">سرویس</div><div style="font-size:10px;color:' + muted + '">تخصصی</div></div>' +
             '<div style="background:' + surface + ';border:1px solid ' + border + ';border-radius:11px;padding:13px;text-align:center"><div style="font-size:22px">⚡</div><div style="font-size:11.5px;font-weight:700;margin-top:5px">سریع</div><div style="font-size:10px;color:' + muted + '">همان روز</div></div>' +
             '<div style="background:' + surface + ';border:1px solid ' + border + ';border-radius:11px;padding:13px;text-align:center"><div style="font-size:22px">🛡️</div><div style="font-size:11.5px;font-weight:700;margin-top:5px">ضمانت</div><div style="font-size:10px;color:' + muted + '">۶ ماه</div></div>' +
           '</div>' +
-          '<div style="margin-top:12px;padding:11px 13px;background:' + surface + ';border:1px solid ' + border + ';border-radius:11px;font-size:11.5px;color:' + muted + ';line-height:1.9">این پیش‌نمایش، رنگ‌های «' + (previewTheme === 'light' ? 'تم روشن' : 'تم تاریک') + '» را همان‌طور که در سایت برند دیده می‌شود نشان می‌دهد. با تغییر هر رنگ در لیست بالا، این بخش بلافاصله به‌روز می‌شود.</div>' +
+          '<div style="margin-top:12px;padding:11px 13px;background:' + surface + ';border:1px solid ' + border + ';border-radius:11px;font-size:11.5px;color:' + muted + ';line-height:1.9">این پیش‌نمایش، رنگ‌های «' + (previewTheme === 'light' ? 'تم روشن' : 'تم تاریک') + '» را با همان گرادیانت و رنگ متن دکمه‌ای که سایت برند استفاده می‌کند نشان می‌دهد. با تغییر هر رنگ در لیست بالا، این بخش بلافاصله به‌روز می‌شود.</div>' +
         '</div>';
-    };
-    /* تغییر هر مقدار → پیش‌نمایش زنده (مقدارهای hex از طریق انتخابگر، بقیه دستی) */
+    };    /* تغییر هر مقدار → پیش‌نمایش زنده (مقدارهای hex از طریق انتخابگر، بقیه دستی) */
     document.querySelectorAll('input[name$="_vals[]"]').forEach(function (inp) {
         inp.addEventListener('input', renderPalettePreview);
         inp.addEventListener('change', renderPalettePreview);

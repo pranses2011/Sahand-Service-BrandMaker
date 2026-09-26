@@ -32,7 +32,10 @@ if (!$page) {
 /* 📥 محتوای صفحه (JSON چندفیلدی) */
 $contentData = json_decode((string)($page['content'] ?? '{}'), true) ?: [];
 
-/* 🎨 پالت رنگ برند */
+/* 🎨 پالت رنگ برند — v2.25: تزریق «تمام» متغیرهای واقعی پالت (دقیقاً همان
+   CSS Variables سایت برند) به‌جای چیدن تک‌تک رنگ‌ها؛ به این ترتیب رنگ
+   پیش‌نمایش با رنگ سایت برند «یک به یک» یکی است (رفع «رنگ پیش‌نمایش با
+   سایت فرق دارد») — گرادیانت و رنگ متن دکمه هم همان مقادیر واقعی‌اند. */
 $paletteRow = Database::getInstance()->fetch('SELECT * FROM color_palettes WHERE brand_id = ?', [(int)$page['brand_id']]);
 $light = $paletteRow ? (json_decode($paletteRow['light_palette'] ?? '', true) ?: []) : [];
 $pick = static function (array $vars, array $needles, string $fallback) {
@@ -52,6 +55,15 @@ $surface = $pick($light, ['surface', 'card'], '#ffffff');
 $text = $pick($light, ['text'], '#1e293b');
 $muted = $pick($light, ['text_light', 'muted'], '#64748b');
 $border = $pick($light, ['border'], '#e2e8f0');
+/* 🌈 مقادیر واقعی سایت برند */
+$gradient = trim((string)($light['--gradient-primary'] ?? ''));
+if ($gradient === '' || stripos($gradient, 'gradient') === false) {
+    $gradient = 'linear-gradient(135deg, ' . $primary . ' 0%, ' . ($light['--color-secondary'] ?? $accent) . ' 100%)';
+}
+$onPrimary = trim((string)($light['--on-primary'] ?? ''));
+if (!preg_match('/^#[0-9a-f]{3,6}$/i', $onPrimary)) { $onPrimary = '#ffffff'; }
+$onGradient = trim((string)($light['--on-gradient'] ?? ''));
+if (!preg_match('/^#[0-9a-f]{3,6}$/i', $onGradient)) { $onGradient = '#ffffff'; }
 
 $logoUrl = $page['brand_logo'] ? asset_url((string)$page['brand_logo']) : '';
 $pageTitle = trim((string)($page['title'] ?: $page['seo_title'] ?: ''));
@@ -108,8 +120,8 @@ body { font-family: var(--font-body, Vazirmatn, Tahoma, 'Segoe UI', sans-serif);
 .pv-brand { font-weight:800; font-size:16px; }
 .pv-nav { display:flex; gap:16px; font-size:12.5px; color:var(--muted); flex:1; flex-wrap:wrap; }
 .pv-nav b { color:var(--primary); }
-.pv-cta { background:var(--primary); color:#fff; font-size:12px; padding:8px 16px; border-radius:9px; white-space:nowrap; font-weight:700; }
-.pv-hero { background:linear-gradient(135deg,var(--primary),var(--accent)); color:#fff; text-align:center; padding:44px 22px; }
+.pv-cta { background:var(--primary); color:<?= e($onPrimary) ?>; font-size:12px; padding:8px 16px; border-radius:9px; white-space:nowrap; font-weight:700; }
+.pv-hero { background:<?= e($gradient) ?>; color:<?= e($onGradient) ?>; text-align:center; padding:44px 22px; }
 .pv-hero h1 { font-size:22px; margin-bottom:8px; }
 .pv-hero p { font-size:13px; opacity:.92; }
 .pv-wrap { max-width:860px; margin:0 auto; padding:26px 20px 60px; }

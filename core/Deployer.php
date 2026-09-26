@@ -1661,9 +1661,15 @@ SSBHELPER;
         $themeColor = '#1e40af';
         if ($palette && class_exists('ColorAnalyzer')) {
             $colorAnalyzer = new ColorAnalyzer();
-            $lightCss = $colorAnalyzer->toCss(json_decode($palette['light_palette'], true) ?: [], ':root');
-            $darkCss = $colorAnalyzer->toCss(json_decode($palette['dark_palette'], true) ?: [], ':root');
             $lightData = json_decode($palette['light_palette'], true) ?: [];
+            $darkData = json_decode($palette['dark_palette'], true) ?: [];
+            /* 🛡️ v2.25 — پالت پخته‌شده در ZIP هم از موتور کنتراست WCAG عبور
+               می‌کند تا سایت برند حتی در قطعی API (بدون پالت زنده) هم رنگ‌های
+               خوانا داشته باشد */
+            [$lightData] = ColorAnalyzer::ensureReadable($lightData, 'light');
+            [$darkData] = ColorAnalyzer::ensureReadable($darkData, 'dark');
+            $lightCss = $colorAnalyzer->toCss($lightData, ':root');
+            $darkCss = $colorAnalyzer->toCss($darkData, ':root');
             $themeColor = (string)($lightData['--color-primary'] ?? '#1e40af');
         }
         /* 🧪 «خالی واقعی» را می‌سنجیم: toCss([]) خروجی ":root {}" می‌دهد که
@@ -1681,6 +1687,7 @@ SSBHELPER;
                 '--color-text-light' => '#6b7280', '--color-border' => '#e5e7eb',
                 '--gradient-primary' => 'linear-gradient(135deg, ' . $themeColor . ' 0%, #0ea5e9 100%)',
                 '--on-primary' => '#ffffff',
+                '--on-gradient' => '#ffffff',
             ];
             $fallbackDark = [
                 '--color-primary' => '#1a3aa0', '--color-primary-light' => $themeColor,
@@ -1690,6 +1697,7 @@ SSBHELPER;
                 '--color-text-light' => '#9ca3af', '--color-border' => '#374151',
                 '--gradient-primary' => 'linear-gradient(135deg, #1a3aa0 0%, #0284c7 100%)',
                 '--on-primary' => '#ffffff',
+                '--on-gradient' => '#ffffff',
             ];
             if (!$hasVars($lightCss)) {
                 $lightCss = (new ColorAnalyzer())->toCss($fallbackLight, ':root');
