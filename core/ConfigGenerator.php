@@ -51,7 +51,9 @@ class ConfigGenerator
         $brandId = (int)$brand['id'];
 
         // آدرس API ردیابی بازدید (همان سایت ساز)
-        $trackerUrl = $brandmakerUrl . '/api';
+        // 🚨 v2.26 — ریشه «آمار و گزارش چیزی نشان نمی‌دهد» (ضمن ریشه JS):
+        // قبلا '/api' بدون '/track' بود → beacon به ریشه روتر می‌رفت و ۴۰۴ می‌گرفت
+        $trackerUrl = $brandmakerUrl . '/api/track';
 
         // 📅 تاریخ تولید برای سربرگ فایل (شمسی)
         $generationDate = ShamsiDate::forDisplay();
@@ -95,10 +97,11 @@ define('BRAND_SLUG', '{$slug}');                           // اسلاگ انگ�
 /* --------------------------------------------------
  * 🌐 آدرس سایت ساز (منبع داده‌ها و منابع مشترک)
  * -------------------------------------------------- */
+define('BRANDMAKER_URL', '{$brandmakerUrl}');              // 🆕 v2.26 — ریشه سایت ساز (برای uploads/ خارج از assets/)
 define('BRANDMAKER_API', '{$brandmakerUrl}/api');          // آدرس API سایت ساز
 define('BRANDMAKER_ASSETS', '{$brandmakerUrl}/assets');    // آدرس منابع (آیکون/فونت/تصویر)
 define('ASSETS_BASE_URL', '{$brandmakerUrl}/assets');      // نام مستعار سازگار با نسخه‌های قبلی
-define('TRACKER_URL', '{$trackerUrl}');                    // آدرس API ردیابی بازدید
+define('TRACKER_URL', '{$trackerUrl}');                    // آدرس API ردیابی بازدید (🆕 v2.26 — اکنون با /track)
 
 /* --------------------------------------------------
  * ⏱️ تنظیمات کش محلی (برای سرعت و کاهش درخواست)
@@ -111,7 +114,7 @@ define('CACHE_TTL', {$cacheTtl});                          // مدت اعتبا�
  * 🌍 تنظیمات عمومی
  * -------------------------------------------------- */
 define('DEBUG_MODE', {$debugModeStr});                          // حالت دیباگ (در محیط اجرا: خاموش)
-define('VERSION', '1.2.0');                                // نسخه هسته سایت برند
+define('VERSION', '1.2.1');                                // نسخه هسته سایت برند (🆕 v2.26 — شکستن کش tracker.js)
 date_default_timezone_set('Asia/Tehran');                  // ⏰ منطقه زمانی ایران
 mb_internal_encoding('UTF-8');                              // 🔤 انکودینگ UTF-8
 
@@ -276,13 +279,30 @@ function fa_num(string \$value): string
 
 /**
  * 🖼️ آدرس منبع روی سرور سایت ساز
+ *
+ * 🚨 v2.26 — ریشه قطعی «تصویر شاخص مقالات نشان داده نمی‌شود» در سایت‌های
+ * مستقرشده: این نسخهٔ تولیدی از cdn_asset با نسخهٔ قالب (templates/brand-core)
+ * هم‌گام نشده بود و شاخهٔ uploads/ را نداشت → تصاویر آپلودی/تولیدی
+ * (تصویر شاخص مقاله، واترمارک، عکس AI) که در uploads/ هستند به
+ * BRANDMAKER_ASSETS/uploads/... می‌رفتند که وجود ندارد → ۴۰۴ همیشگی.
+ * ✅ اکنون ۱:۱ هم‌ارز قالب است:
+ *   uploads/... → BRANDMAKER_URL/uploads/...  (ریشه سایت ساز)
+ *   assets/...  → BRANDMAKER_URL/assets/...   (معادل قدیمی)
+ *   سایر        → BRANDMAKER_ASSETS/...        (سازگار با فراخوانی‌های قدیمی)
  */
 function cdn_asset(string \$path): string
 {
     if (\$path === '' || \$path === null) {
         return '';
     }
-    return (strpos(\$path, 'http') === 0) ? \$path : BRANDMAKER_ASSETS . '/' . ltrim(\$path, 'assets/');
+    if (strpos(\$path, 'http') === 0) {
+        return \$path;
+    }
+    \$path = ltrim(\$path, '/');
+    if (strpos(\$path, 'uploads/') === 0) {
+        return BRANDMAKER_URL . '/' . \$path;
+    }
+    return BRANDMAKER_ASSETS . '/' . ltrim(\$path, 'assets/');
 }
 
 /* ==================================================
@@ -296,6 +316,13 @@ function cdn_asset(string \$path): string
  * ================================================== */
 if (is_file(__DIR__ . '/includes/functions.php')) {
     require_once __DIR__ . '/includes/functions.php';
+}
+/* 🩹 v2.26 — لایه دفاعی دوم «صفحه مقاله خالی»: seo.php (render_article_seo)
+   نیز از نقطه ورود مشترک بارگذاری می‌شود تا حتی اگر نسخه‌ای از
+   pages/article.php بدون require مستقیم منتشر شده باشد، فراخوانی
+   تابع فاتل نشود (همان الگوی سه‌لایه functions.php در v2.24). */
+if (is_file(__DIR__ . '/includes/seo.php')) {
+    require_once __DIR__ . '/includes/seo.php';
 }
 
 PHP;

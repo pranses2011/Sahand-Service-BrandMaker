@@ -37,6 +37,12 @@
     --on-primary: #ffffff;
     --on-gradient: #ffffff;
     --on-accent: #111827;
+    /* 🔝 v2.26 — هیدر از رنگ تاکیدی لوگو: پیش‌فرض ایمنی (کهربایی+قهوه‌ای تیره
+       با متن تیره — کنتراست ۹:۱)؛ header.php مقادیر واقعی را از --color-accent
+       پالت برند با تضمین WCAG محاسبه و بازنویسی می‌کند. */
+    --header-bg: linear-gradient(135deg, #b45309 0%, #f59e0b 100%);
+    --header-text: #ffffff;
+    --header-hover-bg: rgba(255,255,255,.16);
     /* 🌗 v2.25 — کنترل‌های بومی مرورگر (input/date/select) هم‌رنگ تم */
     color-scheme: light;
 }
@@ -44,7 +50,8 @@
 /* 🌙 v2.25 — قوانین تیره در خود style.css (کپی از theme-dark.css):
    تغییر تم «آنی» است و منتظر لود شدن استایل‌شیت نمی‌ماند */
 html[data-theme="dark"] { color-scheme: dark; }
-html[data-theme="dark"] .site-header { background: var(--color-background); }
+/* 🔝 v2.26 — هیدر تاریک: header.php مقدار تیره --header-bg را برای
+   html[data-theme="dark"] تزریق می‌کند؛ قانون قدیمیِ «زمینه سفید» حذف شد */
 html[data-theme="dark"] .section:nth-child(even) { background: var(--color-surface); }
 
 /* 🔄 v2.25 — انیمیشن نرم تغییر تم (کلاس موقت توسط applyTheme) */
@@ -71,30 +78,34 @@ a { color: var(--color-primary); text-decoration: none; transition: var(--transi
 .hidden { display: none !important; }
 
 /* ---------- 🔝 هدر ---------- */
+/* 🎨 v2.26 — رنگ هیدر از رنگ‌های تاکیدی لوگو: پس‌زمینه گرادیانی از
+   --color-accent (رنگ تاکیدی استخراج‌شده از لوگو) + متن با کنتراست
+   تضمین‌شده. مقادیر توسط header.php زنده محاسبه/تزریق می‌شوند. */
 .site-header {
-    background: var(--color-background);
-    border-bottom: 1px solid var(--color-border);
+    background: var(--header-bg);
+    color: var(--header-text);
+    border-bottom: 1px solid rgba(0,0,0,.08);
+    box-shadow: 0 2px 14px rgba(0,0,0,.10);
     position: sticky; top: 0; z-index: 100;
-    backdrop-filter: blur(10px);
 }
 .header-inner { display: flex; align-items: center; gap: 22px; padding: 13px 20px; }
 .brand-logos { display: flex; align-items: center; gap: 13px; }
 .brand-logo { display: flex; align-items: center; gap: 10px; }
 .brand-logo img { height: 42px; width: auto; object-fit: contain; }
-.brand-name { font-weight: 800; font-size: 17px; color: var(--color-text); font-family: var(--font-heading); }
-.logo-separator { color: var(--color-text-light); opacity: .4; }
-.agency-logo img { height: 32px; opacity: .8; transition: var(--transition); }
+.brand-name { font-weight: 800; font-size: 17px; color: var(--header-text); font-family: var(--font-heading); }
+.logo-separator { color: var(--header-text); opacity: .45; }
+.agency-logo img { height: 32px; opacity: .9; transition: var(--transition); }
 .agency-logo:hover img { opacity: 1; }
-.agency-name { font-size: 12.5px; color: var(--color-text-light); font-weight: 700; }
+.agency-name { font-size: 12.5px; color: var(--header-text); opacity: .8; font-weight: 700; }
 
 /* ☰ منو */
 .main-nav { margin-inline-start: auto; }
 .main-nav ul { display: flex; gap: 4px; list-style: none; align-items: center; }
 .main-nav a {
-    padding: 8px 13px; border-radius: 9px; color: var(--color-text);
+    padding: 8px 13px; border-radius: 9px; color: var(--header-text);
     font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 5px;
 }
-.main-nav a:hover { background: var(--color-surface); color: var(--color-primary); }
+.main-nav a:hover { background: var(--header-hover-bg); color: var(--header-text); }
 .main-nav li { position: relative; }
 .submenu {
     position: absolute; top: 100%; inset-inline-start: 0; min-width: 185px;
@@ -103,10 +114,11 @@ a { color: var(--color-primary); text-decoration: none; transition: var(--transi
     display: none; list-style: none; z-index: 50;
 }
 .main-nav li:hover .submenu, .main-nav li:focus-within .submenu { display: block; }
-.submenu a { padding: 7px 12px; font-size: 12.5px; }
+.submenu a { padding: 7px 12px; font-size: 12.5px; color: var(--color-text); }
+.submenu a:hover { background: var(--color-surface); color: var(--color-primary); }
 .nav-toggle, .theme-toggle {
-    display: none; background: none; border: 1.5px solid var(--color-border);
-    border-radius: 9px; width: 38px; height: 38px; font-size: 17px; cursor: pointer; color: var(--color-text);
+    display: none; background: var(--header-hover-bg); border: 1.5px solid var(--header-text);
+    border-radius: 9px; width: 38px; height: 38px; font-size: 17px; cursor: pointer; color: var(--header-text);
     flex-shrink: 0;
 }
 .theme-toggle { display: flex; align-items: center; justify-content: center; }
@@ -451,7 +463,11 @@ a { color: var(--color-primary); text-decoration: none; transition: var(--transi
         z-index: 120;
     }
     .main-nav ul.open { display: flex; animation: navDrop .22s ease; }
-    .main-nav ul > li > a { padding: 11px 12px; border-radius: 9px; background: var(--color-surface); font-size: 14px; }
+    /* 🎨 v2.26 — لینک‌های پنل موبایل روی زمینه «تم» (نه هیدر رنگی):
+       پس‌زمینه پنل var(--color-background) است، پس متن باید --color-text باشد
+       (قانون دسکتاپ --header-text برای گرادیانت هیدر است و اینجا بازنویسی می‌شود) */
+    .main-nav ul > li > a { padding: 11px 12px; border-radius: 9px; background: var(--color-surface); font-size: 14px; color: var(--color-text); }
+    .main-nav ul > li > a:hover { background: var(--color-primary); color: var(--on-primary); }
     /* زیرمنو در موبایل: باز و تو رفته (بدون هاور لمسی) */
     .submenu {
         position: static; display: block; box-shadow: none; border: none;

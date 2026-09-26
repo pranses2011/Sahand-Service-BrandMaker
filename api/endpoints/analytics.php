@@ -77,12 +77,29 @@ function api_track_visit(): void
     }
 
     // 📄 ثبت بازدید صفحه
-    $db->insert('visit_details', [
-        'visit_id'   => $visitId,
-        'page_url'   => $pageUrl,
-        'duration'   => max(0, min(3600, (int)($input['duration'] ?? 0))),
-        'is_exit'    => 0,
-    ]);
+    /* 🚨 v2.26 — ریشه «نرخ پرش همیشه ۰٪ / مدت حضور همیشه ۰»:
+       tracker.js هنگام ترک صفحه (pagehide) همان صفحه را با is_exit=true و
+       duration=<مدت واقعی> دوباره می‌فرستد؛ کد قبلی «همیشه» ردیف جدید با
+       is_exit=0 درج می‌کرد → مدت و خروج هرگز ثبت نمی‌شد و آمار
+       رفتاری (نرخ پرش، میانگین حضور، صفحات خروج) همیشه صفر می‌ماند.
+       ✅ اکنون: پیام خروج، «ردیف ورود همان صفحه» را بروزرسانی می‌کند. */
+    $isExit = !empty($input['is_exit']);
+    $duration = max(0, min(3600, (int)($input['duration'] ?? 0)));
+    if ($isExit) {
+        $db->update(
+            'visit_details',
+            ['duration' => $duration, 'is_exit' => 1],
+            'visit_id = ? AND page_url = ? AND is_exit = 0',
+            [$visitId, $pageUrl]
+        );
+    } else {
+        $db->insert('visit_details', [
+            'visit_id'   => $visitId,
+            'page_url'   => $pageUrl,
+            'duration'   => $duration,
+            'is_exit'    => 0,
+        ]);
+    }
 
     json_response(['success' => true]);
 }

@@ -5,6 +5,12 @@
  */
 define('BRAND_INIT', true);
 require_once __DIR__ . '/../config.php';
+/* 🚨 v2.26 — ریشه «صفحه مقاله باز می‌شود ولی خالی است»: render_article_seo در
+   includes/seo.php تعریف شده بود اما هیچ فایلی آن را require نمی‌کرد → رندر
+   بعد از مسیر راهنما فاتل می‌شد. بارگذاری مستقیم + بارگذاری در config.php. */
+if (!function_exists('render_article_seo')) {
+    require_once __DIR__ . '/../includes/seo.php';
+}
 $slug = (string)($_GET['slug'] ?? '');
 $articleData = fetchFromAPI('brand/' . BRAND_ID . '/article/' . urlencode($slug), 120);
 $article = $articleData['data'] ?? null;

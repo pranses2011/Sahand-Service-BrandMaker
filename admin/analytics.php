@@ -93,8 +93,19 @@ $bounceRate = $bounceRow && (int)$bounceRow[0]['sessions'] > 0 ? round($bounceRo
 
 $brands = $db->fetchAll('SELECT id, name_fa FROM brands ORDER BY name_fa');
 $deviceFa = ['mobile' => '📱 موبایل', 'desktop' => '🖥️ دسکتاپ', 'tablet' => '📲 تبلت', 'bot' => '🤖 ربات'];
+
+/* 🩺 v2.26 — نوار وضعیت ردیاب: اگر حتی یک بازدید هم ثبت نشده باشد،
+   کاربر به‌جای «جدول‌های خالی بی‌توضیح» علت و راه‌حل را می‌بیند.
+   شمارندها مستقل از فیلترها بازه کل را می‌سنجند تا گمراه‌کننده نباشد. */
+$trackerTotal = (int)$db->fetchValue('SELECT COUNT(*) FROM visits');
+$trackerToday = (int)$db->fetchValue('SELECT COUNT(*) FROM visits WHERE visit_date = CURDATE()');
+$trackerLast = $db->fetchValue('SELECT MAX(visited_at) FROM visits');
+$trackerHealthy = $trackerTotal > 0;
+$trackerBoxStyle = $trackerHealthy
+    ? 'background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46'
+    : 'background:#fffbeb;border:1px solid #fde68a;color:#92400e';
 ?>
-<form method="get" class="card" style="padding:13px 18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:20px">
+<form method="get" class="card" style="padding:13px 18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
     <select name="brand" class="form-control" style="max-width:180px">
         <option value="">🏷️ همه برندها</option>
         <?php foreach ($brands as $brand): ?>
@@ -114,6 +125,23 @@ $deviceFa = ['mobile' => '📱 موبایل', 'desktop' => '🖥️ دسکتاپ
     <a href="analytics-report.php?brand=<?= $brandFilter ?>&amp;period=<?= e($period) ?>&amp;from=<?= e($dateFrom) ?>&amp;to=<?= e($dateTo) ?>" target="_blank" class="btn btn-outline" title="نمای چاپی گزارش / ذخیره PDF">🖨️ گزارش PDF</a>
     <a href="?<?= $brandFilter ? 'brand=' . $brandFilter . '&' : '' ?>export=csv" class="btn btn-outline" style="margin-inline-start:auto">📥 خروجی CSV</a>
 </form>
+
+<!-- 🩺 v2.26 — وضعیت زنده ردیاب بازدید -->
+<div class="card" style="padding:11px 16px;margin-bottom:18px;<?= $trackerBoxStyle ?>">
+    <?php if ($trackerHealthy): ?>
+        <b>🟢 ردیاب بازدید فعال است</b> —
+        <?= en_to_fa_digits((string)$trackerToday) ?> بازدید امروز،
+        <?= en_to_fa_digits((string)$trackerTotal) ?> بازدید کل ثبت‌شده
+        <?php if ($trackerLast): ?>
+            — آخرین بازدید: <?= e(fa_num((string)$trackerLast)) ?>
+        <?php endif; ?>
+    <?php else: ?>
+        <b>🟡 هنوز هیچ بازدیدی ثبت نشده است</b> — ردیاب داخلی (js/tracker.js) از نسخه ۲.۲۵ به بعد
+        به سایت‌های برند اضافه شده است. اگر سایت‌های برند شما با نسخه قدیمی مستقر شده‌اند،
+        برای هر برند از «ویرایش برند ← استقرار ← <b>بروزرسانی استقرار</b>» استفاده کنید تا
+        فایل ردیاب و کانفیگ جدید منتقل شود؛ سپس یک‌بار صفحه اصلی سایت برند را باز کنید و این صفحه را رفرش نمایید.
+    <?php endif; ?>
+</div>
 
 <div class="stats-grid">
     <div class="stat-card"><div class="icon bg-cyan">👥</div><div><div class="number"><?= en_to_fa_digits((string)$totalUnique) ?></div><div class="label">بازدیدکننده یکتا</div></div></div>

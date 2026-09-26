@@ -88,7 +88,24 @@ $socials = $contacts['socials'] ?? [];
 </footer>
 
 <!-- 🧭 ردیاب بازدید (آمار داخلی بدون سرویس خارجی) -->
-<script src="/js/tracker.js"></script>
+<!-- 🚨 v2.26 — ریشه قطعی «آمار و گزارش چیزی نشان نمی‌دهد»: tracker.js به
+     TRACKER_URL و BRAND_ID به‌عنوان «متغیر جاوااسکریپت» اشاره می‌کرد اما این‌ها
+     فقط ثابت PHP بودند و هرگز به مرورگر تزریق نشده بودند → ReferenceError در
+     همان خط اول → هیچ بازدیدی ثبت نمی‌شد و همه گزارش‌ها خالی می‌ماندند.
+     ✅ اکنون مقادیر واقعی (PHP constants) پیش از بارگذاری tracker.js تزریق می‌شوند.
+     🛡 دفاع دومگانه: کانفیگ‌های قدیمی TRACKER_URL را «بدون /track» (ریشه API)
+     تعریف کرده بودند → مسیر صحیح از BRANDMAKER_API بازسازی می‌شود. -->
+<?php
+$trackerTarget = defined('TRACKER_URL') ? trim((string)TRACKER_URL) : '';
+if ($trackerTarget === '' || !preg_match('#/track$#', $trackerTarget)) {
+    $trackerTarget = rtrim(BRANDMAKER_API, '/') . '/track';
+}
+?>
+<script>
+    window.TRACKER_URL = <?= json_encode($trackerTarget) ?>;
+    window.BRAND_ID = <?= (int)BRAND_ID ?>;
+</script>
+<script src="/js/tracker.js<?= defined('VERSION') ? '?v=' . rawurlencode(VERSION) : '' ?>"></script>
 <!-- ⚡ اسکریپت اصلی -->
 <script src="/js/app.js"></script>
 </body>

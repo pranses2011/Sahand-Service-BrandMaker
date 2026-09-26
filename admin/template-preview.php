@@ -169,6 +169,45 @@ function pvItemImg(array $it, string $style = ''): string
     return '<div class="fake-img small" style="' . ($style !== '' ? $style : 'min-height:90px') . '">' . e($it['icon'] ?: '🖼️') . '</div>';
 }
 
+/**
+ * 🎭 v2.26 — کلاس‌های ظواهر متعدد (آینه PHPِ variantClasses در JS قالب‌ساز)
+ * سه بعد مستقل: variant (بدنه) | btnStyle (دکمه‌ها) | hoverFx (هاور)
+ */
+function pv_variant_classes(array $props): string
+{
+    $v = trim((string)($props['variant'] ?? ''));
+    $b = trim((string)($props['btnStyle'] ?? ''));
+    $h = trim((string)($props['hoverFx'] ?? ''));
+    $out = [];
+    if ($v !== '' && $v !== 'default') { $out[] = 'blk-var-' . $v; }
+    if ($b !== '' && $b !== 'default') { $out[] = 'blk-btn-' . $b; }
+    if ($h !== '' && $h !== 'none') { $out[] = 'blk-hover-' . $h; }
+    return implode(' ', $out);
+}
+
+/* ⭐ v2.26: عناصر شخصی استخراج‌شده — بارگذاری از دیتابیس (id → [name, html, css]) */
+$PERSONAL_ELEMENTS = [];
+try {
+    foreach (Database::getInstance()->fetchAll('SELECT id, name, html, css FROM personal_elements') as $peRow) {
+        $PERSONAL_ELEMENTS[(int)$peRow['id']] = ['name' => (string)$peRow['name'], 'html' => (string)$peRow['html'], 'css' => (string)$peRow['css']];
+    }
+} catch (Throwable $peDbE) {
+    $PERSONAL_ELEMENTS = [];
+}
+
+if (!function_exists('pv_pelement_doc')) {
+    /**
+     * 🖼 v2.26 — سند مستقل عنصر شخصی (iframe srcdoc) — آینه pelementDoc در JS
+     */
+    function pv_pelement_doc(array $el): string
+    {
+        $css = str_replace('<', '\3C ', (string)($el['css'] ?? ''));
+        return '<!doctype html><html dir="rtl" lang="fa"><head><meta charset="utf-8">'
+            . '<style>*{box-sizing:border-box}body{margin:0;padding:14px;background:transparent;font-family:Vazirmatn,Tahoma,sans-serif}img{max-width:100%;height:auto}a{text-decoration:none}'
+            . $css . '</style></head><body>' . (string)($el['html'] ?? '') . '</body></html>';
+    }
+}
+
 function renderPreviewBlock(string $block, array $props = []): string
 {
     $html = renderPreviewBlockInner($block, $props);
@@ -185,8 +224,11 @@ function renderPreviewBlock(string $block, array $props = []): string
     /* 🆕 فاصله/پس‌زمینه — بلوک‌هایی که در رندر داخلی اعمال نکرده‌اند */
     $padCls   = 'blk-pad-' . (($props['padding'] ?? 'default') ?: 'default');
     $bgCls    = 'blk-bg-' . (($props['background'] ?? 'default') ?: 'default');
+    /* 🎭 v2.26 — ظواهر متعدد: واریانت بدنه + استایل دکمه + افکت هاور
+       (آینه دقیق variantClasses در JS قالب‌ساز) */
+    $varCls   = pv_variant_classes($props);
     $inject = [];
-    foreach (array_filter([$sizeCls, $alignCls, $widthCls, $custom, $padCls, $bgCls]) as $cls) {
+    foreach (array_filter([$sizeCls, $alignCls, $widthCls, $custom, $padCls, $bgCls, $varCls]) as $cls) {
         if (strpos($html, $cls) === false) {
             $inject[] = $cls;
         }
@@ -704,6 +746,20 @@ function renderPreviewBlockInner(string $block, array $props = []): string
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="split"><div><div class="chip-row" style="flex-direction:column;align-items:stretch;gap:7px"><span class="chip">📞 <b dir="ltr">' . e($props['phone'] ?? '۰۲۱-۱۲۳۴۵۶۷۸') . '</b></span><span class="chip">📍 تهران، خیابان نمونه، پلاک ۱۲</span><span class="chip">🕐 شنبه تا پنجشنبه ۹ تا ۲۰</span></div></div><div class="fake-img" style="min-height:130px;background:linear-gradient(135deg,#e2e8f0,#cbd5e1)"><span style="font-size:30px">🗺️</span></div></div></div>';
         case 'stats-inline':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . ' stats-strip-blk">' . $head . '<div class="stats-strip">' . pvStatStrip($props) . '</div></div>';
+        case 'pelement':
+            /* ⭐ v2.26: عنصر شخصی استخراج‌شده — iframe ایزوله با استایل سایت مبدأ */
+            {
+                global $PERSONAL_ELEMENTS;
+                $peId = (int)($props['element_id'] ?? 0);
+                if (!isset($PERSONAL_ELEMENTS[$peId])) {
+                    return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="pv-text">⭐ این عنصر شخصی حذف شده است.</div></div>';
+                }
+                $pe = $PERSONAL_ELEMENTS[$peId];
+                $frameDoc = htmlspecialchars(pv_pelement_doc($pe), ENT_QUOTES, 'UTF-8');
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">'
+                    . ($title !== '' ? '<div class="blk-title">' . e($title) . '</div>' : '')
+                    . '<iframe class="pelement-frame" sandbox="allow-same-origin" srcdoc="' . $frameDoc . '" style="width:100%;min-height:210px;border:none;border-radius:11px;background:#fff" loading="lazy" title="' . e($pe['name']) . '"></iframe></div>';
+            }
         default:
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">📦 ' . e($block) . '</div><div class="fake-lines"><div class="fl w90"></div><div class="fl w70"></div></div></div>';
     }
@@ -774,6 +830,52 @@ body { font-family: var(--font-body, Vazirmatn, Tahoma, 'Segoe UI', sans-serif);
 .blk-bg-dark .blk-title { color: #fff; }
 .blk-title { font-size: 16px; font-weight: 800; margin-bottom: 16px; text-align: center; }
 .blk-hidden { text-align: center; padding: 14px; color: var(--muted); font-size: 12px; background: repeating-linear-gradient(45deg, #f8fafc, #f8fafc 10px, #f1f5f9 10px, #f1f5f9 20px); }
+
+/* ═══════════════════════════════════════════════════════════════
+   🎭 v2.26 — ظواهر متعدد عناصر (blk-var-* | blk-btn-* | blk-hover-*)
+   آینه همان قوانین در بوم قالب‌ساز — هر تغییر، دوجا اعمال شود
+   ═══════════════════════════════════════════════════════════════ */
+/* — ظاهر کلی بدنه — */
+.blk.blk-var-glass {
+    background: rgba(255,255,255,.55); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,.75); box-shadow: 0 8px 28px rgba(2,8,23,.10);
+}
+.blk.blk-var-card { background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 14px 38px rgba(2,8,23,.13); }
+.blk.blk-var-flat { background: transparent; box-shadow: none !important; border: none; }
+.blk.blk-var-outline { background: transparent; border: 2px solid #2563eb; box-shadow: none !important; }
+.blk.blk-var-soft { background: linear-gradient(135deg, #eff6ff, #e0f2fe); border: 1px solid #bfdbfe; }
+.blk.blk-var-dark { background: #0f172a; color: #e2e8f0; }
+.blk.blk-var-dark .blk-title, .blk.blk-var-dark .card-t { color: #f1f5f9; }
+.blk.blk-var-dark .pv-text, .blk.blk-var-dark .feat-d { color: #cbd5e1; }
+.blk.blk-var-dark .fake-card { background: #1e293b; border-color: #334155; }
+.blk.blk-var-hardshadow { background: #fef9c3; border: 2.5px solid #1e293b; box-shadow: 7px 7px 0 #1e293b !important; }
+.blk.blk-var-dashed { background: rgba(255,255,255,.6); border: 2px dashed #94a3b8; box-shadow: none !important; }
+.blk.blk-var-ribbon { border-inline-start: 6px solid #f59e0b; background: #fffbeb; box-shadow: 0 4px 16px rgba(245,158,11,.12); }
+.blk.blk-var-inset { background: #f1f5f9; box-shadow: inset 0 4px 14px rgba(2,8,23,.13) !important; border: 1px solid #e2e8f0; }
+.blk.blk-var-gradient { background: linear-gradient(135deg, #1e40af, #0ea5e9) !important; color: #fff; }
+.blk.blk-var-gradient .blk-title, .blk.blk-var-gradient .card-t { color: #fff; }
+.blk.blk-var-gradient .fake-card { background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.25); }
+
+/* — استایل دکمه‌ها (داخل بلوک) — */
+.blk-btn-glass .hero-btn, .blk-btn-glass .fake-cta, .blk-btn-glass .cta-btn {
+    background: rgba(255,255,255,.22); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,.45); color: inherit;
+}
+.blk-btn-pill .hero-btn, .blk-btn-pill .fake-cta, .blk-btn-pill .cta-btn { border-radius: 999px; }
+.blk-btn-outline .hero-btn, .blk-btn-outline .fake-cta, .blk-btn-outline .cta-btn { background: transparent; border: 2px solid #1e40af; color: #1e40af; }
+.blk-btn-gradient .hero-btn, .blk-btn-gradient .fake-cta, .blk-btn-gradient .cta-btn { background: linear-gradient(135deg, #1e40af, #0ea5e9); color: #fff; border: none; }
+.blk-btn-square .hero-btn, .blk-btn-square .fake-cta, .blk-btn-square .cta-btn { border-radius: 0; }
+@keyframes blkBtnPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(37,99,235,.45); } 50% { box-shadow: 0 0 0 9px rgba(37,99,235,0); } }
+.blk-btn-glow .hero-btn, .blk-btn-glow .fake-cta, .blk-btn-glow .cta-btn { animation: blkBtnPulse 2.1s infinite; background: #2563eb; color: #fff; }
+.blk-btn-shadow .hero-btn, .blk-btn-shadow .fake-cta, .blk-btn-shadow .cta-btn { box-shadow: 0 7px 18px rgba(30,64,175,.38); transition: transform .18s, box-shadow .18s; }
+.blk-btn-shadow .hero-btn:hover, .blk-btn-shadow .fake-cta:hover { transform: translateY(-2px); box-shadow: 0 11px 24px rgba(30,64,175,.44); }
+
+/* — افکت‌های هاور (بدنه بلوک) — */
+.blk-hover-lift, .blk-hover-zoom, .blk-hover-tilt { transition: transform .22s ease, box-shadow .22s ease; }
+.blk-hover-lift:hover { transform: translateY(-6px); box-shadow: 0 18px 40px rgba(2,8,23,.17); }
+.blk-hover-zoom:hover { transform: scale(1.022); }
+.blk-hover-tilt:hover { transform: rotate(-.5deg) translateY(-3px); }
+.blk-hover-glow { transition: box-shadow .24s ease; }
+.blk-hover-glow:hover { box-shadow: 0 0 0 3px rgba(37,99,235,.35), 0 0 30px rgba(37,99,235,.30) !important; }
 
 /* هدر */
 .header-blk { padding: 14px 18px; }

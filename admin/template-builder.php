@@ -130,6 +130,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array(post('action'), ['uiux_des
     }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+ * 🌐 v2.26 — استخراج عناصر از سایت خارجی + عناصر شخصی
+ * ① extract_elements: واکشی URL → لیست عناصر با استایل
+ * ② save_personal_element: ذخیره عنصر پسندیده در کتابخانه شخصی
+ * ③ delete_personal_element: حذف از کتابخانه
+ * ═══════════════════════════════════════════════════════════════ */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'extract_elements') {
+    (new Auth())->requireLogin();
+    Auth::enforceCsrf();
+    $url = trim((string)post('url'));
+    if ($url === '' || mb_strlen($url) > 500) {
+        json_response(['success' => false, 'error' => 'آدرس نامعتبر است'], 422);
+    }
+    /* 🚦 ضد سیل: حداکثر ۶ استخراج در ۲ دقیقه */
+    $cache = new Cache();
+    $key = 'elem_extract_' . md5(Logger::clientIp());
+    $hits = (int)($cache->get($key) ?: 0);
+    if ($hits >= 6) {
+        json_response(['success' => false, 'error' => 'درخواست‌های زیادی ارسال شده — چند لحظه بعد دوباره تلاش کنید'], 429);
+    }
+    $cache->set($key, $hits + 1, 120);
+    try {
+        $result = (new ElementExtractor())->extract($url);
+        json_response($result, $result['success'] ? 200 : 422);
+    } catch (Throwable $e) {
+        json_response(['success' => false, 'error' => 'خطای استخراج: ' . $e->getMessage()], 500);
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save_personal_element') {
+    (new Auth())->requireLogin();
+    Auth::enforceCsrf();
+    $name = trim((string)post('name')) ?: 'عنصر بدون نام';
+    $type = preg_replace('/[^a-z]/', '', strtolower((string)post('type'))) ?: 'button';
+    $sourceUrl = mb_substr(trim((string)post('source_url')), 0, 500);
+    $html = (string)post('html');
+    $css = mb_substr((string)post('css'), 0, 60000);
+    /* 🧼 HTML یک‌بار دیگر سمت سرور ایمن می‌شود (اعتماد به کلاینت ممنوع) */
+    $html = ElementExtractor::sanitize($html);
+    if (mb_strlen($html) < 8) {
+        json_response(['success' => false, 'error' => 'محتوای عنصر نامعتبر است'], 422);
+    }
+    try {
+        $db->insert('personal_elements', [
+            'name' => mb_substr($name, 0, 190),
+            'element_type' => mb_substr($type, 0, 40),
+            'source_url' => $sourceUrl,
+            'html' => $html,
+            'css' => $css,
+        ]);
+        $newId = (int)$db->lastInsertId();
+        Logger::activity((int)$_SESSION['user_id'], 'ذخیره عنصر شخصی از سایت خارجی', $name . ' (' . $type . ')');
+        json_response(['success' => true, 'data' => ['id' => $newId, 'name' => $name, 'element_type' => $type, 'html' => $html, 'css' => $css]]);
+    } catch (Throwable $e) {
+        json_response(['success' => false, 'error' => 'ذخیره ناموفق: ' . $e->getMessage()], 500);
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'delete_personal_element') {
+    (new Auth())->requireLogin();
+    Auth::enforceCsrf();
+    try {
+        $db->delete('personal_elements', 'id = ?', [(int)post('element_id')]);
+        json_response(['success' => true]);
+    } catch (Throwable $e) {
+        json_response(['success' => false, 'error' => 'حذف ناموفق'], 500);
+    }
+}
+
 /* 📥 بارگذاری قالب (موجود یا جدید) */
 $templateId = (int)get_param('id');
 $newPageType = get_param('page', 'home');
@@ -395,6 +464,14 @@ foreach ($savedBlocks as $sb) {
     }
 }
 $totalBlockCount = array_sum(array_map('count', $blockLibrary));
+
+/* ⭐ v2.26: عناصر شخصی استخراج‌شده از سایت‌ها — کتابخانه قابل درج در چیدمان */
+$personalElements = [];
+try {
+    $personalElements = $db->fetchAll('SELECT id, name, element_type, html, css, source_url FROM personal_elements ORDER BY id DESC LIMIT 80');
+} catch (Throwable $peE) {
+    $personalElements = [];
+}
 ?>
 <link rel="stylesheet" href="<?= asset_ver('assets/css/builder.css') ?>">
 <?= preview_font_html() /* 🔤 v2.14: فونت انتخابی سیستم برای بوم و کارت‌های عناصر */ ?>
@@ -500,6 +577,81 @@ $totalBlockCount = array_sum(array_map('count', $blockLibrary));
 #canvas-blocks.pv-page-dark .blk .fake-card { background: #273449; border-color: #334155; }
 #canvas-blocks.pv-page-dark .blk .pv-text, #canvas-blocks.pv-page-dark .blk .feat-d { color: #cbd5e1; }
 
+/* ═══════════════════════════════════════════════════════════════
+   🎭 v2.26 — ظواهر متعدد عناصر (blk-var-* | blk-btn-* | blk-hover-*)
+   آینه همان قوانین در template-preview.php — هر تغییر، دوجا اعمال شود
+   ═══════════════════════════════════════════════════════════════ */
+/* — ظاهر کلی بدنه — */
+#canvas-blocks .blk.blk-var-glass {
+    background: rgba(255,255,255,.55); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,.75); box-shadow: 0 8px 28px rgba(2,8,23,.10);
+}
+#canvas-blocks .blk.blk-var-card {
+    background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 14px 38px rgba(2,8,23,.13);
+}
+#canvas-blocks .blk.blk-var-flat { background: transparent; box-shadow: none !important; border: none; }
+#canvas-blocks .blk.blk-var-outline {
+    background: transparent; border: 2px solid #2563eb; box-shadow: none !important;
+}
+#canvas-blocks .blk.blk-var-soft {
+    background: linear-gradient(135deg, #eff6ff, #e0f2fe); border: 1px solid #bfdbfe;
+}
+#canvas-blocks .blk.blk-var-dark { background: #0f172a; color: #e2e8f0; }
+#canvas-blocks .blk.blk-var-dark .blk-title, #canvas-blocks .blk.blk-var-dark .card-t { color: #f1f5f9; }
+#canvas-blocks .blk.blk-var-dark .pv-text, #canvas-blocks .blk.blk-var-dark .feat-d { color: #cbd5e1; }
+#canvas-blocks .blk.blk-var-dark .fake-card { background: #1e293b; border-color: #334155; }
+#canvas-blocks .blk.blk-var-hardshadow {
+    background: #fef9c3; border: 2.5px solid #1e293b; box-shadow: 7px 7px 0 #1e293b !important;
+}
+#canvas-blocks .blk.blk-var-dashed { background: rgba(255,255,255,.6); border: 2px dashed #94a3b8; box-shadow: none !important; }
+#canvas-blocks .blk.blk-var-ribbon {
+    border-inline-start: 6px solid #f59e0b; background: #fffbeb; box-shadow: 0 4px 16px rgba(245,158,11,.12);
+}
+#canvas-blocks .blk.blk-var-inset {
+    background: #f1f5f9; box-shadow: inset 0 4px 14px rgba(2,8,23,.13) !important; border: 1px solid #e2e8f0;
+}
+#canvas-blocks .blk.blk-var-gradient {
+    background: linear-gradient(135deg, #1e40af, #0ea5e9) !important; color: #fff;
+}
+#canvas-blocks .blk.blk-var-gradient .blk-title, #canvas-blocks .blk.blk-var-gradient .card-t { color: #fff; }
+#canvas-blocks .blk.blk-var-gradient .fake-card { background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.25); }
+
+/* — استایل دکمه‌ها (داخل بلوک) — */
+#canvas-blocks .blk-btn-glass .hero-btn, #canvas-blocks .blk-btn-glass .fake-cta, #canvas-blocks .blk-btn-glass .cta-btn {
+    background: rgba(255,255,255,.22); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,.45); color: inherit;
+}
+#canvas-blocks .blk-btn-pill .hero-btn, #canvas-blocks .blk-btn-pill .fake-cta, #canvas-blocks .blk-btn-pill .cta-btn { border-radius: 999px; }
+#canvas-blocks .blk-btn-outline .hero-btn, #canvas-blocks .blk-btn-outline .fake-cta, #canvas-blocks .blk-btn-outline .cta-btn {
+    background: transparent; border: 2px solid #1e40af; color: #1e40af;
+}
+#canvas-blocks .blk-btn-gradient .hero-btn, #canvas-blocks .blk-btn-gradient .fake-cta, #canvas-blocks .blk-btn-gradient .cta-btn {
+    background: linear-gradient(135deg, #1e40af, #0ea5e9); color: #fff; border: none;
+}
+#canvas-blocks .blk-btn-square .hero-btn, #canvas-blocks .blk-btn-square .fake-cta, #canvas-blocks .blk-btn-square .cta-btn { border-radius: 0; }
+@keyframes blkBtnPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(37,99,235,.45); } 50% { box-shadow: 0 0 0 9px rgba(37,99,235,0); } }
+#canvas-blocks .blk-btn-glow .hero-btn, #canvas-blocks .blk-btn-glow .fake-cta, #canvas-blocks .blk-btn-glow .cta-btn {
+    animation: blkBtnPulse 2.1s infinite; background: #2563eb; color: #fff;
+}
+#canvas-blocks .blk-btn-shadow .hero-btn, #canvas-blocks .blk-btn-shadow .fake-cta, #canvas-blocks .blk-btn-shadow .cta-btn {
+    box-shadow: 0 7px 18px rgba(30,64,175,.38); transition: transform .18s, box-shadow .18s;
+}
+#canvas-blocks .blk-btn-shadow .hero-btn:hover, #canvas-blocks .blk-btn-shadow .fake-cta:hover { transform: translateY(-2px); box-shadow: 0 11px 24px rgba(30,64,175,.44); }
+
+/* — افکت‌های هاور (بدنه بلوک) — */
+#canvas-blocks .blk-hover-lift, #canvas-blocks .blk-hover-zoom, #canvas-blocks .blk-hover-tilt { transition: transform .22s ease, box-shadow .22s ease; }
+#canvas-blocks .blk-hover-lift:hover { transform: translateY(-6px); box-shadow: 0 18px 40px rgba(2,8,23,.17); }
+#canvas-blocks .blk-hover-zoom:hover { transform: scale(1.022); }
+#canvas-blocks .blk-hover-tilt:hover { transform: rotate(-.5deg) translateY(-3px); }
+#canvas-blocks .blk-hover-glow { transition: box-shadow .24s ease; }
+#canvas-blocks .blk-hover-glow:hover { box-shadow: 0 0 0 3px rgba(37,99,235,.35), 0 0 30px rgba(37,99,235,.30) !important; }
+/* 🌙 سازگاری تیره: ظواهر شیشه‌ای/کارت/ملایم در پیش‌نمایش تیره */
+#canvas-blocks.pv-page-dark .blk.blk-var-glass { background: rgba(30,41,59,.55); border-color: rgba(148,163,184,.35); }
+#canvas-blocks.pv-page-dark .blk.blk-var-card { background: #1e293b; border-color: #334155; }
+#canvas-blocks.pv-page-dark .blk.blk-var-soft { background: linear-gradient(135deg, #1e293b, #172554); border-color: #1e3a8a; }
+#canvas-blocks.pv-page-dark .blk.blk-var-outline { border-color: #60a5fa; }
+#canvas-blocks.pv-page-dark .blk.blk-var-ribbon { background: rgba(245,158,11,.09); }
+#canvas-blocks.pv-page-dark .blk.blk-var-hardshadow { background: #33260a; box-shadow: 7px 7px 0 #000 !important; border-color: #fde047; }
+
 /* 😀 v2.25: انتخابگر آیکون ایموجی */
 .emoji-picker-pop {
     position: absolute; z-index: 9999; width: 316px; background: #fff; border: 1.5px solid #e2e8f0;
@@ -572,6 +724,7 @@ $totalBlockCount = array_sum(array_map('count', $blockLibrary));
             </div>
             <button type="button" class="btn btn-outline" id="btn-page-settings" onclick="renderPageProps()" title="تنظیمات کل صفحه: زمینه، فاصله‌ها، عرض محتوا، گردی گوشه‌ها و ...">⚙️ تنظیمات صفحه</button>
             <div style="margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap">
+                <button type="button" class="btn btn-outline" onclick="toggleExtractPanel()" id="btn-extract-toggle" title="استخراج عناصر یک سایت دیگر همراه با استایل — پیش‌نمایش و ذخیره در عناصر شخصی">🌐 استخراج از سایت</button>
                 <button type="button" class="btn btn-info" onclick="uiuxDesign()" id="btn-uiux-design" title="طراحی چیدمان حرفه‌ای با اسکیل UI/UX Pro">✨ طراحی با UI/UX Pro</button>
                 <button type="button" class="btn btn-outline" onclick="uiuxReview()" id="btn-uiux-review" title="ممیزی UX چیدمان فعلی">🔍 بررسی UX</button>
                 <button type="button" class="btn btn-info" onclick="openLivePreview()">👁️ پیش‌نمایش زنده</button>
@@ -594,6 +747,45 @@ $totalBlockCount = array_sum(array_map('count', $blockLibrary));
             <div class="tools"><button type="button" class="btn btn-outline btn-sm" onclick="closeUiuxPanel()">✕ بستن</button></div>
         </div>
         <div class="card-body" id="uiux-panel-body"></div>
+    </div>
+
+    <!-- 🌐 v2.26: پنل استخراج عناصر از سایت خارجی -->
+    <div class="card" id="extract-panel" style="display:none;margin-bottom:16px">
+        <div class="card-header">
+            <h3>🌐 استخراج عناصر از سایت</h3>
+            <div class="tools"><button type="button" class="btn btn-outline btn-sm" onclick="toggleExtractPanel(false)">✕ بستن</button></div>
+        </div>
+        <div class="card-body">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+                <input type="url" id="extract-url" class="form-control" style="flex:1;min-width:260px;direction:ltr;text-align:left" placeholder="https://example.com" dir="ltr">
+                <button type="button" class="btn btn-primary" id="btn-extract" onclick="extractElements()">🔎 استخراج عناصر</button>
+                <span class="hint" style="font-size:10.5px">دکمه‌ها، کارت‌ها، منوها، فرم‌ها و ... با استایل واقعی‌شان</span>
+            </div>
+            <div id="extract-status" style="display:none" class="alert" style="margin-bottom:10px"></div>
+            <div id="extract-results" style="display:none">
+                <div style="display:grid;grid-template-columns:minmax(280px,1fr) minmax(320px,1.2fr);gap:14px">
+                    <!-- لیست عناصر -->
+                    <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;max-height:520px;overflow-y:auto">
+                        <div style="padding:9px 13px;background:var(--bg);font-weight:800;font-size:12px;border-bottom:1px solid var(--border)">
+                            📋 عناصر کشف‌شده <span class="badge badge-info" id="extract-count" style="font-size:9.5px">۰</span>
+                            <span id="extract-site-title" class="hint" style="font-weight:400;font-size:10.5px;margin-inline-start:6px"></span>
+                        </div>
+                        <div id="extract-list"></div>
+                    </div>
+                    <!-- پیش‌نمایش -->
+                    <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column">
+                        <div style="padding:9px 13px;background:var(--bg);font-weight:800;font-size:12px;border-bottom:1px solid var(--border)">
+                            👁️ پیش‌نمایش <span id="extract-preview-name" class="hint" style="font-weight:400;font-size:10.5px">— روی نام عنصر کلیک کنید</span>
+                        </div>
+                        <iframe id="extract-preview-frame" sandbox="allow-same-origin" style="flex:1;min-height:440px;border:none;background:#fff" title="پیش‌نمایش عنصر"></iframe>
+                        <div style="padding:9px 13px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center">
+                            <button type="button" class="btn btn-success btn-sm" id="btn-save-element" onclick="saveCurrentElement()" style="display:none">➕ افزودن به عناصر شخصی</button>
+                            <span class="hint" style="font-size:10px">بعد از افزودن، از دسته «⭐ عناصر شخصی من» در کتابخانه بلوک‌ها قابل استفاده است</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="builder">
@@ -626,6 +818,21 @@ $totalBlockCount = array_sum(array_map('count', $blockLibrary));
                             <input type="hidden" name="template_id" value="<?= (int)($template['id'] ?? 0) ?>">
                             <button type="submit" class="block-eye" style="color:#dc2626" title="حذف بلوک ترکیبی" onclick="event.stopPropagation()">🗑</button>
                         </form>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+
+            <!-- ⭐ v2.26: عناصر شخصی استخراج‌شده از سایت‌ها -->
+            <div class="block-cat" style="background:rgba(22,163,74,.08);border-inline-start:3px solid #16a34a">⭐ عناصر شخصی من <span class="badge badge-success" style="font-size:9.5px"><?= count($personalElements) ?></span></div>
+            <?php if (empty($personalElements)): ?>
+                <div class="hint" style="padding:4px 12px 10px;font-size:10.5px;line-height:1.8">عناصری که از سایت‌های دیگر استخراج و ذخیره کرده‌اید اینجا نمایش داده می‌شوند — از پنل «🌐 استخراج از سایت» بالای بوم شروع کنید.</div>
+            <?php else: ?>
+                <?php foreach ($personalElements as $pe): ?>
+                    <div class="block-item" draggable="true" data-block="pelement:<?= (int)$pe['id'] ?>" style="border-inline-start:3px solid #16a34a" title="عنصر شخصی استخراج‌شده — دابل‌کلیک یا درگ کنید تا با همان استایل سایت مبدأ در صفحه قرار بگیرد">
+                        <span class="icon"><?= e($pe['element_type'] === 'button' ? '🔘' : ($pe['element_type'] === 'card' ? '🗂' : ($pe['element_type'] === 'nav' ? '🧭' : '⭐'))) ?></span>
+                        <span><?= e($pe['name']) ?></span>
+                        <button type="button" class="block-eye" title="پیش‌نمایش عنصر" onclick="event.stopPropagation();previewPersonalElement(<?= (int)$pe['id'] ?>)">👁</button>
+                        <button type="button" class="block-eye" style="color:#dc2626" title="حذف عنصر شخصی" onclick="event.stopPropagation();deletePersonalElement(<?= (int)$pe['id'] ?>, this)">🗑</button>
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>
@@ -706,6 +913,60 @@ const BLOCK_META = <?= json_encode(array_map(function ($cats) {
     foreach ($cats as $key => $meta) { $flat[$key] = ['label' => $meta[1], 'defaults' => $meta[2]]; }
     return $flat;
 }, $blockLibrary), JSON_UNESCAPED_UNICODE) ?>;
+
+/* ==================================================
+ * 🎭 v2.26 — ظواهر متعدد برای هر عنصر
+ * هر بلوک (تمام ۱۵۰ عنصر) سه بعد ظاهری مستقل دارد:
+ *   variant  : ظاهر کلی بدنه (شیشه‌ای/کارت/تخت/خط‌دار/...)
+ *   btnStyle : استایل دکمه‌های داخل بلوک (شیشه‌ای/دایره‌ای/...)
+ *   hoverFx  : افکت هاور بلوک (بالا‌آمدن/بزرگ‌شدن/درخشش)
+ * کلاس‌ها: blk-var-* | blk-btn-* | blk-hover-*
+ * (آینه PHP: renderPreviewBlock در template-preview.php)
+ * ================================================== */
+const BLOCK_VARIANTS = {
+    variant: [
+        ['default',      '◻️ پیش‌فرض'],
+        ['glass',        '🧊 شیشه‌ای (بلور مات)'],
+        ['card',         '🗂 کارت برجسته (سایه‌دار)'],
+        ['flat',         '⬜ تخت (بدون سایه/حاشیه)'],
+        ['outline',      '🔲 خط‌دار (قاب رنگی)'],
+        ['soft',         '🎨 ملایم (رنگ کم‌رنگ برند)'],
+        ['dark',         '🌙 تیره (سرمه‌ای)'],
+        ['hardshadow',   '🧱 سایه سخت (بروتالیسم)'],
+        ['dashed',       '✂️ خط‌چین'],
+        ['ribbon',       '📎 نواری (خط رنگی کنار)'],
+        ['inset',        '⬇️ فرو رفته (Inset)'],
+        ['gradient',     '🌈 گرادیانت برند'],
+    ],
+    btnStyle: [
+        ['default',  '🔘 پیش‌فرض (کلاسیک)'],
+        ['glass',    '🧊 شیشه‌ای'],
+        ['pill',     '💊 دایره‌ای (کپسولی)'],
+        ['outline',  '⬜ خطی (Outline)'],
+        ['gradient', '🌈 گرادیانت'],
+        ['square',   '⬛ مربعی تیز'],
+        ['glow',     '✨ درخشان (نبض)'],
+        ['shadow',   '🕯 سایه معلق'],
+    ],
+    hoverFx: [
+        ['none',  '🚫 بدون افکت'],
+        ['lift',  '⬆️ بالا آمدن + سایه'],
+        ['zoom',  '🔍 بزرگ‌شدن ملایم'],
+        ['glow',  '✨ درخشش حاشیه'],
+        ['tilt',  '📐 کج شدن ظریف'],
+    ],
+};
+/* ساخت کلاس‌های ظاهر از props — مشترک بین B() و آینه PHP */
+function variantClasses(props) {
+    const v = String(props.variant || '').trim();
+    const b = String(props.btnStyle || '').trim();
+    const h = String(props.hoverFx || '').trim();
+    return [
+        v && v !== 'default' ? 'blk-var-' + v : '',
+        b && b !== 'default' ? 'blk-btn-' + b : '',
+        h && h !== 'none' && h !== '' ? 'blk-hover-' + h : '',
+    ].filter(Boolean).join(' ');
+}
 
 let layout = JSON.parse(document.getElementById('layout-json').value || '[]');
 let selected = null; // رشته مسیر مثل '3' یا '3.cols.1.0'
@@ -798,6 +1059,20 @@ const SAVED_BLOCKS = {};
 <?php foreach ($savedBlocks as $sb): ?>
 try { SAVED_BLOCKS[<?= (int)$sb['id'] ?>] = <?= json_encode(json_decode((string)$sb['block_json'], true), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>; } catch (e) {}
 <?php endforeach; ?>
+
+/* ⭐ v2.26: عناصر شخصی استخراج‌شده از سایت‌ها — id → {name, html, css}
+   در بوم به‌صورت iframe ایزوله (استایل سایت مبدأ حفظ می‌شود) رندر می‌شوند */
+const PERSONAL_ELEMENTS = {};
+<?php foreach ($personalElements as $pe): ?>
+try { PERSONAL_ELEMENTS[<?= (int)$pe['id'] ?>] = <?= json_encode(['name' => $pe['name'], 'element_type' => $pe['element_type'], 'html' => $pe['html'], 'css' => $pe['css']], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>; } catch (e) {}
+<?php endforeach; ?>
+
+/* 🖼 سند مستقل عنصر شخصی (iframe srcdoc) — مشترک بین بوم و پیش‌نمایش */
+function pelementDoc(el) {
+    return '<!doctype html><html dir="rtl" lang="fa"><head><meta charset="utf-8">'
+        + '<style>*{box-sizing:border-box}body{margin:0;padding:14px;background:transparent;font-family:Vazirmatn,Tahoma,sans-serif}img{max-width:100%;height:auto}a{text-decoration:none}'
+        + String(el.css || '').replace(/</g, '\\3C ') + '</style></head><body>' + (el.html || '') + '</body></html>';
+}
 
 /* ==================================================
  * ⚡ رندر واقعی بلوک‌ها (طراحی زنده — همان HTML سایت)
@@ -892,13 +1167,23 @@ function blockHtml(block, props) {
     const alignCls = props.align && props.align !== 'start' ? 'blk-al-' + props.align : '';
     const widthCls = props.width && props.width !== 'full' ? 'blk-w-' + props.width : '';
     const customCls = String(props.customClass || '').trim().replace(/[^a-zA-Z0-9\-_\s]/g, '');
+    /* 🎭 v2.26: کلاس‌های ظاهر — واریانت بدنه + استایل دکمه + افکت هاور */
+    const varCls = variantClasses(props);
     /* 🎨 v2.15: رنگ عنوان + رنگ گرادیانت انتخابی (تنظیمات پیشرفته) */
     const blkStyle = blkStyleVars(props);
     const styleAttr = blkStyle ? ` style="${blkStyle}"` : '';
-    const B = (inner, extra) => `<div class="blk ${bgCls} ${padCls} ${sizeCls} ${alignCls} ${widthCls} ${customCls} ${extra || ''}"${styleAttr}>${inner}</div>`;
+    const B = (inner, extra) => `<div class="blk ${bgCls} ${padCls} ${sizeCls} ${alignCls} ${widthCls} ${customCls} ${varCls} ${extra || ''}"${styleAttr}>${inner}</div>`;
     const TITLE = t ? `<div class="blk-title">${esc(t)}</div>` : '';
 
     switch (block) {
+        /* ⭐ v2.26: عنصر شخصی استخراج‌شده — رندر ایزوله با استایل سایت مبدأ */
+        case 'pelement': {
+            const pe = PERSONAL_ELEMENTS[parseInt(props.element_id, 10) || 0];
+            if (!pe) { return B('<div class="pv-text">⭐ این عنصر شخصی حذف شده است.</div>'); }
+            const frameHtml = pelementDoc(pe)
+                .replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+            return B(`${t ? `<div class="blk-title">${esc(t)}</div>` : ''}<iframe class="pelement-frame" sandbox="allow-same-origin" srcdoc="${frameHtml}" style="width:100%;min-height:210px;border:none;border-radius:11px;background:#fff" loading="lazy" title="${esc(pe.name || 'عنصر شخصی')}"></iframe>`, 'pelement-blk');
+        }
         case 'top-bar': return B(`<div class="tb-row"><span>📞 ${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</span><span>🕐 ${esc(props.hours || 'شنبه تا پنجشنبه ۹ تا ۲۰')}</span></div>`, 'topbar-blk');
         case 'header-v1': case 'header-v2': case 'header-v3':
             { const menu = listItems(props, [[null, 'خانه'], [null, 'خدمات'], [null, 'مقالات'], [null, 'تماس']]); return B(`${block === 'header-v2' ? `<div class="tb-row"><span>📞 ${esc(props.phone || '۰۲۱-۱۲۳۴۵۶۷۸')}</span><span>🕐 ${esc(props.hours || 'پاسخگویی آنلاین')}</span></div>` : ''}<div class="h-row"><div class="fake-logo">🏗️</div><nav class="fake-nav">${menu.map(m => `<span>${esc(m.text || '')}</span>`).join('')}</nav><div class="fake-cta">${esc(props.btnText || 'ثبت درخواست')}</div></div>`, 'header-blk' + (block === 'header-v3' ? ' glass' : '') + (props.sticky ? ' sticky-demo' : '')); }
@@ -1530,6 +1815,15 @@ function makeBlocks(key) {
         }
         return [{ block: 'text', props: { title: 'بلوک ترکیبی یافت نشد', text: 'این بلوک ترکیبی حذف شده است.' } }];
     }
+    /* ⭐ v2.26: عنصر شخصی استخراج‌شده — pelement:<id> */
+    if (String(key).indexOf('pelement:') === 0) {
+        const peId = parseInt(String(key).slice(9), 10);
+        const pe = PERSONAL_ELEMENTS[peId];
+        if (pe) {
+            return [{ block: 'pelement', props: { element_id: peId, title: pe.name || 'عنصر شخصی', padding: 'default', background: 'default', visible: true } }];
+        }
+        return [{ block: 'text', props: { title: 'عنصر یافت نشد', text: 'این عنصر شخصی حذف شده است.' } }];
+    }
     const meta = BLOCK_META[key] || {};
     const props = Object.assign({ padding: 'default', background: 'default', visible: true }, (meta.defaults && typeof meta.defaults === 'object') ? JSON.parse(JSON.stringify(meta.defaults)) : {});
     const blk = { block: key, props };
@@ -1631,8 +1925,9 @@ canvas.addEventListener('drop', e => {
     }
 });
 
-/* کتابخانه: شروع درگ + دابل‌کلیک */
-document.querySelectorAll('.block-item').forEach(item => {
+/* کتابخانه: شروع درگ + دابل‌کلیک
+   🌐 v2.26: bindBlockItem جدا شد تا عناصر شخصیِ افزوده‌شده بدون رفرش هم رفتار یکسان بگیرند */
+function bindBlockItem(item) {
     item.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', 'new:' + item.dataset.block));
     item.addEventListener('dblclick', () => {
         /* اگر بخش ستونی انتخاب است → داخل ستون آخر اضافه کن */
@@ -1648,7 +1943,8 @@ document.querySelectorAll('.block-item').forEach(item => {
         syncAndRender();
         renderProps();
     });
-});
+}
+document.querySelectorAll('.block-item').forEach(bindBlockItem);
 
 /* ==================================================
  * 🎚️ v2.15: نوع نمایش عناصر — ۵ حالت واقعاً متفاوت
@@ -1839,9 +2135,10 @@ function renderProps() {
     }
     const item = node;
     const isSavedComposite = String(item.block).indexOf('saved:') === 0 || !(item.block in BLOCK_META);
-    const meta = BLOCK_META[item.block] || { label: isSavedComposite ? '🧩 بلوک ترکیبی' : item.block };
+    const isPersonalElement = String(item.block) === 'pelement';
+    const meta = BLOCK_META[item.block] || { label: isPersonalElement ? '⭐ عنصر شخصی' : (isSavedComposite ? '🧩 بلوک ترکیبی' : item.block) };
     const props = item.props || {};
-    let html = `<div style="font-weight:800;margin-bottom:12px;font-size:13px">${isSavedComposite ? '🧩' : '📦'} ${esc(meta.label)}</div>`;
+    let html = `<div style="font-weight:800;margin-bottom:12px;font-size:13px">${isPersonalElement ? '⭐' : (isSavedComposite ? '🧩' : '📦')} ${esc(meta.label)}</div>`;
 
     /* 🎯 فیلدهای اختصاصی این بلوک — از جدول اعلانی (v2.14: پوشش همه ۸۶ عنصر) */
     const fieldCodes = isSavedComposite ? [] : (BLOCK_FIELDS[item.block] || ['T']);
@@ -1938,11 +2235,29 @@ function renderProps() {
         }
     });
 
+    /* 🎭 v2.26 — ظواهر متعدد عنصر: ظاهر کلی + استایل دکمه + افکت هاور
+       برای «همه» عناصر (به‌جز ساختاری‌هایی که خط/فاصله‌اند) */
+    const STRUCTURAL = ['separator', 'spacer', 'divider-icon'];
+    if (!STRUCTURAL.includes(item.block)) {
+        const varSel = (key, list) => `<select class="form-control" style="font-size:12px" onchange="setProp('${selected}','${key}',this.value)">
+                ${list.map(([v, l]) => `<option value="${v}" ${(props[key] || (key === 'hoverFx' ? 'none' : 'default')) === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select>`;
+        html += `
+        <div style="font-size:11px;font-weight:800;color:var(--primary);margin:12px 0 7px">🎭 ظاهر عنصر</div>
+        <div class="form-group"><label>🎨 ظاهر کلی بدنه</label>
+            ${varSel('variant', BLOCK_VARIANTS.variant)}
+            <div class="hint" style="margin-top:4px">شیشه‌ای، کارت سایه‌دار، تخت، خط‌دار، تیره و ... — روی بدنه همین عنصر اعمال می‌شود.</div></div>
+        <div class="form-group"><label>🔘 استایل دکمه‌های این بخش</label>
+            ${varSel('btnStyle', BLOCK_VARIANTS.btnStyle)}
+            <div class="hint" style="margin-top:4px">شیشه‌ای، دایره‌ای (کپسولی)، خطی، گرادیانت و ... — برای عناصری که دکمه دارند.</div></div>
+        <div class="form-group"><label>✨ افکت هاور (رفت و برگشت ماوس)</label>
+            ${varSel('hoverFx', BLOCK_VARIANTS.hoverFx)}</div>`;
+    }
+
     /* 🎛 v3.3 + v2.15 + 🆕 v2.17: تنظیمات حرفه‌ای عمومی — رنگ عنوان/گرادیانت
        🆕 بلوک‌های ساختاری (فاصله/جداکننده/خط) و بدون‌عنوان (هدر/نوارها) تنظیمات
        نامربوط را نمی‌بینند — «هر تنظیمی دیده می‌شود، اثر دارد» (رفع شکایت کاربر) */
     const NO_TITLE_ADV = ['header-v1', 'header-v2', 'header-v3', 'top-bar', 'notification-bar', 'sticky-mobile-cta', 'copyright', 'breadcrumb', 'hero-marquee', 'contact-info-bar', 'stats-strip', 'separator', 'spacer', 'divider-icon', 'ticker-bar'];
-    const STRUCTURAL = ['separator', 'spacer', 'divider-icon'];
     if (!STRUCTURAL.includes(item.block)) {
     html += `
         <div style="font-size:11px;font-weight:800;color:var(--primary);margin:11px 0 7px">🎛 تنظیمات پیشرفته</div>`;
@@ -2382,6 +2697,192 @@ async function uiuxImprove() {
     } catch (err) {
         sahandError('خطای ارتباط با سرور — دوباره تلاش کنید');
     }
+}
+
+/* ==================================================
+ * 🌐 v2.26 — استخراج عناصر از سایت خارجی + عناصر شخصی
+ * ================================================== */
+let extractResults = [];      /* نتایج آخرین استخراج */
+let extractSelected = -1;     /* ایندکس عنصر انتخاب‌شده برای پیش‌نمایش */
+let extractSourceUrl = '';    /* مبدأ آخرین استخراج */
+
+function toggleExtractPanel(show) {
+    const panel = document.getElementById('extract-panel');
+    const visible = show === undefined ? panel.style.display === 'none' : show;
+    panel.style.display = visible ? '' : 'none';
+    if (visible) {
+        const input = document.getElementById('extract-url');
+        if (input) { input.focus(); }
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+function extractStatus(kind, msg) {
+    const el = document.getElementById('extract-status');
+    el.style.display = msg ? '' : 'none';
+    el.className = 'alert alert-' + kind;
+    el.innerHTML = msg;
+}
+
+async function extractElements() {
+    const url = String((document.getElementById('extract-url') || {}).value || '').trim();
+    if (!/^https?:\/\/.+/i.test(url)) {
+        extractStatus('danger', '⚠️ آدرس معتبر وارد کنید — مثلاً <b dir="ltr">https://example.com</b>');
+        return;
+    }
+    const btn = document.getElementById('btn-extract');
+    btn.disabled = true;
+    btn.innerHTML = '⏳ در حال دانلود و تحلیل...';
+    extractStatus('info', '🌐 صفحه دانلود می‌شود و عناصر آن همراه با استایل تحلیل می‌شوند — چند لحظه...');
+    document.getElementById('extract-results').style.display = 'none';
+    try {
+        const fd = new FormData();
+        fd.append('action', 'extract_elements');
+        fd.append('url', url);
+        fd.append('csrf_token', UIUX_CSRF);
+        const res = await fetch('template-builder.php', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const json = await res.json();
+        if (!json.success) {
+            extractStatus('danger', '❌ ' + esc(json.error || 'خطای نامشخص'));
+            return;
+        }
+        extractResults = json.elements || [];
+        extractSourceUrl = json.url || url;
+        extractSelected = -1;
+        extractStatus(extractResults.length ? 'success' : 'warning',
+            extractResults.length
+                ? '✅ <b>' + faDigJS(String(extractResults.length)) + '</b> عنصر از «' + esc(json.title || extractSourceUrl) + '» استخراج شد — روی نام هر عنصر کلیک کنید تا کنارش پیش‌نمایش شود.'
+                : '⚠️ عنصری پیدا نشد — سایت ممکن است جاوااسکریپت‌محور باشد یا ساختار ساده‌ای داشته باشد.');
+        renderExtractList();
+        document.getElementById('extract-results').style.display = extractResults.length ? '' : 'none';
+        document.getElementById('extract-preview-frame').srcdoc = '<!doctype html><html dir="rtl"><body style="font-family:Tahoma;padding:30px;color:#94a3b8;text-align:center">👁️ روی یک عنصر از فهرست کلیک کنید</body></html>';
+        document.getElementById('btn-save-element').style.display = 'none';
+    } catch (err) {
+        extractStatus('danger', '❌ خطای ارتباط با سرور — دوباره تلاش کنید');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '🔎 استخراج عناصر';
+    }
+}
+
+function renderExtractList() {
+    const list = document.getElementById('extract-list');
+    document.getElementById('extract-count').textContent = faDigJS(String(extractResults.length));
+    const typeFa = { button: 'دکمه', card: 'کارت', nav: 'منو', header: 'هدر', footer: 'فوتر', form: 'فرم', input: 'فیلد', heading: 'تیتر', badge: 'نشان', alert: 'هشدار', quote: 'نقل‌قول', list: 'لیست', image: 'تصویر' };
+    list.innerHTML = extractResults.map((el, i) => `
+        <div class="ext-item" data-idx="${i}" onclick="showExtractPreview(${i})" style="padding:9px 13px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;gap:9px;align-items:center;font-size:12px;${i === extractSelected ? 'background:rgba(37,99,235,.09)' : ''}">
+            <span style="font-size:16px">${el.icon || '⭐'}</span>
+            <div style="flex:1;min-width:0">
+                <div style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(el.name || 'بدون نام')}</div>
+                <div style="font-size:10px;color:var(--text-light)">${esc(typeFa[el.type] || el.type)} · ${faDigJS(String(Math.round((el.size || 0) / 1024)))}KB</div>
+            </div>
+            <span title="افزودن به عناصر شخصی" onclick="event.stopPropagation();showExtractPreview(${i});saveCurrentElement()" style="color:#16a34a;font-size:15px;cursor:pointer">➕</span>
+        </div>`).join('');
+}
+
+function showExtractPreview(idx) {
+    if (!extractResults[idx]) { return; }
+    extractSelected = idx;
+    const el = extractResults[idx];
+    document.querySelectorAll('#extract-list .ext-item').forEach((n, i) => {
+        n.style.background = i === idx ? 'rgba(37,99,235,.09)' : '';
+    });
+    document.getElementById('extract-preview-name').textContent = '— ' + (el.name || 'بدون نام');
+    /* سند مستقل: استایل تخت‌شده + HTML ایمن‌شده */
+    const doc = '<!doctype html><html dir="rtl" lang="fa"><head><meta charset="utf-8">'
+        + '<style>*{box-sizing:border-box}body{margin:0;padding:20px;background:#fff;font-family:Vazirmatn,Tahoma,sans-serif}img{max-width:100%;height:auto}a{text-decoration:none}'
+        + String(el.css || '').replace(/</g, '\\3C ') + '</style></head><body>' + (el.html || '') + '</body></html>';
+    document.getElementById('extract-preview-frame').srcdoc = doc;
+    document.getElementById('btn-save-element').style.display = '';
+}
+
+async function saveCurrentElement() {
+    if (extractSelected < 0 || !extractResults[extractSelected]) {
+        sahandsAlert('اول یک عنصر را از فهرست انتخاب کنید.');
+        return;
+    }
+    const el = extractResults[extractSelected];
+    const btn = document.getElementById('btn-save-element');
+    btn.disabled = true;
+    btn.innerHTML = '⏳ در حال ذخیره...';
+    try {
+        const fd = new FormData();
+        fd.append('action', 'save_personal_element');
+        fd.append('name', el.name || 'عنصر بدون نام');
+        fd.append('type', el.type || 'button');
+        fd.append('source_url', extractSourceUrl);
+        fd.append('html', el.html || '');
+        fd.append('css', el.css || '');
+        fd.append('csrf_token', UIUX_CSRF);
+        const res = await fetch('template-builder.php', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const json = await res.json();
+        if (!json.success) {
+            sahandsAlert('ذخیره ناموفق: ' + (json.error || 'خطا'));
+            return;
+        }
+        /* افزودن به کتابخانه شخصی بدون رفرش */
+        PERSONAL_ELEMENTS[json.data.id] = { name: json.data.name, element_type: json.data.element_type, html: json.data.html, css: json.data.css };
+        const lib = document.querySelector('#block-library .block-cat + .hint');
+        const emptyHint = document.querySelector('#block-library .hint');
+        const cat = Array.from(document.querySelectorAll('.block-cat')).find(c => c.textContent.includes('عناصر شخصی'));
+        if (cat) {
+            const badge = cat.querySelector('.badge');
+            if (badge) { badge.textContent = faDigJS(String(Object.keys(PERSONAL_ELEMENTS).length)); }
+            /* حذف hint خالی‌بودن */
+            let sib = cat.nextElementSibling;
+            if (sib && sib.classList.contains('hint') && sib.textContent.includes('استخراج و ذخیره کرده‌اید')) { sib.remove(); }
+            const item = document.createElement('div');
+            item.className = 'block-item';
+            item.draggable = true;
+            item.dataset.block = 'pelement:' + json.data.id;
+            item.style.borderInlineStart = '3px solid #16a34a';
+            item.title = 'عنصر شخصی استخراج‌شده — دابل‌کلیک یا درگ کنید';
+            item.innerHTML = '<span class="icon">⭐</span><span>' + esc(json.data.name) + '</span>'
+                + '<button type="button" class="block-eye" title="پیش‌نمایش عنصر" onclick="event.stopPropagation();previewPersonalElement(' + json.data.id + ')">👁</button>'
+                + '<button type="button" class="block-eye" style="color:#dc2626" title="حذف" onclick="event.stopPropagation();deletePersonalElement(' + json.data.id + ', this)">🗑</button>';
+            const firstCat = document.querySelector('#block-library .block-cat:not(:first-child)');
+            cat.after(item);
+            bindBlockItem(item);
+        }
+        extractStatus('success', '✅ عنصر «' + esc(json.data.name) + '» به کتابخانه «⭐ عناصر شخصی من» اضافه شد — از پنل بلوک‌ها قابل درج در صفحه است.');
+    } catch (err) {
+        sahandsAlert('خطای ارتباط با سرور');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '➕ افزودن به عناصر شخصی';
+    }
+}
+
+async function deletePersonalElement(id, btn) {
+    if (!confirm('این عنصر شخصی حذف شود؟')) { return; }
+    try {
+        const fd = new FormData();
+        fd.append('action', 'delete_personal_element');
+        fd.append('element_id', id);
+        fd.append('csrf_token', UIUX_CSRF);
+        const res = await fetch('template-builder.php', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const json = await res.json();
+        if (json.success) {
+            delete PERSONAL_ELEMENTS[id];
+            const item = btn.closest('.block-item');
+            if (item) { item.remove(); }
+        }
+    } catch (err) { /* بی‌صدا */ }
+}
+
+function previewPersonalElement(id) {
+    const el = PERSONAL_ELEMENTS[id];
+    if (!el) { return; }
+    toggleExtractPanel(true);
+    extractResults = [el];
+    extractSelected = 0;
+    renderExtractList();
+    showExtractPreview(0);
+}
+
+function sahandsAlert(msg) {
+    extractStatus('warning', '⚠️ ' + msg);
+    toggleExtractPanel(true);
 }
 
 /* شروع */

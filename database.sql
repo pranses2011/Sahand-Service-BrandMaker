@@ -290,6 +290,19 @@ CREATE TABLE IF NOT EXISTS `builder_blocks` (
   KEY `idx_bblock_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='بلوک‌های ترکیبی ذخیره‌شده قالب‌ساز';
 
+-- 1️⃣2️⃣-ج personal_elements — عناصر شخصی استخراج‌شده از سایت‌ها (v2.26)
+CREATE TABLE IF NOT EXISTS `personal_elements` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(191) NOT NULL COMMENT 'نام نمایشی عنصر',
+  `element_type` VARCHAR(40) NOT NULL DEFAULT 'button' COMMENT 'نوع (button/card/nav/header/footer/form/input/heading/badge/alert/quote/list/image)',
+  `source_url` VARCHAR(500) NOT NULL DEFAULT '' COMMENT 'سایت مبدأ',
+  `html` MEDIUMTEXT NOT NULL COMMENT 'HTML ایمن‌شده عنصر',
+  `css` TEXT NOT NULL COMMENT 'استایل تخت‌شده عنصر',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_pelem_type` (`element_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='عناصر شخصی استخراج‌شده از سایت‌ها (v2.26)';
+
 -- 1️⃣3️⃣ themes — تم‌ها (ترکیب قالب‌ها)
 CREATE TABLE IF NOT EXISTS `themes` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,

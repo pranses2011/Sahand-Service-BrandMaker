@@ -19,7 +19,7 @@ if (!defined('SAHAND_INIT')) {
 /* --------------------------------------------------
  * 🌍 تنظیمات عمومی
  * -------------------------------------------------- */
-define('SAHAND_VERSION', '2.25.0');             // نسخه سیستم (۲.۲۵.۰ — رفع ثبت درخواست سایت برند با پروکسی همان‌مبدأ + تم تاریک/روشن آنی با آیکون پویا + موتور کنتراست WCAG برای پالت رنگ + یکسان‌سازی کامل پیش‌نمایش با سایت + تنظیمات صفحه قالب‌ساز و ۲۰ عنصر جدید و تکمیل تنظیمات همه عناصر + انتخابگر آیکون ایموجی)
+define('SAHAND_VERSION', '2.26.0');             // نسخه سیستم (۲.۲۶.۰ — ریشه‌یابی کامل «آمار خالی» با ردیاب سه‌لایه + تصویر شاخص مقالات و رفع صفحه خالی مقاله + رنگ هیدر از رنگ‌های تاکیدی لوگو با تضمین WCAG + ظواهر متعدد برای همه عناصر قالب‌ساز (۱۲ بدنه + ۸ دکمه + ۵ هاور) + استخراج عناصر از سایت خارجی با پیش‌نمایش و کتابخانه عناصر شخصی)
 define('SAHAND_NAME_FA', 'سایت ساز برند سهند سرویس'); // نام فارسی سیستم
 define('SAHAND_NAME_EN', 'Sahand BrandMaker');   // نام انگلیسی سیستم
 date_default_timezone_set('Asia/Tehran');        // ⏰ منطقه زمانی ایران
@@ -484,6 +484,32 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
             @file_put_contents($v212Marker, date('Y-m-d H:i:s'));
         }
     } catch (Throwable $v212SchemaE) {
+        // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
+    }
+}
+
+/* --------------------------------------------------
+ * 🆕 مهاجرت v2.26 — جدول «عناصر شخصی» قالب‌ساز
+ * عناصر استخراج‌شده از سایت‌های خارجی (استخراج‌گر عناصر) که کاربر
+ * پسندیده تا بعداً در چیدمان‌ها استفاده کند.
+ * -------------------------------------------------- */
+$v226Marker = ROOT_PATH . '/cache/.schema_v226_personal_elements';
+if (!file_exists($v226Marker)) {
+    try {
+        $pdo = Database::getInstance()->pdo();
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `personal_elements` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `name` VARCHAR(191) NOT NULL COMMENT 'نام نمایشی عنصر',
+            `element_type` VARCHAR(40) NOT NULL DEFAULT 'button' COMMENT 'نوع (button/card/nav/...)',
+            `source_url` VARCHAR(500) NOT NULL DEFAULT '' COMMENT 'سایت مبدأ',
+            `html` MEDIUMTEXT NOT NULL COMMENT 'HTML ایمن‌شده عنصر',
+            `css` TEXT NOT NULL COMMENT 'استایل تخت‌شده عنصر',
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `idx_pelem_type` (`element_type`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='عناصر شخصی استخراج‌شده از سایت‌ها (v2.26)'");
+        @file_put_contents($v226Marker, date('Y-m-d H:i:s'));
+    } catch (Throwable $v226SchemaE) {
         // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
     }
 }

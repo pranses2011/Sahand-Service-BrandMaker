@@ -79,6 +79,18 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
         return $lines !== '' ? $selector . '{' . $lines . '}' : '';
     };
     $inlinePalette = $cssVars($liveLight, ':root') . $cssVars($liveDark, 'html[data-theme="dark"]');
+    /* 🎨 v2.26 — رنگ هیدر از رنگ تاکیدی لوگو: اگر پالت متغیرهای هیدر را
+       نداشته باشد (همه پالت‌های موجود)، از --color-accent (رنگ تاکیدی
+       استخراج‌شده از لوگو) با تضمین کنتراست WCAG محاسبه می‌شود.
+       زنده و بدون استقرار مجدد: تغییر لوگو/پالت ← هیدر جدید بعد از کش. */
+    $hdrLight = brand_header_vars_css($liveLight ?: ['--color-accent' => ''], false);
+    $hdrDark  = brand_header_vars_css($liveDark ?: ['--color-accent' => ''], true);
+    if ($hdrLight !== '') {
+        $inlinePalette .= ':root{' . $hdrLight . '}';
+    }
+    if ($hdrDark !== '') {
+        $inlinePalette .= 'html[data-theme="dark"]{' . $hdrDark . '}';
+    }
     if ($inlinePalette !== ''): ?>
     <style id="brand-palette-live"><?= $inlinePalette ?></style>
     <?php endif; ?>

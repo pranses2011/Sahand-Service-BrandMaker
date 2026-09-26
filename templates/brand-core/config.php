@@ -26,8 +26,10 @@ define('BRAND_NAME_EN', '{{BRAND_NAME_EN}}');           // نام انگلیسی
 /* --------------------------------------------------
  * 🌐 آدرس سایت ساز (منبع داده‌ها و منابع مشترک)
  * -------------------------------------------------- */
+define('BRANDMAKER_URL', '{{BRANDMAKER_URL}}');             // 🆕 v2.26 — ریشه سایت ساز (برای uploads/ خارج از assets/)
 define('BRANDMAKER_API', '{{BRANDMAKER_URL}}/api');     // آدرس API سایت ساز
 define('BRANDMAKER_ASSETS', '{{BRANDMAKER_URL}}/assets'); // آدرس منابع (آیکون/فونت/تصویر)
+define('TRACKER_URL', '{{BRANDMAKER_URL}}/api/track');    // 🆕 v2.26 — اندپوینت ردیابی بازدید (قبلا فقط در کانفیگ بازنویسی‌شده تعریف می‌شد و /track هم جا افتاده بود)
 
 /* --------------------------------------------------
  * ⏱️ تنظیمات کش محلی (برای سرعت و کاهش درخواست)
@@ -39,6 +41,7 @@ define('CACHE_TTL', 300);                                // مدت اعمال ک
 /* --------------------------------------------------
  * 🌍 تنظیمات عمومی
  * -------------------------------------------------- */
+define('VERSION', '1.2.1');                              // 🔖 نسخه هسته سایت برند (🆕 v2.26 — شکستن کش مرورگر tracker.js)
 date_default_timezone_set('Asia/Tehran');               // ⏰ منطقه زمانی ایران
 mb_internal_encoding('UTF-8');                           // 🔤 انکودینگ
 
@@ -201,13 +204,27 @@ function fa_num(string $value): string
 
 /**
  * 🖼️ آدرس منبع روی سرور سایت ساز
+ *
+ * 🆕 v2.26 — آگاه از پوشه‌ها: قبلاً «هر» مسیر نسبی به /assets/ چسبانده می‌شد؛
+ * اما تصاویر آپلودی/تولیدی (تصویر شاخص، واترمارک، عکس AI) در uploads/ هستند
+ * نه assets/ → URL غلط و 404. اکنون:
+ *   uploads/... → BRANDMAKER_URL/uploads/...  (ریشه سایت ساز)
+ *   assets/...  → BRANDMAKER_URL/assets/...   (معادل قدیمی)
+ *   سایر        → BRANDMAKER_ASSETS/...        (سازگار با فراخوانی‌های قدیمی مثل icons/...)
  */
 function cdn_asset(string $path): string
 {
     if ($path === '' || $path === null) {
         return '';
     }
-    return (strpos($path, 'http') === 0) ? $path : BRANDMAKER_ASSETS . '/' . ltrim($path, 'assets/');
+    if (strpos($path, 'http') === 0) {
+        return $path;
+    }
+    $path = ltrim($path, '/');
+    if (strpos($path, 'uploads/') === 0) {
+        return BRANDMAKER_URL . '/' . $path;
+    }
+    return BRANDMAKER_ASSETS . '/' . ltrim($path, 'assets/');
 }
 
 /* ==================================================
@@ -221,4 +238,11 @@ function cdn_asset(string $path): string
  * ================================================== */
 if (is_file(__DIR__ . '/includes/functions.php')) {
     require_once __DIR__ . '/includes/functions.php';
+}
+
+/* 🆕 v2.26 — بارگذاری توابع سئو (render_article_seo) — ریشه قطعی «صفحه مقاله
+   خالی»: includes/seo.php در هیچ فایلی require نمی‌شد و article.php بعد از رندر
+   هدر در همان خط render_article_seo فاتل می‌شد (الگوی یکسان با باگ v2.24). */
+if (is_file(__DIR__ . '/includes/seo.php')) {
+    require_once __DIR__ . '/includes/seo.php';
 }
