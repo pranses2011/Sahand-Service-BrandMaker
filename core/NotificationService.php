@@ -5,15 +5,15 @@
  * ارسال درخواست خدمات به ۴ کانال:
  *   📧 ایمیل (mail/SMTP) | 📱 تلگرام مستقیم | 🔄 واسط Google Script | 💬 بله
  *
- * 🆕 v2.30 — درخواست کاربر: «در ارسال درخواست به ایمیل و تلگرام و بله،
- * لوگوی برند و لوگوی نمایندگی هم باشه» + «ناقص ارسال میکنه»:
- *   ① لوگوی برند + لوگوی نمایندگی در همه کانال‌ها ارسال می‌شود
- *   ② تصاویر پیوست درخواست واقعاً ارسال می‌شوند (قبلاً فقط تعداد!)
- *   ③ تصاویر محلی با multipart آپلود می‌شوند (حتی اگر URL عمومی در
- *      دسترس تلگرام/بله نباشد) + fallback به URL
+ * 🆕 v2.31 — درخواست کاربر:
+ *   ① «تصویر و متن در قالب یک پیام» → کارت تصویری واحد (RequestCard):
+ *      تصویر مشتری + واترمارک لوگوی برند (پایین چپ) و لوگوی نمایندگی
+ *      (پایین راست) روی تصویر + همه فیلدهای متنی فارسی زیر تصویر
+ *   ② «نام دستگاه انگلیسی فرستاده می‌شود» → نام فارسی از brand_devices
+ *   ③ «ایمیل ارسال نمیشود» → خطای دقیق هر کانال در گزارش + Mailer مقاوم
  *
  * @package SahandBrandMaker
- * @version 1.2.0
+ * @version 1.3.0
  */
 class NotificationService
 {
@@ -35,6 +35,42 @@ class NotificationService
     }
 
     /**
+     * 🔧 نام فارسی دستگاه از brand_devices (v2.31 — ریشه «نام دستگاه
+     * انگلیسی فرستاده می‌شود»: device_key خام مثل washing_machine به
+     * جای نام فارسی می‌رفت)
+     */
+    public static function deviceNameFa(int $brandId, string $deviceKey, string $deviceOther = ''): string
+    {
+        $deviceKey = trim($deviceKey);
+        if ($deviceKey === '' || $deviceKey === 'other') {
+            return $deviceOther !== '' ? $deviceOther : 'سایر';
+        }
+        try {
+            $name = Database::getInstance()->fetchValue(
+                'SELECT name_fa FROM brand_devices WHERE brand_id = ? AND device_key = ? LIMIT 1',
+                [$brandId, $deviceKey]
+            );
+            /* fetchValue در نبود ردیف false برمی‌گرداند */
+            if (is_string($name) && $name !== '') {
+                return $name;
+            }
+        } catch (Throwable $e) { /* جدول قدیمی */ }
+        /* پشتیبان: نگاشت کلیدهای رایج */
+        static $known = [
+            'washing_machine' => 'ماشین لباسشویی', 'refrigerator' => 'یخچال', 'freezer' => 'فریزر',
+            'dishwasher' => 'ماشین ظرفشویی', 'oven' => 'فر و اجاق', 'microwave' => 'ماکروویو',
+            'tv' => 'تلویزیون', 'led_tv' => 'تلویزیون LED', 'cooler' => 'کولر آبی',
+            'ac' => 'کولر گازی', 'split' => 'کولر گازی (اسپیلت)', 'package' => 'پکیج و رادیاتور',
+            'water_heater' => 'آبگرمکن', 'vacuum' => 'جاروبرقی', 'range_hood' => 'هود',
+            'steam_iron' => 'اتو بخار', 'other' => 'سایر',
+        ];
+        if (isset($known[$deviceKey])) {
+            return $known[$deviceKey];
+        }
+        return $deviceOther !== '' ? $deviceOther : $deviceKey;
+    }
+
+    /**
      * 🚀 ارسال درخواست خدمات به همه کانال‌های فعال
      *
      * @param array $request داده‌های درخواست
@@ -46,12 +82,20 @@ class NotificationService
         $errors = [];
         $result = ['email' => false, 'telegram' => false, 'gscript' => false, 'bale' => false, 'bot' => false];
 
-        /* 🏢 اطلاعات نمایندگی (v2.30 — لوگو و نام در همه کانال‌ها) */
+        /* 🏢 اطلاعات نمایندگی */
         $agencyName = (string)(Config::get(Config::KEY_AGENCY_NAME_FA) ?: 'سهند سرویس');
         $agencyLogo = (string)(Config::get(Config::KEY_AGENCY_LOGO) ?: '');
-        [$agencyLogoUrl, $agencyLogoDisk] = self::resolveAsset($agencyLogo);
+        [, $agencyLogoDisk] = self::resolveAsset($agencyLogo);
 
-        /* 🖼️ تصاویر پیوست درخواست (مسیرهای نسبی/مطلق) */
+        /* 🔧 نام فارسی دستگاه (v2.31) */
+        $deviceNameFa = self::deviceNameFa(
+            (int)($brand['id'] ?? 0),
+            (string)($request['device_key'] ?? ''),
+            (string)($request['device_other'] ?? '')
+        );
+        $request['device_name'] = $deviceNameFa;
+
+        /* 🖼️ تصاویر پیوست درخواست */
         $requestImages = [];
         if (!empty($request['images']) && is_array($request['images'])) {
             foreach (array_slice($request['images'], 0, MAX_REQUEST_IMAGES) as $img) {
@@ -62,6 +106,29 @@ class NotificationService
             }
         }
 
+        /* ═══ 🖼️ کارت تصویری واحد — تصویر + واترمارک + همه فیلدها (v2.31) ═══ */
+        $cardPath = null;
+        try {
+            if (class_exists('RequestCard')) {
+                $cardPath = RequestCard::render(
+                    $request,
+                    $brand,
+                    $agencyName,
+                    $agencyLogoDisk ?: $agencyLogo,
+                    !empty($requestImages) ? $requestImages[0] : null
+                );
+            }
+        } catch (Throwable $cardE) {
+            Logger::error('ساخت کارت درخواست ناموفق', ['error' => $cardE->getMessage()]);
+        }
+
+        /* 📝 کپشن کوتاه کارت (متن کامل داخل تصویر است) */
+        $caption = '📨 درخواست خدمات جدید' . "\n"
+            . '🏷️ برند: ' . ($brand['name_fa'] ?? '') . "\n"
+            . ($agencyName !== '' ? '🏢 نمایندگی: ' . $agencyName . "\n" : '')
+            . (!empty($request['request_id']) ? '🔢 کد پیگیری: ' . $request['request_id'] . "\n" : '')
+            . '⏰ ' . jdate(date('Y-m-d H:i'), true);
+
         /* ---------- 📧 کانال ایمیل ---------- */
         $emailCfg = (array)(Config::get(Config::KEY_NOTIFY_EMAIL) ?: []);
         if (!empty($emailCfg['enabled']) && !empty($emailCfg['to'])) {
@@ -69,12 +136,14 @@ class NotificationService
                 $mailer = new Mailer();
                 $result['email'] = $mailer->sendServiceRequest($emailCfg['to'], $request, $brand, [
                     'agency_name' => $agencyName,
-                    'agency_logo' => $agencyLogoUrl,
+                    'agency_logo' => self::resolveAsset($agencyLogo)[0],
+                    'card_path'   => $cardPath,
+                    'extra_images' => array_slice($requestImages, 1),
                 ]);
                 if (!$result['email']) {
-                    $errors[] = 'ایمیل: ارسال ناموفق (تنظیمات mail/SMTP را بررسی کنید)';
+                    $errors[] = 'ایمیل: ارسال ناموفق — ' . Mailer::lastError();
                 }
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 $errors[] = 'ایمیل: ' . $e->getMessage();
             }
         }
@@ -87,7 +156,7 @@ class NotificationService
             [$logoUrl] = self::resolveAsset((string)$brand['logo']);
         }
 
-        /* ---------- 🤖 اعلان به ربات دستیار تلگرام (نسخه ۲.۱) ---------- */
+        /* ---------- 🤖 اعلان به ربات دستیار تلگرام ---------- */
         try {
             if (is_file(ROOT_PATH . '/telegram/TelegramBot.php')) {
                 require_once ROOT_PATH . '/telegram/TelegramBot.php';
@@ -97,45 +166,45 @@ class NotificationService
             $errors[] = 'ربات تلگرام: ' . $e->getMessage();
         }
 
-        // 📱 تلگرام مستقیم — لوگوها + تصاویر + پیام کامل
+        // 📱 تلگرام مستقیم — کارت واحد یا پیام متنی
         if (!empty($tgCfg['enabled']) && !empty($tgCfg['bot_token']) && !empty($tgCfg['chat_id'])) {
             $botToken = (string)$tgCfg['bot_token'];
             $chatId = (string)$tgCfg['chat_id'];
-            /* 🖼️ لوگوی برند (در صورت وجود) */
-            if ($logoUrl !== '') {
-                $this->sendPhotoGeneric("https://api.telegram.org/bot{$botToken}/sendPhoto", $chatId, $brand['logo'], '🏷️ لوگوی برند: ' . ($brand['name_fa'] ?? ''));
+            $tgBase = "https://api.telegram.org/bot{$botToken}";
+            if ($cardPath !== null && is_file($cardPath)) {
+                /* 🖼️ یک پیام واحد: تصویر + متن کامل (درخواست v2.31) */
+                $result['telegram'] = $this->sendPhotoGeneric($tgBase . '/sendPhoto', $chatId, $cardPath, $caption);
+                /* تصاویر تکمیلی ۲ به بعد — به‌عنوان پیوست بعد از کارت */
+                foreach (array_slice($requestImages, 1) as $ii => $img) {
+                    $this->sendPhotoGeneric($tgBase . '/sendPhoto', $chatId, $img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($requestImages)));
+                }
+            } else {
+                /* کارت ساخته نشد (GD/فونت نبود یا درخواست بدون تصویر) → مسیر متنی کامل */
+                foreach ($requestImages as $ii => $img) {
+                    $this->sendPhotoGeneric($tgBase . '/sendPhoto', $chatId, $img, '🖼️ تصویر پیوست ' . self::faNum($ii + 1) . ' از ' . self::faNum(count($requestImages)));
+                }
+                $result['telegram'] = $this->sendMessageGeneric($tgBase . '/sendMessage', [
+                    'chat_id' => $chatId,
+                    'text'    => $message,
+                    'parse_mode' => 'HTML',
+                ]);
             }
-            /* 🏢 لوگوی نمایندگی (در صورت وجود — درخواست v2.30) */
-            if ($agencyLogo !== '') {
-                $this->sendPhotoGeneric("https://api.telegram.org/bot{$botToken}/sendPhoto", $chatId, $agencyLogo, '🏢 نمایندگی: ' . $agencyName);
-            }
-            /* 🖼️ تصاویر پیوست درخواست — واقعاً ارسال شوند (رفع «ناقص») */
-            $imgIdx = 0;
-            foreach ($requestImages as $img) {
-                $imgIdx++;
-                $this->sendPhotoGeneric("https://api.telegram.org/bot{$botToken}/sendPhoto", $chatId, $img, '🖼️ تصویر پیوست ' . self::faNum($imgIdx) . ' از ' . self::faNum(count($requestImages)));
-            }
-            $result['telegram'] = $this->sendMessageGeneric("https://api.telegram.org/bot{$botToken}/sendMessage", [
-                'chat_id' => $chatId,
-                'text'    => $message,
-                'parse_mode' => 'HTML',
-            ]);
             if (!$result['telegram']) {
                 $errors[] = 'تلگرام مستقیم: ناموفق (در صورت تحریم، واسط گوگل را فعال کنید)';
             }
         }
 
-        // 🔄 واسط Google Apps Script — توکن از تنظیمات تلگرام خوانده می‌شود (خارج از اسکریپت)
+        // 🔄 واسط Google Apps Script
         $gsCfg = (array)(Config::get(Config::KEY_NOTIFY_GSCRIPT) ?: []);
         if (!empty($gsCfg['enabled']) && !empty($gsCfg['webapp_url']) && !empty($tgCfg['bot_token']) && !empty($tgCfg['chat_id'])) {
             $result['gscript'] = $this->sendViaGoogleScript($gsCfg['webapp_url'], [
                 'bot_token'  => $tgCfg['bot_token'],
                 'chat_id'    => $tgCfg['chat_id'],
                 'message'    => $message,
-                'photo_url'  => $logoUrl ?: $agencyLogoUrl,
+                'photo_url'  => $logoUrl ?: self::resolveAsset($agencyLogo)[0],
                 'photo_urls' => array_values(array_filter(array_merge(
                     $logoUrl ? [$logoUrl] : [],
-                    $agencyLogoUrl ? [$agencyLogoUrl] : [],
+                    self::resolveAsset($agencyLogo)[0] ? [self::resolveAsset($agencyLogo)[0]] : [],
                     array_map(static fn($i) => self::resolveAsset($i)[0], $requestImages)
                 ))),
                 'caption'    => '🏷️ ' . ($brand['name_fa'] ?? '') . ($agencyName ? ' | 🏢 ' . $agencyName : ''),
@@ -150,24 +219,23 @@ class NotificationService
         if (!empty($baleCfg['enabled']) && !empty($baleCfg['bot_token']) && !empty($baleCfg['chat_id'])) {
             $baleToken = (string)$baleCfg['bot_token'];
             $baleChat = (string)$baleCfg['chat_id'];
-            // پیام بدون HTML (بله از فرمت محدودتری پشتیبانی می‌کند)
+            $baleBase = 'https://tapi.bale.ai/bot' . $baleToken;
             $plainMessage = trim(strip_tags(str_replace(['<b>', '</b>', '\n'], ['', '', "\n"], $message)));
-            /* 🖼️ v2.30 — بله هم لوگوها و تصاویر را دریافت می‌کند (قبلاً فقط متن!) */
-            if ($logoUrl !== '') {
-                $this->sendPhotoGeneric('https://tapi.bale.ai/bot' . $baleToken . '/sendPhoto', $baleChat, $brand['logo'], '🏷️ لوگوی برند: ' . ($brand['name_fa'] ?? ''));
+            if ($cardPath !== null && is_file($cardPath)) {
+                /* 🖼️ یک پیام واحد (v2.31) */
+                $result['bale'] = $this->sendPhotoGeneric($baleBase . '/sendPhoto', $baleChat, $cardPath, $caption);
+                foreach (array_slice($requestImages, 1) as $ii => $img) {
+                    $this->sendPhotoGeneric($baleBase . '/sendPhoto', $baleChat, $img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($requestImages)));
+                }
+            } else {
+                foreach ($requestImages as $ii => $img) {
+                    $this->sendPhotoGeneric($baleBase . '/sendPhoto', $baleChat, $img, '🖼️ تصویر پیوست ' . self::faNum($ii + 1) . ' از ' . self::faNum(count($requestImages)));
+                }
+                $result['bale'] = $this->sendMessageGeneric($baleBase . '/sendMessage', [
+                    'chat_id' => $baleChat,
+                    'text'    => $plainMessage,
+                ]);
             }
-            if ($agencyLogo !== '') {
-                $this->sendPhotoGeneric('https://tapi.bale.ai/bot' . $baleToken . '/sendPhoto', $baleChat, $agencyLogo, '🏢 نمایندگی: ' . $agencyName);
-            }
-            $imgIdx = 0;
-            foreach ($requestImages as $img) {
-                $imgIdx++;
-                $this->sendPhotoGeneric('https://tapi.bale.ai/bot' . $baleToken . '/sendPhoto', $baleChat, $img, '🖼️ تصویر پیوست ' . self::faNum($imgIdx) . ' از ' . self::faNum(count($requestImages)));
-            }
-            $result['bale'] = $this->sendMessageGeneric('https://tapi.bale.ai/bot' . $baleToken . '/sendMessage', [
-                'chat_id' => $baleChat,
-                'text'    => $plainMessage,
-            ]);
             if (!$result['bale']) {
                 $errors[] = 'بله: ناموفق';
             }
@@ -179,14 +247,17 @@ class NotificationService
             'brand'    => $brand['name_fa'] ?? '',
             'channels' => implode(',', array_keys($channels)) ?: 'هیچ کانالی فعال نیست',
             'images'   => count($requestImages),
+            'card'     => $cardPath !== null ? basename($cardPath) : 'بدون کارت',
+            'device'   => $deviceNameFa,
         ]);
 
         $result['errors'] = $errors;
+        $result['card'] = $cardPath;
         return $result;
     }
 
     /**
-     * 🔢 عدد فارسی (برای کپشن تصاویر)
+     * 🔢 عدد فارسی
      */
     private static function faNum(int $n): string
     {
@@ -194,7 +265,7 @@ class NotificationService
     }
 
     /**
-     * 📝 ساخت پیام HTML تلگرام — شامل نام برند و نمایندگی (v2.30)
+     * 📝 ساخت پیام HTML تلگرام — نام دستگاه فارسی (v2.31)
      */
     private function formatTelegramMessage(array $request, array $brand, string $agencyName = ''): string
     {
@@ -203,8 +274,8 @@ class NotificationService
             '📞 تماس'         => fa_to_en_digits($request['phone'] ?? '-'),
             '📞 تماس دوم'     => fa_to_en_digits($request['phone2'] ?? '-'),
             '📍 آدرس'         => $request['address'] ?? '-',
-            '🔧 دستگاه'       => ($request['device_name'] ?? $request['device_key'] ?? '-') . (!empty($request['device_other']) ? ' (' . $request['device_other'] . ')' : ''),
-            '📋 مدل'          => $request['device_model'] ?? '-',
+            '🔧 دستگاه'       => ($request['device_name'] ?? self::deviceNameFa((int)($brand['id'] ?? 0), (string)($request['device_key'] ?? ''), (string)($request['device_other'] ?? '')))
+                . (!empty($request['device_model']) ? ' — مدل: ' . $request['device_model'] : ''),
             '📝 شرح ایراد'    => $request['description'] ?? '-',
             '📅 زمان ترجیحی'  => trim(($request['preferred_date'] ?? '') . ' ' . ($request['preferred_time'] ?? '')) ?: '-',
         ];
@@ -221,36 +292,15 @@ class NotificationService
             }
         }
         if (!empty($request['images']) && is_array($request['images'])) {
-            /* تصاویر بالاتر با sendPhoto ارسال شده‌اند — اینجا فقط ارجاع متنی */
-            $text .= "─────────────────\n🖼️ تصاویر پیوست: " . count($request['images']) . ' مورد (بالای این پیام ارسال شد)';
+            $text .= "─────────────────\n🖼️ تصاویر پیوست: " . count($request['images']) . ' مورد';
         }
         $text .= "\n⏰ " . jdate(date('Y-m-d H:i:s'), true);
         return $text;
     }
 
     /**
-     * 📱 ارسال مستقیم به Bot API تلگرام (قدیمی — برای سازگاری)
-     */
-    private function sendTelegram(string $botToken, string $chatId, string $message, string $photoUrl = ''): bool
-    {
-        if ($photoUrl !== '') {
-            $this->sendMessageGeneric("https://api.telegram.org/bot{$botToken}/sendPhoto", [
-                'chat_id' => $chatId,
-                'photo'   => $photoUrl,
-                'caption' => '🏷️ لوگوی برند',
-            ]);
-        }
-        return $this->sendMessageGeneric("https://api.telegram.org/bot{$botToken}/sendMessage", [
-            'chat_id' => $chatId,
-            'text'    => $message,
-            'parse_mode' => 'HTML',
-        ]);
-    }
-
-    /**
-     * 🖼️ v2.30 — ارسال عکس به Bot API (تلگرام/بله)
-     * فایل محلی → multipart آپلود (مطمئن‌ترین راه حتی بدون URL عمومی)
-     * فایل خارجی → پارامتر photo با URL
+     * 🖼️ ارسال عکس به Bot API (تلگرام/بله)
+     * فایل محلی → multipart آپلود | فایل خارجی → پارامتر photo با URL
      */
     private function sendPhotoGeneric(string $apiUrl, string $chatId, string $photoPathOrUrl, string $caption = ''): bool
     {
@@ -258,13 +308,12 @@ class NotificationService
             return false;
         }
         [$absUrl, $diskPath] = self::resolveAsset($photoPathOrUrl);
-        if ($absUrl === '') {
+        if ($absUrl === '' && $diskPath === '') {
             return false;
         }
 
         $ch = curl_init($apiUrl);
         if ($diskPath !== '' && filesize($diskPath) > 0 && filesize($diskPath) < 9 * 1024 * 1024) {
-            /* 📤 آپلود مستقیم فایل — همیشه کار می‌کند */
             curl_setopt_array($ch, [
                 CURLOPT_POST           => true,
                 CURLOPT_POSTFIELDS     => [
@@ -276,7 +325,6 @@ class NotificationService
                 CURLOPT_TIMEOUT        => 25,
             ]);
         } else {
-            /* 🌐 ارسال با URL عمومی */
             curl_setopt_array($ch, [
                 CURLOPT_POST           => true,
                 CURLOPT_POSTFIELDS     => http_build_query([
@@ -290,8 +338,10 @@ class NotificationService
         }
         $response = curl_exec($ch);
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
         curl_close($ch);
         if ($response === false || $httpCode !== 200) {
+            Logger::warning('ارسال عکس ناموفق', ['url' => substr($apiUrl, 0, 60), 'http' => $httpCode, 'curl' => $curlErr]);
             return false;
         }
         $data = json_decode((string)$response, true);
@@ -307,7 +357,6 @@ class NotificationService
             return false;
         }
         $ch = curl_init($webAppUrl);
-        // 🔄 در صورت تحریم، درخواست از طریق ریدایرکت ۳۰۲ گوگل دنبال می‌شود
         curl_setopt_array($ch, [
             CURLOPT_POST           => true,
             CURLOPT_POSTFIELDS     => json_encode($payload, JSON_UNESCAPED_UNICODE),
@@ -364,7 +413,7 @@ class NotificationService
                 'message' => mb_substr($message, 0, 2000),
                 'link'    => $link ?: null,
             ]);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             Logger::error('ثبت اعلان ناموفق', ['error' => $e->getMessage()]);
         }
     }

@@ -13,6 +13,9 @@ class Mailer
     /** @var array تنظیمات SMTP (در صورت فعال بودن) */
     private $smtpConfig = [];
 
+    /** @var string|null آخرین خطای ارسال (v2.31 — ریشه «ایمیل ارسال نمیشود»: خطا گزارش نمی‌شد) */
+    private static $lastError = null;
+
     public function __construct()
     {
         // خواندن تنظیمات SMTP از تنظیمات عمومی در صورت وجود
@@ -20,6 +23,12 @@ class Mailer
         if (is_array($smtp) && !empty($smtp['enabled'])) {
             $this->smtpConfig = $smtp;
         }
+    }
+
+    /** 🧨 آخرین خطای ارسال — برای نمایش دقیق در گزارش کانال‌ها */
+    public static function lastError(): string
+    {
+        return self::$lastError ?? 'دلیل نامشخص — mail() روی سرور غیرفعال یا From رد شده است';
     }
 
     /**
@@ -34,8 +43,21 @@ class Mailer
      */
     public function send(string $to, string $subject, string $body, string $fromEmail = '', string $fromName = ''): bool
     {
-        $fromEmail = $fromEmail ?: (Config::get('smtp_from_email') ?: 'no-reply@' . ($_SERVER['HTTP_HOST'] ?? 'localhost'));
-        $fromName  = $fromName ?: (Config::get(Config::KEY_AGENCY_NAME_FA) ?: SAHAND_NAME_FA);
+        self::$lastError = null;
+        /* 🎯 v2.31 — آدرس فرستنده: اولویت با تنظیمات، بعد دامنه سرور؛
+           دامنه‌های غریب (ساب‌دامین برند) توسط sendmail سی‌پنل رد می‌شوند! */
+        $host = preg_replace('/[^a-zA-Z0-9.\-]/', '', (string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
+        $host = preg_replace('/^www\./', '', (string)$host);
+        $fromEmail = $fromEmail ?: (Config::get('smtp_from_email') ?: ('no-reply@' . $host));
+        $fromName  = $fromName ?: (Config::get('smtp_from_name') ?: Config::get(Config::KEY_AGENCY_NAME_FA) ?: SAHAND_NAME_FA);
+
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            self::$lastError = 'آدرس گیرنده نامعتبر است: ' . $to;
+            return false;
+        }
+        if (!filter_var($fromEmail, FILTER_VALIDATE_EMAIL)) {
+            $fromEmail = 'no-reply@' . ($host ?: 'localhost');
+        }
 
         // ✉️ هدرهای استاندارد + پشتیبانی UTF-8 فارسی
         $headers = [
@@ -50,12 +72,33 @@ class Mailer
 
         // 🔄 اگر SMTP فعال است از آن استفاده کن، وگرنه mail()
         if (!empty($this->smtpConfig['enabled'])) {
-            return $this->smtpSend($to, $subjectEncoded, $this->wrapHtml($body, $subject), $fromEmail, $fromName);
+            $ok = $this->smtpSend($to, $subjectEncoded, $this->wrapHtml($body, $subject), $fromEmail, $fromName);
+            if (!$ok) {
+                self::$lastError = self::$lastError ?? 'اتصال/احراز SMTP ناموفق — سرور، پورت، رمز اپ را بررسی کنید';
+                Logger::warning('ارسال ایمیل SMTP ناموفق', ['to' => $to, 'subject' => $subject, 'error' => self::$lastError]);
+            }
+            return $ok;
         }
 
-        $ok = @mail($to, $subjectEncoded, $this->wrapHtml($body, $subject), implode("\r\n", $headers));
+        /* 📮 پارامتر پنجم mail() (-f) — سازگاری sendmail سی‌پنل:
+           فرستنده envelope را هم تنظیم می‌کند و از رد شدن جلوگیری می‌کند */
+        $extraParams = null;
+        if (filter_var($fromEmail, FILTER_VALIDATE_EMAIL)) {
+            $safeFrom = substr($fromEmail, 0, 190);
+            $extraParams = '-f' . $safeFrom;
+        }
+        if (function_exists('error_clear_last')) { error_clear_last(); }
+        if ($extraParams !== null) {
+            $ok = @mail($to, $subjectEncoded, $this->wrapHtml($body, $subject), implode("\r\n", $headers), $extraParams);
+        } else {
+            $ok = @mail($to, $subjectEncoded, $this->wrapHtml($body, $subject), implode("\r\n", $headers));
+        }
         if (!$ok) {
-            Logger::warning('ارسال ایمیل ناموفق', ['to' => $to, 'subject' => $subject]);
+            $mailErr = error_get_last();
+            self::$lastError = 'mail() ناموفق'
+                . (!empty($mailErr['message']) ? ' — ' . $mailErr['message'] : '')
+                . ' (اگر روی هاست اشتراکی هستید، فرستنده باید روی دامنه میزبان باشد؛ از تنظیمات ← فیلد «ایمیل فرستنده» یا SMTP استفاده کنید)';
+            Logger::warning('ارسال ایمیل ناموفق', ['to' => $to, 'subject' => $subject, 'error' => self::$lastError]);
         }
         return $ok;
     }
@@ -89,7 +132,7 @@ class Mailer
             'شماره تماس'         => $request['phone'] ?? '-',
             'شماره تماس دوم'     => $request['phone2'] ?? '-',
             'آدرس'               => $request['address'] ?? '-',
-            'نوع دستگاه'         => $request['device_type'] ?? '-',
+            'نوع دستگاه'         => $request['device_name'] ?? ($request['device_type'] ?? '-'),
             'مدل دستگاه'         => $request['device_model'] ?? '-',
             'شرح ایراد'          => nl2br(htmlspecialchars($request['description'] ?? '-')),
             'زمان مراجعه ترجیحی' => ($request['preferred_date'] ?? '') . ' ' . ($request['preferred_time'] ?? ''),
@@ -105,8 +148,21 @@ class Mailer
                 . '</tr>';
         }
 
+        /* 🖼️ v2.31 — کارت تصویری واحد (تصویر + واترمارک + فیلدها) در بالای ایمیل */
+        $cardHtml = '';
+        if (!empty($agency['card_path']) && is_file($agency['card_path'])) {
+            $cardData = @file_get_contents($agency['card_path']);
+            if ($cardData !== false && strlen($cardData) > 500) {
+                $cardB64 = base64_encode($cardData);
+                $cardHtml = '<p style="margin:0 0 14px"><img src="data:image/jpeg;base64,' . $cardB64 . '" alt="کارت درخواست" style="width:100%;max-width:900px;border-radius:12px;border:1px solid #e2e8f0"></p>';
+            }
+        }
+
         // 🖼️ تصاویر پیوست — نمایش بصری (v2.30: پیش‌تر فقط لینک متنی بود)
         $imagesHtml = '';
+        if (!empty($agency['extra_images']) && is_array($agency['extra_images'])) {
+            $request = array_merge($request, ['images' => array_values($agency['extra_images'])]);
+        }
         if (!empty($request['images']) && is_array($request['images'])) {
             $thumbs = '';
             foreach ($request['images'] as $img) {
@@ -128,7 +184,7 @@ class Mailer
             . ($agencyLogoHtml || $agencyName ? '<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.12);border-radius:10px;padding:7px 12px">' . $agencyLogoHtml
                 . '<span style="font-size:12.5px;font-weight:bold">' . htmlspecialchars($agencyName) . '</span></div>' : '')
             . '</div>'
-            . '<div style="padding:20px"><table style="width:100%;border-collapse:collapse;font-size:13px">' . $rowsHtml . '</table>'
+            . '<div style="padding:20px">' . $cardHtml . '<table style="width:100%;border-collapse:collapse;font-size:13px">' . $rowsHtml . '</table>'
             . $imagesHtml
             . '<div style="margin-top:18px;text-align:center"><a href="' . htmlspecialchars(BASE_URL . '/admin/requests.php') . '" style="display:inline-block;background:#1e40af;color:#fff;text-decoration:none;font-weight:bold;font-size:13px;border-radius:10px;padding:11px 26px">👁️ مشاهده در پنل مدیریت</a></div>'
             . '<p style="margin-top:16px;color:#64748b;font-size:12px">⏰ ' . jdate_words(date('Y-m-d H:i:s')) . ' — ارسال‌شده توسط سایت ساز برند سهند سرویس</p>'
@@ -167,6 +223,7 @@ class Mailer
             $remote = ($secure === 'ssl' ? 'ssl://' : '') . $host . ':' . $port;
             $socket = @stream_socket_client($remote, $errno, $errstr, 15);
             if (!$socket) {
+                self::$lastError = 'اتصال به SMTP ناموفق (' . $host . ':' . $port . '): ' . $errstr;
                 Logger::error('اتصال SMTP ناموفق', ['error' => $errstr]);
                 return false;
             }
@@ -205,7 +262,8 @@ class Mailer
             $this->smtpCommand($socket, 'QUIT');
             fclose($socket);
             return true;
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
+            self::$lastError = 'خطای SMTP: ' . $e->getMessage();
             Logger::error('خطای SMTP', ['message' => $e->getMessage()]);
             return false;
         }

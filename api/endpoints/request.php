@@ -115,7 +115,7 @@ function api_submit_request(int $urlBrandId): void
 
     // 📨 ارسال به کانال‌های فعال
     $notifier = new NotificationService();
-    $requestData = array_merge($input, ['full_name' => $fullName, 'phone' => $phone, 'address' => $address, 'device_key' => $deviceKey, 'description' => $description, 'images' => $images]);
+    $requestData = array_merge($input, ['full_name' => $fullName, 'phone' => $phone, 'address' => $address, 'device_key' => $deviceKey, 'description' => $description, 'images' => $images, 'request_id' => $requestId]);
     $sendResult = $notifier->sendServiceRequest($requestData, $brand);
 
     // 🔔 اعلان داخلی پنل

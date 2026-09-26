@@ -11,6 +11,34 @@
 define('SAHAND_INIT', true);
 require_once dirname(__DIR__) . '/config.php';
 
+/* 📨 v2.31 — تست ارسال ایمیل (AJAX): علت دقیق خطا برمی‌گرداند */
+if (!empty($_GET['test_email'])) {
+    header('Content-Type: application/json; charset=UTF-8');
+    $auth = new Auth();
+    $auth->requireLogin();
+    $to = filter_var((string)($_GET['to'] ?? ''), FILTER_VALIDATE_EMAIL);
+    if (!$to) {
+        $to = (string)(Config::get(Config::KEY_NOTIFY_EMAIL)['to'] ?? '');
+        $to = filter_var($to, FILTER_VALIDATE_EMAIL) ?: '';
+    }
+    if (!$to) {
+        echo json_encode(['success' => true, 'sent' => false, 'error' => 'ابتدا «آدرس ایمیل مقصد» را در همین تب ذخیره کنید.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    try {
+        $mailer = new Mailer();
+        $sent = $mailer->send(
+            $to,
+            '📨 ایمیل آزمایشی سایت ساز ' . SAHAND_NAME_FA,
+            '<div style="font-family:Tahoma;direction:rtl;text-align:center;padding:26px"><h2 style="color:#1e40af">✅ ایمیل آزمایشی موفق</h2><p>این ایمیل برای اطمینان از تنظیمات ارسال سایت ساز فرستاده شده است.</p><p style="color:#64748b;font-size:12px">' . e(SAHAND_NAME_FA) . ' — ' . e(jdate(date('Y-m-d H:i'), true)) . '</p></div>'
+        );
+        echo json_encode(['success' => true, 'sent' => $sent, 'error' => $sent ? '' : Mailer::lastError()], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $te) {
+        echo json_encode(['success' => true, 'sent' => false, 'error' => $te->getMessage()], JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
+
 $pageTitle = 'تنظیمات عمومی';
 $activeMenu = 'settings';
 
@@ -147,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         'bot_token' => clean_input($_POST['bale_token'] ?? ''),
         'chat_id'   => clean_input($_POST['bale_chat'] ?? ''),
     ]);
-    // ⚙️ SMTP اختیاری
+    // ⚙️ SMTP اختیاری + فرستنده (v2.31 — ریشه «ایمیل ارسال نمیشود»)
     Config::set('smtp_settings', [
         'enabled'   => !empty($_POST['smtp_enabled']),
         'host'      => clean_input($_POST['smtp_host'] ?? ''),
@@ -156,6 +184,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         'password'  => (string)($_POST['smtp_pass'] ?? ''),
         'secure'    => clean_input($_POST['smtp_secure'] ?? 'tls'),
     ]);
+    Config::set('smtp_from_email', filter_var(clean_input($_POST['smtp_from_email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '');
+    Config::set('smtp_from_name', clean_input($_POST['smtp_from_name'] ?? ''));
 
     // 🔗 بخش ۹: لینک‌دهی
     Config::set(Config::KEY_LINKING, [
@@ -536,6 +566,16 @@ $photoServices = AiPhotoService::servicesList();
                     <div class="form-group"><label>آدرس ایمیل مقصد</label><input type="email" name="email_to" class="form-control" style="direction:ltr;text-align:left" value="<?= e($nEmail['to'] ?? '') ?>"></div>
                     <div class="form-group"><label>عنوان ایمیل</label><input type="text" name="email_subject" class="form-control" value="<?= e($nEmail['subject'] ?? 'درخواست خدمات جدید') ?>"></div>
                 </div>
+                <div class="form-row">
+                    <div class="form-group"><label>📧 ایمیل فرستنده (اختیاری)</label>
+                        <input type="email" name="smtp_from_email" class="form-control" style="direction:ltr;text-align:left" value="<?= e((string)Config::get('smtp_from_email')) ?>" placeholder="no-reply@yourdomain.ir">
+                        <div class="hint" style="margin-top:4px">🆕 روی هاست اشتراکی، فرستنده باید متعلق به دامنه میزبان باشد — یک ایمیل روی دامنه خود را وارد کنید تا ایمیل‌ها رد نشوند. خالی = دامنه فعلی سایت‌ساز.</div>
+                    </div>
+                    <div class="form-group"><label>نام فرستنده</label>
+                        <input type="text" name="smtp_from_name" class="form-control" value="<?= e((string)Config::get('smtp_from_name')) ?>" placeholder="سهند سرویس">
+                    </div>
+                </div>
+                <button type="button" class="btn btn-outline" style="margin-bottom:6px" onclick="sahandTestEmail(this)">📨 ارسال ایمیل آزمایشی و نمایش خطا</button>
                 <details style="margin-top:10px">
                     <summary style="cursor:pointer;font-weight:700;font-size:13px">⚙️ تنظیمات پیشرفته SMTP (اختیاری)</summary>
                     <div class="card-body">
@@ -864,4 +904,28 @@ function previewUiFont() {
 /* 🧩 v2.7: توابع افزودن شعبه/شبکه اجتماعی به admin.js منتقل شدند (addRepeatRow یکپارچه) */
 </script>
 
+<?php ?>
+<script>
+/* 📨 v2.31 — تست ارسال ایمیل با نمایش علت دقیق خطا */
+function sahandTestEmail(btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ در حال ارسال...';
+    fetch('settings.php?test_email=1&to=' + encodeURIComponent(document.querySelector('input[name=email_to]').value || ''), { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            btn.disabled = false;
+            btn.textContent = '📨 ارسال ایمیل آزمایشی و نمایش خطا';
+            if (res && res.success && res.sent) {
+                sahandAlert({ message: '✅ ایمیل آزمایشی ارسال شد! صندوق ورودی (و پوشه اسپم) مقصد را بررسی کنید.', title: 'تست ایمیل', type: 'success' });
+            } else {
+                sahandAlert({ message: '❌ ارسال ناموفق:\n' + ((res && res.error) || 'خطای نامشخص') + '\n\n💡 راهنما: فیلد «ایمیل فرستنده» را با یک ایمیل روی دامنه میزبان پر کنید یا SMTP را فعال کنید.', title: 'تست ایمیل', type: 'danger' });
+            }
+        })
+        .catch(function () {
+            btn.disabled = false;
+            btn.textContent = '📨 ارسال ایمیل آزمایشی و نمایش خطا';
+            sahandAlert({ message: 'خطای ارتباط با سرور', type: 'danger' });
+        });
+}
+</script>
 <?php require __DIR__ . '/includes/footer.php'; ?>
