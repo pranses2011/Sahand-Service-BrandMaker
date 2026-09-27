@@ -92,7 +92,9 @@ if (!function_exists('pvCountdown')) {
     }
 }
 if (!function_exists('pvStyleVars')) {
-    /** 🎨 استایل درون‌خطی — رنگ عنوان / رنگ گرادیانت انتخابی */
+    /** 🎨 استایل درون‌خطی — رنگ عنوان / رنگ گرادیانت انتخابی
+     * 🆕 v2.32 — تکمیل تنظیمات: رنگ متن بدنه + رنگ زمینه دلخواه +
+     * فاصله اختصاصی بالا/پایین */
     function pvStyleVars(array $props): string
     {
         $s = '';
@@ -105,6 +107,19 @@ if (!function_exists('pvStyleVars')) {
                 $s .= 'background:linear-gradient(135deg,' . ($gf ?: '#1e40af') . ',' . ($gt ?: '#0ea5e9') . ');';
             }
         }
+        /* 🆕 v2.32 */
+        $txt = trim((string)($props['textColor'] ?? ''));
+        if (preg_match('/^#[0-9a-fA-F]{3,8}$/', $txt)) { $s .= '--blk-txt:' . $txt . ';'; }
+        if (($props['background'] ?? '') === 'custom' && preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($props['bgColor'] ?? ''))) {
+            $s .= '--blk-bg:' . (string)$props['bgColor'] . ';';
+        }
+        $px = static function ($v): string {
+            $n = (int)$v;
+            return ($v === '' || $v === null || $n < -80 || $n > 300) ? '' : $n . 'px';
+        };
+        $mt = $px($props['mt'] ?? ''); $mb = $px($props['mb'] ?? '');
+        if ($mt !== '') { $s .= '--blk-mt:' . $mt . ';'; }
+        if ($mb !== '') { $s .= '--blk-mb:' . $mb . ';'; }
         return $s;
     }
 }
@@ -253,12 +268,23 @@ if (!function_exists('pv_brand_map_url')) {
         return '';
     }
 }
+if (!function_exists('pv_safe_link')) {
+    /** 🛡 v2.32 — لینک امن: اسکیم‌های خطرناک رد می‌شوند (XSS)
+     * مجاز: http(s) / نسبی / tel / mailto / sms / # */
+    function pv_safe_link(string $link): string
+    {
+        $link = trim($link);
+        if ($link === '') { return ''; }
+        if (preg_match('#^(javascript|data|vbscript|file|about|blob)\s*:#i', $link)) { return ''; }
+        return $link;
+    }
+}
 if (!function_exists('pvA')) {
     /** 🖱 v2.29 — لینک‌دار کردن آیتم (اگر link دارد) */
     function pvA(array $it, string $inner): string
     {
-        $link = trim((string)($it['link'] ?? ''));
-        if ($link === '' || !preg_match('#^(https?://|/|tel:|mailto:|[a-zA-Z0-9_\-./?=&%]+)#', $link)) { return $inner; }
+        $link = pv_safe_link((string)($it['link'] ?? ''));
+        if ($link === '') { return $inner; }
         $ext = preg_match('#^https?://#i', $link) ? ' target="_blank" rel="noopener"' : '';
         return '<a href="' . e($link) . '"' . $ext . ' style="text-decoration:none;color:inherit;display:block">' . $inner . '</a>';
     }
@@ -373,9 +399,13 @@ if (!function_exists('bb_render_block')) {
         $padCls   = 'blk-pad-' . (($props['padding'] ?? 'default') ?: 'default');
         $bgCls    = 'blk-bg-' . (($props['background'] ?? 'default') ?: 'default');
         $varCls   = pv_variant_classes($props);
+        /* 🆕 v2.32 — تکمیل تنظیمات: مخفی در موبایل/دسکتاپ + گردی اختصاصی */
+        $hideCls  = (!empty($props['hideMobile']) ? 'blk-hide-mobile ' : '') . (!empty($props['hideDesktop']) ? 'blk-hide-desktop ' : '');
+        $radCls   = in_array((string)($props['radiusOverride'] ?? 'default'), ['sharp', 'round', 'pill'], true) ? 'blk-rad-' . (string)$props['radiusOverride'] : '';
         $inject = [];
-        foreach (array_filter([$sizeCls, $alignCls, $widthCls, $custom, $padCls, $bgCls, $varCls]) as $cls) {
-            if (strpos($html, $cls) === false) {
+        foreach (array_filter([$sizeCls, $alignCls, $widthCls, $custom, $padCls, $bgCls, $varCls, $hideCls, $radCls]) as $cls) {
+            $cls = trim($cls);
+            if ($cls !== '' && strpos($html, $cls) === false) {
                 $inject[] = $cls;
             }
         }
@@ -383,7 +413,7 @@ if (!function_exists('bb_render_block')) {
             $html = preg_replace('#^<div class="blk #', '<div class="blk ' . implode(' ', $inject) . ' ', $html, 1);
         }
         $vars = pvStyleVars($props);
-        if ($vars !== '' && preg_match('#--blk-tc|--blk-grad#', $html) === 0) {
+        if ($vars !== '' && preg_match('#--blk-tc|--blk-grad|--blk-txt|--blk-bg|--blk-mt|--blk-mb#', $html) === 0) {
             if (preg_match('#^(<div class="blk [^>]*?)style="([^"]*)"#', $html, $sm)) {
                 $html = preg_replace('#^(<div class="blk [^>]*?)style="[^"]*"#', '$1style="' . $sm[2] . ';' . $vars . '"', $html, 1);
             } else {
@@ -400,17 +430,30 @@ if (!function_exists('bb_render_block')) {
                 $html = preg_replace('#^<div class="blk ([^>]*)>#', '<div class="blk $1" style="' . $animVars . '">', $html, 1);
             }
         }
-        /* 🔗 v2.31 — لینک دکمه‌های عنصر (btnLink): همه .hero-btn داخل بلوک
-           (درخواست کاربر: «عناصری که داخلشان دکمه هست، بتوان برای آن دکمه لینک تنظیم کرد») */
+        /* 🔘 v2.32 — دکمه‌های عنصر: لینک جداگانه هر دکمه + متن قابل تغییر
+           (درخواست «چند دکمه باشد برای هر کدام لینک جداگانه»)
+           اولویت: btnLinks[i] ← btnLink (همه) ← حفظ لینک قبلی (مثل tel:) */
         $btnLink = trim((string)($props['btnLink'] ?? ''));
-        if ($btnLink !== '') {
-            $ext = preg_match('#^https?://#i', $btnLink) ? ' target="_blank" rel="noopener"' : '';
-            $html = preg_replace(
-                '#<span class="(hero-btn[^"]*)">([^<]*)</span>#',
-                '<a class="$1" href="' . e($btnLink) . '"' . $ext . ' style="text-decoration:none;display:inline-block">$2</a>',
-                $html
-            );
-        }
+        $btnLinksMap = is_array($props['btnLinks'] ?? null) ? $props['btnLinks'] : [];
+        $btnTextsMap = is_array($props['btnTexts'] ?? null) ? $props['btnTexts'] : [];
+        $btnIdx = 0;
+        $html = preg_replace_callback(
+            '#<([a-z]+)([^>]*\bclass="(hero-btn[^"]*)"[^>]*)>([^<]*)</\1>#',
+            static function ($m) use (&$btnIdx, $btnLinksMap, $btnTextsMap, $btnLink) {
+                $btnIdx++;
+                $i = (string)$btnIdx;
+                $text = trim((string)($btnTextsMap[$i] ?? ''));
+                $text = $text !== '' ? e($text) : $m[4];
+                $link = pv_safe_link((string)($btnLinksMap[$i] ?? '')) ?: pv_safe_link($btnLink);
+                if ($link === '') {
+                    /* بدون لینک جدید: فقط متن بازنویسی؛ صفت‌ها (مثل href تل) حفظ */
+                    return $text !== $m[4] ? ('<' . $m[1] . $m[2] . '>' . $text . '</' . $m[1] . '>') : $m[0];
+                }
+                $ext = preg_match('#^https?://#i', $link) ? ' target="_blank" rel="noopener"' : '';
+                return '<a class="' . $m[3] . '" href="' . e($link) . '"' . $ext . ' style="text-decoration:none;display:inline-block">' . $text . '</a>';
+            },
+            $html
+        );
         /* 🖱 v2.29 — کلیک‌پذیری: کل عنصر داخل لینک */
         return pv_link_wrap($props, $html);
     }
@@ -1261,7 +1304,9 @@ if (!function_exists('pv_generic_block')) {
         return $html;
     }
 
-    /** 🎛 متغیرهای CSS تنظیمات صفحه (گره مخفی _page) */
+    /** 🎛 متغیرهای CSS تنظیمات صفحه (گره مخفی _page)
+     * 🆕 v2.32 — همه تنظیمات صفحه: گرادیانت/تصویر زمینه + پوشش +
+     * رنگ متن بدنه/لینک + ارتفاع خط + اندازه عنوان + جلوه‌ها */
     function bb_page_css_vars(array $p): string
     {
         $v = [];
@@ -1271,6 +1316,13 @@ if (!function_exists('pv_generic_block')) {
         elseif ($bg === 'light') { $bgCss = '#fafafa'; }
         elseif ($bg === 'dark') { $bgCss = '#0f172a'; }
         elseif ($bg === 'custom' && preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($p['pageBgColor'] ?? ''))) { $bgCss = (string)$p['pageBgColor']; }
+        /* 🆕 v2.32 — گرادیانت زمینه */
+        elseif ($bg === 'gradient') {
+            $gf = preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($p['gradFrom'] ?? '')) ? (string)$p['gradFrom'] : '#1e40af';
+            $gt = preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($p['gradTo'] ?? '')) ? (string)$p['gradTo'] : '#0ea5e9';
+            $ang = max(0, min(360, (int)($p['gradAngle'] ?? 135)));
+            $bgCss = 'linear-gradient(' . $ang . 'deg,' . $gf . ',' . $gt . ')';
+        }
         if ($bgCss !== '') { $v['--pg-bg'] = $bgCss; }
         $map = [
             'sectionSpacing' => ['compact' => '30px', 'default' => '54px', 'roomy' => '74px', 'airy' => '96px', 'var' => '--pg-section-pad'],
@@ -1307,6 +1359,15 @@ if (!function_exists('pv_generic_block')) {
         $ls = (string)($p['letterSpacing'] ?? 'default');
         if ($ls === 'tight') { $v['--pg-ls'] = '-.5px'; }
         elseif ($ls === 'wide') { $v['--pg-ls'] = '1.2px'; }
+        /* 🆕 v2.32 — تایپوگرافی: رنگ متن بدنه + رنگ لینک + ارتفاع خط + اندازه عنوان */
+        if (!empty($p['bodyColor']) && preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)$p['bodyColor'])) { $v['--pg-body'] = (string)$p['bodyColor']; }
+        if (!empty($p['linkColor']) && preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)$p['linkColor'])) { $v['--pg-link'] = (string)$p['linkColor']; }
+        $lhMap = ['compact' => '1.6', 'default' => '', 'roomy' => '2.1'];
+        $lh = (string)($p['lineHeight'] ?? 'default');
+        if (isset($lhMap[$lh]) && $lhMap[$lh] !== '') { $v['--pg-lh'] = $lhMap[$lh]; }
+        $tsMap = ['sm' => '15px', 'md' => '', 'lg' => '21px', 'xl' => '26px'];
+        $tsz = (string)($p['titleSize'] ?? 'md');
+        if (isset($tsMap[$tsz]) && $tsMap[$tsz] !== '') { $v['--pg-title-size'] = $tsMap[$tsz]; }
         $out = '';
         foreach ($v as $k => $val) { $out .= $k . ':' . $val . ';'; }
         return $out;
@@ -1350,6 +1411,34 @@ if (!function_exists('pv_generic_block')) {
                 $pageStyle .= '--pg-pat:' . (string)$pageProps['patternColor'] . ';';
             }
         }
+        /* 🆕 v2.32 — تصویر زمینه صفحه + پوشش رنگ (خوانایی متن) */
+        $bgImageStyle = '';
+        if ((string)($pageProps['pageBg'] ?? '') === 'image' && preg_match('#^https?://[^\s"\'<>]{5,500}$#i', (string)($pageProps['bgImage'] ?? ''))) {
+            $imgUrl = (string)$pageProps['bgImage'];
+            $oc = preg_match('/^#[0-9a-fA-F]{6}$/', (string)($pageProps['overlayColor'] ?? '')) ? (string)$pageProps['overlayColor'] : '#0f172a';
+            $op = max(0, min(100, (int)($pageProps['overlayOpacity'] ?? 35))) / 100;
+            $r = (int)hexdec(substr($oc, 1, 2)); $g = (int)hexdec(substr($oc, 3, 2)); $b = (int)hexdec(substr($oc, 5, 2));
+            $bgImageStyle = 'background-image:linear-gradient(rgba(' . $r . ',' . $g . ',' . $b . ',' . $op . '),rgba(' . $r . ',' . $g . ',' . $b . ',' . $op . ')),url(\'' . e($imgUrl) . '\');'
+                . 'background-size:cover;background-position:center;'
+                . (empty($pageProps['bgImageFixed']) || ((int)$pageProps['bgImageFixed'] === 1) ? 'background-attachment:fixed;' : '');
+        }
+        /* 🆕 v2.32 — جلوه‌های صفحه: نوار پیشرفت اسکرول + دکمه بازگشت به بالا + اسکرول نرم */
+        $effectsHtml = '';
+        $effectsJs = '';
+        if (!empty($pageProps['scrollProgress'])) {
+            $effectsHtml .= '<div class="bb-scroll-progress" aria-hidden="true"></div>';
+            $effectsJs .= 'var sp=document.querySelector(".bb-scroll-progress");if(sp){var up=function(){var h=document.documentElement.scrollHeight-window.innerHeight;sp.style.width=(h>0?(window.scrollY/h*100):0)+"%"};window.addEventListener("scroll",up,{passive:true});up();}';
+        }
+        if (!empty($pageProps['backToTop'])) {
+            $effectsHtml .= '<button type="button" class="bb-back-top" aria-label="بازگشت به بالا">⬆</button>';
+            $effectsJs .= 'var bt=document.querySelector(".bb-back-top");if(bt){bt.addEventListener("click",function(){window.scrollTo({top:0,behavior:"smooth"})});var vis=function(){bt.classList.toggle("show",window.scrollY>420)};window.addEventListener("scroll",vis,{passive:true});vis();}';
+        }
+        if (!empty($pageProps['smoothScroll'])) {
+            $effectsJs .= 'document.querySelectorAll(\'a[href^="#"]\').forEach(function(a){a.addEventListener("click",function(ev){var t=document.querySelector(a.getAttribute("href"));if(t){ev.preventDefault();t.scrollIntoView({behavior:"smooth"})}})});';
+        }
+        if ($effectsJs !== '') {
+            $effectsHtml .= '<script>document.addEventListener("DOMContentLoaded",function(){' . $effectsJs . '});</script>';
+        }
         /* 🆕 v2.31 — CSS سفارشی صفحه (فقط این صفحه) */
         $customCss = trim((string)($pageProps['customCss'] ?? ''));
         $customTag = '';
@@ -1358,6 +1447,6 @@ if (!function_exists('pv_generic_block')) {
             $customCss = preg_replace(["#</?[[:space:]]*script#i", "#</?[[:space:]]*style#i", "#expression[[:space:]]*\\(#i", "#url[[:space:]]*\\([[:space:]]*[\"']?javascript:#i"], '', $customCss);
             $customTag = '<style data-page-custom>' . $customCss . '</style>';
         }
-        return '<div class="bb-wrap' . $patternCls . '"' . ($pageStyle !== '' ? ' style="' . e($pageStyle) . '"' : '') . '>' . $inner . '</div>' . $customTag;
+        return '<div class="bb-wrap' . $patternCls . '"' . ($pageStyle !== '' || $bgImageStyle !== '' ? ' style="' . e($pageStyle . $bgImageStyle) . '"' : '') . '>' . $inner . '</div>' . $effectsHtml . $customTag;
     }
 }

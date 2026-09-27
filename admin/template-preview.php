@@ -49,6 +49,13 @@ $pageCssVars = static function (array $p): string {
     elseif ($bg === 'light') { $bgCss = '#fafafa'; }
     elseif ($bg === 'dark') { $bgCss = '#0f172a'; }
     elseif ($bg === 'custom' && preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($p['pageBgColor'] ?? ''))) { $bgCss = (string)$p['pageBgColor']; }
+    /* 🆕 v2.32 — گرادیانت زمینه */
+    elseif ($bg === 'gradient') {
+        $gf = preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($p['gradFrom'] ?? '')) ? (string)$p['gradFrom'] : '#1e40af';
+        $gt = preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($p['gradTo'] ?? '')) ? (string)$p['gradTo'] : '#0ea5e9';
+        $ang = max(0, min(360, (int)($p['gradAngle'] ?? 135)));
+        $bgCss = 'linear-gradient(' . $ang . 'deg,' . $gf . ',' . $gt . ')';
+    }
     if ($bgCss !== '') { $v['--pg-bg'] = $bgCss; }
     $map = [
         'sectionSpacing' => ['compact' => '30px', 'default' => '54px', 'roomy' => '74px', 'airy' => '96px', 'var' => '--pg-section-pad'],
@@ -73,6 +80,15 @@ $pageCssVars = static function (array $p): string {
     if ($pb !== '') { $v['--pg-mb'] = $pb; }
     if ($pl !== '') { $v['--pg-ml'] = $pl; }
     if ($pr !== '') { $v['--pg-mr'] = $pr; }
+    /* 🆕 v2.32 — تایپوگرافی: رنگ متن بدنه + لینک + ارتفاع خط + اندازه عنوان */
+    if (!empty($p['bodyColor']) && preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)$p['bodyColor'])) { $v['--pg-body'] = (string)$p['bodyColor']; }
+    if (!empty($p['linkColor']) && preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)$p['linkColor'])) { $v['--pg-link'] = (string)$p['linkColor']; }
+    $lhMap = ['compact' => '1.6', 'default' => '', 'roomy' => '2.1'];
+    $lh = (string)($p['lineHeight'] ?? 'default');
+    if (isset($lhMap[$lh]) && $lhMap[$lh] !== '') { $v['--pg-lh'] = $lhMap[$lh]; }
+    $tsMap = ['sm' => '15px', 'md' => '', 'lg' => '21px', 'xl' => '26px'];
+    $tsz = (string)($p['titleSize'] ?? 'md');
+    if (isset($tsMap[$tsz]) && $tsMap[$tsz] !== '') { $v['--pg-title-size'] = $tsMap[$tsz]; }
     $out = '';
     foreach ($v as $k => $val) { $out .= $k . ':' . $val . ';'; }
     return $out;
@@ -162,6 +178,19 @@ function pvStyleVars(array $props): string
             $s .= 'background:linear-gradient(135deg,' . ($gf ?: '#1e40af') . ',' . ($gt ?: '#0ea5e9') . ');';
         }
     }
+    /* 🆕 v2.32 — تکمیل تنظیمات: رنگ متن بدنه + زمینه دلخواه + فاصله بالا/پایین */
+    $txt = trim((string)($props['textColor'] ?? ''));
+    if (preg_match('/^#[0-9a-fA-F]{3,8}$/', $txt)) { $s .= '--blk-txt:' . $txt . ';'; }
+    if (($props['background'] ?? '') === 'custom' && preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($props['bgColor'] ?? ''))) {
+        $s .= '--blk-bg:' . (string)$props['bgColor'] . ';';
+    }
+    $px = static function ($v): string {
+        $n = (int)$v;
+        return ($v === '' || $v === null || $n < -80 || $n > 300) ? '' : $n . 'px';
+    };
+    $mt = $px($props['mt'] ?? ''); $mb = $px($props['mb'] ?? '');
+    if ($mt !== '') { $s .= '--blk-mt:' . $mt . ';'; }
+    if ($mb !== '') { $s .= '--blk-mb:' . $mb . ';'; }
     return $s;
 }
 
@@ -301,9 +330,13 @@ function renderPreviewBlock(string $block, array $props = []): string
     /* 🎭 v2.26 — ظواهر متعدد: واریانت بدنه + استایل دکمه + افکت هاور
        (آینه دقیق variantClasses در JS قالب‌ساز) */
     $varCls   = pv_variant_classes($props);
+    /* 🆕 v2.32 — تکمیل تنظیمات: مخفی در موبایل/دسکتاپ + گردی اختصاصی */
+    $hideCls  = (!empty($props['hideMobile']) ? 'blk-hide-mobile ' : '') . (!empty($props['hideDesktop']) ? 'blk-hide-desktop ' : '');
+    $radCls   = in_array((string)($props['radiusOverride'] ?? 'default'), ['sharp', 'round', 'pill'], true) ? 'blk-rad-' . (string)$props['radiusOverride'] : '';
     $inject = [];
-    foreach (array_filter([$sizeCls, $alignCls, $widthCls, $custom, $padCls, $bgCls, $varCls]) as $cls) {
-        if (strpos($html, $cls) === false) {
+    foreach (array_filter([$sizeCls, $alignCls, $widthCls, $custom, $padCls, $bgCls, $varCls, $hideCls, $radCls]) as $cls) {
+        $cls = trim($cls);
+        if ($cls !== '' && strpos($html, $cls) === false) {
             $inject[] = $cls;
         }
     }
@@ -330,16 +363,29 @@ function renderPreviewBlock(string $block, array $props = []): string
             $html = preg_replace('#^<div class="blk ([^>]*)>#', '<div class="blk $1" style="' . $vars . '">', $html, 1);
         }
     }
-    /* 🔗 v2.31 — لینک دکمه‌های عنصر (btnLink): همه .hero-btn داخل بلوک */
+    /* 🔘 v2.32 — دکمه‌های عنصر: لینک جداگانه هر دکمه + متن قابل تغییر
+       (آینه PHP رندرگر blocks.php — اولویت btnLinks[i] ← btnLink) */
     $btnLink = trim((string)($props['btnLink'] ?? ''));
-    if ($btnLink !== '') {
-        $ext = preg_match('#^https?://#i', $btnLink) ? ' target="_blank" rel="noopener"' : '';
-        $html = preg_replace(
-            '#<span class="(hero-btn[^"]*)">([^<]*)</span>#',
-            '<a class="$1" href="' . e($btnLink) . '"' . $ext . ' style="text-decoration:none;display:inline-block">$2</a>',
-            $html
-        );
-    }
+    $btnLinksMap = is_array($props['btnLinks'] ?? null) ? $props['btnLinks'] : [];
+    $btnTextsMap = is_array($props['btnTexts'] ?? null) ? $props['btnTexts'] : [];
+    $btnIdx = 0;
+    $html = preg_replace_callback(
+        '#<([a-z]+)([^>]*\bclass="(hero-btn[^"]*)"[^>]*)>([^<]*)</\1>#',
+        static function ($m) use (&$btnIdx, $btnLinksMap, $btnTextsMap, $btnLink) {
+            $btnIdx++;
+            $i = (string)$btnIdx;
+            $text = trim((string)($btnTextsMap[$i] ?? ''));
+            $text = $text !== '' ? e($text) : $m[4];
+            $link = trim((string)($btnLinksMap[$i] ?? '')) ?: $btnLink;
+            if (preg_match('#^(javascript|data|vbscript|file|about|blob)\s*:#i', $link)) { $link = ''; }
+            if ($link === '') {
+                return $text !== $m[4] ? ('<' . $m[1] . $m[2] . '>' . $text . '</' . $m[1] . '>') : $m[0];
+            }
+            $ext = preg_match('#^https?://#i', $link) ? ' target="_blank" rel="noopener"' : '';
+            return '<a class="' . $m[3] . '" href="' . e($link) . '"' . $ext . ' style="text-decoration:none;display:inline-block">' . $text . '</a>';
+        },
+        $html
+    );
     /* 🖱 v2.29 — کلیک‌پذیری: کل بلوک داخل لینک */
     return pv_link_wrap($props, $html);
 }
@@ -1057,6 +1103,18 @@ body { font-family: var(--font-body, Vazirmatn, Tahoma, 'Segoe UI', sans-serif);
 /* 🔤 تیترها و عناصر تاکیدی با فونت تیتر انتخابی (مثل سایت واقعی) */
 .blk-title, .hero-title, .card-t, .page-title, .topbar-blk, .notif-bar, .price-row b, .stat-n, .cta-num, .story-year, .num-n, .fake-cta, .hero-btn { font-family: var(--font-heading, Vazirmatn, Tahoma, sans-serif); }
 .preview-wrap { max-width: 100%; margin: 0 auto; }
+
+/* 🆕 v2.32 — تایپوگرافی صفحه */
+body, .preview-wrap { color: var(--pg-body, inherit); line-height: var(--pg-lh, inherit); }
+a { color: var(--pg-link, inherit); }
+.blk-title { font-size: var(--pg-title-size, 17px); }
+/* 🆕 v2.32 — تکمیل تنظیمات عناصر: رنگ متن بدنه + زمینه دلخواه + فاصله اختصاصی + گردی + نمایش انتخابی */
+.blk { color: var(--blk-txt, inherit); background-color: var(--blk-bg, transparent); margin-top: var(--blk-mt, 0); margin-bottom: var(--blk-mb, 0); }
+.blk-rad-sharp { border-radius: 0 !important; }
+.blk-rad-round { border-radius: 22px !important; }
+.blk-rad-pill { border-radius: 34px !important; }
+@media (max-width: 768px) { .blk-hide-mobile { display: none !important; } }
+@media (min-width: 769px) { .blk-hide-desktop { display: none !important; } }
 
 /* بلوک‌ها */
 .blk { background: var(--card); padding: 26px 20px; border-bottom: 1px dashed var(--border); }

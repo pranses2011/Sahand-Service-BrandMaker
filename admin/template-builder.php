@@ -700,6 +700,13 @@ try {
 #canvas-blocks .blk-pad-compact { padding-top: calc(var(--pg-section-pad) * .38); padding-bottom: calc(var(--pg-section-pad) * .38); }
 #canvas-blocks .blk-pad-none { padding-top: 0; padding-bottom: 0; }
 #canvas-blocks .tb-live .blk { max-width: var(--pg-width); margin-inline: auto; }
+/* 🆕 v2.32 — تکمیل تنظیمات عناصر: رنگ متن بدنه + زمینه دلخواه + فاصله اختصاصی + گردی + نمایش انتخابی */
+#canvas-blocks .blk { color: var(--blk-txt, inherit); background-color: var(--blk-bg, transparent); margin-top: var(--blk-mt, 0); margin-bottom: var(--blk-mb, var(--pg-gap)); }
+#canvas-blocks .blk-rad-sharp { border-radius: 0 !important; }
+#canvas-blocks .blk-rad-round { border-radius: 22px !important; }
+#canvas-blocks .blk-rad-pill { border-radius: 34px !important; }
+@media (max-width: 768px) { #canvas-blocks .blk-hide-mobile { display: none !important; } }
+@media (min-width: 769px) { #canvas-blocks .blk-hide-desktop { display: none !important; } }
 #canvas-blocks.pv-page-dark { background: #0f172a; }
 #canvas-blocks.pv-page-dark .blk:not(.blk-bg-gradient):not(.blk-bg-primary):not(.blk-bg-dark) { background: #1e293b; color: #e2e8f0; }
 #canvas-blocks.pv-page-dark .blk .blk-title { color: #f1f5f9; }
@@ -1165,7 +1172,7 @@ let selected = null; // رشته مسیر مثل '3' یا '3.cols.1.0'
  * ================================================== */
 let pageProps = <?= json_encode($pageProps, JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
 const PAGE_DEFAULTS = {
-    pageBg: 'default',       /* زمینه صفحه: default | surface | light | dark | custom */
+    pageBg: 'default',       /* زمینه صفحه: default | surface | light | dark | custom | gradient | image */
     pageBgColor: '#f8fafc',  /* رنگ دلخواه وقتی pageBg=custom */
     sectionSpacing: 'default', /* فاصله عمودی داخل بخش‌ها: compact | default | roomy | airy */
     sectionGap: 'default',   /* فاصله بین بخش‌ها: tight | default | roomy */
@@ -1188,7 +1195,22 @@ const PAGE_DEFAULTS = {
     fontFamily: 'default',   /* خانواده فونت: default | vazir | system */
     letterSpacing: 'default',/* فاصله حروف عنوان‌ها */
     headingWeight: '800',    /* ضخامت عنوان‌ها */
-    customCss: ''            /* CSS سفارشی صفحه */
+    customCss: '',           /* CSS سفارشی صفحه */
+    /* 🆕 v2.32 — همه تنظیمات صفحه (درخواست کاربر) */
+    gradFrom: '#1e40af',     /* گرادیانت زمینه: رنگ شروع */
+    gradTo: '#0ea5e9',       /* گرادیانت زمینه: رنگ پایان */
+    gradAngle: '135',        /* زاویه گرادیانت (درجه) */
+    bgImage: '',             /* تصویر زمینه صفحه (URL) */
+    bgImageFixed: 1,         /* تصویر زمینه ثابت (پارالکس) */
+    overlayColor: '#0f172a', /* رنگ پوشش روی تصویر زمینه */
+    overlayOpacity: '35',    /* شفافیت پوشش (٪ — 0=بدون پوشش) */
+    bodyColor: '',           /* رنگ متن بدنه کل صفحه */
+    linkColor: '',           /* رنگ لینک‌های صفحه */
+    lineHeight: 'default',   /* ارتفاع خط: compact | default | roomy */
+    titleSize: 'md',         /* اندازه پیش‌فرض عنوان‌ها: sm | md | lg | xl */
+    scrollProgress: 0,       /* نوار پیشرفت اسکرول بالای صفحه */
+    backToTop: 0,            /* دکمه بازگشت به بالا (پیش‌فرض خاموش) */
+    smoothScroll: 0          /* اسکرول نرم لینک‌های داخلی */
 };
 function pageProp(k) {
     return (pageProps && pageProps[k] !== undefined && pageProps[k] !== '') ? pageProps[k] : (PAGE_DEFAULTS[k] !== undefined ? PAGE_DEFAULTS[k] : '');
@@ -1213,6 +1235,26 @@ function applyPageSettings() {
     else if (bg === 'light') { bgCss = '#fafafa'; }
     else if (bg === 'dark') { bgCss = '#0f172a'; }
     else if (bg === 'custom' && /^#[0-9a-fA-F]{3,8}$/.test(String(pageProp('pageBgColor')))) { bgCss = pageProp('pageBgColor'); }
+    /* 🆕 v2.32 — گرادیانت زمینه */
+    else if (bg === 'gradient') {
+        const gf = /^#[0-9a-fA-F]{3,8}$/.test(String(pageProp('gradFrom'))) ? pageProp('gradFrom') : '#1e40af';
+        const gt = /^#[0-9a-fA-F]{3,8}$/.test(String(pageProp('gradTo'))) ? pageProp('gradTo') : '#0ea5e9';
+        const ang = Math.max(0, Math.min(360, parseInt(pageProp('gradAngle'), 10) || 135));
+        bgCss = 'linear-gradient(' + ang + 'deg,' + gf + ',' + gt + ')';
+    }
+    /* 🆕 v2.32 — تصویر زمینه + پوشش رنگ */
+    else if (bg === 'image' && /^https?:\/\//i.test(String(pageProp('bgImage')))) {
+        const oc = /^#[0-9a-fA-F]{6}$/.test(String(pageProp('overlayColor'))) ? pageProp('overlayColor') : '#0f172a';
+        const op = Math.max(0, Math.min(100, parseInt(pageProp('overlayOpacity'), 10) || 0)) / 100;
+        const r = parseInt(oc.slice(1, 3), 16), g2 = parseInt(oc.slice(3, 5), 16), b2 = parseInt(oc.slice(5, 7), 16);
+        const ov = 'rgba(' + r + ',' + g2 + ',' + b2 + ',' + op + ')';
+        bgCss = 'linear-gradient(' + ov + ',' + ov + '),url(\'' + pageProp('bgImage').replace(/[\''()\\]/g, '') + '\')';
+        stage.style.backgroundSize = 'cover';
+        stage.style.backgroundPosition = 'center';
+        stage.style.backgroundAttachment = pageProp('bgImageFixed') == 1 ? 'fixed' : '';
+    } else {
+        stage.style.backgroundSize = ''; stage.style.backgroundPosition = ''; stage.style.backgroundAttachment = '';
+    }
     const spacing = { compact: '30px', default: '54px', roomy: '74px', airy: '96px' }[pageProp('sectionSpacing')] || '54px';
     const gap = { tight: '14px', default: '26px', roomy: '44px' }[pageProp('sectionGap')] || '26px';
     const width = { narrow: '860px', default: '1080px', wide: '1240px', full: '100%' }[pageProp('containerWidth')] || '1080px';
@@ -1244,11 +1286,18 @@ function applyPageSettings() {
         if (!customStyleEl) { customStyleEl = document.createElement('style'); customStyleEl.id = 'pv-page-custom-css'; document.head.appendChild(customStyleEl); }
         customStyleEl.textContent = '#canvas-blocks{' + customCss.replace(/#canvas-blocks\s*\{?/g, '') + '}';
     } else if (customStyleEl) { customStyleEl.textContent = ''; }
+    /* 🆕 v2.32 — تایپوگرافی و جلوه‌های جدید */
+    const bodyC = /^#[0-9a-fA-F]{3,8}$/.test(String(pageProp('bodyColor'))) ? ';--pg-body:' + pageProp('bodyColor') : '';
+    const linkC = /^#[0-9a-fA-F]{3,8}$/.test(String(pageProp('linkColor'))) ? ';--pg-link:' + pageProp('linkColor') : '';
+    const lineH = { compact: '1.6', default: '', roomy: '2.1' }[pageProp('lineHeight')];
+    const lhVar = lineH ? ';--pg-lh:' + lineH : '';
+    const tsz = { sm: '15px', md: '', lg: '21px', xl: '26px' }[pageProp('titleSize')];
+    const tsVar = tsz ? ';--pg-title-size:' + tsz : '';
     stage.style.cssText = '--pg-accent:' + accent + ';--pg-hw:' + hWeight + ';--pg-ls:' + lSpace +
         (fontFam ? ';--pg-font:' + fontFam : '') + (patCls ? ';--pg-pat:' + patColor : '') +
         ';--pg-section-pad:' + spacing + ';--pg-gap:' + gap + ';--pg-width:' + width +
         ';--pg-radius:' + radius + ';--pg-text:' + tsize + ';--pg-shadow:' + shadow +
-        ';--pg-title:' + (tc !== '' ? tc : 'inherit') +
+        ';--pg-title:' + (tc !== '' ? tc : 'inherit') + bodyC + linkC + lhVar + tsVar +
         (mT ? ';--pg-mt:' + mT : '') + (mB ? ';--pg-mb:' + mB : '') + (mR ? ';--pg-mr:' + mR : '') + (mL ? ';--pg-ml:' + mL : '') +
         ';max-width:100%' + padCss +
         (bgCss !== '' ? ';background:' + bgCss + ';border-radius:12px' : '');
@@ -1261,8 +1310,10 @@ function renderPageProps() {
     const opt = (key, opts) => opts.map(([v, l]) => '<option value="' + v + '" ' + (String(pageProp(key)) === String(v) ? 'selected' : '') + '>' + l + '</option>').join('');
     let html = '<div style="font-weight:800;margin-bottom:12px;font-size:13.5px">⚙️ تنظیمات صفحه</div>' +
         '<div class="hint" style="font-size:10.5px;margin-bottom:11px;line-height:1.8">این تنظیمات روی «کل صفحه» اعمال می‌شوند — زمینه، فاصله بخش‌ها، عرض محتوا و ظاهر عمومی. روی هر بلوک که کلیک کنید به تنظیمات همان بلوک برمی‌گردید.</div>' +
-        '<div class="form-group"><label>🎨 زمینه صفحه</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'pageBg\',this.value)">' + opt('pageBg', [['default', 'پیش‌فرض (سفید)'], ['surface', 'کمرنگ خاکستری'], ['light', 'روشن'], ['dark', 'تیره'], ['custom', 'رنگ دلخواه']]) + '</select></div>' +
+        '<div class="form-group"><label>🎨 زمینه صفحه</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'pageBg\',this.value)">' + opt('pageBg', [['default', 'پیش‌فرض (سفید)'], ['surface', 'کمرنگ خاکستری'], ['light', 'روشن'], ['dark', 'تیره'], ['custom', 'رنگ دلخواه'], ['gradient', 'گرادیانت 🆕'], ['image', 'تصویر زمینه 🆕']]) + '</select></div>' +
         '<div class="form-group" id="pg-bg-color-box" style="' + (pageProp('pageBg') === 'custom' ? '' : 'display:none') + '"><label>رنگ دلخواه زمینه</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="' + pageProp('pageBgColor') + '" oninput="setPageProp(\'pageBgColor\',this.value)"><code style="font-size:10.5px;direction:ltr">' + pageProp('pageBgColor') + '</code></div></div>' +
+        '<div class="form-group" id="pg-grad-box" style="' + (pageProp('pageBg') === 'gradient' ? '' : 'display:none') + '"><label>🌈 گرادیانت زمینه</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:44px;height:31px;padding:2px;cursor:pointer" value="' + pageProp('gradFrom') + '" oninput="setPageProp(\'gradFrom\',this.value)" title="رنگ شروع"><span style="font-size:11px;color:var(--text-light)">تا</span><input type="color" class="form-control" style="width:44px;height:31px;padding:2px;cursor:pointer" value="' + pageProp('gradTo') + '" oninput="setPageProp(\'gradTo\',this.value)" title="رنگ پایان"><input type="number" class="form-control" style="width:64px;font-size:11px" min="0" max="360" value="' + pageProp('gradAngle') + '" onchange="setPageProp(\'gradAngle\',this.value)" title="زاویه (درجه)"></div><div class="hint" style="margin-top:4px">دو رنگ + زاویه گرادیانت کل صفحه.</div></div>' +
+        '<div class="form-group" id="pg-img-box" style="' + (pageProp('pageBg') === 'image' ? '' : 'display:none') + '"><label>🖼 آدرس تصویر زمینه</label><input type="text" class="form-control" style="font-size:11px;direction:ltr;text-align:left" value="' + esc(pageProp('bgImage')) + '" oninput="setPageProp(\'bgImage\',this.value)" placeholder="https://example.com/bg.jpg"><label class="form-check" style="margin:8px 0;font-size:11.5px"><input type="checkbox" ' + (pageProp('bgImageFixed') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'bgImageFixed\',this.checked?1:0)"> تصویر ثابت (پارالکس هنگام اسکرول)</label><label>🎨 پوشش رنگ روی تصویر (برای خوانایی متن)</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:44px;height:31px;padding:2px;cursor:pointer" value="' + pageProp('overlayColor') + '" oninput="setPageProp(\'overlayColor\',this.value)"><input type="range" min="0" max="90" value="' + pageProp('overlayOpacity') + '" oninput="setPageProp(\'overlayOpacity\',this.value)" style="flex:1" title="شفافیت پوشش ٪"><code style="font-size:10.5px">' + pageProp('overlayOpacity') + '٪</code></div></div>' +
         '<div class="form-group"><label>↕️ فاصله داخلی بخش‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'sectionSpacing\',this.value)">' + opt('sectionSpacing', [['compact', 'فشرده (۳۰px)'], ['default', 'پیش‌فرض (۵۴px)'], ['roomy', 'جادار (۷۴px)'], ['airy', 'خیلی باز (۹۶px)']]) + '</select></div>' +
         '<div class="form-group"><label>📏 فاصله بین بخش‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'sectionGap\',this.value)">' + opt('sectionGap', [['tight', 'نزدیک (۱۴px)'], ['default', 'پیش‌فرض (۲۶px)'], ['roomy', 'باز (۴۴px)']]) + '</select></div>' +
         '<div class="form-group"><label>📐 عرض محتوای صفحه</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'containerWidth\',this.value)">' + opt('containerWidth', [['narrow', 'باریک (۸۶۰px)'], ['default', 'پیش‌فرض (۱۰۸۰px)'], ['wide', 'عریض (۱۲۴۰px)'], ['full', 'تمام‌عرض']]) + '</select></div>' +
@@ -1271,6 +1322,17 @@ function renderPageProps() {
         '<div class="form-group"><label>🔤 اندازه متن</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'textSize\',this.value)">' + opt('textSize', [['sm', 'کوچک'], ['default', 'پیش‌فرض'], ['lg', 'بزرگ']]) + '</select></div>' +
         '<div class="form-group"><label>🌫 سایه کارت‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'cardShadow\',this.value)">' + opt('cardShadow', [['none', 'بدون سایه'], ['soft', 'ملایم'], ['default', 'پیش‌فرض'], ['strong', 'قوی']]) + '</select></div>' +
         '<label class="form-check" style="font-size:12px"><input type="checkbox" ' + (pageProp('darkPreview') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'darkPreview\',this.checked?1:0)"> 🌙 پیش‌نمایش بوم در حالت تیره</label>' +
+        '<hr style="border:none;border-top:1px dashed var(--border);margin:12px 0">' +
+        '<div style="font-size:11px;font-weight:800;color:var(--primary);margin:0 0 7px">✍️ تایپوگرافی (🆕 v2.32)</div>' +
+        '<div class="form-group"><label>✍️ رنگ متن بدنه صفحه</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="' + (pageProp('bodyColor') || '#334155') + '" oninput="setPageProp(\'bodyColor\',this.value)"><button type="button" class="btn btn-outline btn-sm" onclick="setPageProp(\'bodyColor\',\'\')">✕ پیش‌فرض</button></div></div>' +
+        '<div class="form-group"><label>🔗 رنگ لینک‌های صفحه</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="' + (pageProp('linkColor') || '#1e40af') + '" oninput="setPageProp(\'linkColor\',this.value)"><button type="button" class="btn btn-outline btn-sm" onclick="setPageProp(\'linkColor\',\'\')">✕ پیش‌فرض</button></div></div>' +
+        '<div class="form-group"><label>↕️ ارتفاع خط متن</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'lineHeight\',this.value)">' + opt('lineHeight', [['compact', 'فشرده (۱.۶)'], ['default', 'پیش‌فرض'], ['roomy', 'جادار (۲.۱)']]) + '</select></div>' +
+        '<div class="form-group"><label>🔠 اندازه پیش‌فرض عنوان‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'titleSize\',this.value)">' + opt('titleSize', [['sm', 'کوچک'], ['md', 'پیش‌فرض'], ['lg', 'بزرگ'], ['xl', 'خیلی بزرگ']]) + '</select></div>' +
+        '<hr style="border:none;border-top:1px dashed var(--border);margin:12px 0">' +
+        '<div style="font-size:11px;font-weight:800;color:var(--primary);margin:0 0 7px">✨ جلوه‌های صفحه (🆕 v2.32)</div>' +
+        '<label class="form-check" style="font-size:12px;margin-bottom:5px"><input type="checkbox" ' + (pageProp('scrollProgress') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'scrollProgress\',this.checked?1:0)"> 📊 نوار پیشرفت اسکرول (بالای صفحه)</label>' +
+        '<label class="form-check" style="font-size:12px;margin-bottom:5px"><input type="checkbox" ' + (pageProp('backToTop') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'backToTop\',this.checked?1:0)"> ⬆️ دکمه بازگشت به بالا</label>' +
+        '<label class="form-check" style="font-size:12px"><input type="checkbox" ' + (pageProp('smoothScroll') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'smoothScroll\',this.checked?1:0)"> 🌊 اسکرول نرم لینک‌های داخلی</label>' +
         '<hr style="border:none;border-top:1px dashed var(--border);margin:12px 0">' +
         '<div style="font-size:11px;font-weight:800;color:var(--primary);margin:0 0 7px">🎯 ظاهر پیشرفته (🆕 v2.31)</div>' +
         '<div class="form-group"><label>🎨 رنگ تاکیدی (لینک‌ها و دکمه‌ها)</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="' + (pageProp('accentColor') || '#1e40af') + '" oninput="setPageProp(\'accentColor\',this.value)"><button type="button" class="btn btn-outline btn-sm" onclick="setPageProp(\'accentColor\',\'\');renderPageProps()">✕ پیش‌فرض</button></div></div>' +
@@ -1338,6 +1400,17 @@ function blkStyleVars(props) {
         const gt = /^#[0-9a-fA-F]{3,8}$/.test(String(props.gradientTo || '')) ? String(props.gradientTo).trim() : '';
         if (gf || gt) { s += `background:linear-gradient(135deg,${gf || '#1e40af'},${gt || '#0ea5e9'});`; }
     }
+    /* 🆕 v2.32 — تکمیل تنظیمات عناصر (درخواست کاربر) */
+    const txtC = String(props.textColor || '').trim();
+    if (/^#[0-9a-fA-F]{3,8}$/.test(txtC)) { s += `--blk-txt:${txtC};`; }
+    if ((props.background || '') === 'custom') {
+        const bgc = /^#[0-9a-fA-F]{3,8}$/.test(String(props.bgColor || '')) ? String(props.bgColor).trim() : '';
+        if (bgc) { s += `--blk-bg:${bgc};`; }
+    }
+    const pxv = (v) => { const n = parseInt(v, 10); return (isNaN(n) || n < -80 || n > 300) ? '' : n + 'px'; };
+    const mt = pxv(props.mt), mb = pxv(props.mb);
+    if (mt) { s += `--blk-mt:${mt};`; }
+    if (mb) { s += `--blk-mb:${mb};`; }
     return s;
 }
 
@@ -1532,6 +1605,9 @@ function blockHtml(block, props) {
     const alignCls = props.align && props.align !== 'start' ? 'blk-al-' + props.align : '';
     const widthCls = props.width && props.width !== 'full' ? 'blk-w-' + props.width : '';
     const customCls = String(props.customClass || '').trim().replace(/[^a-zA-Z0-9\-_\s]/g, '');
+    /* 🆕 v2.32 — تکمیل تنظیمات: مخفی در موبایل/دسکتاپ + گردی اختصاصی */
+    const hideCls = (props.hideMobile ? 'blk-hide-mobile ' : '') + (props.hideDesktop ? 'blk-hide-desktop ' : '');
+    const radCls = props.radiusOverride && props.radiusOverride !== 'default' ? 'blk-rad-' + props.radiusOverride : '';
     /* 🎭 v2.26: کلاس‌های ظاهر — واریانت بدنه + استایل دکمه + افکت هاور */
     const varCls = variantClasses(props);
     /* 🎬 v2.29: انیمیشن ورود — روی بوم هم همان لحظه اجرا می‌شود */
@@ -1544,15 +1620,32 @@ function blockHtml(block, props) {
     /* 🎨 v2.15: رنگ عنوان + رنگ گرادیانت انتخابی (تنظیمات پیشرفته) */
     const blkStyle = blkStyleVars(props) + animStyle;
     const styleAttr = blkStyle ? ` style="${blkStyle}"` : '';
-    /* 🔗 v2.31 — لینک دکمه‌های این عنصر (درخواست کاربر: «برای آن دکمه لینک تنظیم کرد»)
-       همه دکمه‌های .hero-btn داخل عنصر به btnLink وصل می‌شوند */
+    /* 🔘 v2.32 — دکمه‌های عنصر: لینک جداگانه هر دکمه + متن قابل تغییر
+       (درخواست «چند دکمه باشد برای هر کدام لینک جداگانه»)
+       اولویت: btnLinks[i] (لینک دکمه i) ← btnLink (همه) ← بدون لینک
+       btnTexts[i] هم متن همان دکمه را بازنویسی می‌کند */
     const btnLink = String(props.btnLink || '').trim();
+    const btnLinksMap = (props.btnLinks && typeof props.btnLinks === 'object' && !Array.isArray(props.btnLinks)) ? props.btnLinks : {};
+    const btnTextsMap = (props.btnTexts && typeof props.btnTexts === 'object' && !Array.isArray(props.btnTexts)) ? props.btnTexts : {};
     const linkify = html => {
-        if (!btnLink) { return html; }
-        const ext = /^https?:\/\//i.test(btnLink) ? ' target="_blank" rel="noopener"' : '';
-        return html.replace(/<span class="(hero-btn[^"]*)">([^<]*)<\/span>/g, `<a class="$1" href="${esc(btnLink)}"${ext} style="text-decoration:none;display:inline-block">$2</a>`);
+        let bi = 0;
+        /* هر تگی که class آن شامل hero-btn است — صفت‌ها با هر ترتیبی */
+        return html.replace(/<([a-z]+)([^>]*\bclass="(hero-btn[^"]*)"[^>]*)>([^<]*)<\/\1>/g, (m, tag, attrs, cls, txt) => {
+            bi++;
+            const i = String(bi);
+            const text = String(btnTextsMap[i] ?? '').trim() || txt;
+            const safeLink = l => /^(javascript|data|vbscript|file|about|blob)\s*:/i.test(String(l).trim()) ? '' : String(l).trim();
+            const link = safeLink(btnLinksMap[i] ?? '') || safeLink(btnLink);
+            if (!link) {
+                /* بدون لینک: فقط متن بازنویسی می‌شود؛ لینک قبلی (مثل tel:) حفظ */
+                if (text !== txt) { return `<${tag}${attrs}>${esc(text)}</${tag}>`; }
+                return m;
+            }
+            const ext = /^https?:\/\//i.test(link) ? ' target="_blank" rel="noopener"' : '';
+            return `<a class="${cls}" href="${esc(link)}"${ext} style="text-decoration:none;display:inline-block">${esc(text)}</a>`;
+        });
     };
-    const B = (inner, extra) => `<div class="blk ${bgCls} ${padCls} ${sizeCls} ${alignCls} ${widthCls} ${customCls} ${varCls}${animCls}${ambientCls} ${extra || ''}"${styleAttr}>${linkify(inner)}</div>`;
+    const B = (inner, extra) => `<div class="blk ${bgCls} ${padCls} ${sizeCls} ${alignCls} ${widthCls} ${customCls} ${hideCls}${radCls} ${varCls}${animCls}${ambientCls} ${extra || ''}"${styleAttr}>${linkify(inner)}</div>`;
     const TITLE = t ? `<div class="blk-title">${esc(t)}</div>` : '';
 
     switch (block) {
@@ -2505,17 +2598,18 @@ const BLOCK_FIELDS = {
     'header-v1': ['IT'], 'header-v2': ['P', 'W', 'B', 'IT'], 'header-v3': ['B', 'IT'],
     'top-bar': ['P', 'W'],
     'notification-bar': ['X', 'notifC'],
-    /* هیرو — 🆕 v2.29: اسلایدر تصویری چندمقداری + 🆕 v2.31: LNK لینک دکمه */
-    'hero': ['T', 'S', 'LNK'], 'hero-slider': ['T', 'A', 'SLT', 'IT'], 'hero-split': ['T', 'S', 'IMG', 'LNK'],
-    'hero-video': ['T', 'IMG'], 'hero-countdown': ['T', 'CD'], 'hero-form': ['T', 'S', 'B', 'FRM', 'DST', 'LNK'],
+    /* هیرو — 🆕 v2.29: اسلایدر تصویری چندمقداری + 🆕 v2.32: BTN = ویرایشگر
+       متن + لینک جداگانه هر دکمه (درخواست «چند دکمه با لینک جداگانه») */
+    'hero': ['T', 'S', 'BTN'], 'hero-slider': ['T', 'A', 'SLT', 'IT'], 'hero-split': ['T', 'S', 'IMG', 'BTN'],
+    'hero-video': ['T', 'IMG'], 'hero-countdown': ['T', 'CD'], 'hero-form': ['T', 'S', 'B', 'FRM', 'DST'],
     'hero-marquee': ['X'], 'announcement-pill': ['T'],
-    'hero-minimal': ['T', 'S', 'B'], 'hero-glass': ['T', 'S'], 'logo-strip': ['T'],
+    'hero-minimal': ['T', 'S', 'B', 'BTN'], 'hero-glass': ['T', 'S', 'BTN'], 'logo-strip': ['T'],
     /* 🆕 v2.29 — اسلایدر همه‌کاره: هر تعداد و هر نوع (تصویر/متن/کارت/مقاله/برند) */
     'universal-slider': ['T', 'A', 'SLT', 'IT'],
     /* محتوا — 🆕 v2.29: rich-text لیست قابل ویرایش با آیتم‌ها (رفع «لیستش رو نمیشه تغییر داد») */
     'text': ['T', 'X'], 'text-image': ['T', 'X', 'IMG'], 'intro': ['T', 'X', 'IMG'], 'rich-text': ['T', 'X', 'IT'],
     'quote': ['X'], 'two-col': ['T', 'IT'], 'three-col': ['T', 'IT'], 'brand-story': ['T', 'IT'],
-    'area-list': ['T', 'IT'], 'checklist': ['T', 'IT'], 'search-bar': ['placeholder'],
+    'area-list': ['T', 'IT'], 'checklist': ['T', 'IT'], 'search-bar': ['placeholder', 'BTN'],
     'heading-center': ['T', 'S'], 'numbered-list': ['T', 'IT'], 'info-box': ['T', 'I', 'X'],
     'benefits-list': ['T', 'IT'], 'author-box': ['T', 'I', 'X'],
     'text-columns': ['T', 'X'], 'brand-values': ['T', 'IT'], 'tech-tips': ['T', 'IT'],
@@ -2529,14 +2623,14 @@ const BLOCK_FIELDS = {
     'pricing-table': ['T', 'IT'], 'brands-links': ['T', 'C', 'IT'], 'certificates': ['T', 'C', 'IT'],
     'review-grid': ['T', 'C', 'IT'], 'contact-cards': ['T', 'IT'], 'price-cards': ['T', 'IT'],
     'location-cards': ['T', 'C', 'IT'], 'expert-cards': ['T', 'C', 'IT'], 'logo-cloud': ['T', 'C', 'IT'],
-    'brand-intro-card': ['T', 'S'], 'price-highlight': ['T', 'S', '$', 'G', 'B', 'LNK'], 'price-compare': ['T', 'C', 'LNK'],
+    'brand-intro-card': ['T', 'S'], 'price-highlight': ['T', 'S', '$', 'G', 'B', 'BTN'], 'price-compare': ['T', 'C', 'BTN'],
     'service-price-cards': ['T', 'C', 'IT'], 'feature-icons-grid': ['T', 'C', 'IT'],
-    /* فرم — 🆕 v2.31: FRM = تنظیم فیلدها + مقصد ارسال، LNK = لینک دکمه */
-    'contact-form': ['T', 'B', 'FRM', 'DST', 'LNK'], 'request-form': ['T', 'B', 'FRM', 'DST', 'LNK'], 'newsletter-form': ['T', 'B', 'FRM', 'DST', 'LNK'],
-    'appointment-form': ['T', 'B', 'FRM', 'DST', 'LNK'], 'quick-contact-form': ['T', 'B', 'FRM', 'DST', 'LNK'],
-    'booking-calendar': ['T', 'LNK'], 'warranty-check': ['T', 'B', 'LNK'], 'price-estimate': ['T', 'LNK'],
-    'device-error-lookup': ['T', 'LNK'], 'appointment-compact': ['T', 'B', 'FRM', 'DST', 'LNK'],
-    'callback-form': ['T', 'B', 'FRM', 'DST', 'LNK'], 'survey-form': ['T', 'IT', 'FRM', 'DST', 'LNK'],
+    /* فرم — 🆕 v2.32: LNK بی‌اثر حذف شد (دکمه فرم عملکردی است و لینک نمی‌شود) */
+    'contact-form': ['T', 'B', 'FRM', 'DST'], 'request-form': ['T', 'B', 'FRM', 'DST'], 'newsletter-form': ['T', 'B', 'FRM', 'DST'],
+    'appointment-form': ['T', 'B', 'FRM', 'DST'], 'quick-contact-form': ['T', 'B', 'FRM', 'DST'],
+    'booking-calendar': ['T', 'BTN'], 'warranty-check': ['T', 'B', 'BTN'], 'price-estimate': ['T', 'BTN'],
+    'device-error-lookup': ['T', 'BTN'], 'appointment-compact': ['T', 'B', 'FRM', 'DST'],
+    'callback-form': ['T', 'B', 'FRM', 'DST'], 'survey-form': ['T', 'IT', 'FRM', 'DST'],
     /* آمار — 🆕 v2.29: رنگ نوارهای پیشرفت (رفع «نوارهای پیشرفت رنگشون عوض نمیشه») */
     'counter-stats': ['T', 'IT'], 'progress-bars': ['T', 'CLR', 'IT'], 'skill-bars': ['T', 'CLR', 'IT'],
     'stats-grid': ['T', 'C', 'IT'], 'stats-strip': ['T', 'IT'],
@@ -2553,12 +2647,12 @@ const BLOCK_FIELDS = {
     'gallery': ['T', 'C', 'IMG', 'IT'], 'image-carousel': ['T', 'A', 'IMG', 'IT'], 'video-embed': ['T', 'IMG', 'V'], 'map': ['T', 'X', 'MU'],
     'before-after-slider': ['T', 'IMG'], 'social-wall': ['T', 'IT'], 'reviews-carousel': ['T', 'A', 'IT'],
     'video-grid': ['T', 'C', 'IMG'], 'logo-marquee': ['T', 'IT'], 'tag-cloud': ['T', 'IT'],
-    /* فراخوان — 🆕 v2.31: LNK */
-    'cta-phone': ['T', 'P'], 'cta-request': ['T', 'B', 'LNK'], 'cta-banner': ['T', 'B', 'LNK'],
-    'sticky-mobile-cta': ['P', 'B', 'LNK'], 'cta-whatsapp': ['T'], 'warranty-banner': ['T', 'X'],
-    'link-buttons': ['T', 'IT'], 'promo-card': ['T', 'S', 'LNK'], 'download-card': ['T', 'S', 'B', 'LNK'],
-    'guarantee-card': ['T', 'S', 'B', 'LNK'], 'cta-timer': ['T', 'S', 'CD', 'LNK'], 'urgent-repair': ['T', 'P', 'B', 'LNK'],
-    'newsletter-popup': ['T', 'S', 'B', 'LNK'],
+    /* فراخوان — 🆕 v2.32: BTN = ویرایشگر متن + لینک هر دکمه */
+    'cta-phone': ['T', 'P'], 'cta-request': ['T', 'B', 'BTN'], 'cta-banner': ['T', 'B', 'BTN'],
+    'sticky-mobile-cta': ['P', 'B', 'BTN'], 'cta-whatsapp': ['T', 'X', 'BTN'], 'warranty-banner': ['T', 'X', 'BTN'],
+    'link-buttons': ['T', 'IT'], 'promo-card': ['T', 'S', 'BTN'], 'download-card': ['T', 'S', 'B', 'BTN'],
+    'guarantee-card': ['T', 'S', 'B', 'BTN'], 'cta-timer': ['T', 'S', 'CD', 'BTN'], 'urgent-repair': ['T', 'P', 'B', 'BTN'],
+    'newsletter-popup': ['T', 'S', 'B', 'BTN'],
     'emergency-strip': ['X', 'P'],
     /* ساختار */
     'breadcrumb': ['IT'], 'alert-notice': ['X', 'alertT'], 'button-group': ['B', 'IT'],
@@ -2567,7 +2661,7 @@ const BLOCK_FIELDS = {
     'contact-info-bar': ['P', 'W'], 'contact-map-split': ['T', 'P'], 'warning-box': ['T', 'I', 'X'],
     'related-links': ['T', 'IT'], 'schedule-table': ['T', 'IT'],
     'ticker-bar': ['X'], 'credit-trust': ['T', 'IT'], 'brand-badges-row': ['T', 'IT'],
-    'chat-widget': ['T'],
+    'chat-widget': ['T', 'BTN'],
     /* فوتر */
     'footer-simple': ['P', 'IT'], 'footer-contact': ['P', 'W'], 'footer-links': ['T', 'IT'],
     'payment-methods': ['T', 'IT'], 'copyright': ['X'],
@@ -2586,6 +2680,41 @@ const CODE_MAP = {
     'CLR': 'barColor', 'SLT': 'slideType',
     /* 🆕 v2.31 — لینک دکمه + تنظیمات فرم */
     'LNK': 'btnLink', 'FRM': '__formFields', 'DST': '__formDest', 'GT': 'gaugeText',
+    /* 🆕 v2.32 — ویرایشگر دکمه‌های عنصر (متن + لینک جداگانه هر دکمه) */
+    'BTN': '__buttons',
+};
+
+/* ═══════════════════════════════════════════════════════════════
+ * 🔘 v2.32 — دکمه‌های هر عنصر: تعداد + برچسب پیش‌فرض
+ * (درخواست کاربر: «عناصری که داخلشان دکمه هست، بتوان برای آن دکمه
+ *  لینک تنظیم کرد — چند دکمه باشد برای هر کدام لینک جداگانه»)
+ * بلوک‌های دکمه‌دارِ آیتمی (btn-* / button-group / link-buttons) از
+ * ستون لینک خود آیتم‌ها استفاده می‌کنند و اینجا نیستند.
+ * ═══════════════════════════════════════════════════════════════ */
+const BTN_INFO = {
+    'hero':              [['۱ — تماس فوری', '📞 تماس فوری'], ['۲ — درخواست آنلاین', 'ثبت درخواست آنلاین']],
+    'hero-split':        [['۱ — دکمه اصلی', 'شروع کنید']],
+    'hero-form':         [['۱ — تماس فوری', '📞 تماس فوری'], ['۲ — دکمه فرم', 'ثبت درخواست']],
+    'hero-minimal':      [['۱ — دکمه اصلی', 'شروع کنید']],
+    'cta-request':       [['۱ — دکمه اصلی', '📝 ثبت درخواست']],
+    'cta-banner':        [['۱ — دکمه اصلی', '📝 ثبت درخواست']],
+    'sticky-mobile-cta': [['۱ — دکمه درخواست', 'ثبت درخواست']],
+    'promo-card':        [['۱ — دکمه رزرو', 'همین حالا رزرو کنید']],
+    'download-card':     [['۱ — دکمه دانلود', '⬇ دانلود بروشور']],
+    'guarantee-card':    [['۱ — دکمه گارانتی', 'مشاهده شرایط']],
+    'cta-timer':         [['۱ — دکمه رزرو', 'همین حالا رزرو کنید']],
+    'urgent-repair':     [['۱ — دکمه اعزام', 'درخواست اعزام']],
+    'newsletter-popup':  [['۱ — دکمه عضویت', 'عضویت']],
+    'warranty-banner':   [['۱ — دکمه اصلی', 'مشاهده شرایط گارانتی']],
+    'search-bar':        [['۱ — دکمه جستجو', 'جستجو']],
+    'price-highlight':   [['۱ — دکمه سفارش', 'سفارش الآن']],
+    'price-compare':     [['۱ — دکمه مقایسه', 'مقایسه پلن‌ها']],
+    'universal-banner':  [['۱ — دکمه اصلی', 'ثبت درخواست']],
+    'booking-calendar':  [['۱ — دکمه رزرو', 'رزرو نوبت']],
+    'warranty-check':    [['۱ — دکمه استعلام', 'استعلام گارانتی']],
+    'price-estimate':    [['۱ — دکمه محاسبه', 'محاسبه آنلاین']],
+    'device-error-lookup': [['۱ — دکمه جستجو', 'جستجوی خطا']],
+    'chat-widget':       [['۱ — دکمه چت', '💬 گفتگوی آنلاین']],
 };
 /* 🧬 v2.29 */
 Object.assign(BLOCK_FIELDS, GENERIC_BLOCK_FIELDS_V229);
@@ -2679,10 +2808,34 @@ function renderProps() {
                 </div>
                 <div class="hint" style="margin-top:4px">رنگ پرشدن نوارها — بلافاصله روی بوم اعمال می‌شود.</div></div>`;
         } else if (code === 'LNK') {
-            /* 🔗 v2.31 — لینک دکمه‌های این عنصر */
+            /* 🔗 v2.31 — لینک دکمه‌های این عنصر (یک لینک برای همه) */
             html += `<div class="form-group"><label>${esc(label)}</label>
                 <input type="text" class="form-control" style="font-size:11.5px;direction:ltr;text-align:left" value="${esc(props.btnLink || '')}" oninput="setProp('${selected}','btnLink',this.value)" placeholder="https://... یا /request یا tel:021...">
                 <div class="hint" style="margin-top:4px">💡 دکمه‌های این عنصر به این لینک وصل می‌شوند — در سایت برند قابل کلیک‌اند. آدرس کامل = تب جدید.</div></div>`;
+        } else if (code === 'BTN') {
+            /* 🔘 v2.32 — ویرایشگر دکمه‌های عنصر: متن + لینک جداگانه هر دکمه
+               (درخواست «چند دکمه باشد برای هر کدام لینک جداگانه») */
+            const btns = BTN_INFO[item.block] || [];
+            const btnLinks = (props.btnLinks && typeof props.btnLinks === 'object' && !Array.isArray(props.btnLinks)) ? props.btnLinks : {};
+            const btnTexts = (props.btnTexts && typeof props.btnTexts === 'object' && !Array.isArray(props.btnTexts)) ? props.btnTexts : {};
+            html += `<div style="font-size:11px;font-weight:800;color:var(--primary);margin:11px 0 7px">🔘 دکمه‌های این عنصر (متن + لینک جداگانه)</div>`;
+            btns.forEach(([bLabel, bDefault], bi) => {
+                const idx = String(bi + 1);
+                const curText = String(btnTexts[idx] ?? '').trim();
+                const curLink = String(btnLinks[idx] ?? '').trim();
+                html += `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-bottom:7px">
+                    <div style="font-size:10.5px;font-weight:800;color:#475569;margin-bottom:5px">دکمه ${esc(bLabel)}</div>
+                    <div style="display:flex;gap:6px;margin-bottom:5px">
+                        <input type="text" class="form-control" style="flex:1;min-width:100px;font-size:11.5px" value="${esc(curText)}" oninput="setBtnProp('${selected}','btnTexts',${bi + 1},this.value)" placeholder="${esc(bDefault)} — متن پیش‌فرض">
+                    </div>
+                    <div style="display:flex;gap:6px">
+                        <input type="text" class="form-control" style="flex:1;min-width:100px;font-size:11px;direction:ltr;text-align:left;color:#2563eb" value="${esc(curLink)}" oninput="setBtnProp('${selected}','btnLinks',${bi + 1},this.value)" placeholder="لینک این دکمه — https://... یا /request یا tel:...">
+                    </div>
+                </div>`;
+            });
+            if (btns.length > 1) {
+                html += `<div class="hint" style="margin-top:5px;font-size:10px">💡 هر دکمه لینک «مستقل» خودش را می‌گیرد — مثلاً دکمه ۱ به tel: و دکمه ۲ به /request.</div>`;
+            }
         } else if (code === 'GT') {
             html += `<div class="form-group"><label>${esc(label)}</label>
                 <input type="text" class="form-control" style="font-size:12px" value="${esc(props.gaugeText || '')}" oninput="setProp('${selected}','gaugeText',this.value)" placeholder="مثلاً از ۱۰,۰۰۰ نظر مشتریان"></div>`;
@@ -2825,6 +2978,12 @@ function renderProps() {
                 <button type="button" class="btn btn-outline btn-sm" onclick="setProp('${selected}','titleColor','');renderProps()" title="حذف رنگ — برگشت به پیش‌فرض قالب">✕ پیش‌فرض</button>
             </div>
             <div class="hint" style="margin-top:4px">رنگ تیترها و عناوین این بخش — بلافاصله روی بوم اعمال می‌شود.</div></div>
+        <div class="form-group"><label>✍️ رنگ متن بدنه (توضیحات)</label>
+            <div style="display:flex;gap:7px;align-items:center">
+                <input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="${esc(props.textColor || '#334155')}" oninput="setProp('${selected}','textColor',this.value)">
+                <button type="button" class="btn btn-outline btn-sm" onclick="setProp('${selected}','textColor','');renderProps()" title="حذف رنگ — برگشت به پیش‌فرض قالب">✕ پیش‌فرض</button>
+            </div>
+            <div class="hint" style="margin-top:4px">🆕 رنگ متن‌ها و توضیحات همین بخش (جدا از رنگ عنوان).</div></div>
         <div class="form-group"><label>اندازه عنوان</label>
             <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','titleSize',this.value)">
                 ${['sm', 'md', 'lg', 'xl'].map(v => `<option value="${v}" ${(props.titleSize || 'md') === v ? 'selected' : ''}>${{ sm: 'کوچک', md: 'متوسط (پیش‌فرض)', lg: 'بزرگ', xl: 'خیلی بزرگ' }[v]}</option>`).join('')}
@@ -2836,7 +2995,13 @@ function renderProps() {
         <div class="form-group"><label>عرض محتوا</label>
             <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','width',this.value)">
                 ${[['full', 'تمام‌عرض (پیش‌فرض)'], ['wide', 'عریض (۱۲۰۰px)'], ['boxed', 'جعبه‌ای (۹۶۰px)'], ['narrow', 'باریک (۷۲۰px)']].map(([v, l]) => `<option value="${v}" ${(props.width || 'full') === v ? 'selected' : ''}>${l}</option>`).join('')}
-            </select></div>`;
+            </select></div>
+        <div class="form-group"><label>📐 فاصله اختصاصی از بالا / پایین (px)</label>
+            <div style="display:flex;gap:7px">
+                <input type="number" class="form-control" style="font-size:12px" min="-80" max="300" value="${esc(props.mt ?? '')}" oninput="setProp('${selected}','mt',this.value)" placeholder="بالا — خالی=خودکار">
+                <input type="number" class="form-control" style="font-size:12px" min="-80" max="300" value="${esc(props.mb ?? '')}" oninput="setProp('${selected}','mb',this.value)" placeholder="پایین — خالی=خودکار">
+            </div>
+            <div class="hint" style="margin-top:4px">🆕 جابه‌جایی دقیق همین بخش نسبت به بخش‌های قبل/بعد — عدد منفی = نزدیک‌تر.</div></div>`;
     }
     html += `
         <div class="form-group"><label>کلاس CSS سفارشی (اختیاری)</label>
@@ -2852,7 +3017,7 @@ function renderProps() {
             </select></div>
         <div class="form-group"><label>پس‌زمینه</label>
             <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','background',this.value);renderProps()">
-                ${['default', 'surface', 'primary', 'gradient', 'dark'].map(v => `<option value="${v}" ${props.background === v ? 'selected' : ''}>${{ default: 'معمولی', surface: 'کمرنگ', primary: 'رنگ اصلی', gradient: 'گرادیانت', dark: 'تیره' }[v]}</option>`).join('')}
+                ${['default', 'surface', 'primary', 'gradient', 'dark', 'custom'].map(v => `<option value="${v}" ${props.background === v ? 'selected' : ''}>${{ default: 'معمولی', surface: 'کمرنگ', primary: 'رنگ اصلی', gradient: 'گرادیانت', dark: 'تیره', custom: 'رنگ دلخواه 🆕' }[v]}</option>`).join('')}
             </select>
             ${props.background === 'gradient' ? `
             <div style="display:flex;gap:7px;align-items:center;margin-top:7px">
@@ -2861,7 +3026,22 @@ function renderProps() {
                 <input type="color" class="form-control" style="width:44px;height:31px;padding:2px;cursor:pointer" value="${esc(props.gradientTo || '#0ea5e9')}" oninput="setProp('${selected}','gradientTo',this.value)" title="رنگ پایان گرادیانت">
             </div>
             <div class="hint" style="margin-top:4px">🌈 دو سر رنگ گرادیانت را انتخاب کنید — ترکیب دلخواه شما روی بوم اعمال می‌شود.</div>` : ''}
+            ${props.background === 'custom' ? `
+            <div style="display:flex;gap:7px;align-items:center;margin-top:7px">
+                <input type="color" class="form-control" style="width:44px;height:31px;padding:2px;cursor:pointer" value="${esc(props.bgColor || '#fff7ed')}" oninput="setProp('${selected}','bgColor',this.value)" title="رنگ زمینه دلخواه">
+                <span style="font-size:11px;color:var(--text-light)">رنگ زمینه دلخواه این بخش</span>
+            </div>` : ''}
         </div>
+        <div class="form-group"><label>📐 گردی گوشه‌های همین بخش</label>
+            <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','radiusOverride',this.value)">
+                ${[['default', 'پیش‌فرض قالب'], ['sharp', 'تیز (بدون گردی)'], ['round', 'گردتر'], ['pill', 'کپسولی خیلی گرد']].map(([v, l]) => `<option value="${v}" ${(props.radiusOverride || 'default') === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select></div>
+        <div class="form-group"><label>📱 نمایش در دستگاه‌ها</label>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+                <label class="form-check" style="margin:0;font-size:11.5px"><input type="checkbox" ${props.hideMobile ? '' : 'checked'} onchange="setProp('${selected}','hideMobile',!this.checked)"> 📱 موبایل</label>
+                <label class="form-check" style="margin:0;font-size:11.5px"><input type="checkbox" ${props.hideDesktop ? '' : 'checked'} onchange="setProp('${selected}','hideDesktop',!this.checked)"> 🖥️ دسکتاپ</label>
+            </div>
+            <div class="hint" style="margin-top:4px">🆕 عنصر را می‌توانید فقط برای موبایل یا فقط دسکتاپ نگه دارید (مثلاً نوار چسبان فقط موبایل).</div></div>
         <label class="form-check" style="font-size:12px"><input type="checkbox" ${props.visible !== false ? 'checked' : ''} onchange="setProp('${selected}','visible',this.checked)"> نمایش داده شود</label>
         ${['header-v1', 'header-v2', 'header-v3'].includes(item.block) ? `<label class="form-check" style="font-size:12px"><input type="checkbox" ${props.sticky ? 'checked' : ''} onchange="setProp('${selected}','sticky',this.checked)"> چسبان (Sticky)</label>` : ''}
         <hr style="border:none;border-top:1px solid var(--border);margin:13px 0">
@@ -2880,6 +3060,17 @@ function setProp(path, key, value) {
     if (!node) { return; }
     node.props = node.props || {};
     node.props[key] = value;
+    syncAndRender();
+}
+
+/* 🔘 v2.32 — مقداردهی ویژگی دکمه شماره‌دار (btnTexts/btnLinks[i]) */
+function setBtnProp(path, key, oneBasedIdx, value) {
+    const node = resolveNode(path);
+    if (!node) { return; }
+    node.props = node.props || {};
+    if (!node.props[key] || typeof node.props[key] !== 'object' || Array.isArray(node.props[key])) { node.props[key] = {}; }
+    if (String(value).trim() === '') { delete node.props[key][String(oneBasedIdx)]; }
+    else { node.props[key][String(oneBasedIdx)] = value; }
     syncAndRender();
 }
 

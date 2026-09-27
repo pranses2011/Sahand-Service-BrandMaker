@@ -407,3 +407,29 @@
 .bb-wrap .blk-anim-rotate { animation-name: blkRotate; }
 @keyframes blkRotate { from { opacity: 0; transform: rotate(-4.5deg) scale(.94); } to { opacity: 1; transform: rotate(0) scale(1); } }
 @media (prefers-reduced-motion: reduce) { .bb-wrap .blk-anim { opacity: 1 !important; animation: none !important; } }
+
+/* ═══════════════════════════════════════════════════════════════
+ * 🆕 v2.32 — تکمیل تنظیمات عناصر: رنگ متن بدنه + زمینه دلخواه +
+ * فاصله اختصاصی + گردی گوشه + نمایش انتخابی موبایل/دسکتاپ
+ * ═══════════════════════════════════════════════════════════════ */
+.bb-wrap .blk { color: var(--blk-txt, inherit); background-color: var(--blk-bg, transparent); margin-top: var(--blk-mt, 0); margin-bottom: var(--blk-mb, 0); }
+.bb-wrap .blk-rad-sharp { border-radius: 0; }
+.bb-wrap .blk-rad-round { border-radius: 22px; }
+.bb-wrap .blk-rad-pill { border-radius: 34px; }
+/* مخفی‌سازی انتخابی: فقط دسکتاپ / فقط موبایل */
+@media (max-width: 768px) { .bb-wrap .blk-hide-mobile { display: none !important; } }
+@media (min-width: 769px) { .bb-wrap .blk-hide-desktop { display: none !important; } }
+
+/* ═══════════════════════════════════════════════════════════════
+ * 🆕 v2.32 — تنظیمات صفحه: تایپوگرافی + جلوه‌ها
+ * ═══════════════════════════════════════════════════════════════ */
+.bb-wrap { color: var(--pg-body, inherit); line-height: var(--pg-lh, inherit); }
+.bb-wrap a { color: var(--pg-link, inherit); }
+.bb-wrap .blk-title { font-size: var(--pg-title-size, 17px); }
+/* نوار پیشرفت اسکرول */
+.bb-scroll-progress { position: fixed; top: 0; right: 0; height: 4px; width: 0; background: linear-gradient(90deg, var(--pg-accent, #1e40af), #0ea5e9); z-index: 9990; border-radius: 0 0 0 4px; transition: width .12s linear; }
+/* دکمه بازگشت به بالا */
+.bb-back-top { position: fixed; bottom: 92px; left: 18px; width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--pg-accent, #1e40af); color: #fff; font-size: 17px; cursor: pointer; box-shadow: 0 8px 20px rgba(2,8,23,.28); opacity: 0; visibility: hidden; transform: translateY(14px); transition: all .25s ease; z-index: 9980; }
+.bb-back-top.show { opacity: 1; visibility: visible; transform: translateY(0); }
+.bb-back-top:hover { transform: translateY(-3px); box-shadow: 0 12px 26px rgba(2,8,23,.36); }
+@media (prefers-reduced-motion: reduce) { .bb-scroll-progress { transition: none; } }
