@@ -312,6 +312,110 @@ foreach ((array)$geoQuality as $gq) {
 }
 $geoUnknown = $geoSrcCounts['local'] + $geoSrcCounts[''];
 
+/* ═══════════════════════════════════════════════════════════════
+ * 🆕 v2.32 — هفت گزارش جدید (درخواست «انواع بیشتری از گزارش و آمار
+ * همراه با نمودارهای زیبا») — همه با safeQuery مقاوم
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* ① 📆 تقویم فعالیت ۱۲ هفته اخیر (مستقل از فیلتر — همیشه ۸۴ روز) */
+$calendarRows = $safeQuery(
+    "SELECT v.visit_date, COUNT(DISTINCT v.session_hash) AS c
+     FROM visits v WHERE v.visit_date >= DATE_SUB(?, INTERVAL 83 DAY)
+     GROUP BY v.visit_date ORDER BY v.visit_date",
+    [date('Y-m-d')]
+);
+$calendarMap = [];
+foreach ((array)$calendarRows as $cr2) { $calendarMap[(string)$cr2['visit_date']] = (int)$cr2['c']; }
+
+/* ② 🎯 عمق گردش — توزیع تعداد صفحات دیده‌شده در هر بازدید */
+$depthRows = $safeQuery(
+    "SELECT t.pages AS p, COUNT(*) AS c FROM (
+        SELECT vd.visit_id, COUNT(DISTINCT vd.page_url) AS pages
+        FROM visit_details vd JOIN visits v ON v.id = vd.visit_id
+        WHERE {$where} GROUP BY vd.visit_id
+     ) t GROUP BY t.pages ORDER BY t.pages LIMIT 12",
+    $params
+);
+$depthDist = [];
+foreach ((array)$depthRows as $dr) { $depthDist[(int)$dr['p']] = (int)$dr['c']; }
+
+/* ③ ⏳ سطوح تعامل — مدت حضور هر نشست در سطل‌ها */
+$engageRows = $safeQuery(
+    "SELECT t.avg_dur AS d, COUNT(*) AS c FROM (
+        SELECT vd.visit_id, AVG(vd.duration) AS avg_dur
+        FROM visit_details vd JOIN visits v ON v.id = vd.visit_id
+        WHERE {$where} AND vd.duration > 0
+        GROUP BY vd.visit_id
+     ) t GROUP BY t.avg_dur LIMIT 400",
+    $params
+);
+/* دسته‌بندی سطوح: پرش (<10ث) / کوتاه (10-60ث) / متوسط (1-5د) / عمیق (>5د) */
+$engageLevels = ['پرش سریع' => 0, 'کوتاه' => 0, 'متوسط' => 0, 'عمیق' => 0];
+foreach ((array)$engageRows as $er) {
+    $dur = (float)$er['d']; $cnt = (int)$er['c'];
+    if ($dur < 10) { $engageLevels['پرش سریع'] += $cnt; }
+    elseif ($dur < 60) { $engageLevels['کوتاه'] += $cnt; }
+    elseif ($dur < 300) { $engageLevels['متوسط'] += $cnt; }
+    else { $engageLevels['عمیق'] += $cnt; }
+}
+
+/* ④ 📱 روند سهم دستگاه‌ها در روزهای بازه */
+$deviceTrendRows = $safeQuery(
+    "SELECT v.visit_date, v.device_type, COUNT(DISTINCT v.session_hash) AS c
+     FROM visits v WHERE {$where} AND v.device_type IS NOT NULL
+     GROUP BY v.visit_date, v.device_type ORDER BY v.visit_date",
+    $params
+);
+$deviceTrend = ['dates' => [], 'mobile' => [], 'desktop' => [], 'tablet' => []];
+foreach ((array)$deviceTrendRows as $dtr) {
+    $dt = (string)$dtr['visit_date'];
+    if (!in_array($dt, $deviceTrend['dates'], true)) { $deviceTrend['dates'][] = $dt; }
+}
+$deviceTrend['dates'] = array_values($deviceTrend['dates']);
+foreach ($deviceTrend['dates'] as $dt) { $deviceTrend['mobile'][$dt] = 0; $deviceTrend['desktop'][$dt] = 0; $deviceTrend['tablet'][$dt] = 0; }
+foreach ((array)$deviceTrendRows as $dtr) {
+    $dt = (string)$dtr['visit_date'];
+    $tp = (string)$dtr['device_type'];
+    if (!isset($deviceTrend[$tp])) { continue; }
+    $deviceTrend[$tp][$dt] += (int)$dtr['c'];
+}
+
+/* ⑤ 📊 نرخ پرش صفحات — ورود + فقط همان یک صفحه دیده شده */
+$bounceRows = $safeQuery(
+    "SELECT t.entry_page AS pg,
+            COUNT(*) AS entries,
+            SUM(t.pages = 1) AS bounces
+     FROM (
+        SELECT v.session_hash, v.entry_page, COUNT(DISTINCT vd.page_url) AS pages
+        FROM visits v JOIN visit_details vd ON vd.visit_id = v.id
+        WHERE {$where}
+        GROUP BY v.session_hash, v.entry_page
+     ) t
+     GROUP BY t.entry_page ORDER BY entries DESC LIMIT 8",
+    $params
+);
+$bouncePages = [];
+foreach ((array)$bounceRows as $br) {
+    $entries = max(1, (int)$br['entries']);
+    $bouncePages[] = [
+        'page' => (string)$br['pg'],
+        'entries' => $entries,
+        'bounces' => (int)$br['bounces'],
+        'rate' => round((int)$br['bounces'] / $entries * 100),
+    ];
+}
+
+/* ⑥ 🔮 داده پیش‌بینی — ۲۸ روز اخیر (مستقل از فیلتر) */
+$forecastRows = $safeQuery(
+    "SELECT v.visit_date, COUNT(DISTINCT v.session_hash) AS c
+     FROM visits v WHERE v.visit_date >= DATE_SUB(?, INTERVAL 27 DAY)
+     GROUP BY v.visit_date ORDER BY v.visit_date",
+    [date('Y-m-d')]
+);
+$forecastSeries = [];
+foreach ((array)$forecastRows as $fr) { $forecastSeries[] = [(string)$fr['visit_date'], (int)$fr['c']]; }
+
+
 /* 🧮 ماتریس مرورگر × سیستم‌عامل (۸×۶) */
 $browserOsRows = $safeQuery(
     "SELECT v.browser, v.os, COUNT(DISTINCT v.session_hash) AS c
@@ -362,9 +466,16 @@ try {
 
 /* 📈 شاخص‌های کلی */
 $totalUnique = array_sum(array_column($timeline, 'unique_visits'));
+
 $totalViews = array_sum(array_column($timeline, 'views'));
 $durations = $safeQuery("SELECT AVG(vd.duration) AS avg_dur FROM visit_details vd JOIN visits v ON v.id = vd.visit_id WHERE {$where}", $params);
 $avgDuration = $durations ? round((float)$durations[0]['avg_dur']) : 0;
+/* ⑦ 🕸 داده رادار سلامت — از سنجه‌های موجود محاسبه می‌شود (در JS) */
+$avgDurationAll = $avgDuration;
+$engageTotal = array_sum($engageLevels);
+$engageGoodPct = $engageTotal > 0 ? round(($engageLevels['متوسط'] + $engageLevels['عمیق']) / $engageTotal * 100) : 0;
+$returningPct = $totalUnique > 0 ? round($returningSessions / $totalUnique * 100) : 0;
+
 $bounceRow = $safeQuery(
     "SELECT COUNT(DISTINCT v.session_hash) AS sessions, COUNT(DISTINCT CASE WHEN exits.exit_count = 1 AND views.vc = 1 THEN v.session_hash END) AS bounced
      FROM visits v
@@ -814,6 +925,82 @@ $trackerBoxStyle = $trackerHealthy
     <div class="card">
         <div class="card-header"><h3>📈 رشد هفتگی بازدید (۸ هفته اخیر)</h3></div>
         <div class="card-body"><canvas id="weekly-chart" height="230"></canvas></div>
+    </div>
+</div>
+
+<!-- ═══ 🆕 v2.32 — هفت گزارش جدید با نمودارهای زیبا ═══ -->
+
+<!-- 📆 تقویم فعالیت ۱۲ هفته (سبک گیت‌هاب) -->
+<div class="card" style="margin-bottom:18px">
+    <div class="card-header">
+        <h3>📆 تقویم فعالیت — ۱۲ هفته اخیر</h3>
+        <span class="badge badge-info" style="font-size:11px">🔥 <?= en_to_fa_digits((string)array_sum($calendarMap)) ?> بازدید یکتا</span>
+    </div>
+    <div class="card-body">
+        <?php $calMax = max($calendarMap ?: [1]) ?: 1; ?>
+        <div id="activity-calendar" data-days='<?= json_encode($calendarMap, JSON_UNESCAPED_UNICODE) ?>' data-max="<?= (int)$calMax ?>"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:11px;color:var(--text-light)">
+            <span>۱۲ هفته گذشته</span>
+            <span style="display:flex;align-items:center;gap:6px">کمتر
+                <?php foreach ([0.08, 0.3, 0.55, 0.8, 1] as $li): ?>
+                    <span style="width:13px;height:13px;border-radius:3px;display:inline-block;background:rgb(<?= (int)round(226 + (30 - 226) * $li) ?>,<?= (int)round(232 + (64 - 232) * $li) ?>,<?= (int)round(240 + (175 - 240) * $li) ?>)"></span>
+                <?php endforeach; ?>
+            بیشتر</span>
+            <span>امروز</span>
+        </div>
+    </div>
+</div>
+
+<!-- 🔮 پیش‌بینی + 📱 روند دستگاه‌ها -->
+<div class="grid-2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:18px;margin-bottom:18px">
+    <div class="card">
+        <div class="card-header"><h3>🔮 پیش‌بینی روند بازدید — ۷ روز آینده</h3><span class="badge badge-warning" style="font-size:11px">رگرسیون خطی</span></div>
+        <div class="card-body"><canvas id="forecast-chart" height="230"></canvas>
+            <div class="hint" style="margin-top:7px;font-size:11px">خط‌چین = برآورد روند بر پایه ۲۸ روز اخیر — راهنمای تصمیم برای کمپین‌ها.</div></div>
+    </div>
+    <div class="card">
+        <div class="card-header"><h3>📱 روند سهم دستگاه‌ها در بازه</h3></div>
+        <div class="card-body"><canvas id="devicetrend-chart" height="230"></canvas>
+            <div style="display:flex;gap:14px;margin-top:8px;font-size:11.5px">
+                <span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:#2563eb"></span>📱 موبایل</span>
+                <span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:#059669"></span>🖥️ دسکتاپ</span>
+                <span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:#d97706"></span>📲 تبلت</span>
+            </div></div>
+    </div>
+</div>
+
+<!-- ⏳ تعامل + 🎯 عمق گردش -->
+<div class="grid-2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:18px;margin-bottom:18px">
+    <div class="card">
+        <div class="card-header"><h3>⏳ سطوح تعامل کاربران</h3>
+            <?php if ($engageTotal > 0): ?><span class="badge badge-success" style="font-size:11px">💚 <?= en_to_fa_digits((string)$engageGoodPct) ?>٪ تعامل خوب</span><?php endif; ?>
+        </div>
+        <div class="card-body"><canvas id="engage-chart" height="230"></canvas></div>
+    </div>
+    <div class="card">
+        <div class="card-header"><h3>🎯 عمق گردش — صفحات در هر بازدید</h3>
+            <span class="badge badge-info" style="font-size:11px">میانگین: <?= en_to_fa_digits((string)($pagesPerVisit ?: 0)) ?></span>
+        </div>
+        <div class="card-body"><canvas id="depth-chart" height="230"></canvas></div>
+    </div>
+</div>
+
+<!-- 🕸 رادار سلامت + 📊 نرخ پرش -->
+<div class="grid-2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:18px;margin-bottom:18px">
+    <div class="card">
+        <div class="card-header"><h3>🕸 رادار سلامت سایت</h3></div>
+        <div class="card-body"><canvas id="radar-chart" height="260"></canvas>
+            <div class="hint" style="margin-top:6px;font-size:11px">پنج محور نرمال‌شده — هر چه چندضلعی بزرگ‌تر، وضعیت کلی بهتر.</div></div>
+    </div>
+    <div class="card">
+        <div class="card-header"><h3>📊 نرخ پرش صفحات پرورود</h3></div>
+        <div class="card-body">
+            <?php if (empty($bouncePages)): ?>
+                <div class="empty-state" style="padding:16px"><div class="icon">📊</div><p>داده ورود صفحه‌ای ثبت نشده است.</p></div>
+            <?php else: ?>
+                <canvas id="bouncerate-chart" height="<?= max(150, count($bouncePages) * 38) ?>"></canvas>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
 
@@ -1535,6 +1722,375 @@ window.sahandShowOnlineDetails = function (sessionHash) {
 
 sahandLoadOnlineUsers();
 setInterval(sahandLoadOnlineUsers, 30000);
+
+/* ═══════════════════════════════════════════════════════════════
+ * 🆕 v2.32 — هفت نمودار جدید (تقویم/پیش‌بینی/روند دستگاه/تعامل/
+ * عمق/رادار/نرخ پرش) — Canvas دست‌ساز بدون وابستگی
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* 📆 ① تقویم فعالیت ۱۲ هفته — سبک گیت‌هاب (DOM، نه Canvas) */
+(function () {
+    const holder = document.getElementById('activity-calendar');
+    if (!holder) return;
+    let days = {};
+    try { days = JSON.parse(holder.getAttribute('data-days') || '{}'); } catch (e) { days = {}; }
+    const max = Math.max(1, parseInt(holder.getAttribute('data-max') || '1', 10));
+    const faD = s => String(s).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]);
+    const total = 84;
+    const today = new Date();
+    /* شروع از شنبه هفته ۱۲ هفته قبل */
+    const start = new Date(today);
+    start.setDate(today.getDate() - (total - 1));
+    const startDow = (start.getDay() + 1) % 7; /* شنبه=۰ */
+    start.setDate(start.getDate() - startDow);
+    let html = '<div style="display:flex;gap:4px;direction:rtl;overflow-x:auto;padding:4px 0">';
+    /* ۱۲ ستون هفته */
+    let d = new Date(start);
+    const monthNames = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+    let weeks = [];
+    for (let w = 0; w < 13; w++) {
+        let col = '<div style="display:flex;flex-direction:column;gap:3px">';
+        for (let dow = 0; dow < 7; dow++) {
+            const ds = d.toISOString().slice(0, 10);
+            const isFuture = d > today;
+            const val = days[ds] || 0;
+            let bg = '#eef2f7';
+            if (val > 0) {
+                const t = Math.pow(val / max, 0.65);
+                const r = Math.round(226 + (30 - 226) * t), g = Math.round(232 + (64 - 232) * t), b = Math.round(240 + (175 - 240) * t);
+                bg = 'rgb(' + r + ',' + g + ',' + b + ')';
+            }
+            col += '<span title="' + ds + (val > 0 ? ' — ' + faD(val) + ' بازدیدکننده' : '') + '" style="width:15px;height:15px;border-radius:3.5px;background:' + (isFuture ? 'transparent' : bg) + ';display:inline-block"></span>';
+            d.setDate(d.getDate() + 1);
+            if (d > today && dow < 6) { /* سلول‌های آینده خالی */ }
+        }
+        col += '</div>';
+        weeks.push(col);
+        if (d > today) break;
+    }
+    /* چیدمان RTL: هفته‌های جدیدتر سمت راست */
+    html += weeks.reverse().join('');
+    html += '</div>';
+    holder.innerHTML = html;
+})();
+
+/* 🔮 ② پیش‌بینی ۷ روز آینده — رگرسیون خطی روی ۲۸ روز اخیر */
+(function () {
+    const canvas = document.getElementById('forecast-chart');
+    if (!canvas) return;
+    const series = <?= json_encode($forecastSeries, JSON_UNESCAPED_UNICODE) ?>;
+    if (!series.length) { canvas.parentElement.innerHTML = '<div class="empty-state"><div class="icon">🔮</div><p>داده کافی برای پیش‌بینی نیست (۲۸ روز اخیر خالی است).</p></div>'; return; }
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth || 500;
+    const H = 230;
+    canvas.width = w * dpr; canvas.height = H * dpr;
+    ctx.scale(dpr, dpr);
+    /* رگرسیون خطی: y = a + b·i */
+    const n = series.length;
+    let sx = 0, sy = 0, sxy = 0, sxx = 0;
+    series.forEach(function (p, i) { sx += i; sy += p[1]; sxy += i * p[1]; sxx += i * i; });
+    const b = (n * sxy - sx * sy) / Math.max(1e-9, (n * sxx - sx * sx));
+    const a = (sy - b * sx) / n;
+    const forecasts = [];
+    for (let k = 0; k < 7; k++) { forecasts.push(Math.max(0, a + b * (n + k))); }
+    const allVals = series.map(function (p) { return p[1]; }).concat(forecasts);
+    const maxV = Math.max.apply(null, allVals.concat([1]));
+    const padL = 44, padR = 12, padT = 14, padB = 30;
+    const plotW = w - padL - padR, plotH = H - padT - padB;
+    const xOf = i => padL + (i / (n + 6)) * plotW;
+    const yOf = v => padT + plotH - (v / maxV) * plotH;
+    /* خطوط شبکه */
+    ctx.strokeStyle = '#e8edf4'; ctx.lineWidth = 1;
+    for (let g = 0; g <= 4; g++) {
+        const y = padT + plotH * g / 4;
+        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+        ctx.fillStyle = '#94a3b8'; ctx.font = '10px Tahoma'; ctx.textAlign = 'left';
+        ctx.fillText(String(Math.round(maxV * (1 - g / 4))), 6, y + 3);
+    }
+    /* ناحیه زیر داده واقعی */
+    ctx.beginPath();
+    series.forEach(function (p, i) { const x = xOf(i), y = yOf(p[1]); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+    ctx.lineTo(xOf(n - 1), padT + plotH); ctx.lineTo(xOf(0), padT + plotH); ctx.closePath();
+    const gradA = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+    gradA.addColorStop(0, 'rgba(37,99,235,.22)'); gradA.addColorStop(1, 'rgba(37,99,235,0)');
+    ctx.fillStyle = gradA; ctx.fill();
+    /* خط واقعی */
+    ctx.beginPath();
+    series.forEach(function (p, i) { const x = xOf(i), y = yOf(p[1]); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+    ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2.4; ctx.lineJoin = 'round'; ctx.stroke();
+    /* ناحیه اطمینان پیش‌بینی */
+    ctx.beginPath();
+    ctx.moveTo(xOf(n - 1), yOf(series[n - 1][1]));
+    forecasts.forEach(function (v, k) { ctx.lineTo(xOf(n + k), yOf(v)); });
+    ctx.strokeStyle = '#d97706'; ctx.lineWidth = 2.2; ctx.setLineDash([7, 5]); ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.setLineDash([]);
+    /* نقطه‌های پیش‌بینی */
+    forecasts.forEach(function (v, k) {
+        ctx.beginPath(); ctx.arc(xOf(n + k), yOf(v), 3.4, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#d97706'; ctx.lineWidth = 2; ctx.stroke();
+    });
+    /* جداکننده امروز */
+    ctx.strokeStyle = '#94a3b8'; ctx.setLineDash([3, 4]); ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(xOf(n - 1), padT); ctx.lineTo(xOf(n - 1), padT + plotH); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#64748b'; ctx.font = 'bold 10px Tahoma'; ctx.textAlign = 'center';
+    ctx.fillText('امروز', xOf(n - 1), H - 12);
+    ctx.fillText('۷ روز آینده ←', xOf(n + 3), H - 12);
+    ctx.textAlign = 'right';
+    ctx.fillText('۲۸ روز اخیر', xOf(2), H - 12);
+})();
+
+/* 📱 ③ روند سهم دستگاه‌ها — نمودار سطح انباشته */
+(function () {
+    const canvas = document.getElementById('devicetrend-chart');
+    if (!canvas) return;
+    const data = <?= json_encode(['dates' => $deviceTrend['dates'], 'mobile' => array_values($deviceTrend['mobile']), 'desktop' => array_values($deviceTrend['desktop']), 'tablet' => array_values($deviceTrend['tablet'])], JSON_UNESCAPED_UNICODE) ?>;
+    if (!data.dates.length) { canvas.parentElement.innerHTML = '<div class="empty-state"><div class="icon">📱</div><p>داده‌ای موجود نیست.</p></div>'; return; }
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth || 500, H = 230;
+    canvas.width = w * dpr; canvas.height = H * dpr; ctx.scale(dpr, dpr);
+    const n = data.dates.length;
+    const totals = [];
+    for (let i = 0; i < n; i++) { totals.push((data.mobile[i] || 0) + (data.desktop[i] || 0) + (data.tablet[i] || 0)); }
+    const maxT = Math.max.apply(null, totals.concat([1]));
+    const padL = 40, padR = 10, padT = 12, padB = 26;
+    const plotW = w - padL - padR, plotH = H - padT - padB;
+    const xOf = i => padL + (n === 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+    const layers = [
+        { key: 'mobile', color: '#2563eb' },
+        { key: 'desktop', color: '#059669' },
+        { key: 'tablet', color: '#d97706' },
+    ];
+    /* رسم از پایین به بالا (انباشته) */
+    let base = new Array(n).fill(0);
+    layers.forEach(function (L) {
+        const vals = data[L.key] || [];
+        ctx.beginPath();
+        for (let i = 0; i < n; i++) {
+            const y = padT + plotH - ((base[i] + (vals[i] || 0)) / maxT) * plotH;
+            i === 0 ? ctx.moveTo(xOf(i), y) : ctx.lineTo(xOf(i), y);
+        }
+        for (let i = n - 1; i >= 0; i--) {
+            const y = padT + plotH - (base[i] / maxT) * plotH;
+            ctx.lineTo(xOf(i), y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = L.color + 'cc'; ctx.fill();
+        ctx.strokeStyle = L.color; ctx.lineWidth = 1.4; ctx.stroke();
+        base = base.map(function (b, i) { return b + (vals[i] || 0); });
+    });
+    /* محور */
+    ctx.strokeStyle = '#e8edf4'; ctx.lineWidth = 1;
+    ctx.fillStyle = '#94a3b8'; ctx.font = '10px Tahoma';
+    for (let g = 0; g <= 3; g++) {
+        const y = padT + plotH * g / 3;
+        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+        ctx.textAlign = 'left'; ctx.fillText(String(Math.round(maxT * (1 - g / 3))), 5, y + 3);
+    }
+    ctx.textAlign = 'center';
+    [0, Math.floor((n - 1) / 2), n - 1].forEach(function (i) {
+        ctx.fillText(data.dates[i] ? data.dates[i].slice(5) : '', xOf(i), H - 10);
+    });
+})();
+
+/* ⏳ ④ سطوح تعامل — دونات گرادیانی */
+(function () {
+    const canvas = document.getElementById('engage-chart');
+    if (!canvas) return;
+    const lv = <?= json_encode($engageLevels, JSON_UNESCAPED_UNICODE) ?>;
+    const entries = Object.keys(lv).map(function (k) { return [k, lv[k]]; }).filter(function (e) { return e[1] > 0; });
+    const total = entries.reduce(function (s, e) { return s + e[1]; }, 0);
+    if (!total) { canvas.parentElement.innerHTML = '<div class="empty-state"><div class="icon">⏳</div><p>داده تعامل ثبت نشده است.</p></div>'; return; }
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth || 430, H = 230;
+    canvas.width = w * dpr; canvas.height = H * dpr; ctx.scale(dpr, dpr);
+    const cx = w / 2, cy = H / 2, R = Math.min(w, H) / 2 - 18, r = R * 0.58;
+    const colors = { 'پرش سریع': '#ef4444', 'کوتاه': '#f59e0b', 'متوسط': '#0ea5e9', 'عمیق': '#059669' };
+    let ang = -Math.PI / 2;
+    entries.forEach(function (e) {
+        const frac = e[1] / total;
+        const a2 = ang + frac * Math.PI * 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, ang, a2); ctx.arc(cx, cy, r, a2, ang, true); ctx.closePath();
+        ctx.fillStyle = colors[e[0]] || '#64748b'; ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+        /* درصد داخل قطاع */
+        if (frac > 0.07) {
+            const mid = (ang + a2) / 2, rr = (R + r) / 2;
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 11px Tahoma'; ctx.textAlign = 'center';
+            ctx.fillText(Math.round(frac * 100) + '٪', cx + Math.cos(mid) * rr, cy + Math.sin(mid) * rr + 4);
+        }
+        ang = a2;
+    });
+    /* متن مرکز */
+    ctx.fillStyle = '#1e293b'; ctx.font = 'bold 21px Tahoma'; ctx.textAlign = 'center';
+    ctx.fillText(String(total), cx, cy - 2);
+    ctx.fillStyle = '#64748b'; ctx.font = '10.5px Tahoma';
+    ctx.fillText('بازدید تعامل‌دار', cx, cy + 17);
+    /* راهنما */
+    ctx.font = '10.5px Tahoma'; ctx.textAlign = 'right';
+    let ly = 14;
+    entries.forEach(function (e) {
+        ctx.fillStyle = colors[e[0]] || '#64748b';
+        ctx.fillRect(w - 14, ly - 8, 10, 10);
+        ctx.fillStyle = '#475569';
+        ctx.fillText(e[0] + ' (' + e[1] + ')', w - 20, ly + 1);
+        ly += 17;
+    });
+})();
+
+/* 🎯 ⑤ عمق گردش — میله‌ای گرادیانی */
+(function () {
+    const canvas = document.getElementById('depth-chart');
+    if (!canvas) return;
+    const dist = <?= json_encode(array_values($depthDist), JSON_UNESCAPED_UNICODE) ?>;
+    const labels = <?= json_encode(array_map(static fn($p) => $p == 8 ? '۸+' : en_to_fa_digits((string)$p), array_keys($depthDist)), JSON_UNESCAPED_UNICODE) ?>;
+    if (!dist.length) { canvas.parentElement.innerHTML = '<div class="empty-state"><div class="icon">🎯</div><p>داده گردش ثبت نشده است.</p></div>'; return; }
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth || 430, H = 230;
+    canvas.width = w * dpr; canvas.height = H * dpr; ctx.scale(dpr, dpr);
+    const n = dist.length;
+    const maxV = Math.max.apply(null, dist.concat([1]));
+    const padL = 38, padR = 10, padT = 16, padB = 32;
+    const plotW = w - padL - padR, plotH = H - padT - padB;
+    const bw = Math.min(46, plotW / n * 0.62);
+    for (let g = 0; g <= 3; g++) {
+        const y = padT + plotH * g / 3;
+        ctx.strokeStyle = '#e8edf4'; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+        ctx.fillStyle = '#94a3b8'; ctx.font = '10px Tahoma'; ctx.textAlign = 'left';
+        ctx.fillText(String(Math.round(maxV * (1 - g / 3))), 5, y + 3);
+    }
+    dist.forEach(function (v, i) {
+        const cx = padL + (i + 0.5) * (plotW / n);
+        const bh = (v / maxV) * plotH;
+        const g2 = ctx.createLinearGradient(0, padT + plotH - bh, 0, padT + plotH);
+        g2.addColorStop(0, '#7c3aed'); g2.addColorStop(1, '#a78bfa');
+        ctx.fillStyle = g2;
+        /* گوشه گرد بالا */
+        const r = Math.min(7, bw / 2);
+        const x = cx - bw / 2, y = padT + plotH - bh;
+        ctx.beginPath();
+        ctx.moveTo(x, y + bh); ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.lineTo(x + bw - r, y); ctx.quadraticCurveTo(x + bw, y, x + bw, y + r); ctx.lineTo(x + bw, y + bh);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#334155'; ctx.font = 'bold 10.5px Tahoma'; ctx.textAlign = 'center';
+        if (v > 0) { ctx.fillText(String(v), cx, y - 5); }
+        ctx.fillStyle = '#64748b'; ctx.font = '10.5px Tahoma';
+        ctx.fillText(labels[i], cx, H - 12);
+    });
+    ctx.fillStyle = '#94a3b8'; ctx.font = '10.5px Tahoma'; ctx.textAlign = 'right';
+    ctx.fillText('تعداد صفحات دیده‌شده →', w - padR, H - 12);
+})();
+
+/* 🕸 ⑥ رادار سلامت — پنج محور نرمال‌شده */
+(function () {
+    const canvas = document.getElementById('radar-chart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth || 430, H = 260;
+    canvas.width = w * dpr; canvas.height = H * dpr; ctx.scale(dpr, dpr);
+    /* پنج محور: بازدید / مدت حضور / عمق گردش / بازگشتی / تعامل خوب */
+    const raw = [
+        <?= (int)$totalUnique ?>,
+        <?= (int)$avgDurationAll ?>,
+        <?= (float)$pagesPerVisit ?>,
+        <?= (int)$returningPct ?>,
+        <?= (int)$engageGoodPct ?>,
+    ];
+    /* نرمال‌سازی هر محور به ۰..۱ با سقف مرجع */
+    const caps = [Math.max(20, raw[0]), 240, 4, 60, 80];
+    const vals = raw.map(function (v, i) { return Math.max(0.04, Math.min(1, v / caps[i])); });
+    const labels = ['بازدید', 'مدت حضور', 'عمق گردش', 'بازگشتی', 'تعامل'];
+    const raws = [
+        '<?= en_to_fa_digits((string)$totalUnique) ?>',
+        '<?= en_to_fa_digits((string)$avgDurationAll) ?> ث',
+        '<?= en_to_fa_digits((string)($pagesPerVisit ?: 0)) ?> ص',
+        '<?= en_to_fa_digits((string)$returningPct) ?>٪',
+        '<?= en_to_fa_digits((string)$engageGoodPct) ?>٪',
+    ];
+    const cx = w / 2, cy = H / 2 + 6, R = Math.min(w, H) / 2 - 42;
+    const N = 5;
+    const pt = (i, f) => [cx + Math.cos(-Math.PI / 2 + i * 2 * Math.PI / N) * R * f, cy + Math.sin(-Math.PI / 2 + i * 2 * Math.PI / N) * R * f];
+    /* شبکه */
+    ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+    for (let ring = 1; ring <= 4; ring++) {
+        ctx.beginPath();
+        for (let i = 0; i <= N; i++) { const p = pt(i % N, ring / 4); i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1]); }
+        ctx.stroke();
+    }
+    for (let i = 0; i < N; i++) {
+        const p = pt(i, 1);
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(p[0], p[1]); ctx.stroke();
+    }
+    /* چندضلعی مقدار */
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) { const p = pt(i % N, vals[i % N]); i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1]); }
+    ctx.closePath();
+    const rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+    rg.addColorStop(0, 'rgba(37,99,235,.34)'); rg.addColorStop(1, 'rgba(124,58,237,.18)');
+    ctx.fillStyle = rg; ctx.fill();
+    ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2.2; ctx.stroke();
+    /* رئوس */
+    for (let i = 0; i < N; i++) {
+        const p = pt(i, vals[i]);
+        ctx.beginPath(); ctx.arc(p[0], p[1], 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    /* برچسب‌ها */
+    ctx.font = 'bold 11px Tahoma'; ctx.textAlign = 'center';
+    for (let i = 0; i < N; i++) {
+        const p = pt(i, 1.24);
+        ctx.fillStyle = '#1e293b';
+        ctx.fillText(labels[i], p[0], p[1] - 4);
+        ctx.font = '10px Tahoma'; ctx.fillStyle = '#64748b';
+        ctx.fillText(raws[i], p[0], p[1] + 9);
+        ctx.font = 'bold 11px Tahoma';
+    }
+})();
+
+/* 📊 ⑦ نرخ پرش صفحات — میله‌های افقی رنگی */
+(function () {
+    const canvas = document.getElementById('bouncerate-chart');
+    if (!canvas) return;
+    const pages = <?= json_encode($bouncePages, JSON_UNESCAPED_UNICODE) ?>;
+    if (!pages.length) return;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth || 430, H = Math.max(150, pages.length * 38);
+    canvas.width = w * dpr; canvas.height = H * dpr; ctx.scale(dpr, dpr);
+    const rowH = H / pages.length;
+    pages.forEach(function (pg, i) {
+        const y = i * rowH + rowH / 2;
+        /* پس‌زمینه ردیف */
+        ctx.fillStyle = i % 2 ? '#f8fafc' : '#fff';
+        ctx.fillRect(0, i * rowH, w, rowH);
+        /* برچسب صفحه */
+        ctx.fillStyle = '#334155'; ctx.font = '11px Tahoma'; ctx.textAlign = 'right';
+        let name = pg.page || '/';
+        if (name.length > 26) { name = '…' + name.slice(-25); }
+        ctx.fillText(name, w - 8, y - 5);
+        ctx.fillStyle = '#94a3b8'; ctx.font = '9.5px Tahoma';
+        ctx.fillText(pg.entries + ' ورود', w - 8, y + 10);
+        /* میزه نرخ */
+        const barX = 14, barW = w - 160 - 14;
+        ctx.fillStyle = '#eef2f7';
+        ctx.beginPath();
+        if (ctx.roundRect) { ctx.roundRect(barX, y - 7, barW, 14, 7); ctx.fill(); } else { ctx.fillRect(barX, y - 7, barW, 14); }
+        const rate = Math.max(0, Math.min(100, pg.rate));
+        const col = rate > 65 ? '#dc2626' : (rate > 40 ? '#d97706' : '#059669');
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        if (ctx.roundRect) { ctx.roundRect(barX + barW * (1 - rate / 100), y - 7, barW * rate / 100, 14, 7); ctx.fill(); } else { ctx.fillRect(barX + barW * (1 - rate / 100), y - 7, barW * rate / 100, 14); }
+        /* درصد */
+        ctx.fillStyle = col; ctx.font = 'bold 11.5px Tahoma'; ctx.textAlign = 'left';
+        ctx.fillText(rate + '٪', 12, y + 4);
+    });
+})();
 
 } /* پایان sahandDrawCharts */
 

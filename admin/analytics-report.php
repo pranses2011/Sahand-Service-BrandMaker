@@ -232,6 +232,59 @@ $deviceFa = ['mobile' => 'موبایل', 'desktop' => 'دسکتاپ', 'tablet' =
 
 /* 📊 داده روزهای اخیر برای جدول (حداکثر ۳۵ سطر) */
 $recentDays = array_slice(array_reverse($timeline), 0, 35);
+
+/* ═══ 🆕 v2.32 — بخش‌های جدید گزارش چاپی ═══ */
+/* 📆 تقویم فعالیت ۱۲ هفته */
+$calendarRows = $safeQuery("SELECT v.visit_date, COUNT(DISTINCT v.session_hash) AS c FROM visits v WHERE v.visit_date >= DATE_SUB(?, INTERVAL 83 DAY) GROUP BY v.visit_date", [date('Y-m-d')]);
+$calendarMap = [];
+foreach ((array)$calendarRows as $cr2) { $calendarMap[(string)$cr2['visit_date']] = (int)$cr2['c']; }
+
+/* ⏳ سطوح تعامل */
+$engageRows = $safeQuery(
+    "SELECT t.avg_dur AS d, COUNT(*) AS c FROM (
+        SELECT vd.visit_id, AVG(vd.duration) AS avg_dur
+        FROM visit_details vd JOIN visits v ON v.id = vd.visit_id
+        WHERE {$where} AND vd.duration > 0 GROUP BY vd.visit_id
+     ) t GROUP BY t.avg_dur LIMIT 400",
+    $params
+);
+$engageLevels = ['پرش سریع' => 0, 'کوتاه' => 0, 'متوسط' => 0, 'عمیق' => 0];
+foreach ((array)$engageRows as $er) {
+    $dur = (float)$er['d']; $cnt = (int)$er['c'];
+    if ($dur < 10) { $engageLevels['پرش سریع'] += $cnt; }
+    elseif ($dur < 60) { $engageLevels['کوتاه'] += $cnt; }
+    elseif ($dur < 300) { $engageLevels['متوسط'] += $cnt; }
+    else { $engageLevels['عمیق'] += $cnt; }
+}
+$engageTotal = array_sum($engageLevels);
+
+/* 🎯 عمق گردش */
+$depthRows = $safeQuery(
+    "SELECT t.pages AS p, COUNT(*) AS c FROM (
+        SELECT vd.visit_id, COUNT(DISTINCT vd.page_url) AS pages
+        FROM visit_details vd JOIN visits v ON v.id = vd.visit_id
+        WHERE {$where} GROUP BY vd.visit_id
+     ) t GROUP BY t.pages ORDER BY t.pages LIMIT 10",
+    $params
+);
+$depthDist = [];
+foreach ((array)$depthRows as $dr) { $depthDist[(int)$dr['p']] = (int)$dr['c']; }
+$depthTotal = array_sum($depthDist);
+
+/* 📊 نرخ پرش صفحات */
+$bounceRows = $safeQuery(
+    "SELECT t.entry_page AS pg, COUNT(*) AS entries, SUM(t.pages = 1) AS bounces
+     FROM (SELECT v.session_hash, v.entry_page, COUNT(DISTINCT vd.page_url) AS pages
+           FROM visits v JOIN visit_details vd ON vd.visit_id = v.id
+           WHERE {$where} GROUP BY v.session_hash, v.entry_page) t
+     GROUP BY t.entry_page ORDER BY entries DESC LIMIT 6",
+    $params
+);
+$bouncePages = [];
+foreach ((array)$bounceRows as $br) {
+    $entries = max(1, (int)$br['entries']);
+    $bouncePages[] = ['page' => (string)$br['pg'], 'entries' => $entries, 'rate' => round((int)$br['bounces'] / $entries * 100)];
+}
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -630,6 +683,77 @@ $recentDays = array_slice(array_reverse($timeline), 0, 35);
         <?php endforeach; ?>
         </tbody>
     </table>
+
+    <?php /* ═══ 🆕 v2.32 — بخش‌های جدید گزارش چاپی ═══ */ ?>
+    <h2 class="sec">📆 تقویم فعالیت — ۱۲ هفته اخیر</h2>
+    <?php
+    $calMax = max($calendarMap ?: [1]) ?: 1;
+    $calStart = strtotime('-83 days');
+    $calStartDow = ((int)date('N', $calStart)) % 7; /* شنبه=۰ */
+    $calStart = strtotime('-' . $calStartDow . ' days', $calStart);
+    $cells = [];
+    for ($i = 0; $i < 84; $i++) {
+        $ds = date('Y-m-d', strtotime('+' . $i . ' days', $calStart));
+        if ($ds > date('Y-m-d')) { break; }
+        $v = (int)($calendarMap[$ds] ?? 0);
+        $t = $v > 0 ? pow($v / $calMax, 0.65) : 0;
+        $r = (int)round(226 + (30 - 226) * $t); $g = (int)round(232 + (64 - 232) * $t); $b = (int)round(240 + (175 - 240) * $t);
+        $cells[] = '<span title="' . e($ds) . ' — ' . en_to_fa_digits((string)$v) . '" style="width:12px;height:12px;border-radius:3px;display:inline-block;background:rgb(' . $r . ',' . $g . ',' . $b . ')"></span>';
+    }
+    ?>
+    <div style="display:flex;gap:3px;direction:rtl;flex-wrap:wrap;line-height:1.1"><?= implode('', $cells) ?></div>
+    <div style="font-size:10.5px;color:#64748b;margin-top:6px">هر خانه = یک روز (رنگ پرتر = بازدید بیشتر) — مجموع: <?= en_to_fa_digits((string)array_sum($calendarMap)) ?> بازدیدکننده یکتا</div>
+
+    <h2 class="sec">⏳ سطوح تعامل کاربران</h2>
+    <table class="tbl" style="width:100%">
+        <thead><tr><th>سطح تعامل</th><th>تعریف</th><th style="width:110px">تعداد</th><th style="width:90px">سهم</th><th style="width:46%"></th></tr></thead>
+        <tbody>
+        <?php $engColors = ['پرش سریع' => '#dc2626', 'کوتاه' => '#d97706', 'متوسط' => '#0ea5e9', 'عمیق' => '#059669']; ?>
+        <?php $engDefs = ['پرش سریع' => 'کمتر از ۱۰ ثانیه', 'کوتاه' => '۱۰ تا ۶۰ ثانیه', 'متوسط' => '۱ تا ۵ دقیقه', 'عمیق' => 'بیش از ۵ دقیقه']; ?>
+        <?php foreach ($engageLevels as $lv => $cnt): $pct = $engageTotal > 0 ? round($cnt / $engageTotal * 100) : 0; ?>
+            <tr>
+                <th style="color:<?= $engColors[$lv] ?>"><?= e($lv) ?></th>
+                <td style="color:#64748b;font-size:11.5px"><?= $engDefs[$lv] ?></td>
+                <td class="n"><?= e(en_to_fa_digits((string)$cnt)) ?></td>
+                <td class="n"><?= e(en_to_fa_digits((string)$pct)) ?>٪</td>
+                <td><div style="height:12px;border-radius:6px;background:#eef2f7"><div style="height:12px;border-radius:6px;width:<?= $pct ?>%;background:<?= $engColors[$lv] ?>"></div></div></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+
+    <h2 class="sec">🎯 عمق گردش — صفحات دیده‌شده در هر بازدید</h2>
+    <table class="tbl" style="width:100%">
+        <thead><tr><th style="width:150px">تعداد صفحات</th><th style="width:110px">بازدید</th><th style="width:90px">سهم</th><th></th></tr></thead>
+        <tbody>
+        <?php $depthMax = max($depthDist ?: [1]) ?: 1; ?>
+        <?php foreach ($depthDist as $pages => $cnt): $pct = $depthTotal > 0 ? round($cnt / $depthTotal * 100) : 0; ?>
+            <tr>
+                <th><?= $pages >= 10 ? '۱۰+' : e(en_to_fa_digits((string)$pages)) ?> صفحه</th>
+                <td class="n"><?= e(en_to_fa_digits((string)$cnt)) ?></td>
+                <td class="n"><?= e(en_to_fa_digits((string)$pct)) ?>٪</td>
+                <td><div style="height:12px;border-radius:6px;background:#eef2f7"><div style="height:12px;border-radius:6px;width:<?= round($cnt / $depthMax * 100) ?>%;background:linear-gradient(90deg,#7c3aed,#a78bfa)"></div></div></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+
+    <?php if (!empty($bouncePages)): ?>
+    <h2 class="sec">📊 نرخ پرش صفحات پرورود</h2>
+    <table class="tbl" style="width:100%">
+        <thead><tr><th>صفحه ورود</th><th style="width:100px">ورود</th><th style="width:100px">نرخ پرش</th><th style="width:40%"></th></tr></thead>
+        <tbody>
+        <?php foreach ($bouncePages as $bp): $col = $bp['rate'] > 65 ? '#dc2626' : ($bp['rate'] > 40 ? '#d97706' : '#059669'); ?>
+            <tr>
+                <th style="direction:ltr;text-align:right;font-weight:400"><?= e($bp['page'] ?: '/') ?></th>
+                <td class="n"><?= e(en_to_fa_digits((string)$bp['entries'])) ?></td>
+                <td class="n" style="color:<?= $col ?>;font-weight:800"><?= e(en_to_fa_digits((string)$bp['rate'])) ?>٪</td>
+                <td><div style="height:12px;border-radius:6px;background:#eef2f7"><div style="height:12px;border-radius:6px;width:<?= $bp['rate'] ?>%;background:<?= $col ?>"></div></div></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php endif; ?>
 
     <footer class="rep">
         <span>صادرشده توسط سایت ساز برند سهند سرویس — <?= e(Config::get(Config::KEY_MAIN_SITE) ?: 'ea-fixer.ir') ?></span>
