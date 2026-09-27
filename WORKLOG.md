@@ -1686,5 +1686,5 @@ fix-cron-deploy-v2.14a → feat-images-v2.14 → feat-font-previews-v2.14 → fe
 - docs-v232 — مستندات + رلیز
 
 ### رلیز
-- 🏷️ تگ: `v2.32.0`
-- 📦 install.zip + update.zip + UPGRADE + AI-API-GUIDE + README + SHA256SUMS
+- 🏷️ تگ: `v2.32.0` — SHA کامیت‌های اصلی: `8116cab` (جغرافیا) + `0819a7b` (ارسال درخواست) + `3d8be4f` (قالب‌ساز) + `306342e` (گزارش‌ها) + `daf5b5a` (مستندات)
+- 📦 https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/tag/v2.32.0 — install.zip (۶.۸MB / ۲۰۰۷ فایل) + update.zip (۵۵۳KB / ۲۱ فایل) + UPGRADE + AI-API-GUIDE + README + SHA256SUMS
