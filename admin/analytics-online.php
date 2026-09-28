@@ -14,6 +14,9 @@ require_once dirname(__DIR__) . '/config.php';
 /* 🛡️ فقط مدیر واردشده (همان الگوی header.php) */
 $auth = new Auth();
 $auth->requireLogin();
+/* 🛡️ v2.33 — دفاع در عمق: رد درخواست بین‌سایتی (گزارش تحلیل — بخش امنیت) */
+reject_cross_origin();
+
 
 header('Content-Type: application/json; charset=UTF-8');
 

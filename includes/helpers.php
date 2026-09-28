@@ -585,3 +585,56 @@ function site_font_vars_css(): string
     }
     return "\n/* 🔤 فونت انتخابی سایت‌ساز */\n" . $css . "\n";
 }
+
+/**
+ * 🛡️ v2.33 — بررسی هم‌مبدأ بودن درخواست (دفاع در عمق برای صفحات GET پنل)
+ * ==========================================================================
+ * گزارش تحلیل جامع (بخش امنیت): ۱۰ صفحه پنل بدون محافظ CSRF بودند.
+ * این صفحات عملیات POST ندارند اما در برابر «درخواست بین‌سایتی» بی‌دفاع‌اند.
+ *
+ * منطق سه‌لایه (سازگار با مرورگرهای قدیمی):
+ *   ۱) Sec-Fetch-Site مرورگرهای مدرن — «cross-site» قطعی رد می‌شود
+ *      (ناوبری/تصویر/fetch هم‌مبدأ و «none» یعنی آدرس مستقیم مجاز است)
+ *   ۲) Origin یا Referer — دامنه باید با هاست فعلی یکی باشد
+ *   ۳) نبود هر دو (مرورگر قدیمی/CLI/افزونه حذف Referer) → مجاز (بدون رگرسیون)
+ */
+function verify_same_origin(): bool
+{
+    /* ۱) Sec-Fetch-Site — معتبرترین سیگنال */
+    $sfs = strtolower((string)($_SERVER['HTTP_SEC_FETCH_SITE'] ?? ''));
+    if ($sfs !== '') {
+        return $sfs !== 'cross-site';
+    }
+    /* ۲) Origin / Referer */
+    $cur = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+    if ($cur === '') { return true; }
+    $curHost = preg_replace('/:\d+$/', '', $cur);
+    $curPort = null;
+    if (preg_match('/:([0-9]+)$/', $cur, $pm)) { $curPort = (int)$pm[1]; }
+    /* پورت‌های پیش‌فرض (نال/۴۴۳/۸۰) هم‌ارزند — پورت غیرپیش‌فرض باید دقیقاً بخواند */
+    $isDefault = static function ($port): bool { return $port === null || $port === 443 || $port === 80; };
+    foreach (['HTTP_ORIGIN', 'HTTP_REFERER'] as $h) {
+        $v = trim((string)($_SERVER[$h] ?? ''));
+        if ($v === '') { continue; }
+        $p = parse_url($v);
+        if (empty($p['host'])) { continue; }
+        $reqHost = strtolower($p['host']);
+        $reqPort = isset($p['port']) ? (int)$p['port'] : null;
+        return ($reqHost === $curHost)
+            && (($reqPort === $curPort) || ($isDefault($reqPort) && $isDefault($curPort)));
+    }
+    /* ۳) بدون سرنخ */
+    return true;
+}
+
+/**
+ * 🛡️ v2.33 — رد درخواست بین‌سایتی (فراخوانی در صفحات GET پنل)
+ */
+function reject_cross_origin(): void
+{
+    if (!verify_same_origin()) {
+        http_response_code(403);
+        header('Content-Type: text/plain; charset=UTF-8');
+        exit('⛔ درخواست بین‌سایتی رد شد');
+    }
+}

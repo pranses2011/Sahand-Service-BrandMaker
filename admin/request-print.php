@@ -14,6 +14,9 @@ require_once dirname(__DIR__) . '/config.php';
 
 /* 🔐 احراز هویت — این صفحه مستقل است و header پنل را include نمی‌کند */
 (new Auth())->requireLogin();
+/* 🛡️ v2.33 — دفاع در عمق: رد درخواست بین‌سایتی (گزارش تحلیل — بخش امنیت) */
+reject_cross_origin();
+
 
 $db = Database::getInstance();
 

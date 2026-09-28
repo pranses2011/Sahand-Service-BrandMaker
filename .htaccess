@@ -16,6 +16,10 @@
     RewriteRule ^logs/ - [F,L]
     RewriteRule ^cache/ - [F,L]
     RewriteRule ^install\.php$ - [L]
+
+    # 🆕 v2.33 — 🚫 مسدودسازی پوشه .git (جلوگیری از دانلود کل تاریخچه کد)
+    # گزارش تحلیل جامع (یافته فوری ۴): تنها پوشه حساس بدون قانون مسدودسازی
+    RewriteRule ^\.git - [F,L]
 </IfModule>
 
 # ⛔ غیرفعال‌سازی فهرست پوشه‌ها (Directory Listing)
@@ -31,6 +35,12 @@ DirectoryIndex index.php admin/login.php
     Header set X-XSS-Protection "1; mode=block"
     Header set Referrer-Policy "strict-origin-when-cross-origin"
     Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+
+    # 🆕 v2.33 — 🛡️ سیاست امنیت محتوا (حالت گزارش‌دهی — Report-Only)
+    # ابتدا تخلف‌ها در logs/csp.log ثبت می‌شوند؛ پس از پاک‌سازی، به حالت
+    # اجرایی (حذف Report-Only) تبدیل شود. frame-ancestors از clickjacking
+    # و script-src از تزریق اسکریپت خارجی جلوگیری می‌کند.
+    Header set Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; font-src 'self' data:; connect-src 'self' https: http:; media-src 'self' https:; frame-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'self' https: http:; frame-ancestors 'self'; report-uri /csp-report.php"
 
     # 🔓 دسترسی CORS برای سایت‌های برند (فراخوانی API و منابع مشترک)
     <FilesMatch "\.(js|css|woff2?|ttf|eot|svg|png|jpg|jpeg|webp|ico)$">
@@ -60,5 +70,12 @@ DirectoryIndex index.php admin/login.php
 
 # 🚫 محافظت از فایل htaccess خودش
 <FilesMatch "^\.ht">
+    Require all denied
+</FilesMatch>
+
+# 🆕 v2.33 — 🚫 مستندات داخلی و فایل‌های حساس از وب قابل دسترسی نیستند
+# (README/CHANGELOG/WORKLOG/CHECKLIST/BrandMaker/improvement/UPGRADE/Create-Subdomain
+#  + database.sql + .user.ini + فایل‌های لاگ — گزارش تحلیل بخش امنیت)
+<FilesMatch "\.(md|sql|log|ini|lock|sh)$">
     Require all denied
 </FilesMatch>
