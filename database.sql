@@ -962,3 +962,14 @@ INSERT IGNORE INTO `settings` (`setting_key`, `setting_value`) VALUES
 ('work_hours', '{"start": "09:00", "end": "20:00", "days": ["sat","sun","mon","tue","wed","thu"], "holidays": ["fri"], "off_message": "در حال حاضر خارج از ساعات کاری هستیم؛ درخواست شما ثبت شد و در اولین زمان کاری پاسخ داده می‌شود."}'),
 ('websearch_settings', '{"enabled": true, "timeout": 12, "connect_timeout": 5, "max_results": 8, "cache_ttl": 1800, "rate_per_hour": 240, "providers": [], "serpapi_key": "", "google_cse_key": "", "google_cse_cx": "", "bing_api_key": ""}'),
 ('telegram_bot_settings', '{"enabled": false, "bot_token": "", "allowed_chat_ids": "", "webhook_secret": "", "notify_new_request": true, "welcome_text": "سلام! من دستیار هوشمند سهند سرویس هستم. هر سؤال یا دستور فارسی بنویسید تا کمکتان کنم."}');
+
+-- ============================================================
+-- 🗃️ schema_migrations — منبع حقیقت واحد مهاجرت‌های دیتابیس (P2-26)
+-- جایگزین نشانگرهای فایل cache/.schema_vXXX — در اولین اجرای
+-- config.php نشانگرهای قدیمی به‌صورت خودکار به این جدول وارد می‌شوند.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `schema_migrations` (
+  `name` VARCHAR(96) NOT NULL COMMENT 'نام مهاجرت (مطابق نام نشانگر قدیمی، مثل schema_v234)',
+  `applied_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'زمان اجرای موفق',
+  PRIMARY KEY (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='منبع حقیقت واحد مهاجرت‌های دیتابیس (P2-26)';

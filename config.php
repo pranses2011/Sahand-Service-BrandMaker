@@ -226,12 +226,11 @@ set_exception_handler(function ($e) {
 /* --------------------------------------------------
  * 🗃️ مهاجرت خودکار سبک دیتابیس (v2.6+)
  * ستون‌های جدید بدون نیاز به اجرای SQL دستی اضافه می‌شوند؛
- * فقط یک بار (با نشانگر cache/.schema_v26) اجرا می‌شود.
+ * فقط یک بار (ثبت در جدول schema_migrations — رجوع به core/SchemaMigrations.php؛ P2-26).
  * -------------------------------------------------- */
 if (!defined('SAHAND_NO_DB_MIGRATE')) {
     try {
-        $migrateMarker = ROOT_PATH . '/cache/.schema_v26';
-        if (!file_exists($migrateMarker)) {
+        if (!SchemaMigrations::applied('schema_v26')) {
             /* 🛡️ اتصال آزمایشی مستقیم (قابل گرفتن) — چون Database::getInstance
                در خطای اتصال die می‌کند و نباید نصب تازه/محیط بدون DB را بشکند */
             $dsn = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=%s', DB_HOST, DB_PORT, DB_NAME, DB_CHARSET);
@@ -265,7 +264,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
             if ($sevCol && stripos((string)($sevCol['Type'] ?? ''), 'informational') === false) {
                 $pdo->exec("ALTER TABLE `error_codes` MODIFY `severity` ENUM('low','medium','high','critical','informational') NOT NULL DEFAULT 'medium'");
             }
-            @file_put_contents($migrateMarker, date('Y-m-d H:i:s'));
+            SchemaMigrations::mark('schema_v26');
         }
     } catch (Throwable $schemaE) {
         // نصب تازه (install.php) یا دسترسی محدود — بی‌صدا رد می‌شود
@@ -275,12 +274,11 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
 /* --------------------------------------------------
  * 🚀 مهاجرت افزونه استقرار خودکار (v2.11+)
  * جداول cpanel/deployments/backups/... و ستون‌های جدید brands؛
- * فقط یک بار (با نشانگر cache/.schema_v211) اجرا می‌شود.
+ * فقط یک بار (ثبت در جدول schema_migrations — P2-26).
  * -------------------------------------------------- */
 if (!defined('SAHAND_NO_DB_MIGRATE')) {
     try {
-        $deployMarker = ROOT_PATH . '/cache/.schema_v211';
-        if (!file_exists($deployMarker)) {
+        if (!SchemaMigrations::applied('schema_v211')) {
             $dsn2 = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=%s', DB_HOST, DB_PORT, DB_NAME, DB_CHARSET);
             $probe2 = new PDO($dsn2, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 3]);
             $probe2 = null;
@@ -434,7 +432,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
                 UNIQUE KEY `uk_ssl_domain` (`domain`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='وضعیت SSLها'");
 
-            @file_put_contents($deployMarker, date('Y-m-d H:i:s'));
+            SchemaMigrations::mark('schema_v211');
         }
     } catch (Throwable $deploySchemaE) {
         // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود (database.sql کامل است)
@@ -443,12 +441,11 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
 
 /* --------------------------------------------------
  * 🆕 مهاجرت v2.12 — فاوآیکون برند + بلوک‌های ترکیبی قالب‌ساز
- * فقط یک بار (با نشانگر cache/.schema_v212) اجرا می‌شود.
+ * فقط یک بار (ثبت در جدول schema_migrations — P2-26).
  * -------------------------------------------------- */
 if (!defined('SAHAND_NO_DB_MIGRATE')) {
     try {
-        $v212Marker = ROOT_PATH . '/cache/.schema_v212';
-        if (!file_exists($v212Marker)) {
+        if (!SchemaMigrations::applied('schema_v212')) {
             $dsn3 = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=%s', DB_HOST, DB_PORT, DB_NAME, DB_CHARSET);
             $probe3 = new PDO($dsn3, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 3]);
             $probe3 = null;
@@ -482,7 +479,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
                 KEY `idx_bblock_name` (`name`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='بلوک‌های ترکیبی ذخیره‌شده قالب‌ساز'");
 
-            @file_put_contents($v212Marker, date('Y-m-d H:i:s'));
+            SchemaMigrations::mark('schema_v212');
         }
     } catch (Throwable $v212SchemaE) {
         // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
@@ -494,8 +491,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
  * عناصر استخراج‌شده از سایت‌های خارجی (استخراج‌گر عناصر) که کاربر
  * پسندیده تا بعداً در چیدمان‌ها استفاده کند.
  * -------------------------------------------------- */
-$v226Marker = ROOT_PATH . '/cache/.schema_v226_personal_elements';
-if (!file_exists($v226Marker)) {
+if (!SchemaMigrations::applied('schema_v226_personal_elements')) {
     try {
         $pdo = Database::getInstance()->pdo();
         $pdo->exec("CREATE TABLE IF NOT EXISTS `personal_elements` (
@@ -509,7 +505,7 @@ if (!file_exists($v226Marker)) {
             PRIMARY KEY (`id`),
             KEY `idx_pelem_type` (`element_type`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='عناصر شخصی استخراج‌شده از سایت‌ها (v2.26)'");
-        @file_put_contents($v226Marker, date('Y-m-d H:i:s'));
+        SchemaMigrations::mark('schema_v226_personal_elements');
     } catch (Throwable $v226SchemaE) {
         // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
     }
@@ -523,10 +519,9 @@ if (!file_exists($v226Marker)) {
  * ستون جدید اضافه نمی‌کند → هر کوئری WHERE is_exit = 1 با «Unknown
  * column» فاتل می‌شود → HTTP 500 در analytics.php و analytics-report.php.
  * این مهاجرت جدول‌ها را در صورت نبود می‌سازد و ستون‌های غایب را اضافه
- * می‌کند (با نشانگر cache/.schema_v227_stats فقط یک‌بار).
+ * می‌کند (ثبت در جدول schema_migrations فقط یک‌بار — P2-26).
  * -------------------------------------------------- */
-$v227StatsMarker = ROOT_PATH . '/cache/.schema_v227_stats';
-if (!file_exists($v227StatsMarker)) {
+if (!SchemaMigrations::applied('schema_v227_stats')) {
     try {
         $pdo = Database::getInstance()->pdo();
 
@@ -589,7 +584,7 @@ if (!file_exists($v227StatsMarker)) {
             $pdo->exec("ALTER TABLE `visit_details` ADD COLUMN `viewed_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP");
         }
 
-        @file_put_contents($v227StatsMarker, date('Y-m-d H:i:s'));
+        SchemaMigrations::mark('schema_v227_stats');
     } catch (Throwable $v227StatsE) {
         // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
     }
@@ -605,8 +600,7 @@ if (!file_exists($v227StatsMarker)) {
  * -------------------------------------------------- */
 if (!defined('SAHAND_NO_DB_MIGRATE')) {
     try {
-        $v215Marker = ROOT_PATH . '/cache/.schema_v215';
-        if (!file_exists($v215Marker)) {
+        if (!SchemaMigrations::applied('schema_v215')) {
             $dsn4 = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=%s', DB_HOST, DB_PORT, DB_NAME, DB_CHARSET);
             $probe4 = new PDO($dsn4, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 3]);
             $probe4 = null;
@@ -616,7 +610,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
             $pdo->exec("UPDATE `brands` SET `is_deployed` = 0, `deploy_method` = NULL, `deployed_at` = NULL
                 WHERE `is_deployed` = 1 AND (`server_path` IS NULL OR TRIM(`server_path`) = '')");
 
-            @file_put_contents($v215Marker, date('Y-m-d H:i:s'));
+            SchemaMigrations::mark('schema_v215');
         }
     } catch (Throwable $v215SchemaE) {
         // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
@@ -633,8 +627,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
  * -------------------------------------------------- */
 if (!defined('SAHAND_NO_DB_MIGRATE')) {
     try {
-        $v222Marker = ROOT_PATH . '/cache/.schema_v222';
-        if (!file_exists($v222Marker)) {
+        if (!SchemaMigrations::applied('schema_v222')) {
             $dsn5 = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=%s', DB_HOST, DB_PORT, DB_NAME, DB_CHARSET);
             $probe5 = new PDO($dsn5, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 3]);
             $probe5 = null;
@@ -650,7 +643,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
                 }
             }
 
-            @file_put_contents($v222Marker, date('Y-m-d H:i:s'));
+            SchemaMigrations::mark('schema_v222');
         }
     } catch (Throwable $v222SchemaE) {
         // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
@@ -667,8 +660,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
  * -------------------------------------------------- */
 if (!defined('SAHAND_NO_DB_MIGRATE')) {
     try {
-        $v229Marker = ROOT_PATH . '/cache/.schema_v229';
-        if (!file_exists($v229Marker)) {
+        if (!SchemaMigrations::applied('schema_v229')) {
             $pdo = Database::getInstance()->pdo();
 
             $hasGk = $pdo->query("SHOW COLUMNS FROM `cpanel_settings` LIKE 'backup_keep_count'")->fetchAll();
@@ -680,7 +672,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
                 $pdo->exec("ALTER TABLE `brands` ADD COLUMN `backup_keep_count` INT UNSIGNED NULL COMMENT 'تعداد بکاپ اختصاصی این برند (NULL = از تنظیمات عمومی)' AFTER `is_active`");
             }
 
-            @file_put_contents($v229Marker, date('Y-m-d H:i:s'));
+            SchemaMigrations::mark('schema_v229');
         }
     } catch (Throwable $v229SchemaE) {
         // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
@@ -699,8 +691,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
  * -------------------------------------------------- */
 if (!defined('SAHAND_NO_DB_MIGRATE')) {
     try {
-        $v231Marker = ROOT_PATH . '/cache/.schema_v231';
-        if (!file_exists($v231Marker)) {
+        if (!SchemaMigrations::applied('schema_v231')) {
             $pdo = Database::getInstance()->pdo();
 
             /* ① کش جغرافیایی */
@@ -738,7 +729,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
                 KEY `idx_fentry_form` (`form_block`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='ثبت فرم‌های سفارشی سایت برند'");
 
-            @file_put_contents($v231Marker, date('Y-m-d H:i:s'));
+            SchemaMigrations::mark('schema_v231');
         }
     } catch (Throwable $v231SchemaE) {
         // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
@@ -757,14 +748,13 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
  * -------------------------------------------------- */
 if (!defined('SAHAND_NO_DB_MIGRATE')) {
     try {
-        $v232Marker = ROOT_PATH . '/cache/.schema_v232';
-        if (!file_exists($v232Marker)) {
+        if (!SchemaMigrations::applied('schema_v232')) {
             $pdo = Database::getInstance()->pdo();
             $hasGeoSrc = $pdo->query("SHOW COLUMNS FROM `visits` LIKE 'geo_src'")->fetchAll();
             if (empty($hasGeoSrc)) {
                 $pdo->exec("ALTER TABLE `visits` ADD COLUMN `geo_src` VARCHAR(10) NULL COMMENT 'منبع جغرافیا: api/cache/local' AFTER `province`");
             }
-            @file_put_contents($v232Marker, date('Y-m-d H:i:s'));
+            SchemaMigrations::mark('schema_v232');
         }
     } catch (Throwable $v232SchemaE) {
         // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
@@ -786,8 +776,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
  * -------------------------------------------------- */
 if (!defined('SAHAND_NO_DB_MIGRATE')) {
     try {
-        $v233Marker = ROOT_PATH . '/cache/.schema_v233';
-        if (!file_exists($v233Marker)) {
+        if (!SchemaMigrations::applied('schema_v233')) {
             $pdo = Database::getInstance()->pdo();
 
             $addCol = function (string $col, string $ddl) use ($pdo): void {
@@ -829,7 +818,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
                 }
             } catch (Throwable $bh) { /* بی‌صدا */ }
 
-            @file_put_contents($v233Marker, date('Y-m-d H:i:s'));
+            SchemaMigrations::mark('schema_v233');
         }
     } catch (Throwable $v233SchemaE) {
         // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
@@ -849,8 +838,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
  * -------------------------------------------------- */
 if (!defined('SAHAND_NO_DB_MIGRATE')) {
     try {
-        $v234Marker = ROOT_PATH . '/cache/.schema_v234';
-        if (!file_exists($v234Marker)) {
+        if (!SchemaMigrations::applied('schema_v234')) {
             $pdo = Database::getInstance()->pdo();
 
             /* ① ستون‌های 2FA روی users */
@@ -946,7 +934,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
                 CONSTRAINT `fk_vd_brand` FOREIGN KEY (`brand_id`) REFERENCES `brands`(`id`) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='خلاصه روزانه آمار — پس از ۱۸ ماه ردیف visits پاک می‌شود'");
 
-            @file_put_contents($v234Marker, date('Y-m-d H:i:s'));
+            SchemaMigrations::mark('schema_v234');
         }
     } catch (Throwable $v234SchemaE) {
         // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
@@ -969,8 +957,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
  * -------------------------------------------------- */
 if (!defined('SAHAND_NO_DB_MIGRATE')) {
     try {
-        $v235Marker = ROOT_PATH . '/cache/.schema_v235';
-        if (!file_exists($v235Marker)) {
+        if (!SchemaMigrations::applied('schema_v235')) {
             $pdo = Database::getInstance()->pdo();
 
             $addArticleCol = function (string $col, string $ddl) use ($pdo): void {
@@ -996,7 +983,7 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
                 KEY `idx_pool_brand` (`brand_id`, `device_key`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='گزاره‌های دانش مصرف‌شده در مقالات (ضد تکرار)';");
 
-            @file_put_contents($v235Marker, date('Y-m-d H:i:s'));
+            SchemaMigrations::mark('schema_v235');
         }
     } catch (Throwable $v235SchemaE) {
         // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
