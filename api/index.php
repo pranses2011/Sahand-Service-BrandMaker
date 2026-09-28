@@ -98,6 +98,12 @@ $router->add('GET', 'brand/{brandId}/article/{slug}', function ($p) {
     api_brand_article((int)$p['brandId'], $p['slug']);
 });
 
+// 🔍 v2.34 — جستجوی سایت برند (مقالات + صفحات)
+$router->add('GET', 'brand/{brandId}/search', function ($p) {
+    require __DIR__ . '/endpoints/search.php';
+    api_brand_search((int)$p['brandId'], (string)($_GET['q'] ?? ''), (int)($_GET['page'] ?? 1), (int)($_GET['per_page'] ?? 10));
+});
+
 // 🚨 کدهای خطا + جستجو
 $router->add('GET', 'brand/{brandId}/error-codes', function ($p) {
     require __DIR__ . '/endpoints/error-code.php';

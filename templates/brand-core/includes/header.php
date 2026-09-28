@@ -39,7 +39,7 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
     <title><?= e($pageTitle) ?></title>
     <meta name="description" content="<?= e($pageDesc) ?>">
     <?php if ($pageKey): ?><meta name="keywords" content="<?= e($pageKey) ?>"><?php endif; ?>
-    <meta name="robots" content="index,follow">
+    <meta name="robots" content="<?= !empty($pageNoIndex) ? 'noindex,follow' : 'index,follow' ?>">
     <link rel="canonical" href="https://<?= e(BRAND_DOMAIN) ?><?= e($_SERVER['REQUEST_URI'] ?? '/') ?>">
     <!-- ⚡ v2.33 — preconnect دامنه سایت‌ساز: fonts.css و تصاویر آپلودی از
          دامنه دیگر می‌آیند؛ DNS+TLS از قبل باز می‌شود (گزارش تحلیل ۵.۲) -->
@@ -245,6 +245,10 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
                 <?php endforeach; ?>
             </ul>
         </nav>
+        <!-- 🔍 v2.34 — دکمه جستجوی سایت برند -->
+        <a href="/search" class="header-search-btn" aria-label="جستجو در سایت" title="جستجو در سایت">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </a>
         <button class="theme-toggle" onclick="toggleTheme()" title="تغییر تم روشن/تاریک">🌙</button>
     </div>
 </header>

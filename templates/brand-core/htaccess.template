@@ -20,6 +20,8 @@ DirectoryIndex index.php
     # مقالات
     RewriteRule ^blog/?$ pages/blog.php [L]
     RewriteRule ^blog/article/?$ pages/article.php [L]
+    # 🔍 v2.34 — جستجوی سایت برند
+    RewriteRule ^search/?$ pages/search.php [L,QSA]
     # درباره‌ها
     RewriteRule ^about-agency/?$ pages/about-agency.php [L]
     RewriteRule ^about-brand/?$ pages/about-brand.php [L]

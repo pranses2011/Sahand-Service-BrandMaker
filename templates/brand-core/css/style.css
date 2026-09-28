@@ -118,6 +118,15 @@ a { color: var(--color-primary); text-decoration: none; transition: var(--transi
 }
 .theme-toggle { display: flex; align-items: center; justify-content: center; }
 
+/* 🔍 v2.34 — دکمه جستجوی هدر سایت برند */
+.header-search-btn {
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 38px; height: 38px; border-radius: 9px;
+    border: 1.5px solid var(--color-border); background: transparent;
+    color: var(--color-text); transition: border-color .18s, background .18s, color .18s;
+}
+.header-search-btn:hover { border-color: var(--color-accent, #1e40af); background: rgba(59, 130, 246, .08); color: var(--color-accent, #1e40af); }
+
 /* ---------- 🦸 هیرو ---------- */
 /* 🎨 v2.28 — رنگ هیرو از رنگ‌های تاکیدی لوگو: header.php مقدارهای
    --hero-bg/--hero-text/--hero-badge را از --color-accent پالت زنده
