@@ -1255,8 +1255,9 @@ if (!function_exists('pv_render_block_inner')) {
                 /* ⭐ عنصر شخصی استخراج‌شده — iframe ایزوله با استایل کامل سایت مبدأ */
                 {
                     $peId = (int)($props['element_id'] ?? 0);
-                    if (!isset($pelements[$peId])) {
-                        return '';
+                    if (!isset(pv_renderer_pelements()[$peId])) {
+                        /* سایت: سکوت؛ پیش‌نمایش/بوم: جعبه راهنما */
+                        return $pvPreview ? '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="pv-text">⭐ این عنصر شخصی حذف شده است.</div></div>' : '';
                     }
                     $pe = pv_renderer_pelements()[$peId];
                     $frameDoc = htmlspecialchars(pv_pelement_doc($pe), ENT_QUOTES, 'UTF-8');
