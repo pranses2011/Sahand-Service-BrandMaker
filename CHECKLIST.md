@@ -1350,32 +1350,32 @@
 
 **۸ یافته فوری گزارش (قابل راستی‌آزمایی):**
 
-- [ ] 🐛 ۶ برچسب case تکراری در switch هر دو رندرگر (hero-form/survey-form/callback-form/appointment-form/quick-contact-form/appointment-compact) + features در پیش‌نمایش → پیاده‌سازی تفصیلی مرده است
-- [ ] 🐛 هاردکد stats/stats-strip در پیش‌نمایش (۱۲+ سال تجربه) به‌جای pvStatStrip($props)
-- [ ] 🐛 هاردکد benefits-list در پیش‌نمایش به‌جای pvItems($props)
-- [ ] 🔴 مسدودسازی .git در .htaccess
-- [ ] 🟠 CSRF در ۱۰ صفحه باقیمانده پنل
-- [ ] 🔴 افزودن CSP (Report-Only)
-- [ ] 🔴 اسکیمای LocalBusiness ناقص (۸ فیلد مفقود) + BreadcrumbList + Article ناقص
-- [ ] 🔴 sitemap.xml ایستا (مقاله جدید وارد نمی‌شود)
+- [x] 🐛 ۶ برچسب case تکراری در switch هر دو رندرگر (hero-form/survey-form/callback-form/appointment-form/quick-contact-form/appointment-compact) + features در پیش‌نمایش → پیاده‌سازی تفصیلی مرده است
+- [x] 🐛 هاردکد stats/stats-strip در پیش‌نمایش (۱۲+ سال تجربه) به‌جای pvStatStrip($props)
+- [x] 🐛 هاردکد benefits-list در پیش‌نمایش به‌جای pvItems($props)
+- [x] 🔴 مسدودسازی .git در .htaccess
+- [x] 🟠 CSRF در ۱۰ صفحه باقیمانده پنل
+- [x] 🔴 افزودن CSP (Report-Only)
+- [x] 🔴 اسکیمای LocalBusiness ناقص (۸ فیلد مفقود) + BreadcrumbList + Article ناقص
+- [x] 🔴 sitemap.xml ایستا (مقاله جدید وارد نمی‌شود)
 
 **بسته P0 (این نسخه):**
 
-- [ ] 🔒 امنیت: مسدودسازی .git + فایل‌های حساس (md/sql/log) در .htaccess
-- [ ] 🔒 امنیت: CSP Report-Only
-- [ ] 🔒 امنیت: CSRF صفحات باقیمانده
-- [ ] 🐛 رندرگر: حذف برچسب‌های case تکراری + فعال‌سازی پیاده‌سازی تفصیلی ۶ بلوک فرم
-- [ ] 🐛 رندرگر: رفع هاردکد stats/stats-strip/benefits-list در پیش‌نمایش
-- [ ] 🔍 سئو: LocalBusiness کامل (address/telephone/geo/openingHours/priceRange/rating/image/areaServed)
-- [ ] 🔍 سئو: BreadcrumbList + تکمیل Article (author/publisher/image/dateModified)
-- [ ] 🔍 سئو: sitemap.xml پویا + پینگ IndexNow
-- [ ] 🔍 سئو: ابعاد تصاویر (رفع CLS)
-- [ ] ⚡ کارایی: قفل کش flock + TTL jitter + سقف عمر کهنه ۲۴ ساعت
-- [ ] ⚡ کارایی: curl_multi برای فراخوانی‌های موازی سایت برند
-- [ ] ⚡ کارایی: heartbeat بهینه (فقط تب فعال) + کاهش نویز نوشتن
-- [ ] ⚡ کارایی: preconnect برای منابع بین‌مبدأ
-- [ ] 🧪 تست: مجموعه تست بومی بدون composer + تست انطباق دو رندرگر
-- [ ] 🧪 تست: CI گیت‌هاب (lint + تست)
+- [x] 🔒 امنیت: مسدودسازی .git + فایل‌های حساس (md/sql/log) در .htaccess
+- [x] 🔒 امنیت: CSP Report-Only
+- [x] 🔒 امنیت: CSRF صفحات باقیمانده
+- [x] 🐛 رندرگر: حذف برچسب‌های case تکراری + فعال‌سازی پیاده‌سازی تفصیلی ۶ بلوک فرم
+- [x] 🐛 رندرگر: رفع هاردکد stats/stats-strip/benefits-list در پیش‌نمایش
+- [x] 🔍 سئو: LocalBusiness کامل (address/telephone/geo/openingHours/priceRange/rating/image/areaServed)
+- [x] 🔍 سئو: BreadcrumbList + تکمیل Article (author/publisher/image/dateModified)
+- [x] 🔍 سئو: sitemap.xml پویا + پینگ IndexNow (پینگ IndexNow → تکمیل در بخش ۲.۳۴)
+- [x] 🔍 سئو: ابعاد تصاویر (رفع CLS)
+- [x] ⚡ کارایی: قفل کش flock + TTL jitter + سقف عمر کهنه ۲۴ ساعت
+- [x] ⚡ کارایی: curl_multi برای فراخوانی‌های موازی سایت برند
+- [x] ⚡ کارایی: heartbeat بهینه (فقط تب فعال) + کاهش نویز نوشتن
+- [x] ⚡ کارایی: preconnect برای منابع بین‌مبدأ
+- [x] 🧪 تست: مجموعه تست بومی بدون composer + تست انطباق دو رندرگر
+- [x] 🧪 تست: CI گیت‌هاب (lint + تست)
 
 **نقشه راه بعدی (P1 → P3 — خارج از این نسخه):**
 
