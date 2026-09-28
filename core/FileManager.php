@@ -73,9 +73,28 @@ class FileManager
             return $this->fail('خطا در ذخیره فایل روی سرور.');
         }
 
+        $relPath = 'uploads/' . trim($subDir, '/') . '/' . $newName;
+
+        /* 🗃️ v2.34 — ثبت خودکار در کتابخانه رسانه (متادیتا/alt/جایگزینی)
+           شکست ثبت هرگز آپلود را نمی‌شکند */
+        try {
+            $kindMap = ['articles' => 'article', 'logos' => 'logo', 'requests' => 'request'];
+            $kind = $kindMap[trim($subDir, '/')] ?? 'misc';
+            $dims = $ext === 'svg' ? [0, 0] : (@getimagesize($dir . '/' . $newName) ?: [0, 0]);
+            Database::getInstance()->insert('media_files', [
+                'path'         => $relPath,
+                'kind'         => $kind,
+                'original_name' => pathinfo((string)$file['name'], PATHINFO_FILENAME),
+                'size'         => (int)($file['size'] ?? 0),
+                'width'        => (int)$dims[0],
+                'height'       => (int)$dims[1],
+                'uploaded_by'  => (int)($_SESSION['user_id'] ?? 0) ?: null,
+            ]);
+        } catch (Throwable $mediaE) { /* تکراری یا جدول نبود — بی‌صدا */ }
+
         return [
             'success' => true,
-            'path'    => 'uploads/' . trim($subDir, '/') . '/' . $newName,
+            'path'    => $relPath,
             'name'    => $newName,
             'error'   => '',
         ];

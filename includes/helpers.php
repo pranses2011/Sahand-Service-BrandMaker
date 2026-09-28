@@ -58,6 +58,19 @@ function en_to_fa_digits(string $value): string
 }
 
 /**
+ * 🔢 v2.34 — نام کوتاه en_to_fa_digits (پنل)
+ * قالب سایت برند از قدیم fa_num دارد (templates/brand-core/config.php)؛
+ * صفحات جدید پنل هم از همین نام استفاده می‌کنند — اینجا به‌عنوان مترادف تعریف می‌شود
+ * تا در پنل هم بدون خطای «undefined function» کار کند.
+ */
+if (!function_exists('fa_num')) {
+    function fa_num(string $value): string
+    {
+        return en_to_fa_digits($value);
+    }
+}
+
+/**
  * 📱 اعتبارسنجی شماره موبایل ایرانی (09xxxxxxxxx)
  */
 function is_valid_iran_mobile(string $phone): bool
