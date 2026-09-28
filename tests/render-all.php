@@ -12,8 +12,8 @@ if (!in_array($mode, ['preview', 'site'], true)) {
     exit(1);
 }
 
-/* لیست بلوک‌های case از خود رندرگر سایت */
-$bb = (string)file_get_contents(dirname(__DIR__) . '/templates/brand-core/includes/blocks.php');
+/* لیست بلوک‌های case از هسته رندرگر واحد (P2-21 — سوییچ در core است) */
+$bb = (string)file_get_contents(dirname(__DIR__) . '/templates/brand-core/includes/block-renderer-core.php');
 preg_match_all("/case\s+'([a-z0-9\-_]+)'\s*:/", $bb, $mm);
 $blocks = array_values(array_filter(array_unique($mm[1]), static fn($b) => $b !== 'pelement'));
 
