@@ -585,3 +585,46 @@ function site_font_vars_css(): string
     }
     return "\n/* 🔤 فونت انتخابی سایت‌ساز */\n" . $css . "\n";
 }
+
+/* ==================================================
+ * 🚨 کدهای خطا — هش یکتایی محتوا (v2.33)
+ * ================================================== */
+
+/**
+ * 🔐 هش SHA-256 محتوای نرمال‌شده‌ی یک کد خطا
+ *
+ * کاربرد: تشخیص کدهای خطای کپی/تکراری در سطح سیستم (نه فقط در سطح پرامپت).
+ * دو رکوردی که عنوان، توضیح، علت‌ها و راه‌حل‌های یکسان داشته باشند هشِ یکسان
+ * می‌گیرند و در پنل به‌عنوان «محتوای تکراری» گزارش می‌شوند — یعنی دقیقاً
+ * همان چیزی که گوگل ممکن است برچسب تکراری بزند.
+ *
+ * نرمال‌سازی: یکسان‌سازی ارقام عربی، حذف نویسه‌های کنترلی، فشرده‌سازی فاصله‌ها.
+ *
+ * @param array $r کلیدهای title, description, causes, solutions (آرایه یا رشته)
+ * @return string هش SHA-256 — رشته‌ی خالی اگر محتوایی نباشد
+ */
+if (!function_exists('error_code_content_hash')) {
+    function error_code_content_hash(array $r): string
+    {
+        $parts = [
+            (string)($r['title'] ?? ''),
+            (string)($r['description'] ?? ''),
+            is_array($r['causes'] ?? null) ? implode(' ', $r['causes']) : (string)($r['causes'] ?? ''),
+            is_array($r['solutions'] ?? null) ? implode(' ', $r['solutions']) : (string)($r['solutions'] ?? ''),
+        ];
+        $text = implode(' ', $parts);
+        if (trim($text) === '') {
+            return '';
+        }
+        /* یکسان‌سازی ارقام عربی با فارسی/لاتین */
+        $text = str_replace(
+            ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'],
+            ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
+            $text
+        );
+        /* حذف نویسه‌های کنترلی و فشرده‌سازی فاصله‌ها */
+        $text = (string)preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', ' ', $text);
+        $text = (string)preg_replace('/\s+/u', ' ', $text);
+        return hash('sha256', trim($text));
+    }
+}

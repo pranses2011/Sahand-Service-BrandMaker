@@ -81,12 +81,19 @@ class ErrorCodeGenerator
     public function import(int $brandId, array $codes): array
     {
         $result = ['imported' => 0, 'skipped' => 0, 'errors' => []];
-        $validSeverities = ['low', 'medium', 'high', 'critical'];
+        /* 🆕 v2.33 — «اطلاعاتی» هم سطح معتبر است (قبلاً فقط ۴ سطح بود و
+           کدهای informational هنگام ورود فایل به medium تنزل می‌یافتند) */
+        $validSeverities = ['low', 'medium', 'high', 'critical', 'informational'];
 
         foreach ($codes as $i => $code) {
-            // ✅ اعتبارسنجی فیلدهای الزامی
-            if (empty($code['device']) || empty($code['code']) || empty($code['title'])) {
-                $result['errors'][] = 'ردیف ' . ($i + 1) . ': فیلدهای device، code و title الزامی هستند.';
+            /* ✅ اعتبارسنجی — پذیرش هم کلیدهای قدیمی و هم کلیدهای خروجیِ استاندارد */
+            $codeValue   = trim((string)($code['code'] ?? ''));
+            $titleValue  = trim((string)($code['title_fa'] ?? $code['title'] ?? ''));
+            $deviceValue = trim((string)($code['device_key'] ?? $code['device'] ?? ''));
+
+            if ($deviceValue === '' || $codeValue === '' || $titleValue === '') {
+                $result['errors'][] = 'ردیف ' . ($i + 1)
+                    . ': فیلدهای device (یا device_key)، code و title (یا title_fa) الزامی هستند.';
                 continue;
             }
             $severity = strtolower(trim((string)($code['severity'] ?? 'medium')));
@@ -94,8 +101,8 @@ class ErrorCodeGenerator
                 $severity = 'medium';
             }
 
-            // تشخیص کلید دستگاه از نام
-            $deviceKey = $this->resolveDeviceKey((string)$code['device']);
+            // تشخیص کلید دستگاه از نام (یا پذیرش کلید استاندارد)
+            $deviceKey = $this->resolveDeviceKey($deviceValue);
 
             // 🔍 جلوگیری از تکرار
             $exists = $this->db->fetchValue(
@@ -107,18 +114,119 @@ class ErrorCodeGenerator
                 continue;
             }
 
-            $this->db->insert('error_codes', [
+            /* 📋 مدل‌ها — رشته (هر خط/کاما یک مدل) یا آرایه */
+            $modelsRaw = $code['models'] ?? [];
+            if (is_string($modelsRaw)) {
+                $modelsRaw = preg_split('/[\r\n,،]+/u', $modelsRaw, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            }
+            $models = array_values(array_filter(array_map(
+                fn($m) => trim(clean_input((string)$m)),
+                (array)$modelsRaw
+            )));
+
+            /* 🏷 دسته‌بندی چندمقداری — آرایه با «،» ادغام می‌شود */
+            $catRaw = $code['category'] ?? 'سایر';
+            $category = is_array($catRaw)
+                ? implode('، ', array_map(fn($x) => clean_input((string)$x), $catRaw))
+                : clean_input((string)$catRaw);
+            if ($category === '') {
+                $category = 'سایر';
+            }
+
+            /* 🧩 دلایل و راه‌حل‌ها — رشته (هر خط یک مورد) یا آرایه */
+            $toList = function ($v) {
+                if (is_string($v)) {
+                    $v = preg_split('/[\r\n]+/u', $v, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                }
+                return array_values(array_filter(array_map(
+                    fn($x) => trim(clean_input((string)$x)),
+                    (array)($v ?? [])
+                )));
+            };
+            $causesList    = $toList($code['causes'] ?? []);
+            $solutionsList = $toList($code['solutions'] ?? []);
+
+            /* 🧬 تشخیص زیرسیستم علّی — برای انسجام علت‌ها (v2.33) */
+            $subsystem = null;
+            $needsReview = 0;
+            if (class_exists('ErrorCodeSubsystem')) {
+                $sub = ErrorCodeSubsystem::resolve($deviceKey, [
+                    'code'      => $codeValue,
+                    'title'     => $titleValue,
+                    'part'      => (string)($code['related_part'] ?? ''),
+                    'category'  => $category,
+                    'subsystem' => (string)($code['subsystem'] ?? ''),
+                ]);
+                if (!empty($sub['key'])) {
+                    $subsystem = (string)$sub['key'];
+                    if (in_array((string)($sub['confidence'] ?? ''), ['low', 'none'], true)) {
+                        $needsReview = 1;
+                    }
+                    /* اگر فیلدهای فنی خالی آمده‌اند، از زیرسیستمِ همین کد پر شوند */
+                    if ($category === 'سایر') {
+                        $subCat = ErrorCodeSubsystem::category($sub['data']);
+                        if ($subCat !== '') {
+                            $category = $subCat;
+                        }
+                    }
+                    if (trim((string)($code['related_part'] ?? '')) === '') {
+                        $subPart = ErrorCodeSubsystem::part($sub['data'], $titleValue);
+                        if ($subPart !== '') {
+                            $code['related_part'] = $subPart;
+                        }
+                    }
+                    if (trim((string)($code['tech_specs'] ?? '')) === '') {
+                        $subSpecs = ErrorCodeSubsystem::specs($sub['data']);
+                        if ($subSpecs !== '') {
+                            $code['tech_specs'] = $subSpecs;
+                        }
+                    }
+                    if (trim((string)($code['part_location'] ?? '')) === '') {
+                        $subLoc = ErrorCodeSubsystem::location($sub['data']);
+                        if ($subLoc !== '') {
+                            $code['part_location'] = $subLoc;
+                        }
+                    }
+                } else {
+                    $needsReview = 1;
+                }
+            }
+
+            $row = [
                 'brand_id'         => $brandId ?: null,
                 'device_key'       => $deviceKey,
-                'code'             => clean_input((string)$code['code']),
-                'title'            => clean_input((string)$code['title']),
-                'description'      => clean_input((string)($code['description'] ?? '')),
-                'causes'           => json_encode(array_map('clean_input', (array)($code['causes'] ?? [])), JSON_UNESCAPED_UNICODE),
-                'solutions'        => json_encode(array_map('clean_input', (array)($code['solutions'] ?? [])), JSON_UNESCAPED_UNICODE),
+                'code'             => clean_input($codeValue),
+                'title'            => clean_input($titleValue),
+                'description'      => clean_input((string)($code['description_fa'] ?? $code['description'] ?? '')),
+                'causes'           => json_encode($causesList, JSON_UNESCAPED_UNICODE),
+                'solutions'        => json_encode($solutionsList, JSON_UNESCAPED_UNICODE),
                 'severity'         => $severity,
                 'needs_technician' => isset($code['needs_technician']) ? (int)(bool)$code['needs_technician'] : 1,
+                /* 🆕 v2.33 — شش فیلد تکمیلی (قبلاً هنگام ورود فایل دور ریخته می‌شدند) */
+                'subtype'          => clean_input((string)($code['subtype'] ?? 'همه زیرنوع‌ها')) ?: 'همه زیرنوع‌ها',
+                'models'           => json_encode($models, JSON_UNESCAPED_UNICODE),
+                'category'         => $category,
+                'related_part'     => clean_input((string)($code['related_part'] ?? '')),
+                'tech_specs'       => clean_input((string)($code['tech_specs'] ?? '')),
+                'part_location'    => clean_input((string)($code['part_location'] ?? '')),
                 'is_active'        => 1,
-            ]);
+            ];
+            if ($subsystem !== null) {
+                $row['subsystem'] = $subsystem;
+            }
+            $row['needs_review'] = $needsReview;
+
+            /* 🔐 هش یکتایی محتوا — تشخیص کپی در سطح سیستم */
+            if (function_exists('error_code_content_hash')) {
+                $row['content_hash'] = error_code_content_hash([
+                    'title'       => $row['title'],
+                    'description' => $row['description'],
+                    'causes'      => $causesList,
+                    'solutions'   => $solutionsList,
+                ]);
+            }
+
+            $this->db->insert('error_codes', $row);
             $result['imported']++;
         }
         return $result;
@@ -245,12 +353,41 @@ class ErrorCodeGenerator
     private function resolveDeviceKey(string $deviceName): string
     {
         $devices = TextProcessor::loadKnowledge('devices');
+        $raw = trim($deviceName);
+
+        /* 🆕 v2.33 — اگر ورودی خودش کلید استاندارد پایگاه دانش است، همان را برگردان
+           (ریشه‌ی مشکل: خروجیِ استاندارد device_key می‌فرستاد اما این تابع فقط
+            نام فارسی را جستجو می‌کرد و در نهایت یک کلیدِ اسلاگِ اشتباه می‌ساخت) */
+        if (isset($devices[$raw])) {
+            return $raw;
+        }
+
+        /* 🆕 نگاشت کلیدهای سایت‌ساز به کلیدهای پایگاه دانش devices.json */
+        $alias = [
+            'washing_machine' => 'washing_machine',
+            'refrigerator'    => 'refrigerator',
+            'dishwasher'      => 'dishwasher',
+            'air_conditioner' => 'air_conditioner',
+            'dryer'           => 'dryer',
+            'microwave'       => 'microwave',
+            'oven'            => 'oven',
+            'stove'           => 'stove',
+            'hood'            => 'range_hood',
+            'water_heater'    => 'water_heater',
+            'package'         => 'package',
+            'television'      => 'tv',
+            'vacuum_cleaner'  => 'vacuum',
+        ];
+        if (isset($alias[$raw]) && isset($devices[$alias[$raw]])) {
+            return $alias[$raw];
+        }
+
         foreach ($devices as $key => $d) {
-            if (($d['name_fa'] ?? '') === trim($deviceName)) {
+            if (($d['name_fa'] ?? '') === $raw) {
                 return $key;
             }
         }
         // اگر یافت نشد، خود نام به عنوان کلید ذخیره می‌شود
-        return SlugGenerator::generate($deviceName);
+        return SlugGenerator::generate($raw);
     }
 }

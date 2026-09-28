@@ -1819,56 +1819,14 @@ class ErrorCodeEngine
         ];
         $severity = $severityMap[$c['severity'] ?? 'medium'] ?? 'medium';
 
+        /* 📥 داده‌های پایه از منبع (پایگاه دانش یا وب) — بدون هیچ پُرکننده‌ای */
         $causes = array_values(array_slice(array_filter(array_map('trim', (array)($c['causes'] ?? []))), 0, 7));
         $fixesUser = array_values(array_filter(array_map('trim', (array)($c['fixes_user'] ?? $c['fix_user'] ?? []))));
         $fixesTech = array_values(array_filter(array_map('trim', (array)($c['fixes_tech'] ?? $c['fix_tech'] ?? []))));
-        if (empty($causes)) {
-            $causes = $this->deviceCauses($deviceKey, $c['category'] ?? 'سایر');
-        }
-        if (empty($fixesUser)) {
-            $fixesUser = $this->deviceUserFixes($deviceKey);
-        }
-        if (empty($fixesTech)) {
-            $fixesTech = $this->deviceTechFixes($deviceKey, $c['category'] ?? 'سایر');
-        }
+        /* 🧬 زیرسیستم در ادامه و پس از پالایشِ عنوان/قطعه تشخیص داده می‌شود
+           (ترتیب مهم است: تشخیص روی عنوانِ خامِ وب، زیرسیستمِ غلط می‌داد) */
 
-        /* راه‌حل‌ها: ادغام کاربر+تکنسین با برچسب و مرتب‌سازی ساده→پیچیده */
-        $solutions = [];
-        foreach ($fixesUser as $i => $f) {
-            $solutions[] = '[کاربر] ' . $f;
-        }
-        foreach ($fixesTech as $i => $f) {
-            $solutions[] = '[تکنسین] ' . $f;
-        }
-        $solutions = array_slice($solutions, 0, 8);
-        /* 📏 v2.7: حداقل ۵ راه‌حل — تکمیل از مخزن تخصصی همان دستگاه */
-        $solutionPool = array_merge(
-            array_map(fn($x) => '[کاربر] ' . $x, $this->deviceUserFixes($deviceKey)),
-            array_map(fn($x) => '[تکنسین] ' . $x, $this->deviceTechFixes($deviceKey, $c['category'] ?? 'سایر'))
-        );
-        $si = 0;
-        while (count($solutions) < 5 && $si < count($solutionPool)) {
-            if (!in_array($solutionPool[$si], $solutions, true)) {
-                $solutions[] = $solutionPool[$si];
-            }
-            $si++;
-        }
-
-        /* 📏 v2.7: حداقل ۵ دلیل — تکمیل از مخزن تخصصی همان دستگاه (دانش فنی واقعی) */
-        $causePool = $this->deviceCauses($deviceKey, $c['category'] ?? 'سایر');
-        $ci = 0;
-        while (count($causes) < 5 && $ci < count($causePool)) {
-            if (!in_array($causePool[$ci], $causes, true)) {
-                $causes[] = $causePool[$ci];
-            }
-            $ci++;
-        }
-        $extraCause = 'قطع برق طولانی و روشن‌سازی مجدد (ریست کامل برد)';
-        if (count($causes) < 5 && !in_array($extraCause, $causes, true)) {
-            $causes[] = $extraCause;
-        }
-        $causes = array_slice($causes, 0, 7);
-
+        /* راه‌حل‌ها پس از تشخیص زیرسیستم ادغام می‌شوند (پایین‌تر) */
         $brandName = $brand['name_fa'];
         $title = trim((string)($c['title'] ?? '')) ?: 'خطای ' . $c['code'];
 
@@ -1912,28 +1870,146 @@ class ErrorCodeEngine
             $c['part'] = $part;
         }
 
-        /* ⚡ مشخصات فنی (v3.0): KB → استخراج از متن غنی صفحه → فالبک دسته */
+        /* ==================================================
+         * 🧬 v2.33 — تشخیص زیرسیستم (اینجا، پس از پالایش عنوان و قطعه)
+         * ==================================================
+         * همه‌ی فیلدهای فنی از این نقطه به بعد فقط از همین زیرسیستم تأمین
+         * می‌شوند تا انسجام علّی به‌صورت ساختاری تضمین شود.
+         * 🚨 ریشه‌ی مشکل قبلی: deviceCauses() برای **همه** کدهای یک دستگاه یک
+         * لیست ثابت می‌داد (بدون توجه به کد) و برای خطای تخلیه می‌نوشت
+         * «خرابی شیر برقی ورودی آب». اکنون استخرِ پُرکننده = زیرسیستمِ همین کد. */
+        $sub = ErrorCodeSubsystem::resolve($deviceKey, [
+            'code'      => (string)($c['code'] ?? ''),
+            'title'     => $title,
+            'part'      => $part,
+            'category'  => (string)($c['category'] ?? ''),
+            'subsystem' => (string)($c['subsystem'] ?? ''),
+        ]);
+        $subKey  = $sub['key'];
+        $subData = $sub['data'];
+
+        /* تأمین علت‌ها و راه‌حل‌ها از زیرسیستم (اگر منبع چیزی نداده باشد) */
+        if (empty($causes)) {
+            $causes = ErrorCodeSubsystem::causes($subData);
+        }
+        if (empty($fixesUser) && empty($fixesTech)) {
+            $subSolutions = ErrorCodeSubsystem::solutions($subData);
+            $fixesUser = array_values(array_map(
+                fn($s) => str_replace('[کاربر] ', '', $s),
+                array_filter($subSolutions, fn($s) => strpos($s, '[کاربر] ') === 0)
+            ));
+            $fixesTech = array_values(array_map(
+                fn($s) => str_replace('[تکنسین] ', '', $s),
+                array_filter($subSolutions, fn($s) => strpos($s, '[تکنسین] ') === 0)
+            ));
+        }
+        /* ادغامِ نهاییِ راه‌حل‌ها با برچسب (ساده→پیچیده) — پس از مشخص شدن زیرسیستم */
+        $solutions = [];
+        foreach ($fixesUser as $f) {
+            $solutions[] = '[کاربر] ' . $f;
+        }
+        foreach ($fixesTech as $f) {
+            $solutions[] = '[تکنسین] ' . $f;
+        }
+        $solutions = array_slice($solutions, 0, 8);
+
+        /* 📏 تکمیل تا حد نصاب — فقط از «همین زیرسیستم» */
+        $solutionPool = ErrorCodeSubsystem::solutions($subData);
+        $si = 0;
+        while (count($solutions) < 5 && $si < count($solutionPool)) {
+            if (!in_array($solutionPool[$si], $solutions, true)) {
+                $solutions[] = $solutionPool[$si];
+            }
+            $si++;
+        }
+
+        $causePool = ErrorCodeSubsystem::causes($subData);
+        $ci = 0;
+        while (count($causes) < 5 && $ci < count($causePool)) {
+            if (!in_array($causePool[$ci], $causes, true)) {
+                $causes[] = $causePool[$ci];
+            }
+            $ci++;
+        }
+        /* ⚠️ دیگر هیچ علتِ «سراسری» (مثل ریست برد) کورکورانه افزوده نمی‌شود:
+           ریست فقط وقتی معنا دارد که زیرسیستم واقعاً الکترونیکی باشد. */
+        if (count($causes) < 5 && $this->isElectronicSubsystem($subKey)) {
+            $extraCause = 'قطع برق طولانی و روشن‌سازی مجدد (ریست کامل برد)';
+            if (!in_array($extraCause, $causes, true)) {
+                $causes[] = $extraCause;
+            }
+        }
+        $causes = array_slice($causes, 0, 7);
+
+        /* ⚡ مشخصات فنی (v3.0): KB → استخراج از متن غنی صفحه → زیرسیستم → فالبک دسته */
         $specs = trim((string)($c['specs'] ?? ''));
         if ($specs === '' && !empty($c['_specs_ctx'])) {
             $specs = $this->specsFromContext((string)$c['_specs_ctx']);
         }
         if ($specs === '') {
+            /* ✅ v2.33: مشخصاتِ واقعیِ زیرسیستم (مثل «مقاومت کویل پمپ: ۱۵ تا ۲۰ Ω»)
+               به‌جای متنِ عمومیِ دسته (مثل «مقاومت کویل: ۱۵-۲۰ اهم · ۲۲۰V AC») */
+            $specs = ErrorCodeSubsystem::specs($subData);
+        }
+        if ($specs === '') {
             $specs = $this->fallbackSpecs($c['category'] ?? '');
         }
 
-        /* 📍 محل قطعه (v3.0): KB → استخراج از متن غنی → فالبک دسته */
+        /* 📍 محل قطعه (v3.0): KB → استخراج از متن غنی → زیرسیستم → فالبک دسته */
         $location = trim((string)($c['location'] ?? ''));
         if ($location === '' && !empty($c['_location'])) {
             $location = trim((string)$c['_location']);
         }
         if ($location === '') {
+            $location = ErrorCodeSubsystem::location($subData);
+        }
+        if ($location === '') {
             $location = $this->fallbackLocation($c['category'] ?? '');
         }
 
-        /* توضیح کامل ۳-۵ جمله‌ای یکتا و سئو-پسند */
-        $description = $this->composeDescription($brandName, $deviceFa, $c, $causes, $severity, $seed);
+        /* 🎚 شدت: داده → زیرسیستم → متن وب (دیگر پیش‌فرضِ کورکورانه medium نیست) */
+        if (empty($c['severity']) || ($c['severity'] ?? '') === 'medium') {
+            $subSev = ErrorCodeSubsystem::severity($subData);
+            if ($subSev !== 'medium') {
+                $severity = $subSev;
+            }
+        }
 
-        return [
+        /* 🏷 دسته‌بندی: داده → زیرسیستم (دیگر «سایر» کورکورانه نیست) */
+        $category = trim((string)($c['category'] ?? ''));
+        if ($category === '' || $category === 'سایر') {
+            $subCat = ErrorCodeSubsystem::category($subData);
+            if ($subCat !== '') {
+                $category = $subCat;
+            }
+        }
+
+        /* 🔧 قطعه: داده → زیرسیستم (با تطبیق روی عنوان) */
+        $part = trim((string)($c['part'] ?? ''));
+        if ($part === '' || $part === 'قطعه مرتبط با کد') {
+            $subPart = ErrorCodeSubsystem::part($subData, $title);
+            if ($subPart !== '') {
+                $part = $subPart;
+            }
+        }
+
+        /* توضیح کامل ۳-۵ جمله‌ای — مبتنی بر واقعیت‌های همین کد (v2.33) */
+        $description = $this->composeDescription($brandName, $deviceFa, [
+            'code' => (string)($c['code'] ?? ''),
+            'part' => $part,
+        ], $causes, $severity, $seed, $subData);
+
+        /* 📋 مدل‌های واقعی برند+دستگاه از پایگاه دانش (v2.33) */
+        $models = !empty($c['models']) ? array_slice((array)$c['models'], 0, 8) : [];
+        if (empty($models)) {
+            $models = $this->brandDeviceModels((int)$brand['id'], $brandName, $deviceKey);
+        }
+
+        /* 🚩 نیاز به بازبینی دستی: زیرسیستم با قطعیت پایین تشخیص داده شده
+           يا اصلاً تشخیص داده نشده (بدون پرچم، رکوردِ مشکوک بی‌سروصدا منتشر می‌شود) */
+        $needsReview = in_array((string)($sub['confidence'] ?? 'none'), ['low', 'none'], true) ? 1 : 0;
+
+        $rec = [
             'brand_id'        => (int)$brand['id'],
             'device_key'      => $deviceKey,
             'code'            => $c['code'],
@@ -1944,44 +2020,198 @@ class ErrorCodeEngine
             'severity'        => $severity,
             'needs_technician' => (int)($c['needs_technician'] ?? 1),
             'subtype'         => $this->subtypeLabel($c, $deviceKey),
-            'models'          => json_encode(!empty($c['models']) ? array_slice((array)$c['models'], 0, 8) : $this->fallbackModels($brandName, $deviceKey), JSON_UNESCAPED_UNICODE),
-            'category'        => $this->normalizeCategory((string)($c['category'] ?? 'سایر')),
-            'related_part'    => $this->partWithEn($c['part'] ?? ''),
+            'models'          => json_encode($models, JSON_UNESCAPED_UNICODE),
+            'category'        => $this->normalizeCategoryList($category),
+            'related_part'    => $this->partWithEn($part),
             'tech_specs'      => $specs,
             'part_location'   => $location,
             'source'          => $source,
             'source_urls'     => json_encode(array_slice((array)($c['source_urls'] ?? []), 0, 6), JSON_UNESCAPED_UNICODE),
             'is_active'       => 1,
         ];
+
+        /* 🆕 v2.33 — زیرسیستم، پرچم بازبینی و هش یکتایی محتوا */
+        if ($subKey !== null) {
+            $rec['subsystem'] = $subKey;
+        }
+        $rec['needs_review'] = $needsReview;
+        if (function_exists('error_code_content_hash')) {
+            $rec['content_hash'] = error_code_content_hash([
+                'title'       => $rec['title'],
+                'description' => $rec['description'],
+                'causes'      => $causes,
+                'solutions'   => $solutions,
+            ]);
+        }
+        return $rec;
     }
 
-    /** ✍️ توضیح کامل یکتا (۳-۵ جمله — سئو-پسند، متنوع با بذر؛ v2.7: جمله‌های کوتاه و روان) */
-    private function composeDescription(string $brand, string $device, array $c, array $causes, string $severity, int $seed): string
+    /**
+     * ⚡ آیا زیرسیستم ماهیت الکترونیکی/نرم‌افزاری دارد؟
+     * (فقط در این صورت افزودنِ «ریست با قطع برق» به فهرست علت‌ها منطقی است)
+     */
+    private function isElectronicSubsystem(?string $subKey): bool
     {
-        $part = $c['part'] ?? 'قطعه مرتبط';
-        $code = $c['code'];
-        $openers = [
-            "کد {$code} در {$device} {$brand} یکی از ایرادهای شناخته‌شده این دستگاه است. این کد به بخش {$part} اشاره می‌کند.",
-            "وقتی نمایشگر {$device} {$brand} کد {$code} را نشان می‌دهد، دستگاه پیام عیب‌یابی داده است. موضوع پیام، بخش {$part} است.",
-            "کد {$code} روی {$device} {$brand} هشدار سیستم برای {$part} است. این هشدار را جدی بگیرید.",
+        if ($subKey === null) {
+            return false;
+        }
+        $electronic = [
+            'control_board', 'fridge_board', 'dw_board', 'ac_board', 'ac_comm',
+            'mw_board', 'oven_board', 'tv_main', 'tv_power', 'tv_tcon',
+            'tv_backlight', 'tv_network', 'child_lock', 'hood_light',
         ];
-        $mids = [
-            "شایع‌ترین علت این خطا «{$causes[0]}» است. در تعدادی از موارد، «" . ($causes[1] ?? 'اتصالات') . "» هم نقش دارد.",
-            "تجربه تعمیرات نشان می‌دهد «{$causes[0]}» بیشترین سهم را دارد. علت‌های بعدی در فهرست همین صفحه آمده‌اند.",
+        return in_array($subKey, $electronic, true);
+    }
+
+    /**
+     * 📋 مدل‌های واقعی یک برند+دستگاه از پایگاه دانش تخصصی (v2.33)
+     *
+     * 🚨 ریشه‌ی مشکل قبلی: fallbackModels() رشته‌ی جایگزین
+     * «مدل‌های هم‌خانواده — با جستجوی آنلاین تکمیل شود» برمی‌گرداند؛
+     * یعنی فیلد مدل‌ها عملاً هیچ‌وقت داده‌ی واقعی نداشت.
+     * پایگاه دانش برای هر برند+دستگاه ۳ تا ۷ مدل واقعی دارد — همان‌ها استفاده می‌شوند.
+     *
+     * @return array فهرست مدل‌ها (آرایه‌ی خالی اگر موجود نباشد)
+     */
+    private function brandDeviceModels(int $brandId, string $brandFa, string $deviceKey): array
+    {
+        static $cache = [];
+        $ck = $brandFa . '|' . $deviceKey;
+        if (isset($cache[$ck])) {
+            return $cache[$ck];
+        }
+        $out = [];
+        try {
+            $kb  = TextProcessor::loadKnowledge('error-codes-brands');
+            $key = $this->matchBrandKey($brandFa, '');
+            if ($key !== null) {
+                $dev = $kb['brands'][$key]['devices'][$deviceKey] ?? null;
+                if (is_array($dev)) {
+                    $out = array_values(array_filter(array_map('trim', (array)($dev['models'] ?? []))));
+                }
+            }
+        } catch (Throwable $e) {
+            $out = [];
+        }
+        $out = array_slice($out, 0, 8);
+        $cache[$ck] = $out;
+        return $out;
+    }
+
+    /**
+     * ✍️ توضیح کامل ۳-۵ جمله — مبتنی بر واقعیتِ همین کد (v2.33)
+     * ==========================================================
+     *
+     * 🚨 ریشه‌ی مشکل قبلی: این تابع یک چرخ‌دنده‌ی ۳×۲×۵×۳ = ۹۰ حالته بود؛
+     * یعنی برای ۱۲ کدِ یک دستگاه، ۱۲ متن با ساختارِ جمله‌بندیِ یکسان تولید
+     * می‌شد و فقط نام قطعه و کد عوض می‌گشت. گوگل چنین محتوایی را
+     * «templated / thin» می‌بیند.
+     *
+     * ✅ رویکرد جدید: متن از **واقعیت‌های استخراج‌شده‌ی همان کد** ساخته می‌شود
+     * (سازوکار خرابیِ زیرسیستم، پیامد، قطعه، شایع‌ترین علت، سطح شدت،
+     * خوداصلاحی). ساختارِ جمله‌ها با بذر تغییر می‌کند تا دو کدِ هم‌خانواده
+     * هم متنِ یکسان نداشته باشند.
+     *
+     * پوشش ۵ مؤلفه‌ی الزامی:
+     *   ۱) ماهیت خطا و چرا رخ می‌دهد      ۲) چه اتفاقی در سیستم داخلی افتاده
+     *   ۳) تأثیر بر عملکرد کلی            ۴) قابل استفاده بودن یا نبودن
+     *   ۵) خودکار رفع می‌شود یا نه
+     */
+    private function composeDescription(string $brand, string $device, array $c, array $causes, string $severity, int $seed, array $subData = []): string
+    {
+        $code = (string)($c['code'] ?? '');
+        $part = trim((string)($c['part'] ?? ''));
+        $part = ($part !== '' && $part !== 'قطعه مرتبط با کد') ? $part : 'بخش مرتبط';
+        /* نام فارسی قطعه (بخش قبل از | در «نام | English») */
+        $partFa = trim(explode('|', $part)[0]) ?: $part;
+
+        $mechanism = trim((string)($subData['mechanism_fa'] ?? ''));
+        $impact    = trim((string)($subData['impact_fa'] ?? ''));
+        $selfHeal  = (bool)($subData['self_healing'] ?? false);
+        $mainCause = (string)($causes[0] ?? '');
+        $secondCause = (string)($causes[1] ?? '');
+
+        /* ---------- جمله‌ی ۱: ماهیت خطا ---------- */
+        $natureVariants = [
+            "کد {$code} در {$device} {$brand} به معنای بروز اختلال در {$partFa} است.",
+            "نمایش کد {$code} روی {$device} {$brand} یعنی دستگاه در {$partFa} خطا تشخیص داده است.",
+            "{$device} {$brand} با کد {$code} اعلام می‌کند که {$partFa} خارج از محدوده‌ی عادی کار می‌کند.",
         ];
-        $severityText = [
-            'critical' => "شدت این خطا «بحرانی» است. دستگاه برای جلوگیری از خسارت، خودکار متوقف می‌شود. ادامه استفاده مطلقاً توصیه نمی‌شود.",
-            'high' => "شدت این خطا «زیاد» است. عملکرد {$device} مختل می‌شود. تا رفع مشکل، ادامه سیکل بهینه نیست.",
-            'medium' => "شدت این خطا «متوسط» است. {$device} با محدودیت کار می‌کند. رفع به‌موقع آن از عوارض بعدی جلوگیری می‌کند.",
-            'low' => "شدت این خطا «کم» است. اثر فوری بر عملکرد ندارد. با این حال، بررسی آن در اولین فرصت توصیه می‌شود.",
-            'informational' => "این مورد در واقع خطا نیست. یک پیام «اطلاعاتی» برای آگاهی کاربر است.",
+        $nature = $natureVariants[$seed % 3];
+
+        /* ---------- جمله‌ی ۲: اتفاق داخلی (سازوکار واقعی زیرسیستم) ---------- */
+        if ($mechanism !== '') {
+            $internal = $mechanism;
+        } elseif ($mainCause !== '') {
+            $internal = "در عمل، {$mainCause} باعث شده برد کنترل ادامه کار را ایمن تشخیص ندهد و سیکل را متوقف کند.";
+        } else {
+            $internal = "دستگاه برای محافظت از قطعات دیگر، ادامه کار را متوقف کرده است.";
+        }
+
+        /* ---------- جمله‌ی ۳: پیامد ---------- */
+        if ($impact !== '') {
+            $effect = $impact;
+        } else {
+            $effect = "در نتیجه، {$device} نمی‌تواند برنامه‌ی انتخابی را کامل اجرا کند.";
+        }
+
+        /* ---------- جمله‌ی ۴: قابل استفاده بودن + شدت ---------- */
+        $usability = [
+            'critical' => "با توجه به سطح «بحرانی»، ادامه استفاده مطلقاً توصیه نمی‌شود و دستگاه باید تا رفع عیب خاموش بماند.",
+            'high'     => "شدت این خطا «زیاد» است؛ دستگاه در این وضعیت قابل استفاده نیست و باید پیش از ادامه کار عیب برطرف شود.",
+            'medium'   => "شدت این خطا «متوسط» است؛ دستگاه ممکن است با محدودیت کار کند، اما رفع به‌موقع از آسیب‌های بعدی جلوگیری می‌کند.",
+            'low'      => "شدت این خطا «کم» است و اثر فوری بر عملکرد ندارد، با این حال بهتر است در اولین فرصت بررسی شود.",
+            'informational' => "این مورد در واقع خطا نیست بلکه یک پیام «اطلاعاتی» است و دستگاه بدون محدودیت به کار ادامه می‌دهد.",
         ];
-        $closers = [
-            "بررسی‌های اولیه را خودتان می‌توانید انجام دهید. اگر خطا تکرار شد، مداخله تکنسین تعیین‌کننده است.",
-            "پس از رفع علت، معمولاً با قطع و وصل برق، کد از نمایشگر پاک می‌شود. اگر دوباره ظاهر شد، مشکل قطعه‌ای است.",
-            "علل و راه‌حل‌های همین صفحه رتبه‌بندی شده‌اند. با آنها می‌توانید سناریوی دستگاه خود را تشخیص دهید.",
+        $usage = $usability[$severity] ?? $usability['medium'];
+
+        /* ---------- جمله‌ی ۵: خوداصلاحی + سرنخ بعدی ---------- */
+        $selfHealVariants = [
+            true  => [
+                "در برخی موارد با رفع علت و یک‌بار قطع و وصل برق، کد به‌طور خودکار از نمایشگر پاک می‌شود.",
+                "این خطا معمولاً پس از برطرف شدن شرایطِ ایجادکننده، خودبه‌خود رفع می‌شود و نیازی به تعویض قطعه نیست.",
+            ],
+            false => [
+                "این خطا به‌طور خودکار رفع نمی‌شود و تا زمان تعمیر یا تعویض قطعه‌ی معیوب، با هر بار راه‌اندازی دوباره ظاهر می‌شود.",
+                "ریست کردن دستگاه فقط کد را موقتاً پاک می‌کند؛ تا وقتی علت اصلی برطرف نشود، خطا بازمی‌گردد.",
+            ],
         ];
-        return $openers[$seed % 3] . ' ' . $mids[($seed >> 2) % 2] . ' ' . $severityText[$severity] . ' ' . $closers[($seed >> 3) % 3];
+        $healPool = $selfHealVariants[$selfHeal ? 1 : 0];
+        $heal     = $healPool[($seed >> 2) % 2];
+
+        /* ---------- سرنخِ علتِ شایع (ادغام در متن، نه تکرارِ فهرست) ---------- */
+        $clue = '';
+        if ($mainCause !== '') {
+            $clueVariants = [
+                "شایع‌ترین علت در {$device} {$brand} برای این کد، {$mainCause} است" .
+                    ($secondCause !== '' ? " و در مرتبه‌ی بعد {$secondCause}." : '.'),
+                "تجربه‌ی تعمیرات نشان می‌دهد {$mainCause} بیشترین سهم را در بروز این کد دارد.",
+            ];
+            $clue = $clueVariants[($seed >> 3) % 2];
+        }
+
+        /* ---------- چینش نهایی با تنوعِ ساختاری ---------- */
+        $orders = [
+            function () use ($nature, $internal, $clue, $effect, $usage, $heal) {
+                return trim($nature . ' ' . $internal . ($clue !== '' ? ' ' . $clue : '') . ' ' . $effect . ' ' . $usage . ' ' . $heal);
+            },
+            function () use ($nature, $clue, $internal, $effect, $usage, $heal) {
+                return trim($nature . ($clue !== '' ? ' ' . $clue : '') . ' ' . $internal . ' ' . $effect . ' ' . $heal . ' ' . $usage);
+            },
+            function () use ($internal, $nature, $effect, $clue, $usage, $heal) {
+                return trim($internal . ' ' . $nature . ' ' . $effect . ($clue !== '' ? ' ' . $clue : '') . ' ' . $usage . ' ' . $heal);
+            },
+            function () use ($nature, $effect, $internal, $usage, $heal, $clue) {
+                return trim($nature . ' ' . $effect . ' ' . $internal . ' ' . $usage . ($clue !== '' ? ' ' . $clue : '') . ' ' . $heal);
+            },
+        ];
+        $text = $orders[($seed >> 4) % 4]();
+
+        /* ایمنی: اگر به هر دلیلی متن خیلی کوتاه شد، با قطعه و کد تکمیل شود */
+        if (mb_strlen($text) < 120) {
+            $text = trim($nature . ' ' . $internal . ' ' . $effect . ' ' . $usage . ' ' . $heal);
+        }
+        return $text;
     }
 
     /** 🧰 قالب‌های تخصصی دستگاه */
@@ -2313,6 +2543,40 @@ class ErrorCodeEngine
             }
         }
         return 'سایر';
+    }
+
+    /**
+     * 🏷 نرمال‌سازی دسته‌بندیِ چندمقداری (v2.33)
+     *
+     * زیرسیستم‌ها ممکن است چند دسته داشته باشند (مثل «پمپ، سیستم آبرسانی»).
+     * normalizeCategory فقط یک مورد برمی‌گرداند و باعث از دست رفتن بقیه می‌شد؛
+     * این تابع هر بخش را جداگانه نرمال می‌کند و موارد یکتا را با «،» برمی‌گرداند.
+     */
+    private function normalizeCategoryList(string $cat): string
+    {
+        $cat = trim($cat);
+        if ($cat === '') {
+            return 'سایر';
+        }
+        $parts = preg_split('/[،,]+/u', $cat, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if (count($parts) <= 1) {
+            return $this->normalizeCategory($cat);
+        }
+        $out = [];
+        foreach ($parts as $p) {
+            $n = $this->normalizeCategory(trim($p));
+            if ($n !== '' && !in_array($n, $out, true)) {
+                $out[] = $n;
+            }
+        }
+        if (empty($out)) {
+            return 'سایر';
+        }
+        /* «سایر» فقط وقتی نگه داشته شود که تنها مورد باشد */
+        if (count($out) > 1) {
+            $out = array_values(array_filter($out, fn($x) => $x !== 'سایر'));
+        }
+        return implode('، ', $out) ?: 'سایر';
     }
 
     private function fallbackSpecs(string $category): string
