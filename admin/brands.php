@@ -20,15 +20,18 @@ if ($_aclBrand > 0) {
 
 $db = Database::getInstance();
 
+/* 🗃️ P2-25 — لایه Repository: کوئری‌های برند از این پس از BrandRepository */
+$brandRepo = new BrandRepository();
+
 /* 🗑️ حذف برند — قبل از هرگونه خروجی پردازش می‌شود */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
     /* 🛂 v2.34 — ACL: حذف برند فقط برای نقش سیستمی */
     (new Auth())->requireSystemRole();
     Auth::enforceCsrf();
     $brandId = (int)post('brand_id');
-    $brand = $db->fetch('SELECT name_fa FROM brands WHERE id = ?', [$brandId]);
+    $brand = $brandRepo->find($brandId);
     if ($brand) {
-        $db->delete('brands', 'id = ?', [$brandId]); // CASCADE همه جداول وابسته
+        $brandRepo->delete($brandId); // CASCADE همه جداول وابسته
         Logger::activity((int)$_SESSION['user_id'], 'حذف برند', $brand['name_fa']);
         flash('success', '✅ برند «' . $brand['name_fa'] . '» و تمام داده‌های وابسته حذف شد.');
     }
@@ -39,8 +42,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'toggle') {
     Auth::enforceCsrf();
     $brandId = (int)post('brand_id');
-    $current = $db->fetchValue('SELECT is_active FROM brands WHERE id = ?', [$brandId]);
-    $db->update('brands', ['is_active' => $current ? 0 : 1], 'id = ?', [$brandId]);
+    $brand = $brandRepo->find($brandId);
+    if ($brand) {
+        $brandRepo->update($brandId, ['is_active' => $brand['is_active'] ? 0 : 1]);
+    }
     flash('success', '✅ وضعیت برند تغییر کرد.');
     redirect('brands.php');
 }
@@ -49,37 +54,8 @@ $pageTitle = 'مدیریت برندها';
 $activeMenu = 'brands';
 require __DIR__ . '/includes/header.php';
 
-/* 🔎 جستجو و فیلتر */
-$search = get_param('q');
-$statusFilter = get_param('status');
-$where = '1=1';
-$params = [];
-if ($search !== '') {
-    $where .= ' AND (b.name_fa LIKE ? OR b.name_en LIKE ? OR b.domain LIKE ?)';
-    $like = "%{$search}%";
-    array_push($params, $like, $like, $like);
-}
-if ($statusFilter !== '') {
-    $where .= ' AND b.status = ?';
-    $params[] = $statusFilter;
-}
-
-$brands = $db->fetchAll(
-    "SELECT b.*,
-        (SELECT COUNT(*) FROM brand_articles a WHERE a.brand_id = b.id) as articles_count,
-        (SELECT COUNT(*) FROM brand_devices d WHERE d.brand_id = b.id) as devices_count,
-        (SELECT COUNT(*) FROM service_requests r WHERE r.brand_id = b.id) as requests_count
-     FROM brands b WHERE {$where}
-     ORDER BY b.id DESC",
-    $params
-);
-/* 🛂 v2.34 — ACL: brand_manager فقط برندهای تخصیص‌یافته را می‌بیند */
-$_aclIds = (new Auth())->accessibleBrandIds();
-if ($_aclIds !== null) {
-    $brands = array_values(array_filter($brands, function ($_b) use ($_aclIds) {
-        return in_array((int)$_b['id'], $_aclIds, true);
-    }));
-}
+/* 🔎 جستجو و فیلتر — از طریق Repository (فیلتر ACL یکجا) */
+$brands = $brandRepo->searchWithCounts(get_param('q'), get_param('status'), (new Auth())->accessibleBrandIds());
 
 $statusMap = [
     'draft'     => ['پیش‌نویس', 'badge-secondary'],
