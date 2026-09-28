@@ -104,6 +104,7 @@ function api_brand_article(int $brandId, string $slug): void
             'featured_image' => $article['featured_image'],
             'tags'        => json_decode($article['tags'] ?? '[]', true) ?: [],
             'published_at' => $article['published_at'],
+            'updated_at'   => $article['updated_at'] ?? $article['published_at'], /* 🔍 v2.33 — برای dateModified اسکیما Article */
             'views'       => (int)$article['views'] + 1,
             'seo'         => [
                 'title'       => api_article_sweep_vars((string)$article['seo_title'], $brandRow),
