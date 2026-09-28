@@ -27,7 +27,7 @@ require __DIR__ . '/_page_base.php';
             </ul></div>
             <div><h3>مقالات (<?= e(fa_num((string)count($articles))) ?>)</h3><ul class="sitemap-list">
                 <?php foreach (array_slice($articles, 0, 20) as $article): ?>
-                    <li><a href="/blog/article?slug=<?= e(urlencode($article['slug'])) ?>"><?= e($article['title']) ?></a></li>
+                    <li><a href="/blog/<?= e(urlencode($article['slug'])) ?>"><?= e($article['title']) ?></a></li>
                 <?php endforeach; ?>
             </ul></div>
             <div><h3>قوانین</h3><ul class="sitemap-list">

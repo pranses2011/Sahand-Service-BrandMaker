@@ -1741,12 +1741,104 @@ SSBHELPER;
             . "Sitemap: https://" . $fullDomain . "/sitemap.xml\n";
         $this->addFileToZip($result['path'], 'robots.txt', $robotsTxt);
 
+        /* 📡 v2.34 — فایل کلید IndexNow در ریشه سایت برند
+           (موتورهای جستجو برای اعتبارسنجی پینگ‌ها آن را می‌خوانند) */
+        try {
+            $inKey = IndexNow::keyFileContent((int)$brand['id']);
+            $this->addFileToZip($result['path'], $inKey . '.txt', $inKey);
+        } catch (Throwable $inE) {
+            // بدون فایل کلید، فقط پینگ‌ها بی‌اثر می‌شوند — استقرار سالم می‌ماند
+        }
+
+        /* 🔤 v2.34 — فونت محلی سبک: فقط فونت فعال این برند (نه هر ۱۲۷ @font-face)
+           css/fonts-local.css + فایل‌های woff2 درون خود سایت برند:
+           بار سریع‌تر + صفر وابستگی رندر به دامنه سایت‌ساز (گزارش تحلیل #۱۸) */
+        try {
+            $localFonts = $this->buildLocalFonts((int)$brand['id'], (string)$replacements['{{PALETTE_LIGHT_CSS}}'] ?? '');
+            if ($localFonts !== null) {
+                $zipObj = new ZipArchive();
+                if ($zipObj->open($result['path']) === true) {
+                    $zipObj->addFromString('css/fonts-local.css', $localFonts['css']);
+                    foreach ($localFonts['files'] as $entry => $absPath) {
+                        if (is_file($absPath)) {
+                            $zipObj->addFile($absPath, $entry);
+                        }
+                    }
+                    $zipObj->close();
+                }
+            }
+        } catch (Throwable $fontE) {
+            // برگشت به fonts.css کامل سایت‌ساز — استقرار سالم می‌ماند
+        }
+
         return [
             'success' => true,
             'path'    => $result['path'],
             'name'    => basename((string)$result['path']),
             'size_kb' => (int)round(filesize($result['path']) / 1024),
         ];
+    }
+
+    /**
+     * 🔤 v2.34 — ساخت فونت محلی برند (P1 #18)
+     * از fonts.css کامل سایت‌ساز فقط بلوک‌های @font-face خانواده‌های موردنیاز
+     * این برند استخراج می‌شوند (فونت تیتر/بدنه + وزیرمتن پشتیبان) و فایل‌هایشان
+     * در زیپ کپی می‌شوند.
+     *
+     * @return array|null ['css'=>string, 'files'=>[zipEntry=>absolutePath]] یا null اگر چیزی نبود
+     */
+    private function buildLocalFonts(int $brandId, string $paletteCss): ?array
+    {
+        /* ۱) خانواده‌های موردنیاز: از متغیرهای فونت داخل پالت CSS استخراج می‌شوند
+              (--font-heading / --font-body) + وزیرمتن پشتیبان همیشه */
+        $families = ['Vazirmatn'];
+        if (preg_match_all("/--font-(?:heading|body):\s*'([^']+?)'/u", $paletteCss, $m)) {
+            foreach ($m[1] as $f) {
+                $f = trim($f);
+                if ($f !== '' && mb_strlen($f) < 60) {
+                    $families[] = $f;
+                }
+            }
+        }
+        $families = array_values(array_unique($families));
+
+        /* ۲) استخراج بلوک‌های مربوطه از fonts.css سایت‌ساز */
+        $src = (string)@file_get_contents(ROOT_PATH . '/assets/css/fonts.css');
+        if ($src === '') {
+            return null;
+        }
+        preg_match_all('#/\*[^*]*?\*/\s*@font-face\s*\{[^}]*\}#s', $src, $blocks);
+        $out = ["/* فونت محلی سایت برند — فقط خانواده‌های فعال (تولید خودکار v2.34) */\n"];
+        $files = [];
+        foreach ($blocks[0] as $block) {
+            $matched = false;
+            foreach ($families as $fam) {
+                if (str_contains($block, "font-family: '" . $fam . "'") || str_contains($block, 'font-family: "' . $fam . '"')) {
+                    $matched = true;
+                    break;
+                }
+            }
+            if (!$matched) {
+                continue;
+            }
+            // مسیرهای نسبی ../fonts/... همان ساختار داخل زیپ می‌مانند (css/ و fonts/ خواهرند)
+            $out[] = $block . "\n";
+            if (preg_match_all("#url\('([^']+)'\)#", $block, $urls)) {
+                foreach ($urls[1] as $rel) {
+                    $rel = str_replace('../', '', $rel); // fonts/fa/x/y.woff2
+                    $abs = ROOT_PATH . '/assets/' . $rel;
+                    if (is_file($abs)) {
+                        $files[$rel] = $abs;
+                    }
+                }
+            }
+        }
+        // فقط woff2 کپی می‌شود — ttf پشتیبان مرورگرهای بسیار قدیمی است و حجم را دو برابر می‌کند
+        $files = array_filter($files, static fn ($entry) => str_ends_with($entry, '.woff2'), ARRAY_FILTER_USE_KEY);
+        if (count($out) <= 1 || $files === []) {
+            return null;
+        }
+        return ['css' => implode("\n", $out), 'files' => $files];
     }
 
     /**
@@ -1771,7 +1863,7 @@ SSBHELPER;
         );
         foreach ($articles as $article) {
             $urls[] = [
-                'loc'        => $domain . '/blog/article?slug=' . rawurlencode($article['slug']),
+                'loc'        => $domain . '/blog/' . rawurlencode($article['slug']),
                 'priority'   => '0.6',
                 'lastmod'    => substr((string)$article['published_at'], 0, 10),
                 'changefreq' => 'monthly',

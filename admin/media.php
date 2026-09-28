@@ -44,6 +44,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'scan') {
             if (!$fileInfo->isFile()) { continue; }
             $ext = mb_strtolower($fileInfo->getExtension());
             if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif'], true)) { continue; }
+            /* 🖼 v2.34 — نسخه‌های مشتق srcset (-400w/-800w) فایل مستقل نیستند؛
+               با فایل اصلی در کتابخانه دیده/حذف می‌شوند */
+            if (preg_match('/-\d{3,4}w\.[a-z0-9]+$/i', $fileInfo->getFilename()) === 1) { continue; }
             $rel = $dir . '/' . $it->getSubPathname();
             $rel = str_replace('\\', '/', $rel);
             $size = (int)$fileInfo->getSize();
@@ -163,6 +166,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'delete') {
     }
     $target = ROOT_PATH . '/' . $row['path'];
     if (is_file($target) && @unlink($target)) {
+        /* 🖼 v2.34 — نسخه‌های مشتق srcset هم پاک شوند (یتیم نمانند) */
+        $info = pathinfo($target);
+        foreach ([400, 800] as $wv) {
+            $variant = $info['dirname'] . '/' . $info['filename'] . '-' . $wv . 'w.' . $info['extension'];
+            if (is_file($variant)) {
+                @unlink($variant);
+            }
+        }
         $db->delete('media_files', 'id = ?', [$id]);
         Logger::activity($auth->userId(), 'حذف فایل رسانه', $row['path']);
         flash('success', '✅ فایل حذف شد.');

@@ -59,8 +59,15 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
     <?php $faviconUrl = trim((string)($brand['favicon'] ?? '')) ?: trim((string)($brand['logo'] ?? '')); ?>
     <link rel="icon" href="<?= e($faviconUrl ?: cdn_asset('images/placeholders/favicon.png')) ?>">
     <link rel="apple-touch-icon" href="<?= e($faviconUrl ?: cdn_asset('images/placeholders/favicon.png')) ?>">
-    <!-- 🔤 فونت از سرور سایت ساز -->
+    <!-- 📡 v2.34 — کشف خودکار فید RSS/Atom توسط مرورگرها و خواننده‌ها -->
+    <link rel="alternate" type="application/rss+xml" title="<?= e($brand['name_fa'] ?? BRAND_NAME_FA) ?>" href="/feed">
+    <!-- 🔤 فونت: v2.34 — نسخه محلی سبک (فقط فونت فعال این برند، داخل خود سایت) اگر
+         هنگام استقرار ساخته شده باشد؛ وگرنه نسخه کامل از سرور سایت‌ساز -->
+    <?php if (is_file(__DIR__ . '/../css/fonts-local.css')): ?>
+    <link rel="stylesheet" href="/css/fonts-local.css">
+    <?php else: ?>
     <link rel="stylesheet" href="<?= e(BRANDMAKER_ASSETS) ?>/css/fonts.css">
+    <?php endif; ?>
     <!-- 🎨 استایل‌ها -->
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/theme-light.css" id="theme-stylesheet">

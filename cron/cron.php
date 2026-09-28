@@ -53,7 +53,7 @@ $report = ['at' => date('c'), 'tasks' => []];
 /* ════════════ وظیفه ۱: انتشار مقالات زمان‌بندی‌شده ════════════ */
 try {
     $due = $db->fetchAll(
-        "SELECT id, brand_id, title FROM brand_articles
+        "SELECT id, brand_id, title, slug FROM brand_articles
          WHERE status = 'scheduled' AND published_at IS NOT NULL AND published_at <= NOW()"
     );
     $published = 0;
@@ -61,6 +61,12 @@ try {
         $db->update('brand_articles', ['status' => 'published'], 'id = ?', [$a['id']]);
         $published++;
         Logger::activity(0, 'انتشار زمان‌بندی‌شده', "مقاله «{$a['title']}» (برند #{$a['brand_id']}) سر زمان رسید و منتشر شد");
+        /* 📡 v2.34 — IndexNow: مقاله تازه منتشرشده به موتورهای جستجو اطلاع داده شود */
+        try {
+            if (class_exists('IndexNow')) {
+                IndexNow::pingArticle((int)$a['brand_id'], (string)$a['slug']);
+            }
+        } catch (Throwable $inE) { /* fire-and-forget — شبکه نباید cron را بشکند */ }
     }
     if ($published > 0) {
         /* 🧹 کش مقالات همه برندها پاک شود تا بلافاصله در سایت دیده شوند */

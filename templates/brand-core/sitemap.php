@@ -36,7 +36,7 @@ do {
     foreach ($list as $a) {
         if (!is_array($a) || empty($a['slug'])) { continue; }
         $urls[] = [
-            'loc'        => $domain . '/blog/article?slug=' . rawurlencode((string)$a['slug']),
+            'loc'        => $domain . '/blog/' . rawurlencode((string)$a['slug']),
             'priority'   => '0.6',
             'changefreq' => 'monthly',
             'lastmod'    => substr((string)($a['published_at'] ?? ''), 0, 10),

@@ -92,12 +92,70 @@ class FileManager
             ]);
         } catch (Throwable $mediaE) { /* تکراری یا جدول نبود — بی‌صدا */ }
 
+        /* 🖼 v2.34 — نسخه‌های چندسایزی تصاویر مقالات (P1 #19 srcset):
+           -400w و -800w کنار فایل اصلی ساخته می‌شوند تا مرورگر موبایل
+           فقط نسخه سبک را دانلود کند (article_image srcset می‌سازد). */
+        if (trim($subDir, '/') === 'articles' && $ext !== 'svg' && (int)($dims[0] ?? 0) > 420) {
+            try {
+                $this->makeSizeVariants($dir . '/' . $newName, (int)$dims[0], (int)$dims[1], $ext);
+            } catch (Throwable $varE) { /* نسخه‌ها اختیاری‌اند — آپلود اصلی سالم است */ }
+        }
+
         return [
             'success' => true,
             'path'    => $relPath,
             'name'    => $newName,
             'error'   => '',
         ];
+    }
+
+    /**
+     * 🖼 v2.34 — ساخت نسخه‌های -400w/-800w تصویر (برای srcset)
+     * نسبت ابعاد حفظ می‌شود؛ فرمت ورودی همان فرمت خروجی می‌ماند.
+     */
+    public function makeSizeVariants(string $srcPath, int $srcW, int $srcH, string $ext): void
+    {
+        if (!function_exists('imagecreatetruecolor')) {
+            return;
+        }
+        $load = [
+            'jpg' => static fn ($p) => imagecreatefromjpeg($p),
+            'jpeg' => static fn ($p) => imagecreatefromjpeg($p),
+            'png' => static fn ($p) => imagecreatefrompng($p),
+            'webp' => static fn ($p) => imagecreatefromwebp($p),
+            'gif' => static fn ($p) => imagecreatefromgif($p),
+        ];
+        $save = [
+            'jpg' => static fn ($im, $p) => imagejpeg($im, $p, 82),
+            'jpeg' => static fn ($im, $p) => imagejpeg($im, $p, 82),
+            'png' => static fn ($im, $p) => imagepng($im, $p, 6),
+            'webp' => static fn ($im, $p) => imagewebp($im, $p, 82),
+            'gif' => static fn ($im, $p) => imagegif($im, $p),
+        ];
+        $ext = mb_strtolower($ext);
+        if (!isset($load[$ext], $save[$ext])) {
+            return;
+        }
+        $src = $load[$ext]($srcPath);
+        if (!$src) {
+            return;
+        }
+        $info = pathinfo($srcPath);
+        foreach ([400, 800] as $w) {
+            if ($srcW <= $w) {
+                continue; // از خود تصویر کوچکتر — نسخه لازم نیست
+            }
+            $h = (int)round($srcH * $w / $srcW);
+            $dst = imagecreatetruecolor($w, $h);
+            if (in_array($ext, ['png', 'gif'], true)) {
+                imagealphablending($dst, false);
+                imagesavealpha($dst, true);
+            }
+            imagecopyresampled($dst, $src, 0, 0, 0, 0, $w, $h, $srcW, $srcH);
+            $save[$ext]($dst, $info['dirname'] . '/' . $info['filename'] . '-' . $w . 'w.' . $info['extension']);
+            imagedestroy($dst);
+        }
+        imagedestroy($src);
     }
 
     /**

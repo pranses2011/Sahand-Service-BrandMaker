@@ -39,6 +39,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'status') {
             'status' => $status,
             'published_at' => $status === 'published' ? date('Y-m-d H:i:s') : null,
         ], 'id = ?', [$id]);
+        /* 📡 v2.34 — IndexNow: انتشار فوری مقاله به موتورهای جستجو اطلاع داده شود */
+        if ($status === 'published') {
+            try {
+                $row = $db->fetch('SELECT brand_id, slug FROM brand_articles WHERE id = ?', [$id]);
+                if ($row) {
+                    IndexNow::pingArticle((int)$row['brand_id'], (string)$row['slug']);
+                }
+            } catch (Throwable $inE) { /* fire-and-forget */ }
+        }
         flash('success', '✅ وضعیت مقاله تغییر کرد.');
     }
     redirect('articles.php' . (get_param('brand') !== '' ? '?brand=' . get_param('brand') : ''));
@@ -92,6 +101,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save') {
     (new Cache())->delete('brand_articles_all');
     if (($update['status'] ?? '') === 'published') {
         flash('success', '✅ مقاله ذخیره و منتشر شد.');
+        /* 📡 v2.34 — IndexNow: انتشار از فرم ویرایش هم اطلاع‌رسانی می‌شود */
+        try {
+            $slugRow = $db->fetch('SELECT brand_id, slug FROM brand_articles WHERE id = ?', [$id]);
+            if ($slugRow) {
+                IndexNow::pingArticle((int)$slugRow['brand_id'], (string)$slugRow['slug']);
+            }
+        } catch (Throwable $inE) { /* fire-and-forget */ }
     } elseif (($update['status'] ?? '') === 'scheduled') {
         flash('success', '⏰ مقاله زمان‌بندی شد — انتشار خودکار در ' . fa_num(jdate('Y/m/d H:i', strtotime((string)$update['published_at']))));
     } else {

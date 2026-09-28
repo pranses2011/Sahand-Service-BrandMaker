@@ -154,7 +154,7 @@ require __DIR__ . '/includes/header.php';
         <h2 class="section-title">آخرین مقالات</h2>
         <div class="articles-grid">
             <?php foreach ($articles as $article): ?>
-                <a href="/blog/article?slug=<?= e(urlencode($article['slug'])) ?>" class="article-card">
+                <a href="/blog/<?= e(urlencode($article['slug'])) ?>" class="article-card">
                     <?php if (!empty($article['featured_image'])): ?>
                         <?= article_image($article['featured_image'], $article['title']) ?>
                     <?php endif; ?>

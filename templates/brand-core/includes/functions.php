@@ -44,7 +44,24 @@ if (!function_exists('article_image')) {
            نسبت ابعاد را قبل از دانلود تصویر می‌داند و پرش چیدمان رخ نمی‌دهد.
            CSS کارت ارتفاع ۱۷۲px را حکم می‌کند؛ در صفحه تکی (height:auto)
            همین ابعاد نسبت ۱۶:۹ را رزرو می‌کنند. */
-        return '<img src="' . e($src) . '" alt="' . e($alt) . '" width="800" height="450" loading="lazy" class="article-image">';
+        /* 🖼 v2.34 — srcset برای صفحه‌بندی چندسایزی (P1 #19): اگر نسخه‌های
+           تغییر اندازه‌یافته (پسوند -400w/-800w) کنار تصویر موجود باشند،
+           مرورگر در کارت‌های کوچک فقط نسخه سبک را دانلود می‌کند. */
+        $srcset = '';
+        if ($image) {
+            $candidates = [];
+            foreach ([400 => '-400w', 800 => '-800w'] as $w => $suffix) {
+                $variant = preg_replace('/(\.[a-z0-9]+)$/i', $suffix . '$1', (string)$image);
+                if ($variant !== null && $variant !== $image) {
+                    $candidates[] = cdn_asset($variant) . ' ' . $w . 'w';
+                }
+            }
+            if (count($candidates) >= 2) {
+                $srcset = ' srcset="' . e(implode(', ', $candidates)) . '"'
+                    . ' sizes="(max-width: 480px) 100vw, (max-width: 900px) 45vw, 360px"';
+            }
+        }
+        return '<img src="' . e($src) . '" alt="' . e($alt) . '" width="800" height="450" loading="lazy"' . $srcset . ' class="article-image">';
     }
 }
 
