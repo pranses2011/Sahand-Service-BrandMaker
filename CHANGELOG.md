@@ -1,3 +1,56 @@
+## [2.33.0] — ۱۴۰۵/۰۷/۰۸ (بسته P0 «پایداری و امنیت پایه» بر اساس گزارش تحلیل جامع)
+
+> 🧬 **ستاره این نسخه: کل بسته P0 نقشه راه گزارش تحلیل جامع `improvement.md`** (سند کامل در `BrandMaker.md` بخش ۲۳) — پنج مرحله با ۷ کامیت مرحله‌ای: ① رفع باگ‌های زنده رندرگرها ② بسته امنیتی ③ بسته سئو ④ بسته کارایی ⑤ تست و CI. مجموع **۱۷۶ چک تست جدید** (۱۵۸۰ → ۱۷۵۶).
+
+### 🐛 ① رفع باگ‌های زنده رندرگرها (یافته‌های ۱و۲و۳ گزارش — قابل راستی‌آزمایی)
+
+- **حذف ۱۳ برچسب `case` تکراری/مرده** (۶ بلوک فرم × دو رندرگر + features در پیش‌نمایش): `hero-form`، `survey-form`، `callback-form`، `appointment-form`، `quick-contact-form`، `appointment-compact` پیاده‌سازی دومشان هرگز اجرا نمی‌شد (PHP برچسب اول switch را می‌گیرد).
+- **ادغام طراحی تفصیلی در فرم واقعی** (به‌جای حذف کامل طراحی): `hero-form` → قالب دو-ستونه split-hero با دکمه `tel:` واقعی + کارت فرم شیشه‌ای (backdrop-blur) / `survey-form` → گزینه‌های امتیازی ⭐👍😐 به‌صورت **radio واقعی داخل فرم** (با FormData ارسال می‌شوند) / `callback-form` و `quick-contact-form` → کارت فشرده + یادداشت «۱۵ دقیقه» / `appointment-compact` → کارت جمع‌وجمع. هر دو صحنه (پیش‌نمایش و سایت واقعی) یکسان.
+- **رفع هاردکد پیش‌نمایش**: `stats` و `stats-strip` از `pvStatStrip($props)` به‌جای «۱۲+ سال تجربه» ثابت + `benefits-list` از `pvItems($props)` قابل ویرایش — **ریشه قطعی «پیش‌نمایش با سایت واقعی فرق دارد»** برای این سه بلوک.
+- استایل‌های جدید `bb-form-card` / `survey-opts` / `survey-opt` در blocks.css.
+
+### 🛡️ ② بسته امنیتی (یافته ۴ + بخش ۶ گزارش)
+
+- **مسدودسازی `.git`** در .htaccess — تنها پوشه حساس بدون قانون (امکان دانلود کل تاریخچه کد).
+- **مسدودسازی وب فایل‌های `md/sql/log/ini/lock/sh`** — مستندات داخلی ۱ مگابایتی ریشه + database.sql + user.ini.
+- **CSP Report-Only** با `frame-ancestors 'self'` (ضد clickjacking) + `object-src 'none'` + اندپوینت دریافت گزارش `csp-report.php` (مستقل بدون bootstrap دیتابیس، سقف ۶۴KB، چرخش لاگ ۱MB، خروجی ۲۰۴).
+- **گارد هم‌مبدأ `verify_same_origin()` سه‌لایه** در ۱۰ صفحه فاقد CSRF (analytics-online/analytics-report/brand-page-preview/template-preview/request-print/logout/docs/index/captcha/security-code): ① `Sec-Fetch-Site` مرورگرهای مدرن (cross-site قطعی رد) ② Origin/Referer با نرمال‌سازی پورت‌های پیش‌فرض ③ سازگاری مرورگر قدیمی — ریشه: خروج CSRF-able با تگ `<img>` و اندپوینت‌های JSON بی‌دفاع.
+
+### 🔍 ③ بسته سئو (بخش ۸ گزارش)
+
+- **LocalBusiness کامل**: قبلاً فقط name+url؛ اکنون address (PostalAddress کامل) + telephone + email + **geo مختصات** (از lat/lng آدرس‌های تنظیمات) + areaServed + openingHoursSpecification (نگاشت sat→Saturday شش‌روزه) + image + priceRange — دقیقاً فیلدهای «تعمیرکار نزدیک من»؛ aggregateRating عمداً جعل نمی‌شود.
+- **BreadcrumbList** در _page_base.php (مسیر رندر می‌شد ولی اسکیمایش نبود).
+- **Article کامل**: author + publisher با logo + image مطلق + **dateModified واقعی** (`updated_at` به اندپوینت مقاله اضافه شد) + mainEntityOfPage.
+- **sitemap.xml پویا**: فایل جدید `sitemap.php` (۱۴ صفحه استاندارد + همه مقالات از API با کش) + rewrite در htaccess.template — **مقاله جدید بدون استقرار مجدد وارد sitemap می‌شود** (قبلاً هرگز وارد نمی‌شد).
+- **ابعاد تصویر مقاله** `width=800 height=450` — رفع CLS در صفحه تکی.
+
+### ⚡ ④ بسته کارایی (بخش ۵ گزارش — «سایت برند کلاینت API زنده»)
+
+- **قفل کش `flock`**: ریشه Cache Stampede — N بازدید همزمان پس از انقضا به‌جای N درخواست همزمان، فقط یک فرآیند شبکه می‌زند.
+- **TTL جیتر ±۲۰٪**: انقضای دسته‌جمعی همه فراخوانی‌ها هم‌زمان رخ نمی‌دهد.
+- **سقف عمر کهنه ۲۴ ساعت**: ریشه «یخ‌زدگی بی‌پایان» — قبلاً قطعی API = کش کهنه تا ابد.
+- **حافظه درون-درخواستی**: header و footer هر دو settings می‌خواندند → صفر IO تکراری.
+- **`fetchFromAPIMulti` با curl_multi** + پیش‌واکشی ۸ اندپوینت صفحه اصلی — ریشه «۹ فراخوانی سریال مسدودکننده؛ بدترین حالت ~۸۰ ثانیه TTFB».
+- **preconnect + dns-prefetch** دامنه سایت‌ساز (fonts.css و تصاویر بین‌مبدأ).
+- **heartbeat بهینه**: ۶۰→۱۲۰ ثانیه + فقط تب فعال — نویز نوشتن DB از ~۱۵ به ~۳ در بازدید ۵ صفحه‌ای.
+
+### 🧪 ⑤ تست و CI (P0-۲ و P0-۱۱ — «صفر تست کامیت‌شده، بدون CI»)
+
+- **فریمورک تست بومی بدون composer**: `tests/run.php` (کشف خودکار + assert + خروجی خروج).
+- **۴۵ تست واحد** `helpers.test.php` (e ضد XSS، clean_input، ارقام، اعتبارسنجی، تاریخ شمسی، اسلاگ، گارد هم‌مبدأ) — خالص و بدون DB.
+- **تست انطباق رندرگرها** `blocks-conformance.test.php` + خط پایه JSON: شباهت ۱۵۲ بلوک در دو رندرگر؛ **افت > ۲٪ = خطا** (جلوگیری خودکار از انحراف آینده). راستی‌آزمایی: تغییر عمدی یک‌طرفه → تشخیص داده شد.
+- **CI گیت‌هاب**: لینت PHP 8.0+8.3 + جاب تست با MariaDB + ایمپورت اسکیما + seed.
+
+### 🔗 اندپوینت‌های تغییر یافته
+
+| اندپوینت | تغییر |
+|---|---|
+| `GET /api/brand/{id}/article/{slug}` | فیلد `updated_at` به پاسخ اضافه شد (برای dateModified اسکیما) |
+| `GET /sitemap.xml` سایت برند | پویا شد — از `sitemap.php` سرو می‌شود (همیشه تازه) |
+| `POST /api/track` | heartbeat حالا ۱۲۰ ثانیه و فقط تب فعال است (فیلدها همانند قبل) |
+
+---
+
 # 📋 سابقه تغییرات — Sahand Service BrandMaker
 
 تمام تغییرات قابل توجه این پروژه در این فایل ثبت می‌شود.
