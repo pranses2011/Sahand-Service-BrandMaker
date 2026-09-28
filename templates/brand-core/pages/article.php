@@ -12,13 +12,6 @@ if (!function_exists('render_article_seo')) {
     require_once __DIR__ . '/../includes/seo.php';
 }
 $slug = (string)($_GET['slug'] ?? '');
-/* 🔗 v2.34 — URL تمیز /blog/{slug}: آدرس قدیمی (?slug=) با ۳۰۱ به آدرس جدید
-   هدایت می‌شود تا سئو یکپارچه شود (فقط یک شکل آدرس برای هر مقاله) */
-if ($slug !== '' && str_contains((string)($_SERVER['REQUEST_URI'] ?? ''), '/blog/article')) {
-    http_response_code(301);
-    header('Location: /blog/' . rawurlencode($slug), true, 301);
-    exit;
-}
 $articleData = fetchFromAPI('brand/' . BRAND_ID . '/article/' . urlencode($slug), 120);
 $article = $articleData['data'] ?? null;
 if (!$article) {
@@ -34,7 +27,7 @@ $pageTitle = $article['seo']['title'] ?? $article['title'];
 $pageDesc = $article['seo']['description'] ?? ($article['excerpt'] ?? '');
 $crumbTitle = mb_substr($article['title'], 0, 30);
 require __DIR__ . '/_page_base.php';
-render_article_seo($article, 'https://' . BRAND_DOMAIN . '/blog/' . urlencode($slug), (string)($GLOBALS['brandSeoName'] ?? ''));
+render_article_seo($article, 'https://' . BRAND_DOMAIN . '/blog/article?slug=' . urlencode($slug));
 ?>
 <article class="section">
     <div class="container article-single">
@@ -50,12 +43,26 @@ render_article_seo($article, 'https://' . BRAND_DOMAIN . '/blog/' . urlencode($s
             <?= article_image($article['featured_image'], $article['title']) ?>
         <?php endif; ?>
         <div class="article-content"><?= $article['content'] ?></div>
+        <?php if (!empty($article['sources'])): ?>
+            <!-- 🔎 v2.35: منابعِ آنلاینِ استفاده‌شده در این مقاله (سیگنال E-E-A-T) -->
+            <div class="article-sources">
+                <h2>منابع و مطالعه بیشتر</h2>
+                <ul>
+                    <?php foreach (array_slice((array)$article['sources'], 0, 6) as $src): ?>
+                        <li>
+                            <a href="<?= e($src['url']) ?>" target="_blank" rel="noopener nofollow"><?= e($src['title']) ?></a>
+                            <?php if (!empty($src['host'])): ?><small> (<?= e($src['host']) ?>)</small><?php endif; ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
         <?php if (!empty($article['related'])): ?>
             <div class="related-articles">
                 <h2>مقالات مرتبط</h2>
                 <div class="articles-grid">
                     <?php foreach ($article['related'] as $rel): ?>
-                        <a href="/blog/<?= e(urlencode($rel['slug'])) ?>" class="article-card">
+                        <a href="/blog/article?slug=<?= e(urlencode($rel['slug'])) ?>" class="article-card">
                             <div class="article-card-body"><h3><?= e($rel['title']) ?></h3></div>
                         </a>
                     <?php endforeach; ?>

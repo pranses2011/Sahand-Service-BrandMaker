@@ -22,14 +22,15 @@ class QualityScorer
 {
     /** @var array وزن ابعاد — مجموع ۱۰۰ */
     private const WEIGHTS = [
-        'readability'   => 20,
-        'structure'     => 18,
-        'coherence'     => 12,
-        'focus'         => 13,
-        'engagement'    => 11,
-        'length'        => 9,
-        'variety'       => 7,
+        'readability'   => 18,
+        'structure'     => 16,
+        'coherence'     => 10,
+        'focus'         => 12,
+        'engagement'    => 10,
+        'length'        => 8,
+        'variety'       => 6,
         'grammar'       => 10,
+        'originality'   => 10,
     ];
 
     /**
@@ -85,6 +86,13 @@ class QualityScorer
 
         /* ---------- ۷) ✨ تنوع جملات ---------- */
         $dimensions['variety'] = $this->varietyScore($content);
+
+        /* ---------- ۷.۵) 🆕 v2.35: اصالت و تراکمِ اطلاعاتِ واقعی ----------
+         * تا امروز «بهترین-از-N واریانت» فقط زیباییِ نوشتاری را می‌سنجید و یک
+         * مقاله‌ی پر از جملاتِ قالبی می‌توانست امتیازِ کامل بگیرد. این بُعد
+         * چهار چیز را اندازه می‌گیرد: عدد و آمار، ارجاع به منبع، تنوعِ
+         * واژگانی (ضدِ تکرار)، و نشانه‌های محتوای واقعی (جدول/پرسش). */
+        $dimensions['originality'] = $this->originalityScore($content, $textOnly);
 
         /* ---------- ۸) 📝 نگارش فارسی (PersianGrammar — v2.1) ---------- */
         $grammar = PersianGrammar::analyze($content);
@@ -256,6 +264,56 @@ class QualityScorer
     /**
      * 🏷️ برچسب فارسی ابعاد
      */
+    /**
+     * 🆕 v2.35 — امتیازِ «اصالت و تراکمِ اطلاعات واقعی» (۰ تا ۱۰۰)
+     *
+     * چهار مؤلفه:
+     *   📊 تراکمِ عدد و آمار (تا ۳۵ امتیاز)
+     *   🔗 ارجاع به منبع (تا ۲۵ امتیاز)
+     *   🧬 تنوعِ واژگانی / نسبتِ نوع به نمونه (تا ۲۵ امتیاز)
+     *   🧩 نشانه‌های محتوای واقعی: جدول، پرسش، لیست عددی (تا ۱۵ امتیاز)
+     */
+    private function originalityScore(string $content, string $textOnly): int
+    {
+        $sentences = TextProcessor::sentenceSplit($textOnly);
+        $sentenceCount = max(1, count($sentences));
+        $score = 0;
+
+        /* 📊 داده‌های عددی (قیمت/درصد/مدت/سال/دما/توان …) */
+        $numeric = 0;
+        foreach ($sentences as $s) {
+            if (preg_match('/[0-9۰-۹]/u', $s)
+                && preg_match('/(تومان|ریال|درصد|٪|%|ساعت|دقیقه|روز|هفته|ماه|سال|کیلووات|وات|درجه|کیلوگرم|لیتر|برابر|میلیون|هزار|بار|دور)/u', $s)) {
+                $numeric++;
+            }
+        }
+        $density = $numeric / $sentenceCount;
+        $score += (int)round(min(35, $density * 260));
+
+        /* 🔗 ارجاع به منبع */
+        $citations = preg_match_all('/(منبع\s*[:：]|source\s*[:：]|nofollow)/iu', $content);
+        $score += (int)min(25, $citations * 6);
+
+        /* 🧬 تنوع واژگانی روی ریشه‌ها */
+        $tokens = (array)TextProcessor::tokenize($textOnly, true);
+        $stems = [];
+        foreach ($tokens as $t) {
+            $stems[TextProcessor::stem($t)] = true;
+        }
+        $ttr = count($tokens) > 0 ? count($stems) / count($tokens) : 0;
+        /* ۰.۳۵ ≈ متنِ قالبیِ تکراری | ۰.۶۵+ ≈ متنِ متنوع */
+        $score += (int)round(min(25, max(0, ($ttr - 0.25) * 70)));
+
+        /* 🧩 نشانه‌های محتوای واقعی */
+        $evidence = 0;
+        $evidence += (int)(substr_count(mb_strtolower($content), '<table') * 2);
+        $evidence += (int)preg_match_all('#<h3>[^<]*[؟?][^<]*</h3>#u', $content);
+        $evidence += (int)preg_match_all('#<li>[^<]{40,200}</li>#u', $content);
+        $score += (int)min(15, $evidence * 3);
+
+        return (int)max(0, min(100, $score));
+    }
+
     private function dimensionLabels(): array
     {
         return [
@@ -267,6 +325,7 @@ class QualityScorer
             'length'      => '📏 کفایت حجم',
             'variety'     => '✨ تنوع جملات',
             'grammar'     => '📝 نگارش فارسی',
+            'originality' => '🆕 اصالت و تراکم داده',
         ];
     }
 

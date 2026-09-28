@@ -20,11 +20,244 @@ class ArticleGenerator
     /** @var QualityScorer امتیازده کیفیت (نسخه ۲) */
     private $scorer;
 
+    /**
+     * 🧩 v2.35 — گزاره‌های مصرف‌شده (ضد تکرار)
+     * کلید = md5(متن گزاره)؛ هم درونِ یک مقاله و هم (در صورت وجود جدولِ
+     * article_pool_usage) در میانِ مقالاتِ همان برند+دستگاه یکتا می‌ماند.
+     *
+     * @var array<string,bool>
+     */
+    private $usedStatements = [];
+
+    /** @var int شناسه برندِ فعلی (برای ردیابیِ مصرف) */
+    private $poolBrandId = 0;
+
+    /** @var string کلید دستگاهِ فعلی (برای ردیابیِ مصرف) */
+    private $poolDeviceKey = '';
+
+    /** @var bool آیا جدولِ ردیابیِ مصرف در دسترس است؟ */
+    private $poolTableReady = false;
+
+    /**
+     * 🏷️ v2.35 — برچسبِ فارسیِ هر نوع مقاله (برای ساخت موضوعِ تحقیق وب)
+     *
+     * @var array<string,string>
+     */
+    private const TOPIC_LABELS = [
+        'troubleshooting'     => 'رفع ایراد و تعمیر',
+        'user_guide'          => 'راهنمای استفاده',
+        'maintenance'         => 'نگهداری و سرویس دوره‌ای',
+        'comparison'          => 'مقایسه مدل‌ها',
+        'error_codes'         => 'کدهای خطا و ریست',
+        'buying_guide'        => 'راهنمای خرید',
+        'energy_saving'       => 'صرفه‌جویی انرژی',
+        'seasonal_care'       => 'مراقبت فصلی',
+        'cost_guide'          => 'هزینه تعمیر',
+        'safety_guide'        => 'نکات ایمنی',
+        'installation_guide'  => 'نصب و راه‌اندازی',
+        'diy_vs_pro'          => 'تعمیر شخصی یا تخصصی',
+        'common_mistakes'     => 'اشتباهات رایج',
+        'tech_explainer'      => 'فناوری و عملکرد',
+        'myths_facts'         => 'باورهای غلط و واقعیت',
+        'checklist'           => 'چک‌لیست نگهداری',
+        'case_study'          => 'تجربه تعمیر واقعی',
+        'glossary'            => 'واژه‌نامه تخصصی',
+        'history_evolution'   => 'تاریخچه و تکامل',
+        'expert_tips'         => 'نکات تخصصی تکنسین‌ها',
+        'symptom_focus'       => 'عیب‌یابی علامت‌محور',
+        'statistics'          => 'آمار و ارقام',
+        'environment'         => 'محیط زیست و بازیافت',
+        'service_process'     => 'فرآیند تعمیر',
+        'warranty_guide'      => 'گارانتی و خدمات پس از فروش',
+    ];
+
     public function __construct()
     {
         $this->db = Database::getInstance();
         $this->uniqueness = new UniquenessChecker();
         $this->scorer = new QualityScorer();
+    }
+
+    /**
+     * 🧩 v2.35 — آماده‌سازیِ «استخرِ بدون تکرار» برای یک برند+دستگاه
+     *
+     * گزاره‌هایی که در مقالاتِ قبلیِ همین برند و دستگاه مصرف شده‌اند از حافظه
+     * خوانده می‌شوند تا مقاله‌ی جدید ترجیحاً از گزاره‌های تازه استفاده کند.
+     * (سقفِ طبیعی: وقتی استخر خالی شود، تکرار دوباره مجاز می‌شود — اما با
+     * برندهای ۸۵۵ گزاره‌ایِ brands.json این نقطه خیلی دیر می‌رسد.)
+     */
+    private function preparePool(int $brandId, string $deviceKey): void
+    {
+        $this->poolBrandId = $brandId;
+        $this->poolDeviceKey = $deviceKey;
+        $this->usedStatements = [];
+        $this->poolTableReady = false;
+        if ($brandId <= 0 || $deviceKey === '') {
+            return;
+        }
+        try {
+            $rows = $this->db->fetchAll(
+                'SELECT stmt_hash FROM article_pool_usage WHERE brand_id = ? AND device_key = ?',
+                [$brandId, $deviceKey]
+            );
+            foreach ($rows as $row) {
+                $this->usedStatements[(string)$row['stmt_hash']] = true;
+            }
+            $this->poolTableReady = true;
+        } catch (Throwable $e) {
+            /* جدول وجود ندارد → فقط حافظه‌ی همین اجرا */
+            $this->poolTableReady = false;
+        }
+    }
+
+    /**
+     * 💾 v2.35 — ثبتِ گزاره‌های مصرف‌شده‌ی این مقاله (برای مقالاتِ بعدی)
+     */
+    private function persistPool(): int
+    {
+        if (!$this->poolTableReady || $this->poolBrandId <= 0 || $this->poolDeviceKey === '') {
+            return 0;
+        }
+        $saved = 0;
+        try {
+            $stmt = $this->db->pdo()->prepare(
+                'INSERT IGNORE INTO article_pool_usage (brand_id, device_key, stmt_hash, used_at) VALUES (?, ?, ?, NOW())'
+            );
+            foreach (array_keys($this->usedStatements) as $hash) {
+                try {
+                    $stmt->execute([$this->poolBrandId, $this->poolDeviceKey, (string)$hash]);
+                    $saved++;
+                } catch (Throwable $e) {
+                    /* تکراری/خطای لحظه‌ای — بی‌اهمیت */
+                }
+            }
+        } catch (Throwable $e) {
+            return 0;
+        }
+        return $saved;
+    }
+
+    /**
+     * 🎲 v2.35 — انتخابِ بدون تکرار از استخرِ دانش
+     *
+     * تفاوت با seededPickMany: ابتدا گزاره‌های استفاده‌نشده را برمی‌دارد و بعد
+     * از انتخاب، آن‌ها را «مصرف‌شده» علامت می‌زند. وقتی استخرِ تازه خالی شود،
+     * به‌طور خودکار به کلِ استخر برمی‌گردد (هرگز خروجی خالی نمی‌شود).
+     */
+    private function pickFresh(array $knowledge, int $count, string $seed): array
+    {
+        if (empty($knowledge) || $count <= 0) {
+            return [];
+        }
+        $fresh = [];
+        $stale = [];
+        foreach ($knowledge as $item) {
+            $key = md5((string)$item);
+            if (isset($this->usedStatements[$key])) {
+                $stale[] = $item;
+            } else {
+                $fresh[] = $item;
+            }
+        }
+        $picked = TextProcessor::seededPickMany($fresh, $count, $seed);
+        if (count($picked) < min($count, count($knowledge))) {
+            /* گزاره‌ی تازه کافی نبود — از مصرف‌شده‌ها هم بردار */
+            $need = min($count, count($knowledge)) - count($picked);
+            $have = [];
+            foreach ($picked as $p) {
+                $have[md5((string)$p)] = true;
+            }
+            foreach (TextProcessor::seededPickMany($stale, count($stale), $seed . '|stale') as $s) {
+                if ($need <= 0) {
+                    break;
+                }
+                if (isset($have[md5((string)$s)])) {
+                    continue;
+                }
+                $picked[] = $s;
+                $have[md5((string)$s)] = true;
+                $need--;
+            }
+        }
+        foreach ($picked as $item) {
+            $this->usedStatements[md5((string)$item)] = true;
+        }
+        return $picked;
+    }
+
+    /**
+     * 🏛️ v2.35 — گزاره‌های واقعیِ برند از brands.json
+     *
+     * این فیلدها (history_facts / strengths / price_range / parts_availability /
+     * service_note) برای هر ۷۷ برند پر شده‌اند ولی در مقالات استفاده نمی‌شدند؛
+     * با آزاد کردن‌شان استخرِ هر مقاله از ~۴۰ به ~۱۲۰ گزاره می‌رسد.
+     *
+     * @return array<string> فهرست گزاره‌های آماده‌ی درج در متن
+     */
+    private function brandStatements(array $brand): array
+    {
+        $brands = TextProcessor::loadKnowledge('brands');
+        if (empty($brands)) {
+            return [];
+        }
+        $key = null;
+        $candidates = [
+            (string)($brand['knowledge_key'] ?? ''),
+            mb_strtolower(trim((string)($brand['name_en'] ?? ''))),
+            TextProcessor::normalize((string)($brand['name_fa'] ?? '')),
+        ];
+        foreach ($candidates as $cand) {
+            if ($cand !== '' && isset($brands[$cand])) {
+                $key = $cand;
+                break;
+            }
+        }
+        if ($key === null) {
+            /* تطبیقِ نرم روی نام‌های جایگزین (aliases) */
+            foreach ($brands as $k => $data) {
+                foreach ((array)($data['aliases'] ?? []) as $alias) {
+                    if ($alias === '') {
+                        continue;
+                    }
+                    if (TextProcessor::normalize((string)$alias) === TextProcessor::normalize((string)($brand['name_fa'] ?? ''))) {
+                        $key = $k;
+                        break 2;
+                    }
+                }
+            }
+        }
+        if ($key === null || !isset($brands[$key])) {
+            return [];
+        }
+        $data = $brands[$key];
+        $out = [];
+        foreach ((array)($data['history_facts'] ?? []) as $fact) {
+            $fact = trim((string)$fact);
+            if ($fact !== '') {
+                $out[] = $fact;
+            }
+        }
+        foreach ((array)($data['strengths'] ?? []) as $s) {
+            $s = trim((string)$s);
+            if ($s !== '') {
+                $out[] = 'از نقاط قوت این برند این است که ' . $s;
+            }
+        }
+        $price = trim((string)($data['price_range'] ?? ''));
+        if ($price !== '') {
+            $out[] = 'از نظر بازه‌ی قیمتی، ' . $price;
+        }
+        $parts = trim((string)($data['parts_availability'] ?? ''));
+        if ($parts !== '') {
+            $out[] = 'در زمینه‌ی تأمین قطعات، ' . $parts;
+        }
+        $note = trim((string)($data['service_note'] ?? ''));
+        if ($note !== '') {
+            $out[] = 'نکته‌ی خدماتیِ مهم: ' . $note;
+        }
+        return array_values(array_filter($out, function ($s) {
+            return mb_strlen($s) >= 15;
+        }));
     }
 
     /**
@@ -43,16 +276,138 @@ class ArticleGenerator
         $variants = max(1, min(4, $variants));
         $best = null;
 
-        // 🎰 تولید N واریانت با seed های متفاوت و انتخاب بهترین امتیاز کیفیت
-        for ($v = 0; $v < $variants; $v++) {
-            $candidate = $this->generateSingle($brand, $topicType, $deviceKey, $v, $customTitle, $options);
-            if ($best === null || $candidate['quality']['score'] > $best['quality']['score']) {
-                $best = $candidate;
+        /* 🧩 v2.35 — استخرِ بدون تکرارِ این برند+دستگاه (یک‌بار در ابتدای تولید) */
+        $poolKey = (string)($deviceKey ?? '');
+        if ($poolKey === '' && $customTitle !== null && trim($customTitle) !== '') {
+            $inferred = ArticleImageService::inferDeviceKey($customTitle);
+            if ($inferred !== null) {
+                $poolKey = $inferred;
+            }
+        }
+        $this->preparePool((int)$brand['id'], $poolKey);
+
+        /* 🔎 v2.35 — تحقیق وب «یک‌بار» برای همه‌ی واریانت‌ها
+         * قبلاً هر واریانت جداگانه جستجو می‌کرد (N برابر هزینه و زمان)؛ حالا
+         * یک تحقیق انجام و به‌عنوان research_context به همه پاس داده می‌شود. */
+        $depth = (string)($options['depth'] ?? 'balanced');
+        if (empty($options['research_context']) && !empty($options['research'])) {
+            try {
+                $meta = $this->deviceMetaFor($brand, $deviceKey, $customTitle);
+                $topic = $this->researchTopicFor($customTitle, $topicType, $meta);
+                $research = (new ArticleResearchService())->research($topic, [
+                    'brand_fa'   => (string)$brand['name_fa'],
+                    'brand_en'   => (string)($brand['name_en'] ?? ''),
+                    'device_fa'  => (string)$meta['device_fa'],
+                    'device_en'  => (string)$meta['device_en'],
+                    'topic_type' => $topicType,
+                    'subject'    => $topic,
+                ], [
+                    'depth'      => $depth,
+                    'brand_id'   => (int)$brand['id'],
+                    'device_key' => (string)$meta['device_key'],
+                    'learn'      => true,
+                ]);
+                if (!empty($research)) {
+                    $options['research_context'] = $research;
+                }
+            } catch (Throwable $e) {
+                /* شکست تحقیق نباید تولید را متوقف کند */
             }
         }
 
+        // 🎰 تولید N واریانت با seed های متفاوت و انتخاب بهترین امتیاز کیفیت
+        /* ♻️ واریانت‌ها «بدیلِ هم» هستند نه ادامه‌ی هم: پیش از هر واریانت،
+           استخرِ مصرف‌شده به نقطه‌ی شروع برمی‌گردد تا واریانتِ دوم مجبور نشود
+           فقط چون اولی زودتر آمده از گزاره‌های متفاوتی استفاده کند. در پایان،
+           فقط گزاره‌های مصرف‌شده‌ی «واریانتِ برنده» در دیتابیس ثبت می‌شود
+           (وگرنه با ۳ واریانت، استخر ۳ برابر زودتر خالی می‌شد). */
+        $initialUsed = $this->usedStatements;
+        $winnerUsed = $initialUsed;
+        for ($v = 0; $v < $variants; $v++) {
+            $this->usedStatements = $initialUsed;
+            $candidate = $this->generateSingle($brand, $topicType, $deviceKey, $v, $customTitle, $options);
+            if ($best === null || $candidate['quality']['score'] > $best['quality']['score']) {
+                $best = $candidate;
+                $winnerUsed = $this->usedStatements;
+            }
+        }
+        $this->usedStatements = $winnerUsed;
+
+        /* 💾 ثبتِ گزاره‌های مصرف‌شده برای مقالاتِ بعدیِ همین برند+دستگاه */
+        $this->persistPool();
+
         $best['variants_generated'] = $variants;
+        $best['depth'] = $depth;
         return $best;
+    }
+
+    /**
+     * 🎯 v2.35 — دستگاهِ هدف برای تحقیق (بدون اجرای کلِ منطقِ generateSingle)
+     *
+     * @return array ['device_key'=>string, 'device_fa'=>string, 'device_en'=>string]
+     */
+    private function deviceMetaFor(array $brand, ?string $deviceKey, ?string $customTitle): array
+    {
+        $devices = [];
+        try {
+            $devices = $this->db->fetchAll(
+                'SELECT device_key, name_fa FROM brand_devices WHERE brand_id = ? AND is_active = 1',
+                [(int)$brand['id']]
+            );
+        } catch (Throwable $e) {
+            $devices = [];
+        }
+        $knowledge = TextProcessor::loadKnowledge('devices');
+
+        $key = (string)($deviceKey ?? '');
+        if ($key === '' && $customTitle !== null && trim($customTitle) !== '') {
+            $inferred = ArticleImageService::inferDeviceKey($customTitle);
+            if ($inferred !== null) {
+                $key = $inferred;
+            }
+        }
+        $nameFa = '';
+        if ($key !== '') {
+            $nameFa = (string)($knowledge[$key]['name_fa'] ?? '');
+            if ($nameFa === '') {
+                foreach ($devices as $d) {
+                    if ($d['device_key'] === $key) {
+                        $nameFa = (string)$d['name_fa'];
+                        break;
+                    }
+                }
+            }
+        }
+        if ($key === '' && !empty($devices)) {
+            $picked = TextProcessor::seededPick($devices, 'artdev|' . (int)$brand['id']);
+            $key = (string)$picked['device_key'];
+            $nameFa = (string)$picked['name_fa'];
+        }
+        return [
+            'device_key' => $key,
+            'device_fa'  => $nameFa,
+            'device_en'  => (string)($knowledge[$key]['name_en'] ?? ''),
+        ];
+    }
+
+    /**
+     * 🔎 v2.35 — ساخت موضوعِ جستجو برای تحقیق وب
+     * اولویت با عنوانِ دلخواه کاربر است؛ در غیر این صورت «دستگاه + برند + نوع مقاله».
+     */
+    private function researchTopicFor(?string $customTitle, string $topicType, array $meta): string
+    {
+        if ($customTitle !== null && trim($customTitle) !== '') {
+            $s = trim(preg_replace('/\s*(?:؛|—|–|\|)\s*.*$/u', '', $customTitle) ?? $customTitle);
+            $s = trim(preg_replace('/[؟?!.:؛]+/u', ' ', $s) ?? $s);
+            return trim(preg_replace('/\s+/u', ' ', $s) ?? $s);
+        }
+        /* ترتیبِ طبیعیِ فارسی: «رفع ایراد و تعمیر یخچال» (نه «یخچال رفع ایراد…») */
+        $label = self::TOPIC_LABELS[$topicType] ?? 'تعمیر و نگهداری';
+        $device = (string)($meta['device_fa'] ?? '');
+        if ($device === '') {
+            return $label;
+        }
+        return trim($label . ' ' . $device);
     }
 
     /**
@@ -121,6 +476,14 @@ class ArticleGenerator
         $usage = $deviceKnowledge['usage_tips'] ?? [];
         $maintenance = $deviceKnowledge['maintenance_tips'] ?? [];
         $issues = $deviceKnowledge['common_issues'] ?? [];
+        /* 🏛️ v2.35 — گزاره‌های واقعیِ برند (brands.json) به استخر اضافه می‌شود.
+         * این فیلدها برای همه‌ی ۷۷ برند پر شده‌اند اما قبلاً در مقالات استفاده
+         * نمی‌شدند؛ با پیوستن‌شان به استخرِ usage، اندازه‌ی استخرِ هر مقاله از
+         * ~۴۰ به ~۱۲۰ گزاره می‌رسد و هم‌پوشانیِ مقالاتِ یک برند به‌شدت می‌افتد. */
+        $brandStatements = $this->brandStatements($brand);
+        if (!empty($brandStatements)) {
+            $usage = array_values(array_unique(array_merge($usage, $brandStatements)));
+        }
 
         $seed = 'article|' . $brand['id'] . '|' . $topicType . '|' . $device['device_key'] . '|' . time() . '|' . mt_rand() . '|v' . $variantIndex;
         /* 🧩 v2.27 — متغیرهای کامل (رفع «{{warranty_period}} و {{agency_name}}
@@ -159,61 +522,79 @@ class ArticleGenerator
             );
         }
 
-        /* ---------- ۱.۵) 🔎 تحقیق آنلاین وب (فاز Q.7 + v3.3: زمینه از پیش‌آماده) ----------
-         * جستجوی اینترنت هنگام نوشتن: داده‌های واقعی + منابع معتبر
-         * به مقاله اضافه می‌شود تا محتوا و سئو هر دو کامل باشند.
-         * v3.3: اگر تحقیق از قبل انجام شده باشد (از SmartPipeline) دوباره جستجو نمی‌شود. */
+        /* ---------- ۱.۵) 🔎 تحقیق عمیق وب (v2.35) ----------
+         * سه تفاوتِ مهم با قبل:
+         *   ① سرویسِ اختصاصیِ مقاله (ArticleResearchService): چند کوئریِ
+         *      فارسی+انگلیسی، خواندنِ متنِ کامل صفحات، استخراجِ اسکلتِ رقبا،
+         *      پرسش‌های واقعی، آمارِ منبع‌دار و موجودیت‌ها.
+         *   ② تحقیق در generate() یک‌بار انجام می‌شود و اینجا فقط مصرف می‌گردد
+         *      (اگر research_context نیامده باشد — مثلاً فراخوانیِ مستقیم).
+         *   ③ خروجی «نرمال‌سازی» می‌شود تا کدِ پایین‌دست با یک شکل کار کند،
+         *      چه از سرویس جدید بیاید چه از تحقیق قدیمیِ SmartPipeline. */
         $webResearch = null;
         $researchSections = [];
         $researchTags = [];
+        $subject = $customTitle !== null ? $this->subjectFromTitle($title) : '';
         if (!empty($options['research_context'])) {
-            $webResearch = $options['research_context'];
+            $webResearch = $this->normalizeResearch($options['research_context']);
         } elseif (!empty($options['research'])) {
             try {
-                $researchTopic = $title;
-                $researchTopic = preg_replace('/[؟?!.:؛]+/u', ' ', $researchTopic) ?? $researchTopic;
-                $webResearch = (new WebSearchService())->research(trim($researchTopic), [
-                    'limit' => 6,
-                ]);
+                $researchTopic = $subject !== '' ? $subject : trim(preg_replace('/[؟?!.:؛]+/u', ' ', $title) ?? $title);
+                $webResearch = $this->normalizeResearch((new ArticleResearchService())->research($researchTopic, [
+                    'brand_fa'   => (string)$brand['name_fa'],
+                    'brand_en'   => (string)($brand['name_en'] ?? ''),
+                    'device_fa'  => (string)($device['name_fa'] ?? ''),
+                    'device_en'  => (string)($deviceKnowledge['name_en'] ?? ''),
+                    'topic_type' => $topicType,
+                    'subject'    => $researchTopic,
+                ], [
+                    'depth'      => (string)($options['depth'] ?? 'balanced'),
+                    'brand_id'   => (int)$brand['id'],
+                    'device_key' => (string)($device['device_key'] ?? ''),
+                    'learn'      => true,
+                ]));
             } catch (Throwable $e) {
                 // شکست تحقیق نباید تولید مقاله را متوقف کند
                 $webResearch = null;
             }
         }
         if ($webResearch !== null) {
-            // 🏷️ کلیدواژه‌های ترند → تگ‌های مقاله
+            // 🏷️ کلیدواژه‌های ترند + موجودیت‌های پربسامد وب → تگ‌های مقاله
             foreach (array_slice($webResearch['keywords'] ?? [], 0, 3) as $kw) {
                 if (is_string($kw) && mb_strlen($kw) >= 3) {
                     $researchTags[] = $kw;
                 }
             }
+            foreach (array_slice($webResearch['entities'] ?? [], 0, 3) as $ent) {
+                $term = is_array($ent) ? (string)($ent['term'] ?? '') : (string)$ent;
+                if (mb_strlen($term) >= 3 && mb_strlen($term) <= 40) {
+                    $researchTags[] = $term;
+                }
+            }
         }
 
         /* ---------- ۲️⃣ ساخت Outline مقاله (v3.3: موضوع‌محور برای عنوان دلخواه) ---------- */
-        $subject = $customTitle !== null ? $this->subjectFromTitle($title) : '';
         if ($subject !== '') {
             $sections = $this->buildTopicOutline($subject, $topicType, $device, $deviceKnowledge, $vars, $seed, $webResearch);
+            /* 🧭 v2.35: بخش‌هایی که SERP واقعاً انتظار دارد (اسکلتِ رقبا) */
+            $webSections = $this->researchOutlineSections($webResearch, $vars, $deviceKnowledge, $seed);
+            $statsSection = $this->researchStatsSection($webResearch, $vars);
+            if ($statsSection !== null) {
+                $webSections[] = $statsSection;
+            }
+            if (!empty($webSections)) {
+                array_splice($sections, max(1, count($sections) - 1), 0, $webSections);
+            }
         } else {
-            /* 🔎 مقاله قالبی: فکت‌ها و پرسش‌های وب به‌صورت بخش مستقل (فاز Q.7) */
-            if ($webResearch !== null) {
-                $facts = array_slice($webResearch['facts'] ?? [], 0, 5);
-                if (!empty($facts)) {
-                    $factsHtml = '<p>بر اساس بررسی منابع آنلاین به‌روز، این داده‌ها به تأیید رسیده است:</p>' . "\n" . '<ul>' . "\n";
-                    foreach ($facts as $fact) {
-                        $factsHtml .= '<li>' . e((string)$fact) . '</li>' . "\n";
-                    }
-                    $factsHtml .= '</ul>';
-                    $researchSections[] = $this->section('📊 داده‌های به‌روز از منابع آنلاین', $factsHtml);
-                }
-                $rQuestions = array_slice($webResearch['questions'] ?? [], 0, 4);
-                if (!empty($rQuestions)) {
-                    $qHtml = '<p>کاربران واقعی در جستجوهای خود این پرسش‌ها را مطرح کرده‌اند:</p>' . "\n" . '<ul>' . "\n";
-                    foreach ($rQuestions as $q) {
-                        $qHtml .= '<li>' . e((string)$q) . '</li>' . "\n";
-                    }
-                    $qHtml .= '</ul>';
-                    $researchSections[] = $this->section('🤔 پرسش‌های پرتکرار کاربران در وب', $qHtml);
-                }
+            /* 🔎 مقاله قالبی: بخش‌های مبتنی بر تحقیق وب (اسکلتِ رقبا + آمار منبع‌دار + پرسش‌های واقعی) */
+            $researchSections = $this->researchOutlineSections($webResearch, $vars, $deviceKnowledge, $seed);
+            $statsSection = $this->researchStatsSection($webResearch, $vars);
+            if ($statsSection !== null) {
+                $researchSections[] = $statsSection;
+            }
+            $questionsSection = $this->researchQuestionsSection($webResearch);
+            if ($questionsSection !== null) {
+                $researchSections[] = $questionsSection;
             }
             $sections = $this->buildOutline($topicType, $device, $deviceKnowledge, $vars, $seed);
             // 🔎 درج بخش‌های تحقیق آنلاین قبل از بخش عمومی پایانی (فاز Q.7)
@@ -314,6 +695,9 @@ class ArticleGenerator
 
         /* ---------- ۴️⃣ لینک‌دهی داخلی ---------- */
         $content = $this->addInternalLinks($content, $brand, $device);
+        /* 🔗 v2.35 — لینک به مقالاتِ مرتبطِ همان برند (قبلاً متد تعریف شده بود
+           اما هرگز صدا زده نمی‌شد → خوشه‌ی موضوعی شکل نمی‌گرفت) */
+        $content = $this->addRelatedArticleLinks($content, $brand, (string)($device['device_key'] ?? ''), (string)($device['name_fa'] ?? ''));
 
         /* ---------- ۵️⃣ بررسی یکتایی ---------- */
         $check = $this->uniqueness->check($content, (int)$brand['id']);
@@ -413,11 +797,18 @@ class ArticleGenerator
             'research'   => $webResearch ? [
                 'used'      => true,
                 'provider'  => $webResearch['provider'] ?? '',
+                'depth'     => $webResearch['depth'] ?? ($options['depth'] ?? 'balanced'),
                 'facts'     => count($webResearch['facts'] ?? []),
                 'questions' => count($webResearch['questions'] ?? []),
-                'sources'   => count($webResearch['sources'] ?? []),
+                'stats'     => count($webResearch['stats'] ?? []),
+                'outline'   => count($webResearch['outline'] ?? []),
+                'sources'   => array_slice($webResearch['sources'] ?? [], 0, 6),
                 'keywords'  => array_slice($webResearch['keywords'] ?? [], 0, 5),
+                'entities'  => array_slice($webResearch['entities'] ?? [], 0, 8),
+                'source_stats' => $webResearch['source_stats'] ?? [],
+                'took_ms'   => (int)($webResearch['took_ms'] ?? 0),
             ] : ['used' => false],
+            'depth'      => (string)($options['depth'] ?? 'balanced'),
             'generated_by_ai' => 1,
             'uniqueness_hash' => $check['hash'] ?? TextProcessor::contentHash($content),
         ];
@@ -792,7 +1183,7 @@ class ArticleGenerator
         $def = [];
         $def[] = $subject . ' یکی از موضوع‌های پرتکرار برای کاربران ' . ($d !== '' ? $d : 'لوازم خانگی') . ' است و شناخت دقیق آن، هم از هزینه‌های غیرضروری جلوگیری می‌کند و هم عمر مفید دستگاه را بالا می‌برد.';
         if ($facts) {
-            $def[] = 'بر اساس بررسی منابع آنلاین به‌روز، ' . $this->weaveFactsIntoProse($facts, 2);
+            $def[] = 'بر اساس بررسی منابع آنلاین به‌روز، ' . $this->weaveFactsIntoProse($facts, 2, true);
         }
         $def[] = 'در این راهنما، همه ابعاد ' . $subject . ' را از علت‌شناسی تا راه‌حل‌های عملی و هزینه‌ها مرور می‌کنیم تا با خیال راحت تصمیم بگیرید.';
         $sections[] = $this->section($subject . ' چیست و چرا اهمیت دارد؟', '<p>' . implode('</p>' . "\n" . '<p>', $def) . '</p>');
@@ -804,7 +1195,7 @@ class ArticleGenerator
             if ($rest) {
                 $causeParts[] = '<p>آنچه منابع تخصصی جدیدتر نشان می‌دهند:' . "\n" . '<ul>' . "\n";
                 foreach ($rest as $f) {
-                    $causeParts[] = '<li>' . e((string)$f) . '</li>' . "\n";
+                    $causeParts[] = '<li>' . e($this->factText($f)) . $this->sourceSuffix($f, true) . '</li>' . "\n";
                 }
                 $causeParts[] = '</ul></p>';
             }
@@ -826,8 +1217,8 @@ class ArticleGenerator
         if ($questions) {
             $qHtml = '<p>پرسش‌هایی که کاربران واقعی در جستجوهای خود مطرح کرده‌اند و پاسخ تحلیلی هر یک:</p>' . "\n";
             foreach ($questions as $q) {
-                $q = trim((string)$q);
-                if ($q === '' || mb_strlen($q) > 120) { continue; }
+                $q = $this->questionText($q);
+                if ($q === '' || mb_strlen($q) > 130) { continue; }
                 $qHtml .= '<h3>' . e($q) . '</h3>' . "\n" . '<p>' . $this->answerQuestionFromContext($q, $facts, $subject, $d, $b) . '</p>' . "\n";
             }
             $sections[] = $this->section('پرسش‌های واقعی کاربران درباره ' . $subject, $qHtml);
@@ -856,23 +1247,359 @@ class ArticleGenerator
     /**
      * 🧵 بافتن فکت‌های وب در نثر (v3.3) — به‌جای لیست خام، جمله‌های روان
      */
-    private function weaveFactsIntoProse(array $facts, int $max = 2): string
+    private function weaveFactsIntoProse(array $facts, int $max = 2, bool $withSource = false): string
     {
         $parts = [];
-        foreach (array_slice($facts, 0, $max) as $i => $f) {
-            $f = trim((string)$f);
-            if ($f === '' || mb_strlen($f) < 10) { continue; }
-            $f = rtrim($f, '.؛،');
-            if ($i === 0) {
-                $parts[] = 'بر این اساس، ' . $f . ' است.';
+        $index = 0;
+        foreach (array_slice($facts, 0, $max) as $f) {
+            $text = $this->factText($f);
+            if ($text === '' || mb_strlen($text) < 10) { continue; }
+            $text = rtrim($text, '.؛،');
+            if ($index === 0) {
+                $parts[] = 'بر این اساس، ' . $text . ' است' . $this->sourceSuffix($f, $withSource) . '.';
             } else {
-                $parts[] = 'همچنین ' . $f . ' گزارش شده است.';
+                $parts[] = 'همچنین ' . $text . ' گزارش شده است' . $this->sourceSuffix($f, $withSource) . '.';
             }
+            $index++;
         }
         if ($parts) {
             return implode(' ', $parts);
         }
-        return isset($facts[0]) ? e(trim((string)$facts[0])) : '';
+        return isset($facts[0]) ? e($this->factText($facts[0])) : '';
+    }
+
+    /**
+     * 🧾 v2.35 — متنِ یک فکت (سازگار با رشته و آرایه)
+     *
+     * @param mixed $fact رشته یا ['text'=>..., 'url'=>..., 'host'=>...]
+     */
+    private function factText($fact): string
+    {
+        if (is_array($fact)) {
+            return trim((string)($fact['text'] ?? ''));
+        }
+        return trim((string)$fact);
+    }
+
+    /**
+     * 🔗 v2.35 — پسوندِ «منبع» برای فکت (E-E-A-T)
+     *
+     * @param mixed $fact رشته یا آرایه
+     */
+    private function sourceSuffix($fact, bool $enabled = true): string
+    {
+        if (!$enabled || !is_array($fact)) {
+            return '';
+        }
+        $host = trim((string)($fact['host'] ?? ''));
+        $url = trim((string)($fact['url'] ?? ''));
+        if ($host === '') {
+            return '';
+        }
+        if ($url !== '' && preg_match('#^https?://#', $url)) {
+            return ' (<a href="' . e($url) . '" target="_blank" rel="noopener nofollow">' . e($host) . '</a>)';
+        }
+        return ' (منبع: ' . e($host) . ')';
+    }
+
+    /**
+     * ❓ v2.35 — متنِ یک پرسش (سازگار با رشته و آرایه)
+     *
+     * @param mixed $question رشته یا ['q'=>..., 'url'=>...]
+     */
+    private function questionText($question): string
+    {
+        if (is_array($question)) {
+            return trim((string)($question['q'] ?? ''));
+        }
+        return trim((string)$question);
+    }
+
+    /**
+     * 🧭 v2.35 — نرمال‌سازی خروجیِ تحقیق (سازگار با سرویس جدید و تحقیق قدیمی)
+     *
+     * خروجیِ نهایی همیشه این کلیدها را دارد:
+     *   outline[], questions[], stats[], facts[], entities[], sources[],
+     *   keywords[], source_stats[], provider, depth, ok, took_ms
+     * و هر آیتمِ facts/questions/stats/outline یک آرایه‌ی ساختاریافته است.
+     */
+    private function normalizeResearch($research): array
+    {
+        if (!is_array($research)) {
+            return [];
+        }
+        $out = [
+            'ok'           => (bool)($research['ok'] ?? true),
+            'depth'        => (string)($research['depth'] ?? ''),
+            'provider'     => (string)($research['provider'] ?? ''),
+            'took_ms'      => (int)($research['took_ms'] ?? 0),
+            'outline'      => [],
+            'questions'    => [],
+            'stats'        => [],
+            'facts'        => [],
+            'entities'     => [],
+            'sources'      => [],
+            'keywords'     => [],
+            'source_stats' => [],
+        ];
+
+        foreach ((array)($research['outline'] ?? []) as $o) {
+            $heading = is_array($o) ? trim((string)($o['heading'] ?? '')) : trim((string)$o);
+            if ($heading === '') { continue; }
+            $out['outline'][] = [
+                'heading' => $heading,
+                'url'     => is_array($o) ? (string)($o['url'] ?? '') : '',
+                'host'    => is_array($o) ? (string)($o['host'] ?? '') : '',
+                'lang'    => is_array($o) ? (string)($o['lang'] ?? 'fa') : 'fa',
+            ];
+        }
+        foreach ((array)($research['questions'] ?? []) as $q) {
+            $text = $this->questionText($q);
+            if ($text === '') { continue; }
+            $out['questions'][] = [
+                'q'    => $text,
+                'url'  => is_array($q) ? (string)($q['url'] ?? '') : '',
+                'host' => is_array($q) ? (string)($q['host'] ?? '') : '',
+                'lang' => is_array($q) ? (string)($q['lang'] ?? 'fa') : 'fa',
+            ];
+        }
+        foreach ((array)($research['stats'] ?? []) as $s) {
+            $text = $this->factText($s);
+            if ($text === '') { continue; }
+            $out['stats'][] = [
+                'text'   => $text,
+                'number' => is_array($s) ? (string)($s['number'] ?? '') : '',
+                'unit'   => is_array($s) ? (string)($s['unit'] ?? '') : '',
+                'url'    => is_array($s) ? (string)($s['url'] ?? '') : '',
+                'host'   => is_array($s) ? (string)($s['host'] ?? '') : '',
+                'trust'  => is_array($s) ? (int)($s['trust'] ?? 50) : 50,
+                'lang'   => is_array($s) ? (string)($s['lang'] ?? 'fa') : 'fa',
+            ];
+        }
+        foreach ((array)($research['facts'] ?? []) as $f) {
+            $text = $this->factText($f);
+            if ($text === '') { continue; }
+            $out['facts'][] = [
+                'text'  => $text,
+                'url'   => is_array($f) ? (string)($f['url'] ?? '') : '',
+                'title' => is_array($f) ? (string)($f['title'] ?? '') : '',
+                'host'  => is_array($f) ? (string)($f['host'] ?? '') : '',
+                'trust' => is_array($f) ? (int)($f['trust'] ?? 50) : 50,
+                'lang'  => is_array($f) ? (string)($f['lang'] ?? 'fa') : 'fa',
+            ];
+        }
+        foreach ((array)($research['entities'] ?? []) as $e) {
+            $term = is_array($e) ? trim((string)($e['term'] ?? '')) : trim((string)$e);
+            if ($term === '') { continue; }
+            $out['entities'][] = ['term' => $term, 'count' => is_array($e) ? (int)($e['count'] ?? 1) : 1];
+        }
+        foreach ((array)($research['keywords'] ?? []) as $k) {
+            $term = is_array($k) ? trim((string)($k['keyword'] ?? '')) : trim((string)$k);
+            if ($term !== '') {
+                $out['keywords'][] = $term;
+            }
+        }
+        foreach ((array)($research['sources'] ?? []) as $s) {
+            $url = (string)($s['url'] ?? '');
+            $title = trim((string)($s['title'] ?? ''));
+            if ($url === '' || $title === '') { continue; }
+            $host = (string)($s['host'] ?? '');
+            if ($host === '') {
+                $host = (string)(parse_url($url, PHP_URL_HOST) ?: '');
+            }
+            $out['sources'][] = [
+                'title' => $title,
+                'url'   => $url,
+                'host'  => $host,
+                'trust' => (int)($s['trust'] ?? 50),
+                'kind'  => (string)($s['kind'] ?? 'other'),
+                'lang'  => (string)($s['lang'] ?? 'fa'),
+            ];
+        }
+        if (is_array($research['source_stats'] ?? null)) {
+            $out['source_stats'] = $research['source_stats'];
+        }
+        return $out;
+    }
+
+    /**
+     * 🧭 v2.35 — بخش‌های مقاله بر اساس «اسکلتِ رقبا» (تیترهای واقعیِ SERP)
+     *
+     * هر تیترِ استخراج‌شده از صفحات رقیب به یک H2 تبدیل می‌شود و بدنه‌ی آن از
+     * فکت‌های مرتبطِ همان تیتر (با ذکر منبع) + یک پاراگرافِ پشتیبان از دانش
+     * دستگاه ساخته می‌شود — یعنی مقاله همان چیزی را پوشش می‌دهد که جستجوگر
+     * واقعاً انتظار دارد، نه فقط قالب‌های ثابت.
+     */
+    private function researchOutlineSections(?array $research, array $vars, array $deviceKnowledge, string $seed): array
+    {
+        if ($research === null || empty($research['outline'])) {
+            return [];
+        }
+        $facts = (array)($research['facts'] ?? []);
+        $state = ['cursor' => 0, 'used' => []];
+        $pool = array_merge(
+            (array)($deviceKnowledge['usage_tips'] ?? []),
+            (array)($deviceKnowledge['common_issues'] ?? [])
+        );
+        $sections = [];
+        $idx = 0;
+        foreach (array_slice((array)$research['outline'], 0, 6) as $o) {
+            $heading = $this->tidyHeading((string)($o['heading'] ?? ''), $vars);
+            if ($heading === '') { continue; }
+            $picked = $this->factsForHeading($heading, $facts, 2, $state);
+            $html = '';
+            if (!empty($picked)) {
+                $html .= '<p>' . $this->weaveFactsIntoProse($picked, 2, true) . '</p>' . "\n";
+            }
+            $support = $this->paragraphsFrom($pool, 1, $seed . '|webout' . $idx);
+            if ($support !== '') {
+                $html .= $support;
+            }
+            if ($html === '') { continue; }
+            $sections[] = $this->section($heading, $html);
+            $idx++;
+            if ($idx >= 6) { break; }
+        }
+        return array_values(array_filter($sections));
+    }
+
+    /**
+     * ✂️ v2.35 — پاک‌سازی و فارسی‌سازیِ تیترِ استخراج‌شده از وب
+     */
+    private function tidyHeading(string $heading, array $vars): string
+    {
+        $h = trim(preg_replace('/\s+/u', ' ', strip_tags($heading)) ?? $heading);
+        if ($h === '') { return ''; }
+        /* تیترهای غیرفارسی (انگلیسیِ خالص) برای مقاله فارسی مناسب نیستند */
+        if (!preg_match('/[\x{0600}-\x{06FF}]/u', $h)) { return ''; }
+        /* حذف شماره‌گذاری و علائم ابتدایی/انتها */
+        $h = trim(preg_replace('/^\s*(?:\d+[\.\-\)]\s*|[\-\•\*\▪]\s*)/', '', $h) ?? $h);
+        $h = trim($h, " \t\n\r\0\x0B.:؛،,!؟?-–—");
+        $len = mb_strlen($h);
+        if ($len < 8 || $len > 85) { return ''; }
+        $words = preg_split('/\s+/u', $h) ?: [];
+        if (count($words) < 2 || count($words) > 11) { return ''; }
+        /* حذف تیترهای تبلیغاتی/فروشگاهی */
+        $low = mb_strtolower($h);
+        foreach (['خرید', 'فروش', 'قیمت روز', 'آگهی', 'استخدام', 'دانلود', 'ویدیو', 'تبلیغ'] as $bad) {
+            if (mb_strpos($low, $bad) !== false) { return ''; }
+        }
+        /* حرف اول بزرگ‌نما (فارسی نیازی ندارد) — فقط یکنواختی */
+        return $h;
+    }
+
+    /**
+     * 🎯 v2.35 — انتخاب فکت‌های مرتبط با یک تیتر (با هم‌پوشانیِ واژگانی)
+     */
+    private function factsForHeading(string $heading, array $facts, int $count, array &$state): array
+    {
+        if (empty($facts)) { return []; }
+        $hWords = $this->significantWords($heading);
+        $scored = [];
+        foreach ($facts as $i => $f) {
+            if (isset($state['used'][$i])) { continue; }
+            $text = $this->factText($f);
+            if ($text === '') { continue; }
+            $tWords = $this->significantWords($text);
+            $score = 0;
+            foreach ($hWords as $w) {
+                if (isset($tWords[$w])) { $score++; }
+            }
+            if ($score > 0) {
+                $scored[$i] = $score;
+            }
+        }
+        $picked = [];
+        if (!empty($scored)) {
+            arsort($scored);
+            foreach (array_slice(array_keys($scored), 0, $count) as $i) {
+                $picked[] = $facts[$i];
+                $state['used'][$i] = true;
+            }
+            return $picked;
+        }
+        /* هیچ فکتِ مرتبطی نبود → نوبتی از فهرست فکت‌ها (بدون تکرار) */
+        $total = count($facts);
+        for ($k = 0; $k < $count && $total > 0; $k++) {
+            $i = $state['cursor'] % $total;
+            $state['cursor']++;
+            if (isset($state['used'][$i]) && count($state['used']) < $total) {
+                $k--;
+                continue;
+            }
+            $picked[] = $facts[$i];
+            $state['used'][$i] = true;
+        }
+        return $picked;
+    }
+
+    /**
+     * 🔑 v2.35 — واژه‌های معنادارِ یک متن (برای تطبیقِ تیتر و فکت)
+     *
+     * @return array<string,bool>
+     */
+    private function significantWords(string $text): array
+    {
+        $words = [];
+        foreach ((array)TextProcessor::tokenize(TextProcessor::normalize($text), true) as $w) {
+            if (mb_strlen($w) >= 4) {
+                $words[$w] = true;
+            }
+        }
+        return $words;
+    }
+
+    /**
+     * 📊 v2.35 — بخش «آمار و ارقامِ منبع‌دار»
+     * برخلافِ جعبه‌ی قبلی (عددهای بی‌منبع)، هر عدد با پیوند به منبعش می‌آید.
+     */
+    private function researchStatsSection(?array $research, array $vars): ?array
+    {
+        if ($research === null || empty($research['stats'])) {
+            return null;
+        }
+        $rows = '';
+        $n = 0;
+        foreach (array_slice((array)$research['stats'], 0, 6) as $s) {
+            $text = $this->factText($s);
+            if (mb_strlen($text) < 15) { continue; }
+            $host = is_array($s) ? (string)($s['host'] ?? '') : '';
+            $url = is_array($s) ? (string)($s['url'] ?? '') : '';
+            $src = '';
+            if ($host !== '' && $url !== '' && preg_match('#^https?://#', $url)) {
+                $src = ' <small><a href="' . e($url) . '" target="_blank" rel="noopener nofollow">منبع: ' . e($host) . '</a></small>';
+            } elseif ($host !== '') {
+                $src = ' <small>(منبع: ' . e($host) . ')</small>';
+            }
+            $rows .= '<li>' . e($text) . $src . '</li>' . "\n";
+            $n++;
+        }
+        if ($n === 0) { return null; }
+        $html = '<p>اعداد و ارقام زیر از منابع آنلاین معتبر گردآوری شده و منبع هر مورد در کنار آن آمده است:</p>' . "\n"
+            . '<ul class="article-stats">' . "\n" . $rows . '</ul>';
+        return $this->section('📊 آمار و ارقام درباره ' . (string)($vars['device_fa'] ?? ''), $html);
+    }
+
+    /**
+     * ❓ v2.35 — بخش «پرسش‌های واقعی کاربران» (برای مقالاتِ قالبی)
+     */
+    private function researchQuestionsSection(?array $research): ?array
+    {
+        if ($research === null || empty($research['questions'])) {
+            return null;
+        }
+        $items = '';
+        $n = 0;
+        foreach (array_slice((array)$research['questions'], 0, 5) as $q) {
+            $text = $this->questionText($q);
+            if (mb_strlen($text) < 12 || mb_strlen($text) > 130) { continue; }
+            $items .= '<li>' . e($text) . '</li>' . "\n";
+            $n++;
+        }
+        if ($n === 0) { return null; }
+        $html = '<p>این پرسش‌ها را کاربران واقعی در جستجوهای خود پرسیده‌اند؛ پاسخ هر کدام را در بخش‌های بالا بخوانید:</p>' . "\n"
+            . '<ul>' . "\n" . $items . '</ul>';
+        return $this->section('❓ پرسش‌های پرتکرار کاربران در وب', $html);
     }
 
     /**
@@ -882,9 +1609,11 @@ class ArticleGenerator
     {
         $qNorm = TextProcessor::normalize(mb_strtolower($question));
         $best = '';
+        $bestFact = null;
         $bestScore = 0;
         foreach ($facts as $f) {
-            $fNorm = TextProcessor::normalize(mb_strtolower((string)$f));
+            $fText = $this->factText($f);
+            $fNorm = TextProcessor::normalize(mb_strtolower($fText));
             if ($fNorm === '') { continue; }
             $score = 0;
             foreach (preg_split('/\s+/u', $qNorm) ?: [] as $w) {
@@ -894,12 +1623,13 @@ class ArticleGenerator
             }
             if ($score > $bestScore) {
                 $bestScore = $score;
-                $best = trim((string)$f);
+                $best = $fText;
+                $bestFact = $f;
             }
         }
         $parts = [];
         if ($bestScore > 0 && $best !== '') {
-            $parts[] = 'بر اساس داده‌های آنلاین مرتبط، ' . rtrim($best, '.؛،') . '.';
+            $parts[] = 'بر اساس داده‌های آنلاین مرتبط، ' . rtrim($best, '.؛،') . $this->sourceSuffix($bestFact, true) . '.';
         } else {
             $parts[] = 'پاسخ کوتاه: بله، این مورد با ' . $subject . ' ارتباط مستقیم دارد و باید در کنار سایر نشانه‌ها ارزیابی شود.';
         }
@@ -970,7 +1700,7 @@ class ArticleGenerator
         $templates = TextProcessor::loadKnowledge('templates');
         $shapes = $templates['knowledge_expansion'] ?? ['{{knowledge}}'];
         $parts = [];
-        $picked = TextProcessor::seededPickMany($knowledge, $count, $seed);
+        $picked = $this->pickFresh($knowledge, $count, $seed);
         foreach ($picked as $item) {
             // هر آیتم دانش با ۲ شکل متفاوت گسترش می‌یابد تا حجم محتوا کامل شود
             $itemShapes = TextProcessor::seededPickMany($shapes, 2, $seed . '|exp|' . md5((string)$item));
@@ -1075,7 +1805,7 @@ class ArticleGenerator
         if (empty($knowledge)) {
             return '';
         }
-        $items = TextProcessor::seededPickMany($knowledge, $count, $seed);
+        $items = $this->pickFresh($knowledge, $count, $seed);
         $html = '<ul>' . "\n";
         foreach ($items as $item) {
             $html .= '<li>' . e(TextProcessor::applySynonyms((string)$item, $seed . md5((string)$item))) . '</li>' . "\n";
@@ -1091,7 +1821,7 @@ class ArticleGenerator
         if (empty($knowledge)) {
             return '';
         }
-        $items = TextProcessor::seededPickMany($knowledge, min(5, count($knowledge)), $seed);
+        $items = $this->pickFresh($knowledge, min(5, count($knowledge)), $seed);
         $html = '<ol>' . "\n";
         foreach ($items as $item) {
             $html .= '<li>' . e((string)$item) . '</li>' . "\n";
@@ -1329,13 +2059,22 @@ class ArticleGenerator
         $faqs = [];
 
         /* 🎯 v3.3: پرسش‌های واقعی وب درباره همین موضوع — دقیق‌ترین FAQ ممکن */
+        /* 🎯 v2.35 — پرسش‌های واقعی کاربران (تا ۵ مورد) + پاسخِ مبتنی بر فکت.
+         * قانونِ جدید: اگر برای پرسش هیچ فکتِ مرتبطی در وب پیدا نشد، آن پرسش
+         * حذف می‌شود (قبلاً یک جمله‌ی بی‌محتوای عمومی نوشته می‌شد که برای
+         * سئو و اعتبارِ مقاله مضر است). */
         if ($subject !== '' && $webResearch !== null) {
-            foreach (array_slice((array)($webResearch['questions'] ?? []), 0, 2) as $wq) {
-                $wq = trim((string)$wq);
-                if ($wq === '' || mb_strlen($wq) > 120) { continue; }
+            $facts = (array)($webResearch['facts'] ?? []);
+            foreach (array_slice((array)($webResearch['questions'] ?? []), 0, 5) as $wq) {
+                $wq = $this->questionText($wq);
+                if ($wq === '' || mb_strlen($wq) > 130) { continue; }
+                $answer = $this->answerQuestionFromContext($wq, $facts, $subject, (string)$vars['device_fa'], (string)$vars['brand_fa']);
+                if (mb_strpos($answer, 'پاسخ کوتاه:') === 0) {
+                    continue; // بدون پشتوانه‌ی واقعی → حذف
+                }
                 $faqs[] = [
                     'question' => TextProcessor::normalize($wq),
-                    'answer'   => $this->answerQuestionFromContext($wq, (array)($webResearch['facts'] ?? []), $subject, (string)$vars['device_fa'], (string)$vars['brand_fa']),
+                    'answer'   => $answer,
                 ];
             }
         }
@@ -1368,20 +2107,64 @@ class ArticleGenerator
      * 🔗 لینک‌دهی به مقالات مرتبط همین برند — سیلوی داخلی
      * ۲ مقاله مرتبط در انتهای محتوا (قبل از جمع‌بندی نهایی)
      */
-    private function addRelatedArticleLinks(string $content, array $brand): string
+    /**
+     * 🔗 v2.35 — لینک به مقالاتِ مرتبطِ همان برند (خوشه‌ی موضوعی)
+     *
+     * مرتبط‌ترین مقاله‌ها با معیارِ «اشتراکِ واژگانی با عنوانِ مقاله‌ی فعلی
+     * + هم‌دستگاه بودن» انتخاب می‌شوند (قبلاً فقط جدیدترین مقالات را برمی‌داشت).
+     * این متد از v2.6 تعریف شده بود اما هرگز صدا زده نمی‌شد (کدِ مرده).
+     */
+    private function addRelatedArticleLinks(string $content, array $brand, string $deviceKey = '', string $deviceFa = ''): string
     {
-        $related = $this->db->fetchAll(
-            'SELECT title, slug FROM brand_articles
-             WHERE brand_id = ? AND status = "published"
-             ORDER BY published_at DESC LIMIT 3',
-            [$brand['id']]
-        );
+        try {
+            $related = $this->db->fetchAll(
+                'SELECT id, title, slug, tags FROM brand_articles
+                 WHERE brand_id = ? AND status = "published"
+                 ORDER BY published_at DESC LIMIT 12',
+                [(int)$brand['id']]
+            );
+        } catch (Throwable $e) {
+            return $content;
+        }
         if (count($related) < 1) {
             return $content;
         }
+        /* امتیازدهی: اشتراکِ واژگانی با عنوان/دستگاهِ مقاله‌ی فعلی */
+        $currentWords = $this->significantWords(
+            strip_tags(mb_substr($content, 0, 4000)) . ' ' . $deviceFa . ' ' . $deviceKey
+        );
+        $scored = [];
+        foreach ($related as $row) {
+            $rowWords = $this->significantWords((string)$row['title'] . ' ' . (string)($row['tags'] ?? ''));
+            $score = 0;
+            foreach ($rowWords as $w) {
+                if (isset($currentWords[$w])) {
+                    $score++;
+                }
+            }
+            if ($deviceFa !== '' && mb_stripos((string)$row['title'], $deviceFa) !== false) {
+                $score += 3;
+            }
+            $scored[] = ['row' => $row, 'score' => $score];
+        }
+        usort($scored, function ($a, $b) {
+            return (int)$b['score'] <=> (int)$a['score'];
+        });
+
         $links = '';
-        foreach (array_slice($related, 0, 2) as $article) {
-            $links .= '<li><a href="/blog/' . e($article['slug']) . '">' . e($article['title']) . '</a></li>' . "\n";
+        $used = 0;
+        foreach ($scored as $item) {
+            if ($used >= 3) {
+                break;
+            }
+            if ($item['score'] <= 0) {
+                continue;
+            }
+            $links .= '<li><a href="/blog/' . e($item['row']['slug']) . '">' . e($item['row']['title']) . '</a></li>' . "\n";
+            $used++;
+        }
+        if ($used === 0) {
+            return $content;
         }
         $box = '<h3>مطالب مرتبط</h3>' . "\n" . '<ul>' . "\n" . $links . '</ul>' . "\n";
 

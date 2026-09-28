@@ -156,11 +156,19 @@ class SahandAI
             $customTitle = null;
         }
         // 🆕 فاز Q.7/Q.8: جستجوی آنلاین هنگام نوشتن + تصاویر خودکار
+        /* 🎚️ v2.35 — عمقِ تحقیق وب: fast | balanced | deep
+         * (اگر تحقیق از پیش انجام شده باشد — research_context — عمق تأثیری
+         * در زمان ندارد؛ در غیر این صورت بودجه‌ی زمانیِ همان عمق رعایت می‌شود) */
+        $depth = (string)($params['depth'] ?? ($params['research_depth'] ?? 'balanced'));
+        if (!in_array($depth, ['fast', 'balanced', 'deep'], true)) {
+            $depth = 'balanced';
+        }
         $options = [
             'research'    => !empty($params['research']),
             'with_images' => array_key_exists('with_images', $params) ? !empty($params['with_images']) : true, // پیش‌فرض روشن
             /* 🌐 v3.3: تحقیق وبِ از پیش انجام‌شده (از SmartPipeline) — بدون جستجوی تکراری */
             'research_context' => is_array($params['research_context'] ?? null) ? $params['research_context'] : null,
+            'depth'       => $depth,
         ];
         $article = $this->articleGen->generate($brand, $topicType, $deviceKey, $variants, $customTitle, $options);
 
@@ -473,6 +481,35 @@ class SahandAI
             'seo_keywords'    => $article['seo']['keywords'] ?? null,
             'seo_score'       => $seoScore,
         ]);
+
+        /* 🔎 v2.35 — ذخیره‌ی خروجیِ تحقیق وب (منابع/فکت‌ها/عمق) کنار مقاله.
+         * سه فایده: نمایشِ بخش منابع در سایت برند، بازمصرف در ویرایش‌های بعد،
+         * و امکانِ سنجشِ «تراکمِ اطلاعاتِ واقعی» در مقالاتِ تولیدشده. */
+        if (!empty($article['research']['used'])) {
+            try {
+                $this->db->update('brand_articles', [
+                    'research'      => json_encode([
+                        'provider'     => $article['research']['provider'] ?? '',
+                        'depth'        => $article['research']['depth'] ?? ($article['depth'] ?? 'balanced'),
+                        'facts'        => (int)($article['research']['facts'] ?? 0),
+                        'questions'    => (int)($article['research']['questions'] ?? 0),
+                        'stats'        => (int)($article['research']['stats'] ?? 0),
+                        'outline'      => (int)($article['research']['outline'] ?? 0),
+                        'keywords'     => array_slice((array)($article['research']['keywords'] ?? []), 0, 8),
+                        'entities'     => array_slice((array)($article['research']['entities'] ?? []), 0, 12),
+                        'sources'      => array_slice((array)($article['research']['sources'] ?? []), 0, 6),
+                        'source_stats' => $article['research']['source_stats'] ?? [],
+                        'took_ms'      => (int)($article['research']['took_ms'] ?? 0),
+                        'saved_at'     => date('Y-m-d H:i:s'),
+                    ], JSON_UNESCAPED_UNICODE),
+                    'focus_keyword' => mb_substr((string)($article['focus_keyword'] ?? ''), 0, 255),
+                    'depth'         => mb_substr((string)($article['depth'] ?? 'balanced'), 0, 16),
+                ], 'id = ?', [$articleId]);
+            } catch (Throwable $e) {
+                /* ستون‌ها هنوز ایجاد نشده‌اند یا خطای لحظه‌ای — بی‌اهمیت */
+                @error_log('[SahandAI] research save: ' . $e->getMessage());
+            }
+        }
 
         /* 🎨 v2.6: تصاویر یکتای AI (۲ تصویر درون‌متن) + تصویر OG مرتبط با همین مقاله
          * پس از ثبت (شناسه نهایی موجود است) تولید و محتوا غنی‌سازی می‌شود

@@ -305,4 +305,137 @@ class ContentPlanner
         ];
         return $map[$topicType] ?? '۱۸:۰۰ — ۲۱:۰۰';
     }
+
+    /* ==================================================
+     * 🔥 v2.35 — پیشنهاد موضوع بر اساسِ ترندِ واقعیِ وب
+     * ================================================== */
+
+    /**
+     * 🔥 موضوعاتِ داغِ اینترنت برای این برند (اخبار + پرسش‌های واقعی کاربران)
+     *
+     * تا پیش از این، تقویم محتوا فقط از داده‌های داخلی (فصل، شکاف پوشش،
+     * تنوع نوع) موضوع می‌ساخت و هیچ سیگنالی از «الان کاربران چه می‌پرسند»
+     * نداشت. این متد دو منبعِ واقعی را اضافه می‌کند:
+     *   ۱) Google News RSS (فارسی/ایران) — رویدادها، قیمت‌ها، هشدارهای فصلی
+     *   ۲) موجودیت‌ها و پرسش‌های استخراج‌شده از صفحات رقیب (تحقیق وب)
+     *
+     * طراحی: کاملاً «اضافه‌کننده» است — اگر اینترنت در دسترس نباشد یا سرویس
+     * خطا بدهد، آرایه‌ی خالی برمی‌گرداند و برنامه‌ریز مثل قبل کار می‌کند.
+     *
+     * @param int $brandId شناسه برند
+     * @param int $count   تعداد پیشنهاد (۱ تا ۱۰)
+     * @return array فهرستِ ['title','source','type','score','url']
+     */
+    public function trendingTopics(int $brandId, int $count = 6): array
+    {
+        $count = max(1, min(10, $count));
+        $brand = $this->db->fetch('SELECT id, name_fa, name_en FROM brands WHERE id = ?', [$brandId]);
+        if (!$brand) {
+            return [];
+        }
+        $devices = $this->db->fetchAll(
+            'SELECT device_key, name_fa FROM brand_devices WHERE brand_id = ? AND is_active = 1 ORDER BY sort_order LIMIT 6',
+            [$brandId]
+        );
+        if (empty($devices)) {
+            return [];
+        }
+        $out = [];
+        $seen = [];
+        $add = function (string $title, string $type, string $source, string $url = '') use (&$out, &$seen): void {
+            $title = trim(preg_replace('/\s+/u', ' ', $title) ?? $title);
+            $key = md5(mb_strtolower($title));
+            if ($title === '' || mb_strlen($title) < 12 || isset($seen[$key])) {
+                return;
+            }
+            $seen[$key] = true;
+            $out[] = ['title' => $title, 'type' => $type, 'source' => $source, 'url' => $url];
+        };
+
+        try {
+            $search = new WebSearchService();
+        } catch (Throwable $e) {
+            $search = null;
+        }
+
+        /* ۱) اخبار مرتبط با دستگاه‌های برند */
+        if ($search !== null) {
+            foreach ($devices as $device) {
+                if (count($out) >= $count) {
+                    break;
+                }
+                try {
+                    $news = $search->news($device['name_fa'] . ' ' . $brand['name_fa'], 5);
+                } catch (Throwable $e) {
+                    continue;
+                }
+                foreach ((array)($news['results'] ?? []) as $item) {
+                    $title = trim((string)($item['title'] ?? ''));
+                    if ($title === '') {
+                        continue;
+                    }
+                    $add($title, 'troubleshooting', 'اخبار وب', (string)($item['url'] ?? ''));
+                    if (count($out) >= $count) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        /* ۲) پرسش‌های واقعی کاربران از تحقیق وب (برای دستگاه‌های کم‌پوشش) */
+        if (count($out) < $count) {
+            foreach (array_slice($devices, 0, 3) as $device) {
+                if (count($out) >= $count) {
+                    break;
+                }
+                try {
+                    $research = (new ArticleResearchService())->research(
+                        $device['name_fa'] . ' ' . $brand['name_fa'],
+                        [
+                            'brand_fa'  => (string)$brand['name_fa'],
+                            'brand_en'  => (string)($brand['name_en'] ?? ''),
+                            'device_fa' => (string)$device['name_fa'],
+                            'topic_type' => 'troubleshooting',
+                        ],
+                        [
+                            'depth'      => 'fast',
+                            'brand_id'   => $brandId,
+                            'device_key' => (string)$device['device_key'],
+                            'learn'      => false,
+                        ]
+                    );
+                } catch (Throwable $e) {
+                    continue;
+                }
+                foreach ((array)($research['questions'] ?? []) as $q) {
+                    $text = is_array($q) ? (string)($q['q'] ?? '') : (string)$q;
+                    if ($text !== '') {
+                        $add($text, 'troubleshooting', 'پرسش کاربران');
+                    }
+                    if (count($out) >= $count) {
+                        break;
+                    }
+                }
+                foreach ((array)($research['outline'] ?? []) as $o) {
+                    $text = is_array($o) ? (string)($o['heading'] ?? '') : (string)$o;
+                    if ($text !== '' && preg_match('/[\x{0600}-\x{06FF}]/u', $text)) {
+                        $add($text, 'maintenance', 'سرفصل رقبا');
+                    }
+                    if (count($out) >= $count) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        /* امتیازدهی ساده بر اساسِ منبع (خبر > پرسش > سرفصل) */
+        $weights = ['اخبار وب' => 3, 'پرسش کاربران' => 2, 'سرفصل رقبا' => 1];
+        foreach ($out as $i => $row) {
+            $out[$i]['score'] = (int)($weights[$row['source']] ?? 1);
+        }
+        usort($out, function ($a, $b) {
+            return (int)$b['score'] <=> (int)$a['score'];
+        });
+        return array_slice($out, 0, $count);
+    }
 }

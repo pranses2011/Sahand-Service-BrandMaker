@@ -17,6 +17,9 @@ class UniquenessChecker
     /** @var int آستانه تشابه مجاز (درصد) */
     const MAX_SIMILARITY = 35;
 
+    /** @var int آستانه تشابه مجاز با محتوای «همان برند» (سخت‌گیرانه‌تر) */
+    const MAX_SIMILARITY_SAME_BRAND = 25;
+
     public function __construct()
     {
         $this->db = Database::getInstance();
@@ -28,14 +31,23 @@ class UniquenessChecker
      * @param string      $content متن جدید
      * @param int         $brandId شناسه برند هدف (برای استثنا)
      * @param string|null $excludeTable جدول مقایسه (brand_articles یا brand_pages)
-     * @return array ['unique' => bool, 'similarity' => float, 'matched_with' => string, 'hash' => string]
+     * 🆕 v2.35 — تفاوت مهم: محتوای «همان برند» هم مقایسه می‌شود (با آستانه‌ی
+     * سخت‌گیرانه‌تر). تا قبل از این، دو مقاله‌ی یک برند اصلاً با هم سنجیده
+     * نمی‌شدند (`continue` روی brand_id) در حالی که بدترین و محتمل‌ترین حالتِ
+     * تکراری دقیقاً همین است — چون همه‌ی مقالاتِ یک برند از یک استخرِ دانش
+     * تغذیه می‌کنند.
+     *
+     * @return array ['unique','similarity','similarity_same_brand','matched_with','hash']
      */
     public function check(string $content, int $brandId = 0, ?string $excludeTable = null): array
     {
         $hash = TextProcessor::contentHash($content);
         $shingles = TextProcessor::shingles($content, 3);
         if (empty($shingles)) {
-            return ['unique' => false, 'similarity' => 100.0, 'matched_with' => 'متن خالی', 'hash' => $hash];
+            return [
+                'unique' => false, 'similarity' => 100.0, 'similarity_same_brand' => 100.0,
+                'matched_with' => 'متن خالی', 'hash' => $hash,
+            ];
         }
         $shingleSet = array_count_values($shingles);
 
@@ -45,48 +57,71 @@ class UniquenessChecker
             [$hash]
         );
         if ($exact) {
-            return ['unique' => false, 'similarity' => 100.0, 'matched_with' => 'مقاله: ' . $exact['title'], 'hash' => $hash];
+            return [
+                'unique' => false, 'similarity' => 100.0, 'similarity_same_brand' => 100.0,
+                'matched_with' => 'مقاله: ' . $exact['title'], 'hash' => $hash,
+            ];
         }
 
-        // ۲️⃣ بررسی تشابه Shingle با مقالات موجود
+        /* ۲️⃣ تشابه Shingle با مقالات موجود — دو سنجش جدا:
+           - با برندهای دیگر (آستانه ۳۵٪)
+           - با مقالاتِ خودِ برند (آستانه ۲۵٪) */
         $worst = ['similarity' => 0.0, 'matched_with' => ''];
+        $worstSame = ['similarity' => 0.0, 'matched_with' => ''];
         $articles = $this->db->fetchAll(
             'SELECT id, brand_id, title, content FROM brand_articles ORDER BY id DESC LIMIT 500'
         );
         foreach ($articles as $article) {
+            $sim = $this->similarity($shingleSet, (string)$article['content']);
             if ((int)$article['brand_id'] === $brandId) {
-                continue; // محتوای خود برند مقایسه نمی‌شود
+                if ($sim > $worstSame['similarity']) {
+                    $worstSame = ['similarity' => $sim, 'matched_with' => 'مقاله همین برند: ' . $article['title']];
+                }
+                continue;
             }
-            $sim = $this->similarity($shingleSet, $article['content']);
             if ($sim > $worst['similarity']) {
                 $worst = ['similarity' => $sim, 'matched_with' => 'مقاله: ' . $article['title']];
-                if ($sim >= 100.0) {
-                    break;
-                }
             }
         }
 
-        // ۳️⃣ بررسی با محتوای صفحات برندهای دیگر
-        if ($worst['similarity'] < self::MAX_SIMILARITY) {
+        // ۳️⃣ بررسی با محتوای صفحات برندها
+        if ($worst['similarity'] < self::MAX_SIMILARITY && $worstSame['similarity'] < self::MAX_SIMILARITY_SAME_BRAND) {
             $pages = $this->db->fetchAll(
                 'SELECT brand_id, page_type, content FROM brand_pages WHERE content IS NOT NULL AND content != "" LIMIT 800'
             );
             foreach ($pages as $page) {
+                $sim = $this->similarity($shingleSet, (string)$page['content']);
                 if ((int)$page['brand_id'] === $brandId) {
+                    if ($sim > $worstSame['similarity']) {
+                        $worstSame = ['similarity' => $sim, 'matched_with' => 'صفحه همین برند: ' . $page['page_type']];
+                    }
                     continue;
                 }
-                $sim = $this->similarity($shingleSet, $page['content']);
                 if ($sim > $worst['similarity']) {
                     $worst = ['similarity' => $sim, 'matched_with' => 'صفحه: ' . $page['page_type']];
                 }
             }
         }
 
+        $unique = $worst['similarity'] < self::MAX_SIMILARITY
+            && $worstSame['similarity'] < self::MAX_SIMILARITY_SAME_BRAND;
+
+        /* بدترین مورد «همراه با برچسبِ همان برند» برای گزارش برگردانده می‌شود */
+        if ($worstSame['similarity'] >= $worst['similarity']) {
+            $matched = $worstSame['matched_with'];
+            $similarity = $worstSame['similarity'];
+        } else {
+            $matched = $worst['matched_with'];
+            $similarity = $worst['similarity'];
+        }
+
         return [
-            'unique'       => $worst['similarity'] < self::MAX_SIMILARITY,
-            'similarity'   => round($worst['similarity'], 2),
-            'matched_with' => $worst['matched_with'],
-            'hash'         => $hash,
+            'unique'                => $unique,
+            'similarity'            => round($similarity, 2),
+            'similarity_same_brand' => round($worstSame['similarity'], 2),
+            'similarity_other'      => round($worst['similarity'], 2),
+            'matched_with'          => $matched,
+            'hash'                  => $hash,
         ];
     }
 

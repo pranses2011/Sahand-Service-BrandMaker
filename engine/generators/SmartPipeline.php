@@ -118,26 +118,60 @@ class SmartPipeline
         $webResearch = null;
         $researchMode = array_key_exists('research', $params) ? $params['research'] : 'auto';
         $researchWanted = $researchMode === true || ($researchMode === 'auto' && $this->webSearchEnabled());
+        /* 🎚️ v2.35 — عمقِ تحقیق (سریع/متعادل/عمیق) از پارامتر می‌آید */
+        $researchDepth = (string)($params['research_depth'] ?? ($params['depth'] ?? 'balanced'));
         if ($researchWanted) {
             $t = microtime(true);
             try {
-                $webResearch = (new WebSearchService())->research($focusKeyword, [
-                    'fetch_pages' => !empty($params['research_fetch_pages']),
-                    'limit'       => 6,
+                /* 🔎 v2.35 — لایه‌ی تحقیقِ اختصاصیِ مقاله: چند کوئریِ فارسی+انگلیسی،
+                 * خواندنِ متن کامل صفحات، استخراجِ اسکلتِ رقبا، پرسش‌های واقعی،
+                 * آمارِ منبع‌دار و موجودیت‌ها (جایگزینِ research عمومیِ ۲ کوئری‌ای). */
+                $webResearch = (new ArticleResearchService())->research($focusKeyword, [
+                    'brand_fa'   => (string)$brand['name_fa'],
+                    'brand_en'   => (string)($brand['name_en'] ?? ''),
+                    'device_fa'  => $deviceFa,
+                    'device_en'  => (string)($deviceKnowledge['name_en'] ?? ''),
+                    'topic_type' => $topicType,
+                    'subject'    => $focusKeyword,
+                ], [
+                    'depth'      => $researchDepth,
+                    'brand_id'   => $brandId,
+                    'device_key' => (string)($deviceKey ?? ''),
+                    'learn'      => true,
                 ]);
-                $trace[] = $this->step('research', 'تحقیق آنلاین وب', $t, [
-                    'provider'    => $webResearch['provider'] ?? null,
-                    'keywords'    => count($webResearch['keywords'] ?? []),
+                $trace[] = $this->step('research', 'تحقیق عمیق وب (' . $researchDepth . ')', $t, [
+                    'depth'       => $researchDepth,
+                    'queries'     => count($webResearch['queries'] ?? []),
+                    'engines'     => $webResearch['engines'] ?? '',
+                    'results'     => (int)($webResearch['results'] ?? 0),
+                    'pages_read'  => (int)($webResearch['pages_read'] ?? 0),
+                    'outline'     => count($webResearch['outline'] ?? []),
                     'questions'   => count($webResearch['questions'] ?? []),
+                    'stats'       => count($webResearch['stats'] ?? []),
                     'facts'       => count($webResearch['facts'] ?? []),
+                    'entities'    => count($webResearch['entities'] ?? []),
                     'sources'     => count($webResearch['sources'] ?? []),
-                    'opportunities' => count($webResearch['opportunities'] ?? []),
+                    'source_stats'=> $webResearch['source_stats'] ?? [],
+                    'learned'     => (int)($webResearch['learned'] ?? 0),
+                    'took_ms'     => (int)($webResearch['took_ms'] ?? 0),
                 ]);
-            } catch (Exception $e) {
-                // شکست تحقیق نباید خط تولید را متوقف کند — مقاله با دانش داخلی ادامه می‌یابد
-                $trace[] = $this->step('research', 'تحقیق آنلاین وب (ناموفق — ادامه با دانش داخلی)', $t, [
-                    'error' => $e->getMessage(),
-                ]);
+            } catch (Throwable $e) {
+                /* 🔄 سقوط به تحقیقِ سبکِ قدیمی — هیچوقت خط تولید را متوقف نمی‌کند */
+                try {
+                    $webResearch = (new WebSearchService())->research($focusKeyword, [
+                        'fetch_pages' => true,
+                        'limit'       => 6,
+                    ]);
+                    $trace[] = $this->step('research', 'تحقیق آنلاین وب (حالت پشتیبان)', $t, [
+                        'provider' => $webResearch['provider'] ?? null,
+                        'fallback' => $e->getMessage(),
+                    ]);
+                } catch (Exception $e2) {
+                    $webResearch = null;
+                    $trace[] = $this->step('research', 'تحقیق آنلاین وب (ناموفق — ادامه با دانش داخلی)', $t, [
+                        'error' => $e2->getMessage(),
+                    ]);
+                }
             }
         }
 
@@ -157,6 +191,9 @@ class SmartPipeline
                متن ادغام شوند و جستجوی تکراری هم انجام نشود */
             'research'          => $webResearch !== null,
             'research_context'  => $webResearch,
+            /* 🎚️ v2.35: عمقِ تحقیق (اگر تحقیق در این خط انجام نشده باشد ولی
+               درخواستِ جستجو باشد، ژنراتور خودش با همین عمق انجام می‌دهد) */
+            'depth'             => $researchDepth,
         ]);
         $scoreInitial = $article['quality']['score'] ?? 0;
         $trace[] = $this->step('article', 'تولید مقاله (بهترین-از-' . $variants . ($customTitle !== '' ? ' — حول موضوع درخواستی' : '') . ')', $t, [
@@ -354,6 +391,16 @@ class SmartPipeline
                 'focus'       => $focusKeyword,
                 'alternatives' => $titles['titles'] ? array_column(array_slice($titles['titles'], 0, 3), 'title') : [],
                 'opportunities' => $webResearch['opportunities'] ?? [],
+                'research'      => $webResearch === null ? null : [
+                    'depth'        => $webResearch['depth'] ?? $researchDepth,
+                    'outline'      => count($webResearch['outline'] ?? []),
+                    'questions'    => count($webResearch['questions'] ?? []),
+                    'stats'        => count($webResearch['stats'] ?? []),
+                    'facts'        => count($webResearch['facts'] ?? []),
+                    'sources'      => count($webResearch['sources'] ?? []),
+                    'source_stats' => $webResearch['source_stats'] ?? [],
+                    'took_ms'      => (int)($webResearch['took_ms'] ?? 0),
+                ],
             ],
             'uniqueness' => $uniqueness,
             'research' => $webResearch ? [

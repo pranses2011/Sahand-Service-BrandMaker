@@ -104,7 +104,6 @@ function api_brand_article(int $brandId, string $slug): void
             'featured_image' => $article['featured_image'],
             'tags'        => json_decode($article['tags'] ?? '[]', true) ?: [],
             'published_at' => $article['published_at'],
-            'updated_at'   => $article['updated_at'] ?? $article['published_at'],
             'views'       => (int)$article['views'] + 1,
             'seo'         => [
                 'title'       => api_article_sweep_vars((string)$article['seo_title'], $brandRow),
@@ -114,6 +113,31 @@ function api_brand_article(int $brandId, string $slug): void
                 $r['title'] = api_article_sweep_vars((string)$r['title'], $brandRow);
                 return $r;
             }, $related),
+            /* 🔎 v2.35 — منابعِ تحقیق وب برای نمایش در صفحه مقاله (E-E-A-T) */
+            'sources'     => (function () use ($article) {
+                $raw = (string)($article['research'] ?? '');
+                if ($raw === '') {
+                    return [];
+                }
+                $data = json_decode($raw, true);
+                if (!is_array($data) || empty($data['sources'])) {
+                    return [];
+                }
+                $out = [];
+                foreach (array_slice((array)$data['sources'], 0, 6) as $src) {
+                    $url = (string)($src['url'] ?? '');
+                    $title = trim((string)($src['title'] ?? ''));
+                    if ($url === '' || $title === '' || !preg_match('#^https?://#i', $url)) {
+                        continue;
+                    }
+                    $out[] = [
+                        'title' => mb_substr($title, 0, 120),
+                        'url'   => $url,
+                        'host'  => (string)($src['host'] ?? (parse_url($url, PHP_URL_HOST) ?: '')),
+                    ];
+                }
+                return $out;
+            })(),
         ],
     ]);
 }

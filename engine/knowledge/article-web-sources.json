@@ -1,0 +1,552 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "purpose": "منابع، قالب‌های کوئری و جدول اعتماد برای «تحقیق عمیق مقاله» (ArticleResearchService)",
+    "note": "همه‌ی قالب‌ها می‌توانند این جای‌نشان‌ها را داشته باشند: {subject} {subject_en} {device_fa} {device_en} {brand_fa} {brand_en}. قالب‌های *_action برای موضوع‌هایی به کار می‌روند که خودشان با یک «فعل/عمل» شروع می‌شوند (تعمیر، نگهداری، نصب، سرویس …) تا خروجیِ بی‌معنا مثل «علت تعمیر برد…» ساخته نشود.",
+    "langs": [
+      "fa",
+      "en"
+    ]
+  },
+  "langs": [
+    "fa",
+    "en"
+  ],
+  "discovery_queries": {
+    "fa": [
+      "{subject}",
+      "علت {subject}",
+      "رفع {subject}",
+      "دلیل {subject} چیست",
+      "هزینه رفع {subject}",
+      "راهنمای کامل {subject}",
+      "{subject} {brand_fa}",
+      "تجربه کاربران از {subject}",
+      "اشتباهات رایج در {subject}",
+      "نشانه‌های {subject}"
+    ],
+    "en": [
+      "{subject_en}",
+      "how to fix {subject_en}",
+      "{subject_en} causes and solutions",
+      "{subject_en} step by step guide",
+      "{subject_en} cost",
+      "{device_en} {brand_en} {subject_en}",
+      "{device_en} troubleshooting guide",
+      "{subject_en} common mistakes",
+      "{subject_en} maintenance tips",
+      "{subject_en} service manual"
+    ],
+    "fa_action": [
+      "{subject}",
+      "{subject} گام‌به‌گام",
+      "هزینه {subject}",
+      "{subject} {brand_fa}",
+      "نکات مهم در {subject}",
+      "آموزش {subject}",
+      "مدت زمان {subject}",
+      "اشتباهات رایج در {subject}",
+      "{device_fa} {brand_fa} {subject}",
+      "بهترین روش {subject}"
+    ]
+  },
+  "question_queries": {
+    "fa": [
+      "چرا {subject}",
+      "چطور {subject} را برطرف کنیم",
+      "آیا {subject} خطرناک است",
+      "هزینه رفع {subject} چقدر است",
+      "چه زمانی برای {subject} باید با تعمیرکار تماس گرفت"
+    ],
+    "en": [
+      "why {subject_en}",
+      "how to {subject_en}",
+      "is {subject_en} dangerous",
+      "how much does {subject_en} cost"
+    ],
+    "fa_action": [
+      "هزینه {subject} چقدر است",
+      "چطور {subject} را انجام دهیم",
+      "چه زمانی {subject} لازم است",
+      "آیا {subject} به تخصص نیاز دارد"
+    ]
+  },
+  "intent_glossary": [
+    {
+      "fa": "تعمیر",
+      "en": "repair"
+    },
+    {
+      "fa": "خرابی",
+      "en": "failure"
+    },
+    {
+      "fa": "خراب",
+      "en": "broken"
+    },
+    {
+      "fa": "عیب",
+      "en": "fault"
+    },
+    {
+      "fa": "عیب‌یابی",
+      "en": "troubleshooting"
+    },
+    {
+      "fa": "رفع",
+      "en": "fix"
+    },
+    {
+      "fa": "علت",
+      "en": "cause"
+    },
+    {
+      "fa": "نگهداری",
+      "en": "maintenance"
+    },
+    {
+      "fa": "سرویس",
+      "en": "service"
+    },
+    {
+      "fa": "نصب",
+      "en": "installation"
+    },
+    {
+      "fa": "راهنما",
+      "en": "guide"
+    },
+    {
+      "fa": "هزینه",
+      "en": "cost"
+    },
+    {
+      "fa": "قیمت",
+      "en": "price"
+    },
+    {
+      "fa": "صدا",
+      "en": "noise"
+    },
+    {
+      "fa": "لرزش",
+      "en": "vibration"
+    },
+    {
+      "fa": "نشتی",
+      "en": "leak"
+    },
+    {
+      "fa": "بو",
+      "en": "odor"
+    },
+    {
+      "fa": "خنک نمی‌کند",
+      "en": "not cooling"
+    },
+    {
+      "fa": "سرد نمی‌کند",
+      "en": "not cooling"
+    },
+    {
+      "fa": "گرم نمی‌کند",
+      "en": "not heating"
+    },
+    {
+      "fa": "روشن نمی‌شود",
+      "en": "not turning on"
+    },
+    {
+      "fa": "برق",
+      "en": "power"
+    },
+    {
+      "fa": "برد",
+      "en": "control board"
+    },
+    {
+      "fa": "موتور",
+      "en": "motor"
+    },
+    {
+      "fa": "پمپ",
+      "en": "pump"
+    },
+    {
+      "fa": "فیلتر",
+      "en": "filter"
+    },
+    {
+      "fa": "سنسور",
+      "en": "sensor"
+    },
+    {
+      "fa": "کمپرسور",
+      "en": "compressor"
+    },
+    {
+      "fa": "فن",
+      "en": "fan"
+    },
+    {
+      "fa": "هیتر",
+      "en": "heater"
+    },
+    {
+      "fa": "المنت",
+      "en": "heating element"
+    },
+    {
+      "fa": "ترموستات",
+      "en": "thermostat"
+    },
+    {
+      "fa": "تسمه",
+      "en": "belt"
+    },
+    {
+      "fa": "بلبرینگ",
+      "en": "bearing"
+    },
+    {
+      "fa": "مصرف انرژی",
+      "en": "energy consumption"
+    },
+    {
+      "fa": "قبض برق",
+      "en": "electricity bill"
+    },
+    {
+      "fa": "گارانتی",
+      "en": "warranty"
+    },
+    {
+      "fa": "قطعه",
+      "en": "spare part"
+    },
+    {
+      "fa": "تمیز کردن",
+      "en": "cleaning"
+    },
+    {
+      "fa": "رسوب",
+      "en": "scale buildup"
+    }
+  ],
+  "verticals": [
+    {
+      "key": "manualslib",
+      "domain": "manualslib.com",
+      "lang": "en",
+      "kind": "manual",
+      "trust": 88
+    },
+    {
+      "key": "usermanual",
+      "domain": "usermanual.wiki",
+      "lang": "en",
+      "kind": "manual",
+      "trust": 80
+    },
+    {
+      "key": "manualsplus",
+      "domain": "manuals.plus",
+      "lang": "en",
+      "kind": "manual",
+      "trust": 78
+    },
+    {
+      "key": "ifixit",
+      "domain": "ifixit.com",
+      "lang": "en",
+      "kind": "manual",
+      "trust": 74
+    },
+    {
+      "key": "appliancepartspros",
+      "domain": "appliancepartspros.com",
+      "lang": "en",
+      "kind": "parts",
+      "trust": 76
+    },
+    {
+      "key": "partselect",
+      "domain": "partselect.com",
+      "lang": "en",
+      "kind": "parts",
+      "trust": 76
+    },
+    {
+      "key": "repairclinic",
+      "domain": "repairclinic.com",
+      "lang": "en",
+      "kind": "parts",
+      "trust": 74
+    },
+    {
+      "key": "searspartsdirect",
+      "domain": "searspartsdirect.com",
+      "lang": "en",
+      "kind": "parts",
+      "trust": 72
+    },
+    {
+      "key": "encompass",
+      "domain": "encompass.com",
+      "lang": "en",
+      "kind": "parts",
+      "trust": 70
+    },
+    {
+      "key": "fixya",
+      "domain": "fixya.com",
+      "lang": "en",
+      "kind": "forum",
+      "trust": 62
+    },
+    {
+      "key": "justanswer",
+      "domain": "justanswer.com",
+      "lang": "en",
+      "kind": "forum",
+      "trust": 60
+    },
+    {
+      "key": "reddit",
+      "domain": "reddit.com",
+      "lang": "en",
+      "kind": "forum",
+      "trust": 56
+    },
+    {
+      "key": "wikipedia",
+      "domain": "wikipedia.org",
+      "lang": "en",
+      "kind": "wiki",
+      "trust": 70
+    },
+    {
+      "key": "energygov",
+      "domain": "energy.gov",
+      "lang": "en",
+      "kind": "official",
+      "trust": 96
+    },
+    {
+      "key": "energystar",
+      "domain": "energystar.gov",
+      "lang": "en",
+      "kind": "official",
+      "trust": 94
+    }
+  ],
+  "fa_verticals": [
+    {
+      "key": "fa_forum",
+      "domain": ".ir",
+      "lang": "fa",
+      "kind": "fa_site",
+      "trust": 62
+    },
+    {
+      "key": "fa_edu",
+      "domain": "ac.ir",
+      "lang": "fa",
+      "kind": "official",
+      "trust": 84
+    }
+  ],
+  "official_domains": {
+    "samsung": [
+      "samsung.com",
+      "samsung.com/levant"
+    ],
+    "lg": [
+      "lg.com"
+    ],
+    "bosch": [
+      "bosch-home.com"
+    ],
+    "siemens": [
+      "siemens-home.bsh-group.com"
+    ],
+    "electrolux": [
+      "electrolux.com"
+    ],
+    "ariston": [
+      "ariston.com"
+    ],
+    "beko": [
+      "beko.com"
+    ],
+    "whirlpool": [
+      "whirlpool.com"
+    ],
+    "panasonic": [
+      "panasonic.com"
+    ],
+    "sony": [
+      "sony.com"
+    ],
+    "haier": [
+      "haier.com"
+    ],
+    "midea": [
+      "midea.com"
+    ],
+    "candy": [
+      "candy-home.com"
+    ],
+    "snowa": [
+      "snowa.ir"
+    ],
+    "pars_khazar": [
+      "parskhazar.ir"
+    ],
+    "general": []
+  },
+  "stop_domains": [
+    "youtube.com",
+    "youtu.be",
+    "instagram.com",
+    "telegram.me",
+    "t.me",
+    "aparat.com",
+    "pinterest.com",
+    "facebook.com",
+    "twitter.com",
+    "x.com",
+    "amazon.com",
+    "ebay.com",
+    "aliexpress.com",
+    "digikala.com",
+    "divar.ir",
+    "sheypoor.com",
+    "torob.com",
+    "imall.com",
+    "bamilo.com",
+    "emalls.ir",
+    "quora.com",
+    "answers.yahoo.com",
+    "wikipedia.org/wiki/Main_Page",
+    "tiktok.com",
+    "linkedin.com",
+    "medium.com",
+    "play.google.com",
+    "apps.apple.com"
+  ],
+  "trust": {
+    "official": 100,
+    "manual": 88,
+    "parts": 76,
+    "wiki": 70,
+    "fa_site": 64,
+    "forum": 58,
+    "other": 34
+  },
+  "outline_patterns": {
+    "fa": [
+      "علت‌های {subject}",
+      "راه‌حل گام‌به‌گام {subject}",
+      "هزینه و زمان {subject}",
+      "چه زمانی باید با متخصص تماس گرفت",
+      "پیشگیری از تکرار {subject}",
+      "اشتباهات رایج در {subject}",
+      "پرسش‌های پرتکرار درباره {subject}"
+    ],
+    "en": [
+      "{subject_en} causes",
+      "how to fix {subject_en}",
+      "{subject_en} cost",
+      "when to call a professional",
+      "preventing {subject_en}"
+    ]
+  },
+  "stat_units": [
+    "تومان",
+    "ریال",
+    "درصد",
+    "٪",
+    "%",
+    "ساعت",
+    "دقیقه",
+    "ثانیه",
+    "روز",
+    "هفته",
+    "ماه",
+    "سال",
+    "کیلووات",
+    "وات",
+    "کیلوگرم",
+    "گرم",
+    "لیتر",
+    "درجه",
+    "بار",
+    "دور",
+    "میلیون",
+    "هزار",
+    "برابر"
+  ],
+  "entity_stopwords": [
+    "این",
+    "آن",
+    "که",
+    "برای",
+    "از",
+    "با",
+    "در",
+    "به",
+    "روی",
+    "هم",
+    "هر",
+    "چه",
+    "چگونه",
+    "چرا",
+    "باید",
+    "می‌توان",
+    "شود",
+    "است",
+    "هستند",
+    "بود",
+    "بسیار",
+    "معمولاً",
+    "حتما",
+    "حتماً",
+    "مثلاً",
+    "یعنی",
+    "بعد",
+    "قبل",
+    "هنگام",
+    "وقتی",
+    "اگر",
+    "ولی",
+    "اما",
+    "یا",
+    "تا",
+    "همچنین",
+    "بنابراین"
+  ],
+  "action_prefixes": [
+    "تعمیر",
+    "نگهداری",
+    "سرویس",
+    "نصب",
+    "تعویض",
+    "تمیز کردن",
+    "رسوب‌زدایی",
+    "ریست",
+    "راه‌اندازی",
+    "تنظیم",
+    "بررسی",
+    "آموزش",
+    "راهنما",
+    "شارژ",
+    "عیب‌یابی",
+    "هواگیری",
+    "باز کردن",
+    "بستن",
+    "جابه‌جایی",
+    "افزایش",
+    "کاهش"
+  ]
+}

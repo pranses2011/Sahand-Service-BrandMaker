@@ -31,85 +31,13 @@ CREATE TABLE IF NOT EXISTS `users` (
   `password_hash` VARCHAR(255) NOT NULL COMMENT 'رمزنگاری BCRYPT',
   `full_name` VARCHAR(191) NOT NULL,
   `email` VARCHAR(191) NULL,
-  `role` ENUM('admin','editor','brand_manager') NOT NULL DEFAULT 'editor' COMMENT 'نقش کاربر (brand_manager = فقط برندهای تخصیص‌یافته)',
+  `role` ENUM('admin','editor') NOT NULL DEFAULT 'editor' COMMENT 'نقش کاربر',
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
   `last_login` DATETIME NULL,
-  `totp_secret` VARCHAR(64) NULL COMMENT '🆕 v2.34 — رمز Base32 ورود دومرحله‌ای',
-  `totp_enabled` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '🆕 v2.34 — فعال بودن 2FA',
-  `totp_recovery` TEXT NULL COMMENT '🆕 v2.34 — هش کدهای بازیابی (JSON)',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='کاربران پنل';
-
--- ============================================================
--- 🆕 v2.34 — brand_user_access: تخصیص برند به مدیر برند (ACL)
--- ============================================================
-CREATE TABLE IF NOT EXISTS `brand_user_access` (
-  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `user_id` INT UNSIGNED NOT NULL,
-  `brand_id` INT UNSIGNED NOT NULL,
-  `granted_by` INT UNSIGNED NULL,
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_user_brand` (`user_id`, `brand_id`),
-  KEY `idx_bua_brand` (`brand_id`),
-  CONSTRAINT `fk_bua_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_bua_brand` FOREIGN KEY (`brand_id`) REFERENCES `brands`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='تخصیص برند به مدیر برند (ACL)';
-
--- ============================================================
--- 🆕 v2.34 — password_resets: توکن‌های بازیابی رمز عبور
--- ============================================================
-CREATE TABLE IF NOT EXISTS `password_resets` (
-  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `user_id` INT UNSIGNED NOT NULL,
-  `token_hash` CHAR(64) NOT NULL,
-  `expires_at` DATETIME NOT NULL,
-  `used_at` DATETIME NULL,
-  `ip` VARCHAR(60) NULL,
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_pr_token` (`token_hash`),
-  KEY `idx_pr_user` (`user_id`),
-  CONSTRAINT `fk_pr_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='توکن‌های بازیابی رمز عبور';
-
--- ============================================================
--- 🆕 v2.34 — content_revisions: تاریخچه تغییرات برند/صفحه/مقاله
--- ============================================================
-CREATE TABLE IF NOT EXISTS `content_revisions` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `entity_type` ENUM('brand','page','article','menu') NOT NULL,
-  `entity_id` INT UNSIGNED NOT NULL,
-  `brand_id` INT UNSIGNED NULL,
-  `user_id` INT UNSIGNED NULL,
-  `title` VARCHAR(255) NULL,
-  `snapshot` LONGTEXT NOT NULL,
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_rev_entity` (`entity_type`, `entity_id`, `created_at`),
-  KEY `idx_rev_brand` (`brand_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='تاریخچه تغییرات برند/صفحه/مقاله';
-
--- ============================================================
--- 🆕 v2.34 — media_files: کتابخانه رسانه
--- ============================================================
-CREATE TABLE IF NOT EXISTS `media_files` (
-  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `path` VARCHAR(500) NOT NULL,
-  `kind` ENUM('article','logo','request','misc') NOT NULL DEFAULT 'misc',
-  `original_name` VARCHAR(255) NULL,
-  `alt` VARCHAR(255) NULL,
-  `size` INT UNSIGNED NULL,
-  `width` SMALLINT UNSIGNED NULL,
-  `height` SMALLINT UNSIGNED NULL,
-  `uploaded_by` INT UNSIGNED NULL,
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_media_path` (`path`),
-  KEY `idx_media_kind` (`kind`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='کتابخانه رسانه — فهرست و متادیتا';
 
 -- ============================================================
 -- 3️⃣ brands — برندها (رکورد هر سایت برند)
@@ -226,8 +154,11 @@ CREATE TABLE IF NOT EXISTS `brand_articles` (
   `slug` VARCHAR(500) NOT NULL COMMENT 'اسلاگ',
   `content` LONGTEXT NULL COMMENT 'محتوای HTML',
   `excerpt` VARCHAR(1000) NULL COMMENT 'خلاصه',
+  `focus_keyword` VARCHAR(255) NULL COMMENT 'کلیدواژه کانونی مقاله (v2.35)',
   `featured_image` VARCHAR(500) NULL COMMENT 'تصویر شاخص',
   `og_image` VARCHAR(500) NULL COMMENT 'تصویر OG تولیدی AI (قابل تعویض)',
+  `research` LONGTEXT NULL COMMENT 'خروجی تحقیق وب (JSON: منابع/فکت‌ها/آمار/عمق) — v2.35',
+  `depth` VARCHAR(16) NULL DEFAULT NULL COMMENT 'عمق تحقیق وب: fast/balanced/deep — v2.35',
   `category_ids` JSON NULL COMMENT 'شناسه دسته‌بندی‌ها',
   `tags` JSON NULL COMMENT 'تگ‌ها',
   `status` ENUM('draft','scheduled','published') NOT NULL DEFAULT 'draft',
@@ -248,6 +179,20 @@ CREATE TABLE IF NOT EXISTS `brand_articles` (
   KEY `idx_uniqueness` (`uniqueness_hash`),
   CONSTRAINT `fk_articles_brand` FOREIGN KEY (`brand_id`) REFERENCES `brands`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='مقالات برندها';
+
+-- ============================================================
+-- 7️⃣.۱ article_pool_usage — گزاره‌های دانش مصرف‌شده (ضد تکرار — v2.35)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `article_pool_usage` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `brand_id` INT UNSIGNED NOT NULL,
+  `device_key` VARCHAR(60) NOT NULL DEFAULT '',
+  `stmt_hash` CHAR(32) NOT NULL COMMENT 'md5 متن گزاره',
+  `used_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_pool` (`brand_id`, `device_key`, `stmt_hash`),
+  KEY `idx_pool_brand` (`brand_id`, `device_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='گزاره‌های دانش مصرف‌شده در مقالات (ضد تکرار)';
 
 -- ============================================================
 -- 8️⃣ scheduled_posts — پست‌های زمان‌بندی شده
@@ -552,27 +497,6 @@ CREATE TABLE IF NOT EXISTS `visits` (
   KEY `idx_visit_country` (`country`),
   KEY `idx_visit_last_seen` (`last_seen`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='بازدیدها';
-
--- ============================================================
--- 🆕 v2.34 — visits_daily: خلاصه روزانه آمار (نگهداری داده)
--- ============================================================
--- ردیف‌های visits بعد از ۱۸ ماه پاک می‌شوند؛ خلاصه روزانه
--- (بازدید/بازدیدکننده/نمای صفحه/دستگاه/استان) برای همیشه می‌ماند.
-CREATE TABLE IF NOT EXISTS `visits_daily` (
-  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `brand_id` INT UNSIGNED NOT NULL,
-  `stat_date` DATE NOT NULL,
-  `visits` INT UNSIGNED NOT NULL DEFAULT 0,
-  `visitors` INT UNSIGNED NOT NULL DEFAULT 0,
-  `page_views` INT UNSIGNED NOT NULL DEFAULT 0,
-  `device_types` JSON NULL,
-  `provinces` JSON NULL,
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_vd` (`brand_id`, `stat_date`),
-  CONSTRAINT `fk_vd_brand` FOREIGN KEY (`brand_id`) REFERENCES `brands`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='خلاصه روزانه آمار — پس از ۱۸ ماه ردیف visits پاک می‌شود';
 
 CREATE TABLE IF NOT EXISTS `geoip_cache` (
   `ip_prefix` VARCHAR(20) NOT NULL COMMENT 'پیشوند /24',
