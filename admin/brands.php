@@ -9,10 +9,21 @@
 define('SAHAND_INIT', true);
 require_once dirname(__DIR__) . '/config.php';
 
+/* 🛂 v2.34 — ACL سطح‌برند: گارد دسترسی (GET brand / POST brand_id)
+   brand_manager فقط به برندهای تخصیص‌یافته در users.php دسترسی دارد */
+$_aclBrand = (int)($_GET['brand'] ?? 0);
+if ($_aclBrand < 1) { $_aclBrand = (int)($_POST['brand_id'] ?? ($_POST['brand'] ?? 0)); }
+if ($_aclBrand > 0) {
+    (new Auth())->requireBrandAccess($_aclBrand);
+}
+
+
 $db = Database::getInstance();
 
 /* 🗑️ حذف برند — قبل از هرگونه خروجی پردازش می‌شود */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
+    /* 🛂 v2.34 — ACL: حذف برند فقط برای نقش سیستمی */
+    (new Auth())->requireSystemRole();
     Auth::enforceCsrf();
     $brandId = (int)post('brand_id');
     $brand = $db->fetch('SELECT name_fa FROM brands WHERE id = ?', [$brandId]);
@@ -62,6 +73,13 @@ $brands = $db->fetchAll(
      ORDER BY b.id DESC",
     $params
 );
+/* 🛂 v2.34 — ACL: brand_manager فقط برندهای تخصیص‌یافته را می‌بیند */
+$_aclIds = (new Auth())->accessibleBrandIds();
+if ($_aclIds !== null) {
+    $brands = array_values(array_filter($brands, function ($_b) use ($_aclIds) {
+        return in_array((int)$_b['id'], $_aclIds, true);
+    }));
+}
 
 $statusMap = [
     'draft'     => ['پیش‌نویس', 'badge-secondary'],
@@ -154,12 +172,14 @@ $statusMap = [
                                 <input type="hidden" name="brand_id" value="<?= (int)$brand['id'] ?>">
                                 <button type="submit" class="btn btn-outline btn-sm" title="فعال/غیرفعال"><?= $brand['is_active'] ? '⏸️' : '▶️' ?></button>
                             </form>
+                            <?php if (!(new Auth())->isBrandManager()): /* 🛂 v2.34 — حذف برند: فقط نقش سیستمی */ ?>
                             <form method="post" style="display:inline" data-confirm="⚠️ حذف برند، تمام صفحات، مقالات و داده‌های آن را پاک می‌کند. مطمئن هستید؟">
                                 <?= Auth::csrfField() ?>
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="brand_id" value="<?= (int)$brand['id'] ?>">
                                 <button type="submit" class="btn btn-danger btn-sm" title="حذف">🗑️</button>
                             </form>
+                            <?php endif; ?>
                         </div>
                     </td>
                 </tr>

@@ -43,10 +43,17 @@ try {
 
     // 🏷️ پربازدیدترین برندها
     $topBrands = $db->fetchAll(
-        'SELECT b.name_fa, b.logo, COUNT(DISTINCT v.session_hash) as visits
+        'SELECT b.id, b.name_fa, b.logo, COUNT(DISTINCT v.session_hash) as visits
          FROM brands b LEFT JOIN visits v ON v.brand_id = b.id
-         GROUP BY b.id ORDER BY visits DESC, b.name_fa LIMIT 6'
+         GROUP BY b.id ORDER BY visits DESC, b.name_fa LIMIT 12'
     );
+    /* 🛂 v2.34 — ACL داشبورد: brand_manager فقط آمار برندهای خودش را می‌بیند */
+    $_aclIds = (new Auth())->accessibleBrandIds();
+    if ($_aclIds !== null) {
+        $topBrands = array_slice(array_values(array_filter($topBrands, function ($_b) use ($_aclIds) {
+            return in_array((int)$_b['id'], $_aclIds, true);
+        })), 0, 6);
+    }
 
     // 📨 درخواست‌های اخیر
     $recentRequests = $db->fetchAll(

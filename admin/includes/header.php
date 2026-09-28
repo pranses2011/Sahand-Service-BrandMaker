@@ -20,6 +20,31 @@ $auth->requireLogin();
 $pageTitle = $pageTitle ?? 'پنل مدیریت';
 $activeMenu = $activeMenu ?? '';
 
+// 🛂 v2.34 — نقش محدود (brand_manager): آیتم‌های سیستمی منو پنهان می‌شوند
+$isLimitedRole = $auth->isBrandManager();
+
+/* 🛑 v2.34 — صفحات سیستمی فقط برای نقش سیستمی (admin/editor)
+   محافظت مرکزی: حتی با تایپ مستقیم URL هم ۴۰۳ می‌گیرد */
+if ($isLimitedRole) {
+    $_systemOnlyPages = [
+        'settings.php', 'api-keys.php', 'webmaster.php', 'cpanel-settings.php',
+        'fonts.php', 'icons.php', 'themes.php', 'ai-learning.php',
+        'telegram.php', 'bale.php', 'health-dashboard.php', 'deployment-logs.php',
+        'users.php',
+    ];
+    $_currentPage = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
+    if (in_array($_currentPage, $_systemOnlyPages, true)) {
+        Logger::activity($auth->userId(), 'دسترسی غیرمجاز', 'تلاش برای ورود به صفحه سیستمی ' . $_currentPage);
+        http_response_code(403);
+        echo '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>دسترسی غیرمجاز</title></head>'
+            . '<body style="font-family:Tahoma,sans-serif;direction:rtl;text-align:center;padding:60px 20px;background:#f8fafc">'
+            . '<div style="font-size:56px">⛔</div><h2>این بخش فقط برای مدیر سیستم است</h2>'
+            . '<p>حساب شما فقط به برندهای تخصیص‌یافته دسترسی دارد.</p>'
+            . '<p><a href="index.php">بازگشت به داشبورد</a></p></body></html>';
+        exit;
+    }
+}
+
 // 🔔 شمارش درخواست‌های جدید برای نشان منو
 try {
     $newRequests = Database::getInstance()->count('service_requests', "status = 'new'");
@@ -106,16 +131,16 @@ try {
                 <a class="nav-link <?= $activeMenu === 'template-builder' ? 'active' : '' ?>" href="template-builder.php">
                     <span class="icon">🎭</span> قالب‌ساز
                 </a>
-                <a class="nav-link <?= $activeMenu === 'themes' ? 'active' : '' ?>" href="themes.php">
+                <a class="nav-link <?= $activeMenu === 'themes' ? 'active' : '' ?>" href="themes.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
                     <span class="icon">🎨</span> تم‌ها
                 </a>
                 <a class="nav-link <?= $activeMenu === 'menus' ? 'active' : '' ?>" href="menus.php">
                     <span class="icon">☰</span> منوها
                 </a>
-                <a class="nav-link <?= $activeMenu === 'icons' ? 'active' : '' ?>" href="icons.php">
+                <a class="nav-link <?= $activeMenu === 'icons' ? 'active' : '' ?>" href="icons.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
                     <span class="icon">🖼️</span> آیکون‌ها
                 </a>
-                <a class="nav-link <?= $activeMenu === 'fonts' ? 'active' : '' ?>" href="fonts.php">
+                <a class="nav-link <?= $activeMenu === 'fonts' ? 'active' : '' ?>" href="fonts.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
                     <span class="icon">🔤</span> فونت‌ها
                 </a>
             </div>
@@ -146,14 +171,20 @@ try {
                 <a class="nav-link <?= $activeMenu === 'seo' ? 'active' : '' ?>" href="seo.php">
                     <span class="icon">🔍</span> مرکز سئو
                 </a>
-                <a class="nav-link <?= $activeMenu === 'ai-learning' ? 'active' : '' ?>" href="ai-learning.php">
+                <a class="nav-link <?= $activeMenu === 'ai-learning' ? 'active' : '' ?>" href="ai-learning.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
                     <span class="icon">🧠</span> یادگیری AI
                 </a>
-                <a class="nav-link <?= $activeMenu === 'telegram' ? 'active' : '' ?>" href="telegram.php">
+                <a class="nav-link <?= $activeMenu === 'telegram' ? 'active' : '' ?>" href="telegram.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
                     <span class="icon">🤖</span> ربات تلگرام
                 </a>
-                <a class="nav-link <?= $activeMenu === 'bale' ? 'active' : '' ?>" href="bale.php">
+                <a class="nav-link <?= $activeMenu === 'bale' ? 'active' : '' ?>" href="bale.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
                     <span class="icon">💬</span> ربات بله
+                </a>
+                <a class="nav-link <?= $activeMenu === 'media' ? 'active' : '' ?>" href="media.php">
+                    <span class="icon">🗃️</span> رسانه‌ها
+                </a>
+                <a class="nav-link <?= $activeMenu === 'revisions' ? 'active' : '' ?>" href="revisions.php">
+                    <span class="icon">🕘</span> تاریخچه تغییرات
                 </a>
                 <a class="nav-link <?= $activeMenu === 'export' ? 'active' : '' ?>" href="export.php">
                     <span class="icon">📦</span> خروجی و استقرار
@@ -165,33 +196,39 @@ try {
                 <a class="nav-link <?= $activeMenu === 'deploy' ? 'active' : '' ?>" href="deploy.php">
                     <span class="icon">🚀</span> استقرار سایت‌ها
                 </a>
-                <a class="nav-link <?= $activeMenu === 'health-dashboard' ? 'active' : '' ?>" href="health-dashboard.php">
+                <a class="nav-link <?= $activeMenu === 'health-dashboard' ? 'active' : '' ?>" href="health-dashboard.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
                     <span class="icon">📊</span> سلامت سایت‌ها
                 </a>
                 <a class="nav-link <?= $activeMenu === 'backups' ? 'active' : '' ?>" href="backups.php">
                     <span class="icon">💾</span> بکاپ‌ها
                 </a>
-                <a class="nav-link <?= $activeMenu === 'deployment-logs' ? 'active' : '' ?>" href="deployment-logs.php">
+                <a class="nav-link <?= $activeMenu === 'deployment-logs' ? 'active' : '' ?>" href="deployment-logs.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
                     <span class="icon">📋</span> لاگ استقرار
                 </a>
-                <a class="nav-link <?= $activeMenu === 'cpanel-settings' ? 'active' : '' ?>" href="cpanel-settings.php">
+                <a class="nav-link <?= $activeMenu === 'cpanel-settings' ? 'active' : '' ?>" href="cpanel-settings.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
                     <span class="icon">⚙️</span> اتصال cPanel
                 </a>
             </div>
 
             <div class="nav-section">
                 <div class="nav-section-title">سیستم</div>
-                <a class="nav-link <?= $activeMenu === 'settings' ? 'active' : '' ?>" href="settings.php">
+                <a class="nav-link <?= $activeMenu === 'users' ? 'active' : '' ?>" href="users.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
+                    <span class="icon">👥</span> کاربران و دسترسی
+                </a>
+                <a class="nav-link <?= $activeMenu === 'settings' ? 'active' : '' ?>" href="settings.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
                     <span class="icon">⚙️</span> تنظیمات
                 </a>
-                <a class="nav-link <?= $activeMenu === 'api-keys' ? 'active' : '' ?>" href="api-keys.php">
+                <a class="nav-link <?= $activeMenu === 'api-keys' ? 'active' : '' ?>" href="api-keys.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
                     <span class="icon">🔑</span> کلیدهای API
                 </a>
-                <a class="nav-link <?= $activeMenu === 'webmaster' ? 'active' : '' ?>" href="webmaster.php">
+                <a class="nav-link <?= $activeMenu === 'webmaster' ? 'active' : '' ?>" href="webmaster.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
                     <span class="icon">🔗</span> تگ‌های وبمستر
                 </a>
                 <a class="nav-link <?= $activeMenu === 'docs' ? 'active' : '' ?>" href="docs.php">
                     <span class="icon">📚</span> مستندات
+                </a>
+                <a class="nav-link <?= $activeMenu === 'profile' ? 'active' : '' ?>" href="profile.php">
+                    <span class="icon">👤</span> حساب کاربری من
                 </a>
                 <a class="nav-link" href="logout.php">
                     <span class="icon">🚪</span> خروج
@@ -213,10 +250,12 @@ try {
                     🔔
                     <?php if ($newRequests > 0): ?><span class="dot"></span><?php endif; ?>
                 </a>
-                <div class="user-chip">
-                    <span class="avatar"><?= e(mb_substr($_SESSION['full_name'] ?? 'م', 0, 1)) ?></span>
-                    <span><?= e($_SESSION['full_name'] ?? '') ?></span>
-                </div>
+                <a href="profile.php" title="حساب کاربری من — رمز و ورود دومرحله‌ای" style="text-decoration:none">
+                    <div class="user-chip" style="cursor:pointer">
+                        <span class="avatar"><?= e(mb_substr($_SESSION['full_name'] ?? 'م', 0, 1)) ?></span>
+                        <span><?= e($_SESSION['full_name'] ?? '') ?></span>
+                    </div>
+                </a>
             </div>
         </header>
 

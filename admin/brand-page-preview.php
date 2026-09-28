@@ -13,6 +13,15 @@
 define('SAHAND_INIT', true);
 require_once dirname(__DIR__) . '/config.php';
 
+/* 🛂 v2.34 — ACL سطح‌برند: گارد دسترسی (GET brand / POST brand_id)
+   brand_manager فقط به برندهای تخصیص‌یافته در users.php دسترسی دارد */
+$_aclBrand = (int)($_GET['brand'] ?? 0);
+if ($_aclBrand < 1) { $_aclBrand = (int)($_POST['brand_id'] ?? ($_POST['brand'] ?? 0)); }
+if ($_aclBrand > 0) {
+    (new Auth())->requireBrandAccess($_aclBrand);
+}
+
+
 $auth = new Auth();
 $auth->requireLogin();
 /* 🛡️ v2.33 — دفاع در عمق: رد درخواست بین‌سایتی (گزارش تحلیل — بخش امنیت) */

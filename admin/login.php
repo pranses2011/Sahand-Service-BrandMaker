@@ -32,7 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $result = $auth->login(post('username'), (string)($_POST['password'] ?? ''), (string)($_POST['captcha'] ?? ''));
         if ($result['success']) {
-            redirect('index.php');
+            // 🔐 v2.34 — ورود دومرحله‌ای: مرحله رمز درست بوده، حالا کد TOTP لازم است
+            redirect(!empty($result['twofa']) ? 'verify-2fa.php' : 'index.php');
         }
         $error = $result['message'];
     }
@@ -358,6 +359,10 @@ $logoUrl     = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
             <span>اتصال امن SSL</span>
             <span>·</span>
             <span>نسخه <?= e(SAHAND_VERSION) ?></span>
+        </div>
+        <!-- 🔑 v2.34 — لینک بازیابی رمز عبور -->
+        <div style="margin-top:14px;text-align:center;font-size:13px">
+            <a href="forgot-password.php" style="color:#2563eb;text-decoration:none">رمز عبور را فراموش کرده‌اید؟</a>
         </div>
     </main>
 

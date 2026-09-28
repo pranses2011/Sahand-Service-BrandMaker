@@ -56,8 +56,27 @@ class Auth
                 : '⛔ حساب شما موقتاً قفل شد. کمی بعد تلاش کنید.'];
         }
 
-        // ۵️⃣ ورود موفق — پاکسازی تلاش‌ها و ساخت نشست امن
+        // ۵️⃣ 🔐 ورود دومرحله‌ای (v2.34) — اگر TOTP فعال است و این دستگاه مورد اعتماد نیست،
+        //    ورود نیمه‌کاره می‌ماند و کد از verify-2fa.php پرسیده می‌شود
+        if (!empty($user['totp_enabled']) && !empty($user['totp_secret']) && !Totp::isTrustedDevice()) {
+            $this->clearFailedAttempts($username); // رمز درست بوده — تلاش‌های ناموفق پاک شوند
+            session_regenerate_id(true);
+            $_SESSION['pending_2fa_user'] = (int)$user['id'];
+            $_SESSION['pending_2fa_time'] = time();
+            return ['success' => true, 'twofa' => true, 'message' => 'کد دومرحله‌ای لازم است.'];
+        }
+
+        // ۶️⃣ ورود موفق — پاکسازی تلاش‌ها و ساخت نشست امن
         $this->clearFailedAttempts($username);
+        return $this->completeLogin($user);
+    }
+
+    /**
+     * ✅ تکمیل ورود پس از (در صورت نیاز) عبور از دومرحله‌ای
+     * @param array $user ردیف کامل کاربر از دیتابیس
+     */
+    public function completeLogin(array $user): array
+    {
         session_regenerate_id(true); // 🔄 جلوگیری از Session Fixation
 
         $_SESSION['user_id']    = (int)$user['id'];
@@ -65,6 +84,7 @@ class Auth
         $_SESSION['full_name']  = $user['full_name'];
         $_SESSION['user_role']  = $user['role'];
         $_SESSION['login_time'] = time();
+        unset($_SESSION['pending_2fa_user'], $_SESSION['pending_2fa_time']);
 
         // بروزرسانی آخرین زمان ورود
         $this->db->update('users', ['last_login' => date('Y-m-d H:i:s')], 'id = ?', [$user['id']]);
@@ -76,6 +96,93 @@ class Auth
     }
 
     /**
+     * 🔑 کاربر معلق در مرحله دومرحله‌ای (بعد از رمز درست)
+     */
+    public function pendingTwoFactorId(): int
+    {
+        // انقضای مرحله معلق: ۵ دقیقه
+        if (!empty($_SESSION['pending_2fa_user'])
+            && (int)($_SESSION['pending_2fa_time'] ?? 0) > time() - 300) {
+            return (int)$_SESSION['pending_2fa_user'];
+        }
+        unset($_SESSION['pending_2fa_user'], $_SESSION['pending_2fa_time']);
+        return 0;
+    }
+
+    /**
+     * 🔐 راستی‌آزمایی کد TOTP یا کد بازیابی مرحله دوم — با محدودیت تلاش
+     * @return array ['success'=>bool,'message'=>string,'user'=>?array]
+     */
+    public function verifyTwoFactor(string $code, bool $rememberDevice = false): array
+    {
+        $uid = $this->pendingTwoFactorId();
+        if ($uid < 1) {
+            return ['success' => false, 'message' => 'مرحله ورود منقضی شده — دوباره وارد شوید.', 'user' => null];
+        }
+
+        // ⛔ محدودیت تلاش ناموفق: ۵ تلاش / ۱۰ دقیقه (جلوگیری از حدس کد ۶ رقمی)
+        $key = 'twofa_fail_' . $uid;
+        $row = $this->db->fetch('SELECT hit_count, expires_at FROM rate_limits WHERE limit_key = ? LIMIT 1', [$key]);
+        $fails = ($row && strtotime((string)$row['expires_at']) > time()) ? (int)$row['hit_count'] : 0;
+        if ($fails >= 5) {
+            unset($_SESSION['pending_2fa_user'], $_SESSION['pending_2fa_time']);
+            return ['success' => false, 'message' => '⛔ تلاش‌های نامعتبر زیاد بود — از ابتدا وارد شوید.', 'user' => null];
+        }
+
+        $user = $this->db->fetch('SELECT * FROM users WHERE id = ? AND is_active = 1 LIMIT 1', [$uid]);
+        if (!$user) {
+            return ['success' => false, 'message' => 'کاربر یافت نشد.', 'user' => null];
+        }
+
+        // ۱) کد TOTP عادی
+        $ok = Totp::verify((string)$user['totp_secret'], $code);
+
+        // ۲) کد بازیابی (یک‌بار مصرف)
+        $recoveryRemaining = null;
+        if (!$ok) {
+            $rc = Totp::consumeRecoveryCode((string)($user['totp_recovery'] ?? '[]'), $code);
+            if ($rc['matched']) {
+                $ok = true;
+                $recoveryRemaining = $rc['remainingJson'];
+            }
+        }
+
+        if (!$ok) {
+            $this->recordKeyAttempt($key, $fails);
+            $left = 4 - $fails;
+            return ['success' => false, 'message' => $left > 0 ? "❌ کد نادرست است. {$left} تلاش باقی مانده." : '❌ کد نادرست است.', 'user' => null];
+        }
+
+        // ✅ موفق — پاک‌سازی شمارنده + درج مجدد کدهای بازیابی باقیمانده
+        $this->db->delete('rate_limits', 'limit_key = ?', [$key]);
+        if ($recoveryRemaining !== null) {
+            $this->db->update('users', ['totp_recovery' => $recoveryRemaining], 'id = ?', [$uid]);
+        }
+        if ($rememberDevice) {
+            Totp::issueTrustCookie($uid);
+        }
+        $result = $this->completeLogin($user);
+        $result['user'] = $user;
+        if ($recoveryRemaining !== null) {
+            $result['used_recovery'] = true;
+        }
+        return $result;
+    }
+
+    /**
+     * 📝 ثبت تلاش ناموفق برای کلید دلخواه (۲FA/بازیابی رمز) — قابل استفاده عمومی
+     */
+    private function recordKeyAttempt(string $key, int $currentFails): void
+    {
+        $expires = date('Y-m-d H:i:s', time() + 600);
+        if ($currentFails > 0) {
+            $this->db->update('rate_limits', ['hit_count' => $currentFails + 1, 'expires_at' => $expires], 'limit_key = ?', [$key]);
+        } else {
+            $this->db->insert('rate_limits', ['limit_key' => $key, 'hit_count' => 1, 'expires_at' => $expires]);
+        }
+    }
+
+    /**
      * 🚪 خروج کاربر و پاکسازی نشست
      */
     public function logout(): void
@@ -83,6 +190,7 @@ class Auth
         if ($this->isLoggedIn()) {
             Logger::activity($this->userId(), 'خروج از سیستم', 'خروج کاربر');
         }
+        Totp::revokeTrustCookie(); // 🍪 دستگاه ذی‌نفع دیگر مورد اعتماد نیست (v2.34)
         $_SESSION = [];
         if (ini_get('session.use_cookies')) {
             $p = session_get_cookie_params();
@@ -139,6 +247,179 @@ class Auth
     public function isAdmin(): bool
     {
         return $this->role() === 'admin';
+    }
+
+    /* ==================================================
+     * 🛂 ACL سطح‌برند (v2.34) — نقش سوم brand_manager
+     * ================================================== */
+
+    /** نقش‌های سیستمی با دسترسی کامل به همه برندها (admin + editor — حفظ رفتار قبلی) */
+    public function isSystemRole(): bool
+    {
+        return in_array($this->role(), ['admin', 'editor'], true);
+    }
+
+    /** مدیر برند — فقط برندهای تخصیص‌یافته */
+    public function isBrandManager(): bool
+    {
+        return $this->role() === 'brand_manager';
+    }
+
+    /**
+     * 🆔 شناسه برندهای در دسترس کاربر جاری — admin/editor همه، brand_manager فقط تخصیص‌یافته‌ها
+     * @return int[]|null null یعنی «همه برندها» (بدون محدودیت)
+     */
+    public function accessibleBrandIds(): ?array
+    {
+        if (!$this->isBrandManager()) {
+            return null;
+        }
+        // بدون کش static: کوئری اندیس‌دار سبک است و تخصیص لحظه‌ای مدیر (در همان نشست)
+        // بلافاصله اعمال می‌شود
+        $rows = $this->db->fetchAll(
+            'SELECT brand_id FROM brand_user_access WHERE user_id = ?',
+            [$this->userId()]
+        );
+        return array_map('intval', array_column($rows, 'brand_id'));
+    }
+
+    /**
+     * ✅ آیا کاربر جاری به این برند دسترسی دارد؟
+     */
+    public function canAccessBrand(int $brandId): bool
+    {
+        if ($brandId < 1) {
+            return false;
+        }
+        $ids = $this->accessibleBrandIds();
+        return $ids === null || in_array($brandId, $ids, true);
+    }
+
+    /**
+     * 🛑 الزام دسترسی به برند — در صورت نبود، ۴۰۳ (برای صفحات ?brand=)
+     */
+    public function requireBrandAccess(int $brandId): void
+    {
+        if (!$this->canAccessBrand($brandId)) {
+            http_response_code(403);
+            Logger::activity($this->userId(), 'دسترسی غیرمجاز', "تلاش برای دسترسی به برند #{$brandId} بدون مجوز");
+            echo '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>دسترسی غیرمجاز</title></head>'
+                . '<body style="font-family:Tahoma,sans-serif;direction:rtl;text-align:center;padding:60px 20px">'
+                . '<div style="font-size:56px">⛔</div><h2>دسترسی غیرمجاز</h2>'
+                . '<p>شما به این برند دسترسی ندارید. برای دریافت دسترسی با مدیر سیستم تماس بگیرید.</p>'
+                . '<p><a href="index.php">بازگشت به داشبورد</a></p></body></html>';
+            exit;
+        }
+    }
+
+    /**
+     * 🛑 الزام نقش سیستمی — صفحات حیاتی پنل (users/settings/api-keys/...)
+     * brand_manager را با ۴۰۳ رد می‌کند (admin/editor طبق رفتار قبلی عبور می‌کنند)
+     */
+    public function requireSystemRole(): void
+    {
+        if ($this->isBrandManager()) {
+            http_response_code(403);
+            echo '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>دسترسی غیرمجاز</title></head>'
+                . '<body style="font-family:Tahoma,sans-serif;direction:rtl;text-align:center;padding:60px 20px">'
+                . '<div style="font-size:56px">⛔</div><h2>این بخش فقط برای مدیر سیستم است</h2>'
+                . '<p><a href="index.php">بازگشت به داشبورد</a></p></body></html>';
+            exit;
+        }
+    }
+
+    /**
+     * 🏷️ شرط SQL برندهای در دسترس — برای فیلتر خودکار لیست‌ها
+     * @return array [sql, params] — sql خالی یعنی بدون محدودیت
+     */
+    public function brandAccessSql(string $column = 'b.id'): array
+    {
+        $ids = $this->accessibleBrandIds();
+        if ($ids === null) {
+            return ['', []];
+        }
+        if ($ids === []) {
+            return [' AND 1=0', []]; // هیچ برندی تخصیص نیافته
+        }
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        return [" AND {$column} IN ({$ph})", $ids];
+    }
+
+    /* ==================================================
+     * 📨 بازیابی رمز عبور (v2.34) — توکن یک‌بارمصرف ۶۰ دقیقه‌ای
+     * ================================================== */
+
+    /**
+     * 🔗 ساخت توکن بازیابی برای کاربر (اگر کاربر معتبر و ایمیل داشته باشد)
+     * همیشه پاسخ یکسان برمی‌گردد (جلوگیری از افشای وجود کاربر)
+     * @return array ['sent'=>bool,'error'=>?string,'token'=>?string(فقط در محیط تست/دیباگ)]
+     */
+    public function createPasswordReset(string $login): array
+    {
+        $login = trim($login);
+        if ($login === '') {
+            return ['sent' => false, 'error' => null];
+        }
+        // محدودیت: ۳ درخواست / ۱۰ دقیقه بر اساس نام ورودی (جلوگیری از بمب ایمیل)
+        $key = 'pwreset_' . md5(mb_strtolower($login));
+        $row = $this->db->fetch('SELECT hit_count, expires_at FROM rate_limits WHERE limit_key = ? LIMIT 1', [$key]);
+        $fails = ($row && strtotime((string)$row['expires_at']) > time()) ? (int)$row['hit_count'] : 0;
+        if ($fails >= 3) {
+            return ['sent' => false, 'error' => 'درخواست‌های زیاد — ۱۰ دقیقه دیگر تلاش کنید.'];
+        }
+
+        $user = $this->db->fetch(
+            'SELECT id, email, full_name FROM users WHERE (username = ? OR email = ?) AND is_active = 1 LIMIT 1',
+            [$login, $login]
+        );
+        if (!$user || empty($user['email']) || !filter_var($user['email'], FILTER_VALIDATE_EMAIL)) {
+            $this->recordKeyAttempt($key, $fails); // حتی در نبود کاربر شمارش می‌شود (ضد شمارش کاربران)
+            return ['sent' => false, 'error' => null];
+        }
+
+        // توکن ۳۲ بایتی — فقط هش در دیتابیس (افشای DB = لو نرفتن توکن‌ها)
+        $token = bin2hex(random_bytes(32));
+        $this->db->delete('password_resets', 'user_id = ?', [$user['id']]); // توکن‌های قبلی باطل
+        $this->db->insert('password_resets', [
+            'user_id'    => $user['id'],
+            'token_hash' => hash('sha256', $token),
+            'expires_at' => date('Y-m-d H:i:s', time() + 3600),
+            'created_at' => date('Y-m-d H:i:s'),
+            'ip'         => substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 60),
+        ]);
+        $this->recordKeyAttempt($key, $fails);
+        return ['sent' => true, 'error' => null, 'token' => $token, 'user' => $user];
+    }
+
+    /**
+     * ✅ مصرف توکن بازیابی + تعیین رمز جدید
+     * @return array ['ok'=>bool,'message'=>string,'user_id'=>int]
+     */
+    public function consumePasswordReset(string $token, string $newPassword): array
+    {
+        if (strlen($token) !== 64 || !ctype_xdigit($token)) {
+            return ['ok' => false, 'message' => 'لینک بازیابی نامعتبر است.', 'user_id' => 0];
+        }
+        if (strlen($newPassword) < 8) {
+            return ['ok' => false, 'message' => 'رمز عبور باید حداقل ۸ کاراکتر باشد.', 'user_id' => 0];
+        }
+        $row = $this->db->fetch(
+            'SELECT * FROM password_resets WHERE token_hash = ? AND used_at IS NULL AND expires_at > NOW() LIMIT 1',
+            [hash('sha256', $token)]
+        );
+        if (!$row) {
+            return ['ok' => false, 'message' => 'لینک بازیابی منقضی یا استفاده‌شده است. دوباره درخواست دهید.', 'user_id' => 0];
+        }
+        $this->db->update('users', [
+            'password_hash' => password_hash($newPassword, PASSWORD_BCRYPT),
+            'totp_enabled'  => 0, // 🔐 تغییر رمز = بی‌اعتبار شدن 2FA (محافظت در برابر حساب ربوده‌شده)
+            'totp_secret'   => null,
+            'totp_recovery' => null,
+        ], 'id = ?', [$row['user_id']]);
+        $this->db->update('password_resets', ['used_at' => date('Y-m-d H:i:s')], 'id = ?', [$row['id']]);
+        $this->db->delete('password_resets', 'user_id = ?', [$row['user_id']]);
+        Logger::activity((int)$row['user_id'], 'بازیابی رمز عبور', 'رمز عبور از طریق لینک بازیابی تغییر کرد');
+        return ['ok' => true, 'message' => '✅ رمز عبور با موفقیت تغییر کرد. حالا وارد شوید.', 'user_id' => (int)$row['user_id']];
     }
 
     /* ==================================================
@@ -576,5 +857,24 @@ class Auth
             'is_active'     => 1,
             'created_at'    => date('Y-m-d H:i:s'),
         ]);
+    }
+
+    /**
+     * 📧 ایمیلِ کاربر فعال با این نام کاربری (برای صفحه بازیابی)
+     * فقط بخش اول ایمیل را برمی‌گرداند (نمایش ماسک‌شده — j***@gmail.com)
+     */
+    public static function maskedEmailFor(string $login): string
+    {
+        $row = Database::getInstance()->fetch(
+            'SELECT email FROM users WHERE (username = ? OR email = ?) AND is_active = 1 AND email IS NOT NULL AND email <> \'\' LIMIT 1',
+            [trim($login), trim($login)]
+        );
+        $email = (string)($row['email'] ?? '');
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return '';
+        }
+        [$local, $domain] = explode('@', $email, 2);
+        $shown = mb_substr($local, 0, 1) . str_repeat('*', max(1, min(5, mb_strlen($local) - 1)));
+        return $shown . '@' . $domain;
     }
 }

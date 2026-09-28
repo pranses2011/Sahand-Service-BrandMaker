@@ -11,6 +11,15 @@
 define('SAHAND_INIT', true);
 require_once dirname(__DIR__) . '/config.php';
 
+/* 🛂 v2.34 — ACL سطح‌برند: گارد دسترسی (GET brand / POST brand_id)
+   brand_manager فقط به برندهای تخصیص‌یافته در users.php دسترسی دارد */
+$_aclBrand = (int)($_GET['brand'] ?? 0);
+if ($_aclBrand < 1) { $_aclBrand = (int)($_POST['brand_id'] ?? ($_POST['brand'] ?? 0)); }
+if ($_aclBrand > 0) {
+    (new Auth())->requireBrandAccess($_aclBrand);
+}
+
+
 $db = Database::getInstance();
 
 /* 📤 درخواست دانلود */
@@ -156,6 +165,13 @@ $activeMenu = 'export';
 require __DIR__ . '/includes/header.php';
 
 $brands = $db->fetchAll("SELECT id, name_fa, name_en, domain, status, logo FROM brands ORDER BY name_fa");
+/* 🛂 v2.34 — ACL: brand_manager فقط برندهای تخصیص‌یافته را می‌بیند */
+$_aclIds = (new Auth())->accessibleBrandIds();
+if ($_aclIds !== null) {
+    $brands = array_values(array_filter($brands, function ($_b) use ($_aclIds) {
+        return in_array((int)$_b['id'], $_aclIds, true);
+    }));
+}
 $generatedFile = get_param('generated');
 
 // 🧹 پاکسازی ZIP های قدیمی‌تر از ۱ ساعت
