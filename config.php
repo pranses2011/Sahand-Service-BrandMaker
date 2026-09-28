@@ -791,9 +791,10 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
             $pdo = Database::getInstance()->pdo();
 
             $addCol = function (string $col, string $ddl) use ($pdo): void {
-                $st = $pdo->prepare("SHOW COLUMNS FROM `error_codes` LIKE ?");
-                $st->execute([$col]);
-                if (empty($st->fetchAll())) {
+                /* 🐛 v2.34 — MariaDB پارامتر در دستور SHOW را پشتیبانی نمی‌کند
+                   (Syntax error 1064)؛ مقدار با quote امن درون‌خطی می‌شود */
+                $st = $pdo->query("SHOW COLUMNS FROM `error_codes` LIKE " . $pdo->quote($col));
+                if ($st === false || empty($st->fetchAll())) {
                     $pdo->exec($ddl);
                 }
             };
@@ -831,7 +832,11 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
             @file_put_contents($v233Marker, date('Y-m-d H:i:s'));
         }
     } catch (Throwable $v233SchemaE) {
+        // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
+    }
+}
 
+/* --------------------------------------------------
  * 🆕 مهاجرت v2.34 — حساب کاربری: 2FA + بازیابی رمز + ACL برند
  * --------------------------------------------------
  * ① users: ستون‌های totp_secret/totp_enabled/totp_recovery + نقش brand_manager
