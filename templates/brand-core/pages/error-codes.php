@@ -16,7 +16,14 @@ $pageTitle = 'کدهای خطای دستگاه‌ها | ' . BRAND_NAME_FA;
 $pageDesc = 'راهنمای جامع کدهای خطای دستگاه‌های ' . BRAND_NAME_FA . ' — علت و راه‌حل هر خطا';
 $crumbTitle = 'کدهای خطا';
 require __DIR__ . '/_page_base.php';
-$severityMap = ['low' => ['کم', 'sev-low'], 'medium' => ['متوسط', 'sev-med'], 'high' => ['زیاد', 'sev-high'], 'critical' => ['بحرانی', 'sev-crit']];
+/* 🆕 v2.33 — سطح «اطلاعاتی» هم در نقشه هست (قبلاً به «متوسط» می‌افتاد) */
+$severityMap = [
+    'low'           => ['کم', 'sev-low'],
+    'medium'        => ['متوسط', 'sev-med'],
+    'high'          => ['زیاد', 'sev-high'],
+    'critical'      => ['بحرانی', 'sev-crit'],
+    'informational' => ['اطلاعاتی', 'sev-info'],
+];
 ?>
 <section class="section">
     <div class="container error-codes-page">
@@ -52,6 +59,59 @@ $severityMap = ['low' => ['کم', 'sev-low'], 'medium' => ['متوسط', 'sev-me
                             <?php endif; ?>
                             <?php if (!empty($code['solutions'])): ?>
                                 <div class="ecode-sec"><h3>✅ راه‌حل‌ها</h3><ul><?php foreach ($code['solutions'] as $sol): ?><li><?= e($sol) ?></li><?php endforeach; ?></ul></div>
+                            <?php endif; ?>
+                            <?php
+                            /* 🆕 v2.33 — نمایش شش فیلد تکمیلی (فقط اگر مقدار دارند؛
+                               رکوردهای قدیمی بدون این فیلدها باید همان رفتار قبلی
+                               را داشته باشند و بلوک خالی نمایش ندهند) */
+                            $ecModels   = is_array($code['models'] ?? null) ? array_values(array_filter((array)$code['models'])) : [];
+                            $ecSubtype  = trim((string)($code['subtype'] ?? ''));
+                            $ecCategory = trim((string)($code['category'] ?? ''));
+                            $ecPart     = trim((string)($code['related_part'] ?? ''));
+                            $ecSpecs    = trim((string)($code['tech_specs'] ?? ''));
+                            $ecLoc      = trim((string)($code['part_location'] ?? ''));
+                            $ecHasMeta  = ($ecSubtype !== '' && $ecSubtype !== 'همه زیرنوع‌ها') || $ecModels || $ecCategory !== '';
+                            $ecHasPart  = ($ecPart !== '' || $ecSpecs !== '' || $ecLoc !== '');
+                            ?>
+                            <?php if ($ecHasMeta || $ecHasPart): ?>
+                                <div class="ecode-meta">
+                                    <?php if ($ecHasMeta): ?>
+                                        <div class="ecode-meta-row">
+                                            <?php if ($ecSubtype !== '' && $ecSubtype !== 'همه زیرنوع‌ها'): ?>
+                                                <span class="ecode-chip"><b>زیرنوع:</b> <?= e($ecSubtype) ?></span>
+                                            <?php endif; ?>
+                                            <?php if ($ecCategory !== ''): ?>
+                                                <span class="ecode-chip"><b>نوع خطا:</b> <?= e($ecCategory) ?></span>
+                                            <?php endif; ?>
+                                            <?php if ($ecModels): ?>
+                                                <?php
+                                                /* fa_num فقط در config.php نسخه‌های جدید است؛ برای سایت‌های
+                                                   از قبل مستقرشده که config قدیمی دارند محافظت می‌شود */
+                                                $moreN   = count($ecModels) - 6;
+                                                $moreTxt = $moreN > 0
+                                                    ? ' و ' . (function_exists('fa_num') ? fa_num((string)$moreN) : (string)$moreN) . ' مدل دیگر'
+                                                    : '';
+                                                ?>
+                                                <span class="ecode-chip"><b>مدل‌ها:</b>
+                                                    <?= e(implode('، ', array_slice($ecModels, 0, 6))) . e($moreTxt) ?>
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    <?php if ($ecHasPart): ?>
+                                        <div class="ecode-part">
+                                            <?php if ($ecPart !== ''): ?>
+                                                <div><b>🔧 قطعه مربوطه:</b> <?= e($ecPart) ?></div>
+                                            <?php endif; ?>
+                                            <?php if ($ecSpecs !== ''): ?>
+                                                <div><b>📐 مشخصات فنی:</b> <?= e($ecSpecs) ?></div>
+                                            <?php endif; ?>
+                                            <?php if ($ecLoc !== ''): ?>
+                                                <div><b>📍 محل قطعه:</b> <?= e($ecLoc) ?></div>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
                             <?php endif; ?>
                             <div class="ecode-foot">
                                 <?php if ($code['needs_technician']): ?>

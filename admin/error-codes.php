@@ -110,8 +110,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'part_location' => post('part_location'),
             'severity'      => post('severity'),
             'needs_technician' => !empty($_POST['needs_technician']) ? 1 : 0,
+            /* 🆕 v2.33 */
+            'subsystem'     => post('subsystem') ?: null,
+            'needs_review'  => 0, // ویرایش دستی یعنی بازبینی انجام شده
         ], 'id = ?', [$id]);
+
+        /* 🔐 v2.33 — بروزرسانی هش یکتایی محتوا (تشخیص کپی/تکراری در سطح سیستم) */
+        if (function_exists('error_code_content_hash')) {
+            $row = $db->fetch('SELECT title, description, causes, solutions FROM error_codes WHERE id = ?', [$id]);
+            if ($row) {
+                $db->update('error_codes', [
+                    'content_hash' => error_code_content_hash($row),
+                ], 'id = ?', [$id]);
+            }
+        }
         flash('success', '✅ کد خطا ذخیره شد.');
+        redirect('error-codes.php?edit=' . $id);
+    }
+
+    /* 🧬 v2.33 — بازتولید فیلدهای فنی از زیرسیستم انتخاب‌شده
+       کاربرد: وقتی زیرسیستمِ یک کد را اصلاح می‌کنید، علت‌ها، راه‌حل‌ها، قطعه،
+       مشخصات فنی و محل قطعه بلافاصله از همان زیرسیستم بازتولید می‌شوند. */
+    if ($action === 'apply_subsystem') {
+        $id = (int)post('error_id');
+        $subKey = trim(post('subsystem'));
+        $rec = $db->fetch('SELECT * FROM error_codes WHERE id = ?', [$id]);
+        if ($rec && $subKey !== '' && class_exists('ErrorCodeSubsystem')) {
+            $subs = ErrorCodeSubsystem::deviceModel((string)$rec['device_key']);
+            if (isset($subs[$subKey])) {
+                $sub = $subs[$subKey];
+                $causes    = ErrorCodeSubsystem::causes($sub);
+                $solutions = ErrorCodeSubsystem::solutions($sub);
+                $db->update('error_codes', [
+                    'subsystem'     => $subKey,
+                    'causes'        => json_encode($causes, JSON_UNESCAPED_UNICODE),
+                    'solutions'     => json_encode($solutions, JSON_UNESCAPED_UNICODE),
+                    'related_part'  => ErrorCodeSubsystem::part($sub, (string)$rec['title']),
+                    'tech_specs'    => ErrorCodeSubsystem::specs($sub),
+                    'part_location' => ErrorCodeSubsystem::location($sub),
+                    'category'      => ErrorCodeSubsystem::category($sub) ?: (string)$rec['category'],
+                    'needs_review'  => 0,
+                ], 'id = ?', [$id]);
+                if (function_exists('error_code_content_hash')) {
+                    $row = $db->fetch('SELECT title, description, causes, solutions FROM error_codes WHERE id = ?', [$id]);
+                    if ($row) {
+                        $db->update('error_codes', ['content_hash' => error_code_content_hash($row)], 'id = ?', [$id]);
+                    }
+                }
+                flash('success', '✅ فیلدهای فنی از زیرسیستم «' . e((string)($sub['label_fa'] ?? $subKey)) . '» بازتولید شد.');
+            } else {
+                flash('danger', 'زیرسیستم انتخاب‌شده برای این دستگاه تعریف نشده است.');
+            }
+        } else {
+            flash('danger', 'ابتدا یک زیرسیستم انتخاب کنید.');
+        }
         redirect('error-codes.php?edit=' . $id);
     }
 
@@ -147,6 +199,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
            پذیرفته می‌شود (HTML هم value="1" گرفت). */
         $useWeb = in_array(post('use_web'), ['1', 'on', 'true'], true);
         $overwrite = in_array(post('overwrite'), ['1', 'on', 'true'], true);
+        /* 🆕 v2.34 — عمق جستجوی اینترنتی (fast | balanced | deep) */
+        $searchDepth = strtolower(trim((string)post('search_depth', 'balanced')));
+        if (!in_array($searchDepth, ['fast', 'balanced', 'deep'], true)) {
+            $searchDepth = 'balanced';
+        }
 
         /* 📊 v2.14 — حالت AJAX با نوار پیشرفت زنده:
            فرانت یک کلید یکتا می‌سازد و با درخواست می‌فرستد؛ پیشرفت موتور در
@@ -209,7 +266,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     @file_put_contents($progressFile, json_encode(['pct' => $pct, 'title' => $title, 'detail' => $detail, 'ts' => time()], JSON_UNESCAPED_UNICODE));
                 });
             }
-            $result = $engine->generateForDevice($brandId, $deviceKey, $useWeb, $overwrite);
+            $result = $engine->generateForDevice($brandId, $deviceKey, $useWeb, $overwrite, $searchDepth);
             if ($isAjax) {
                 @unlink($progressFile);
                 json_response([
@@ -220,6 +277,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'web_found'     => $result['web_found'],
                     'kb_added'      => $result['kb_added'],
                     'sources'       => array_slice($result['sources'], 0, 5),
+                    'source_stats'  => $result['source_stats'] ?? [],
+                    'depth'         => $result['depth'] ?? $searchDepth,
                     'redirect'      => 'error-codes.php?brand=' . $brandId . '&device=' . urlencode($deviceKey),
                 ]);
             }
@@ -313,6 +372,11 @@ if ($search !== '') {
     $like = "%{$search}%";
     array_push($params, $like, $like, $like, $like);
 }
+/* 🚩 v2.33 — فقط کدهای نیازمند بازبینی (زیرسیستم با قطعیت پایین) */
+$reviewFilter = get_param('review') === '1';
+if ($reviewFilter) {
+    $where .= ' AND e.needs_review = 1';
+}
 $page = max(1, (int)get_param('p'));
 $perPage = 25;
 $total = $db->count('error_codes e', $where, $params);
@@ -330,7 +394,59 @@ $severityMap = [
     'informational' => ['اطلاعاتی 🔵', 'badge-secondary'],
 ];
 $categories = ErrorCodeEngine::CATEGORIES;
+
+/* ==================================================
+ * ⚠️ v2.33 — دو گزارشِ کیفیتِ خطایاب
+ *  ۱) محتوای تکراری (گوگل ممکن است برچسب کپی بزند)
+ *  ۲) کدهایی که زیرسیستم‌شان با قطعیت پایین تشخیص داده شده (نیاز بازبینی)
+ * ================================================== */
+$dupGroups = [];
+$reviewCount = 0;
+try {
+    $dupGroups = $db->fetchAll(
+        "SELECT content_hash, COUNT(*) AS cnt,
+                GROUP_CONCAT(CONCAT(device_key, '/', code) SEPARATOR '، ') AS codes
+         FROM error_codes
+         WHERE content_hash IS NOT NULL AND content_hash <> '' AND is_active = 1
+         GROUP BY content_hash HAVING cnt > 1
+         ORDER BY cnt DESC LIMIT 5"
+    );
+} catch (Throwable $dupE) {
+    $dupGroups = []; // ستون هنوز ایجاد نشده — بی‌صدا رد می‌شود
+}
+try {
+    $reviewCount = (int)$db->fetchValue(
+        'SELECT COUNT(*) FROM error_codes WHERE needs_review = 1 AND is_active = 1'
+    );
+} catch (Throwable $rvE) {
+    $reviewCount = 0;
+}
 ?>
+<?php if ($dupGroups || $reviewCount > 0): ?>
+<div class="alert alert-warning" style="margin-bottom:16px">
+    <?php if ($dupGroups): ?>
+        <b>⚠️ <?= en_to_fa_digits((string)count($dupGroups)) ?> گروه کد خطای تکراری</b>
+        <div style="font-size:12.5px;margin-top:5px">
+            این کدها عنوان/توضیح/علت/راه‌حلِ یکسان دارند و ممکن است گوگل آن‌ها را تکراری ببیند.
+            هر کدام را ویرایش و متن را اختصاصی کنید.
+        </div>
+        <ul style="margin:7px 18px 0 0;font-size:12.5px">
+            <?php foreach ($dupGroups as $g): ?>
+                <li><code><?= e((string)$g['codes']) ?></code></li>
+            <?php endforeach; ?>
+        </ul>
+    <?php endif; ?>
+    <?php if ($reviewCount > 0): ?>
+        <div style="<?= $dupGroups ? 'margin-top:9px;padding-top:8px;border-top:1px solid rgba(0,0,0,.08)' : '' ?>">
+            <b>🚩 <?= en_to_fa_digits((string)$reviewCount) ?> کد نیازمند بازبینی</b>
+            <div style="font-size:12.5px;margin-top:4px">
+                زیرسیستم این کدها با قطعیت کافی تشخیص داده نشده است؛ علت‌ها و قطعه را بررسی کنید.
+                <a href="error-codes.php?review=1" class="btn btn-outline btn-sm" style="margin-inline-start:8px">نمایش آن‌ها</a>
+            </div>
+        </div>
+    <?php endif; ?>
+</div>
+<?php endif; ?>
 
 <?php if ($editCode): ?>
 <!-- ✏️ ویرایش کامل ۱۴ فیلدی -->
@@ -382,6 +498,32 @@ $categories = ErrorCodeEngine::CATEGORIES;
                 </div>
             </div>
 
+            <?php
+            /* 🧬 v2.33 — انتخابگر زیرسیستم علّی: با تغییر آن، علت‌ها، قطعه،
+               مشخصات فنی و محل قطعه از همان زیرسیستم بازتولید می‌شوند */
+            $subLabels = class_exists('ErrorCodeSubsystem')
+                ? ErrorCodeSubsystem::labels($editCode['device_key'])
+                : [];
+            ?>
+            <?php if ($subLabels): ?>
+            <div class="form-group">
+                <label>🧬 زیرسیستم علّی (مبنای علت‌ها و قطعه)</label>
+                <select name="subsystem" class="form-control">
+                    <option value="">— تشخیص خودکار —</option>
+                    <?php foreach ($subLabels as $k => $lbl): ?>
+                        <option value="<?= e($k) ?>" <?= ($editCode['subsystem'] ?? '') === $k ? 'selected' : '' ?>><?= e($lbl) ?> <small>(<?= e($k) ?>)</small></option>
+                    <?php endforeach; ?>
+                </select>
+                <div class="hint">همه‌ی علت‌ها، راه‌حل‌ها، قطعه، مشخصات فنی و محل قطعه از این زیرسیستم گرفته می‌شوند؛ با انتخابِ درست، علت‌های نامرتبط حذف می‌شوند.</div>
+                <button type="submit" name="action" value="apply_subsystem"
+                        class="btn btn-outline btn-sm" style="margin-top:7px"
+                        data-confirm="علت‌ها، راه‌حل‌ها، قطعه، مشخصات فنی و محل قطعه از این زیرسیستم بازنویسی می‌شوند. ادامه می‌دهید؟"
+                        title="پر کردنِ خودکارِ علت‌ها، راه‌حل‌ها، قطعه و مشخصات از این زیرسیستم">
+                    ♻️ بازتولید فیلدهای فنی از این زیرسیستم
+                </button>
+            </div>
+            <?php endif; ?>
+
             <?php $fieldRow('۶️⃣ عنوان فارسی', 'title', $editCode['title'], 'کوتاه، رسا و فنی'); ?>
             <?php $fieldRow('۸️⃣ توضیح کامل فارسی (۳-۵ جمله یکتا)', 'description', $editCode['description'], 'ماهیت خطا، اتفاق داخلی، تأثیر بر عملکرد، قابل استفاده بودن، خوداصلاحی', 'textarea', 5); ?>
             <?php $fieldRow('۳️⃣ زیرنوع دستگاه', 'subtype', $editCode['subtype'], 'مثل: اینورتر | Inverter — یا «همه زیرنوع‌ها»'); ?>
@@ -432,6 +574,15 @@ $categories = ErrorCodeEngine::CATEGORIES;
                         <option value="">— ابتدا برند را انتخاب کنید —</option>
                     </select>
                     <div class="hint" id="gen-device-hint">فهرست دستگاه‌ها بر اساس برند انتخابی به‌صورت خودکار فیلتر می‌شود.</div>
+                </div>
+                <div class="form-group" style="margin:10px 0">
+                    <label>۳. عمق جستجوی اینترنتی</label>
+                    <select name="search_depth" id="gen-depth" class="form-control">
+                        <option value="balanced">متعادل — حدود ۱ تا ۲ دقیقه (۱۶ کوئری · ۸ صفحه فهرست)</option>
+                        <option value="deep">🌊 عمیق — تا چند دقیقه (۲۸ کوئری · دو موتور همزمان · ۱۲ صفحه فهرست · ۴ صفحه برای هر کد · تا ۶۰ کد)</option>
+                        <option value="fast">سریع — حدود ۳۰ ثانیه (۸ کوئری · ۴ صفحه فهرست)</option>
+                    </select>
+                    <div class="hint">🌍 در همه حالت‌ها سایت‌های <b>فارسی و غیرفارسی</b> با هم جستجو می‌شوند (کوئری‌های فارسی با تنظیمات فارسی و کوئری‌های انگلیسی با تنظیمات انگلیسی به موتورها می‌روند) و منابعِ رسمی برند، دفترچه‌های قطعات، فروشگاه‌های قطعات و انجمن‌های تعمیرات در اولویت‌اند.</div>
                 </div>
                 <label class="form-check" style="margin:10px 0"><input type="checkbox" name="use_web" value="1" checked> 🌐 جستجوی آنلاین اینترنت (فارسی + خارجی) برای کدهای بیشتر با منبع‌یابی</label>
                 <label class="form-check" style="margin-bottom:10px"><input type="checkbox" name="overwrite" value="1"> 🔄 جایگزینی کدهای قبلی همین دستگاه</label>

@@ -287,12 +287,18 @@ CREATE TABLE IF NOT EXISTS `error_codes` (
   `severity` ENUM('low','medium','high','critical','informational') NOT NULL DEFAULT 'medium' COMMENT 'سطح اهمیت',
   `source` VARCHAR(50) NULL COMMENT 'منبع: kb|web|manual',
   `source_urls` JSON NULL COMMENT 'منابع آنلاین استخراج',
+  /* 🆕 v2.33 — زیرسیستم علّی، هش یکتایی محتوا و پرچم بازبینی */
+  `subsystem` VARCHAR(60) NULL COMMENT 'زیرسیستم علّی (drain/inlet/door_lock/... — انسجام علت‌ها)',
+  `content_hash` CHAR(64) NULL COMMENT 'هش SHA-256 محتوای نرمال‌شده (تشخیص کپی/تکراری)',
+  `needs_review` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'زیرسیستم با قطعیت پایین تشخیص داده شده — نیاز به بازبینی دستی',
   `needs_technician` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'نیاز به تکنسین',
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_ecode_brand` (`brand_id`, `device_key`),
   KEY `idx_ecode_code` (`code`),
+  KEY `idx_ecode_hash` (`content_hash`),
+  KEY `idx_ecode_review` (`needs_review`, `is_active`),
   CONSTRAINT `fk_ecode_brand` FOREIGN KEY (`brand_id`) REFERENCES `brands`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='کدهای خطای دستگاه‌ها';
 

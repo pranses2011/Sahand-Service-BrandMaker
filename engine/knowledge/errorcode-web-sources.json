@@ -1,0 +1,114 @@
+{
+  "_note": "منابع و الگوهای جستجوی اینترنتیِ موتور خطایاب (v2.34) — سایت‌های فارسی و غیرفارسی. پلیس‌ها {brand} {brand_fa} {device} {device_fa} {code} در زمان اجرا جایگزین می‌شوند.",
+  "version": 2,
+  "langs": ["fa", "en"],
+
+  "discovery_queries": {
+    "en": [
+      "{brand} {device} error codes list meaning",
+      "{brand} {device} fault codes list troubleshooting manual",
+      "{brand} {device} error code chart all models",
+      "{brand} {device} display error code table pdf",
+      "{brand} {device} service manual error code list pdf",
+      "{brand} {device} error codes what does it mean how to fix",
+      "{brand} {device} diagnostic codes self test mode",
+      "{brand} {device} error code list explained forum",
+      "{brand} {device} common fault codes repair technicians",
+      "{brand} {device} error code manualslib service manual",
+      "{brand} {device} error code fixya justanswer repair",
+      "{brand} {device} error code appliancepartspros partselect",
+      "{brand} {device} error code reddit technician",
+      "{brand} support {device} error code official manual"
+    ],
+    "fa": [
+      "کد خطای {device_fa} {brand_fa} فهرست کامل",
+      "کد خطا {device_fa} {brand_fa} علت و راه حل",
+      "رفع خطای {device_fa} {brand_fa} نمایش کد",
+      "جدول کدهای خطای {device_fa} {brand_fa}",
+      "{device_fa} {brand_fa} کد ارور علت تعمیر",
+      "ارور {device_fa} {brand_fa} لیست کامل ارورها",
+      "علت ارور {device_fa} {brand_fa} تعمیرکار عیب‌یابی",
+      "کد خطای {device_fa} {brand_fa} دفترچه راهنما",
+      "{brand_fa} {device_fa} خطا نمایش داده می‌شود رفع",
+      "دلیل خطای {device_fa} {brand_fa} و نحوه برطرف کردن"
+    ]
+  },
+
+  "code_queries": {
+    "en": [
+      "{brand} {device} error code {code} meaning cause fix",
+      "{brand} {device} {code} fault code how to reset fix",
+      "{brand} {device} error {code} service manual troubleshooting",
+      "{brand} {device} {code} error code repair forum technician",
+      "{brand} {device} {code} error code part replacement test"
+    ],
+    "fa": [
+      "کد خطا {code} {device_fa} {brand_fa} علت راه حل",
+      "علت ارور {code} در {device_fa} {brand_fa}",
+      "رفع خطای {code} {device_fa} {brand_fa} تعمیر",
+      "ارور {code} {device_fa} {brand_fa} یعنی چه"
+    ]
+  },
+
+  "verticals": [
+    { "key": "manualslib",     "domain": "manualslib.com",            "lang": "en", "kind": "manual", "trust": 88, "booster_en": "manualslib service manual", "booster_fa": "" },
+    { "key": "usermanual",     "domain": "usermanual.wiki",           "lang": "en", "kind": "manual", "trust": 80, "booster_en": "user manual error code",     "booster_fa": "" },
+    { "key": "manualsplus",    "domain": "manuals.plus",              "lang": "en", "kind": "manual", "trust": 78, "booster_en": "manuals.plus error code",    "booster_fa": "" },
+    { "key": "ifixit",         "domain": "ifixit.com",                "lang": "en", "kind": "forum",  "trust": 72, "booster_en": "ifixit troubleshooting",     "booster_fa": "" },
+    { "key": "applianceparts", "domain": "appliancepartspros.com",    "lang": "en", "kind": "parts",  "trust": 74, "booster_en": "appliancepartspros error code", "booster_fa": "" },
+    { "key": "partselect",     "domain": "partselect.com",            "lang": "en", "kind": "parts",  "trust": 74, "booster_en": "partselect error code",     "booster_fa": "" },
+    { "key": "repairclinic",   "domain": "repairclinic.com",          "lang": "en", "kind": "parts",  "trust": 70, "booster_en": "repairclinic error code",   "booster_fa": "" },
+    { "key": "searsparts",     "domain": "searspartsdirect.com",      "lang": "en", "kind": "parts",  "trust": 70, "booster_en": "searspartsdirect error code", "booster_fa": "" },
+    { "key": "encompass",      "domain": "encompass.com",             "lang": "en", "kind": "parts",  "trust": 68, "booster_en": "encompass error code",      "booster_fa": "" },
+    { "key": "fixya",          "domain": "fixya.com",                 "lang": "en", "kind": "forum",  "trust": 62, "booster_en": "fixya error code",          "booster_fa": "" },
+    { "key": "justanswer",     "domain": "justanswer.com",            "lang": "en", "kind": "forum",  "trust": 60, "booster_en": "justanswer error code",     "booster_fa": "" },
+    { "key": "reddit",         "domain": "reddit.com",                "lang": "en", "kind": "forum",  "trust": 56, "booster_en": "reddit error code",         "booster_fa": "" }
+  ],
+
+  "official_domains": {
+    "lg": ["lg.com", "lge.com", "lg.com/uk", "lgsupport"],
+    "samsung": ["samsung.com", "samsungsvc.co.kr"],
+    "bosch": ["bosch-home.com", "bosch-pt.com", "bsh-group.com"],
+    "siemens": ["siemens-home.bsh-group.com", "bsh-group.com"],
+    "electrolux": ["electrolux.com", "electroluxgroup.com", "aeg.com", "zanussi.com"],
+    "ariston": ["ariston.com", "ariston.com/en", "hotpoint.eu", "indesit.com"],
+    "beko": ["beko.com", "beko.co.uk", "arcelik.com.tr", "vestel.com"],
+    "whirlpool": ["whirlpool.com", "whirlpool.eu", "maytag.com", "hotpoint.com"],
+    "panasonic": ["panasonic.com", "panasonic.eu"],
+    "sony": ["sony.com", "sony.co.uk"],
+    "haier": ["haier.com"],
+    "midea": ["midea.com"],
+    "candy": ["candy-home.com", "hoover-home.com"],
+    "snowa": ["snowa.ir"],
+    "pars_khazar": ["pars-khazar.com"],
+    "general": []
+  },
+
+  "stop_domains": [
+    "youtube.com", "youtu.be", "pinterest.com", "facebook.com", "instagram.com",
+    "twitter.com", "x.com", "tiktok.com", "telegram.me", "t.me",
+    "amazon.com", "ebay.com", "aliexpress.com", "alibaba.com", "alibaba.ir",
+    "digikala.com", "divar.ir", "torob.com", "sheypoor.com", "emalls.ir",
+    "quora.com", "wikipedia.org", "fandom.com", "shutterstock.com",
+    "booking.com", "tripadvisor.com", "medium.com", "linkedin.com"
+  ],
+
+  "trust": {
+    "official": 100,
+    "manual": 85,
+    "parts": 72,
+    "forum": 58,
+    "fa_site": 62,
+    "other": 34
+  },
+
+  "fa_content_hints": [
+    "کد خطا", "ارور", "خطای", "علت", "رفع", "تعمیر", "عیب‌یابی", "نمایش",
+    "دلیل", "برطرف", "تعمیرکار", "دفترچه", "نمایندگی"
+  ],
+
+  "en_content_hints": [
+    "error code", "fault code", "troubleshoot", "meaning", "how to fix",
+    "reset", "service manual", "diagnostic"
+  ]
+}

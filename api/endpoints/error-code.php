@@ -23,16 +23,26 @@ function api_brand_error_codes(int $brandId, string $q = '', string $device = ''
             $like = '%' . clean_input($q) . '%';
             array_push($params, $like, $like, $like);
         }
-        return $db->fetchAll("SELECT device_key, code, title, description, causes, solutions, severity, needs_technician FROM error_codes WHERE {$where} ORDER BY device_key, code", $params);
+        /* 🆕 v2.33 — شش فیلد تکمیلی (زیرنوع، مدل‌ها، نوع خطا، قطعه،
+           مشخصات فنی، محل قطعه) پیش از این اصلاً به سایت برند ارسال نمی‌شدند */
+        return $db->fetchAll(
+            "SELECT device_key, code, title, description, causes, solutions, severity,
+                    needs_technician, subtype, models, category, related_part,
+                    tech_specs, part_location
+             FROM error_codes WHERE {$where} ORDER BY device_key, code",
+            $params
+        );
     });
 
     json_response([
         'success' => true,
         'data'    => array_map(function ($row) {
-            $row['causes'] = json_decode($row['causes'] ?? '[]', true) ?: [];
-            $row['solutions'] = json_decode($row['solutions'] ?? '[]', true) ?: [];
-            $row['needs_technician'] = (bool)$row['needs_technician'];
-            return $row;
+        $row['causes'] = json_decode($row['causes'] ?? '[]', true) ?: [];
+        $row['solutions'] = json_decode($row['solutions'] ?? '[]', true) ?: [];
+        /* 🆕 v2.33 */
+        $row['models'] = json_decode($row['models'] ?? '[]', true) ?: [];
+        $row['needs_technician'] = (bool)$row['needs_technician'];
+        return $row;
         }, $data),
     ]);
 }
