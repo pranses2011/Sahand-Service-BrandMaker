@@ -19,7 +19,7 @@ if (!function_exists('render_article_seo')) {
     /**
      * 🏷️ رندر متا تگ‌های سئوی مقاله
      */
-    function render_article_seo(array $article, string $canonical): void
+    function render_article_seo(array $article, string $canonical, string $brandNameFa = ''): void
     {
         $seo = $article['seo'] ?? [];
         echo '<link rel="canonical" href="' . e($canonical) . '">' . "\n";
@@ -34,14 +34,30 @@ if (!function_exists('render_article_seo')) {
         if (!empty($article['featured_image'])) {
             echo '<meta property="og:image" content="' . e(cdn_asset((string)$article['featured_image'])) . '">' . "\n";
         }
-        // 🧩 Schema مقاله
-        echo '<script type="application/ld+json">' . json_encode([
-            '@context' => 'https://schema.org',
-            '@type' => 'Article',
-            'headline' => $article['title'] ?? '',
-            'description' => $seo['description'] ?? ($article['excerpt'] ?? ''),
-            'datePublished' => $article['published_at'] ?? '',
-            'inLanguage' => 'fa-IR',
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '</script>' . "\n";
+        /* 🧩 v2.33 — Schema کامل مقاله (گزارش تحلیل بخش ۸): author/publisher/
+           image/dateModified/mainEntityOfPage اضافه شدند (قبلاً فقط ۵ فیلد بود) */
+        $schema = [
+            '@context'            => 'https://schema.org',
+            '@type'               => 'Article',
+            'headline'            => $article['title'] ?? '',
+            'description'         => $seo['description'] ?? ($article['excerpt'] ?? ''),
+            'datePublished'       => $article['published_at'] ?? '',
+            'dateModified'        => $article['updated_at'] ?? ($article['published_at'] ?? ''),
+            'inLanguage'          => 'fa-IR',
+            'mainEntityOfPage'    => $canonical,
+        ];
+        $publisher = $brandNameFa !== '' ? $brandNameFa : (string)($GLOBALS['brandSeoName'] ?? '');
+        if ($publisher !== '') {
+            $schema['author']    = ['@type' => 'Organization', 'name' => $publisher];
+            $schema['publisher'] = ['@type' => 'Organization', 'name' => $publisher];
+            $pubLogo = (string)($GLOBALS['brandSeoLogo'] ?? '');
+            if ($pubLogo !== '') {
+                $schema['publisher']['logo'] = ['@type' => 'ImageObject', 'url' => $pubLogo];
+            }
+        }
+        if (!empty($article['featured_image'])) {
+            $schema['image'] = [cdn_asset((string)$article['featured_image'])];
+        }
+        echo '<script type="application/ld+json">' . json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '</script>' . "\n";
     }
 }

@@ -21,6 +21,10 @@ $palette = $brandData['palette'] ?? [];
 $agency = $brandData['agency'] ?? [];
 $menuData = fetchFromAPI('brand/' . BRAND_ID . '/menu/header')['data'] ?? [];
 
+/* 🧩 v2.33 — نام و لوگوی برند برای Schema مقاله (render_article_seo در seo.php) */
+$GLOBALS['brandSeoName'] = (string)($brand['name_fa'] ?? '');
+$GLOBALS['brandSeoLogo'] = (string)($brand['logo'] ?? '');
+
 // 🏷️ عنوان و سئو پیش‌فرض صفحه (توسط هر صفحه قابل بازنویسی)
 $pageTitle = $pageTitle ?? ($brand['seo']['title'] ?? BRAND_NAME_FA);
 $pageDesc = $pageDesc ?? ($brand['seo']['description'] ?? '');
@@ -100,13 +104,58 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
     if ($inlinePalette !== ''): ?>
     <style id="brand-palette-live"><?= $inlinePalette ?></style>
     <?php endif; ?>
-    <!-- 🧩 Schema.org -->
-    <script type="application/ld+json"><?= json_encode([
-        '@context' => 'https://schema.org',
-        '@type' => 'LocalBusiness',
-        'name' => ($brand['name_fa'] ?? '') . ' — ' . ($agency['name_fa'] ?? ''),
-        'url' => 'https://' . BRAND_DOMAIN,
-    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
+    <?php
+    /* 🧩 v2.33 — Schema.org کامل (گزارش تحلیل بخش ۸): قبلاً فقط name و url بود
+       و فیلدهای حیاتی «تعمیرکار نزدیک من» (آدرس/تلفن/مختصات/ساعات) مفقود بودند */
+    $schemaContacts = $brandData['contacts'] ?? [];
+    $schemaAddr = is_array($schemaContacts['addresses'][0] ?? null) ? $schemaContacts['addresses'][0] : [];
+    $schemaWh = is_array($brandData['work_hours'] ?? null) ? $brandData['work_hours'] : [];
+    $schemaDayMap = ['sat' => 'Saturday', 'sun' => 'Sunday', 'mon' => 'Monday', 'tue' => 'Tuesday', 'wed' => 'Wednesday', 'thu' => 'Thursday', 'fri' => 'Friday'];
+    $lb = [
+        '@context'   => 'https://schema.org',
+        '@type'      => 'LocalBusiness',
+        'name'       => ($brand['name_fa'] ?? '') . ' — ' . ($agency['name_fa'] ?? ''),
+        'url'        => 'https://' . BRAND_DOMAIN,
+        'inLanguage' => 'fa-IR',
+    ];
+    if (!empty($brand['logo'])) { $lb['image'] = [$brand['logo']]; }
+    $lbPhone = trim((string)($schemaContacts['phones']['phone'][0] ?? ($schemaContacts['phones']['mobile'][0] ?? '')));
+    if ($lbPhone !== '') { $lb['telephone'] = $lbPhone; }
+    if (!empty($schemaContacts['emails'][0])) { $lb['email'] = $schemaContacts['emails'][0]; }
+    if ($schemaAddr !== []) {
+        $lb['address'] = [
+            '@type'           => 'PostalAddress',
+            'streetAddress'   => (string)($schemaAddr['address'] ?? ''),
+            'addressLocality' => (string)($schemaAddr['city'] ?? ''),
+            'addressCountry'  => 'IR',
+        ];
+        if (!empty($schemaAddr['postal_code'])) { $lb['address']['postalCode'] = (string)$schemaAddr['postal_code']; }
+        if ($schemaAddr['city'] !== '') { $lb['areaServed'] = (string)$schemaAddr['city']; }
+        if (is_numeric($schemaAddr['lat'] ?? '') && is_numeric($schemaAddr['lng'] ?? '')) {
+            $lb['geo'] = ['@type' => 'GeoCoordinates', 'latitude' => (float)$schemaAddr['lat'], 'longitude' => (float)$schemaAddr['lng']];
+        }
+    }
+    $lbOpen = trim((string)($schemaWh['start'] ?? ''));
+    $lbClose = trim((string)($schemaWh['end'] ?? ''));
+    if ($lbOpen !== '' && $lbClose !== '' && !empty($schemaWh['days']) && is_array($schemaWh['days'])) {
+        $lbDays = array_values(array_filter(array_map(static fn($d) => $schemaDayMap[$d] ?? '', $schemaWh['days'])));
+        if ($lbDays) {
+            $lb['openingHoursSpecification'] = [[
+                '@type'     => 'OpeningHoursSpecification',
+                'dayOfWeek' => $lbDays,
+                'opens'     => $lbOpen,
+                'closes'    => $lbClose,
+            ]];
+        }
+    }
+    /* 💰 قیمت‌گذاری — فقط اگر متن هزینه واقعی تنظیم شده باشد (بدون جعل داده) */
+    $lbCost = is_array($brandData['cost'] ?? null) ? $brandData['cost'] : [];
+    $lbCostText = trim((string)($lbCost['text'] ?? ''));
+    if ($lbCostText !== '' && empty($lbCost['hide'])) { $lb['priceRange'] = mb_substr($lbCostText, 0, 40); }
+    /* ⚠️ aggregateRating عمداً گذاشته نمی‌شود — نداریم و جعل آن جریمه گوگل است */
+    ?>
+    <!-- 🧩 Schema.org — v2.33 کامل -->
+    <script type="application/ld+json"><?= json_encode($lb, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
 </head>
 <body>
 <!-- ⚙️ تغییر تم روشن/تاریک — v2.25: آنی + آیکون پویا

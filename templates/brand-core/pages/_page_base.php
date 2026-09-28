@@ -13,3 +13,12 @@ require __DIR__ . '/../includes/header.php';
         <a href="/">🏠 خانه</a><span>›</span><span><?= e($crumbTitle ?? 'صفحه') ?></span>
     </div>
 </nav>
+<!-- 🧩 v2.33 — Schema مسیر راهنما (گزارش تحلیل بخش ۸: رندر می‌شد ولی اسکیمایش نه) -->
+<script type="application/ld+json"><?= json_encode([
+    '@context'        => 'https://schema.org',
+    '@type'           => 'BreadcrumbList',
+    'itemListElement' => [
+        ['@type' => 'ListItem', 'position' => 1, 'name' => 'خانه', 'item' => 'https://' . BRAND_DOMAIN . '/'],
+        ['@type' => 'ListItem', 'position' => 2, 'name' => ($crumbTitle ?? 'صفحه'), 'item' => 'https://' . BRAND_DOMAIN . rtrim(e($_SERVER['REQUEST_URI'] ?? '/'), '/')],
+    ],
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>

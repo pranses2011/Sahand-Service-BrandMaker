@@ -40,7 +40,11 @@ if (!function_exists('article_image')) {
     function article_image(?string $image, string $alt): string
     {
         $src = $image ? cdn_asset($image) : cdn_asset('images/placeholders/article.svg');
-        return '<img src="' . e($src) . '" alt="' . e($alt) . '" loading="lazy" class="article-image">';
+        /* 📐 v2.33 — ابعاد صریح برای رفع CLS (گزارش تحلیل بخش ۸): مرورگر
+           نسبت ابعاد را قبل از دانلود تصویر می‌داند و پرش چیدمان رخ نمی‌دهد.
+           CSS کارت ارتفاع ۱۷۲px را حکم می‌کند؛ در صفحه تکی (height:auto)
+           همین ابعاد نسبت ۱۶:۹ را رزرو می‌کنند. */
+        return '<img src="' . e($src) . '" alt="' . e($alt) . '" width="800" height="450" loading="lazy" class="article-image">';
     }
 }
 

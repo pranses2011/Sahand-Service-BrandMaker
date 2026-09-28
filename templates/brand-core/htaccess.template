@@ -35,6 +35,8 @@ DirectoryIndex index.php
     RewriteRule ^faq/?$ pages/faq.php [L]
     # نقشه سایت HTML
     RewriteRule ^sitemap-page/?$ pages/sitemap-page.php [L]
+    # 🗺️ v2.33 — sitemap.xml پویا: همیشه تازه (مقاله جدید بدون استقرار مجدد وارد می‌شود)
+    RewriteRule ^sitemap\.xml$ sitemap.php [L]
     # قوانین
     RewriteRule ^terms/?$ pages/terms.php [L]
     RewriteRule ^privacy/?$ pages/privacy.php [L]
