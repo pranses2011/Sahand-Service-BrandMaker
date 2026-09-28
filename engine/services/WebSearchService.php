@@ -1,7 +1,16 @@
 <?php
 /**
- * 🌐 سرویس جستجوی آنلاین وب — WebSearchService v1.4
+ * 🌐 سرویس جستجوی آنلاین وب — WebSearchService v1.6
  * ================================================
+ * 🆕 v1.6 (همراه v2.34 خطایاب) — «جستجوی عریض و عمیق»:
+ *   🔀 searchWide() — ادغام نتایج چند موتور مختلف (نه فقط مسابقه‌ی اولین پاسخ)
+ *      → پوشش همزمان گوگل/بینگ/یاندکس/داج‌داک‌گو/... با حذف تکراری بر اساس URL
+ *      و امتیاز «توافق چندموتوره» (لینکی که در ۲ موتور آمد، بالاتر می‌رود)
+ *   🌍 پارامتر زبان/منطقه برای هر کوئری (hl/gl، setlang/mkt، kl، language)
+ *      → کوئری فارسی با hl=fa&gl=IR و کوئری انگلیسی با hl=en&gl=US می‌رود
+ *   📄 fetchPages() — خواندن دسته‌ای چند صفحه با بودجه زمانی مشترک
+ *   ⏱️ deadline در search/fetchPageText — هیچ مرحله‌ای از بودجه بیرون نمی‌زند
+ *   🔢 سقف نرخ ساعتی برای تحقیق عمیق بالا رفت (۳۶۰)
  * قدرت جدید موتور سهند: دسترسی به داده‌های زنده اینترنت
  * برای بهبود محتوا، سئو و مقالات — فقط در صورت لزوم.
  *
@@ -62,6 +71,9 @@ class WebSearchService
     /** 🆕 v1.4: شمارش شکست‌های متوالی مسابقه — بعد از ۲ بار، مستقیم jina */
     private $raceFailureStreak = 0;
 
+    /** 🆕 v1.6: تنظیماتِ هر فراخوانی (زبان/منطقه) — بین ارائه‌دهنده‌ها رد می‌شود */
+    private $callOpts = ['lang' => 'auto', 'region' => ''];
+
     /** ⏱️ TTL پیش‌فرض کش جستجو (ثانیه) */
     const SEARCH_TTL = 1800;
 
@@ -81,7 +93,8 @@ class WebSearchService
             'connect_timeout' => 5,      // ثانیه — فقط اتصال
             'max_results'   => 8,
             'cache_ttl'     => self::SEARCH_TTL,
-            'rate_per_hour' => 240,      /* 🆕 v2.15: ۶۰ → ۲۴۰ — جستجوی عمیق خطایاب هر بار ۲۰+ کوئری می‌سوزاند و سقف ۶۰ آن را خفه می‌کرد! */
+            'rate_per_hour' => 360,      /* 🆕 v2.15: ۶۰ → ۲۴۰ — جستجوی عمیق خطایاب هر بار ۲۰+ کوئری می‌سوزاند و سقف ۶۰ آن را خفه می‌کرد!
+                                            🆕 v1.6: ۲۴۰ → ۳۶۰ — «جستجوی عمیقِ کدها» (تا ۳۰ کوئری کشف + چند کوئری برای هر کد) از ۲۴۰ فراتر می‌رود */
             'providers'     => [],       // خالی = زنجیره خودکار
             'serpapi_key'   => '',
             'google_cse_key'=> '',
@@ -92,8 +105,8 @@ class WebSearchService
            کرده‌اند و آن روی پیش‌فرض ۲۴۰ غالب می‌شود؛ جستجوی عمیق خطایاب هر بار
            ۳۰-۴۰ کوئری می‌سوزاند و سقف ۶۰ بعد از ۱-۲ دستگاه همه جستجوها را
            fail-fast می‌کرد (ریشه‌یابی «هیچ کدی پیدا نشد»). حداقل مجاز = ۲۴۰. */
-        if ((int)$this->cfg['rate_per_hour'] < 240) {
-            $this->cfg['rate_per_hour'] = 240;
+        if ((int)$this->cfg['rate_per_hour'] < 360) {
+            $this->cfg['rate_per_hour'] = 360;
         }
     }
 
@@ -104,12 +117,19 @@ class WebSearchService
     /**
      * 🔎 جستجوی وب — POST /api/ai/web-search
      *
+     * 🆕 v1.6 — گزینه‌های تازه در $opts:
+     *   lang     => 'fa' | 'en' | 'auto'   زبان رابط/منطقه موتور جستجو
+     *   region   => 'IR' | 'US' | ''       منطقه (gl/mkt/kl)
+     *   engines  => 1..4                   چند موتور مختلف پرسیده و ادغام شود
+     *   deadline => microtime(true)+N      بودجه زمانی (ثانیه)
+     *
      * @param string $query  عبارت جستجو (فارسی یا انگلیسی)
      * @param int    $limit  حداکثر نتایج (۱ تا ۱۰)
+     * @param array  $opts   گزینه‌های بالا
      * @return array [query, results[], provider, cached, took_ms]
      * @throws RuntimeException در صورت غیرفعال بودن یا شکست همه ارائه‌دهندگان
      */
-    public function search(string $query, int $limit = 0): array
+    public function search(string $query, int $limit = 0, array $opts = []): array
     {
         $query = trim($query);
         if (mb_strlen($query) < 2) {
@@ -117,18 +137,249 @@ class WebSearchService
         }
         $this->guard();
 
-        $limit = max(1, min(self::MAX_RESULTS, $limit > 0 ? $limit : (int)$this->cfg['max_results']));
+        $limit   = max(1, min(self::MAX_RESULTS, $limit > 0 ? $limit : (int)$this->cfg['max_results']));
+        $lang    = $this->normalizeLang(isset($opts['lang']) ? (string)$opts['lang'] : 'auto');
+        $region  = $this->normalizeRegion(isset($opts['region']) ? (string)$opts['region'] : '');
+        $engines = max(1, min(4, (int)($opts['engines'] ?? 1)));
+        $deadline = isset($opts['deadline']) ? (float)$opts['deadline'] : null;
         $t0 = microtime(true);
 
-        $result = EngineCache::remember('websearch', ['q' => $query, 'l' => $limit], (int)$this->cfg['cache_ttl'], function () use ($query, $limit) {
+        /* 📦 کلید کش شامل زبان/منطقه/تعداد موتور هم هست — نتایج فارسی و انگلیسی
+           و تک‌موتوره/چندموتوره هرگز با هم قاطی نمی‌شوند */
+        $cacheKey = ['q' => $query, 'l' => $limit, 'lang' => $lang, 'rg' => $region, 'e' => $engines];
+
+        $result = EngineCache::remember('websearch', $cacheKey, (int)$this->cfg['cache_ttl'], function () use ($query, $limit, $lang, $region, $engines, $deadline) {
             $this->rateHit();
-            return $this->searchLive($query, $limit);
+            $this->callOpts = ['lang' => $lang, 'region' => $region];
+            if ($engines > 1) {
+                return $this->searchWide($query, $limit, $engines, $deadline);
+            }
+            return $this->searchLive($query, $limit, $deadline);
         });
 
         $result['cached'] = empty($result['fresh']);
         unset($result['fresh']);
         $result['took_ms'] = (int)round((microtime(true) - $t0) * 1000);
         return $result;
+    }
+
+    /**
+     * 🔀 v1.6 — جستجوی عریض: پرسش از چند موتور مختلف + ادغام نتایج
+     *
+     * 🚫 تفاوت با searchLive(): آنجا «مسابقه» است (اولین پاسخ برنده و بقیه
+     * لغو می‌شوند)؛ اینجا نتایج همه موتورها جمع‌آوری، حذف‌تکراری و رتبه‌بندی
+     * می‌شود — یعنی یک کوئری همزمان از گوگل و بینگ و داج‌داک‌گو جواب می‌گیرد
+     * و صفحاتی که فقط یکی از آن‌ها می‌شناسد هم از دست نمی‌رود.
+     *
+     * ⏱️ بودجه: به محض اتمام زمان یا رسیدن به تعداد موتورِ درخواستی، متوقف
+     * می‌شود؛ اگر زمان تنگ باشد همان موتور اول کافی است.
+     *
+     * @return array [query, results[], provider, fresh]
+     */
+    private function searchWide(string $query, int $limit, int $engines, ?float $deadline = null): array
+    {
+        $chain = array_values(array_filter($this->providerChain(), function ($p) {
+            /* ویکی‌پدیا برای «کدهای خطا» بی‌فایده است — وقتِ موتورهای واقعی را نگیرد */
+            return $p !== 'wikipedia';
+        }));
+        if (empty($chain)) {
+            return $this->searchLive($query, $limit, $deadline);
+        }
+
+        $rows    = [];
+        $used    = [];
+        $errors  = [];
+
+        foreach ($chain as $provider) {
+            if (count($used) >= $engines) {
+                break;
+            }
+            if ($deadline !== null && microtime(true) > $deadline) {
+                $errors[] = 'بودجه زمانی پیش از ' . $provider . ' تمام شد';
+                break;
+            }
+            try {
+                $results = $this->runProvider($provider, $query, $limit);
+            } catch (Throwable $e) {
+                $errors[] = $provider . ': ' . $e->getMessage();
+                continue;
+            }
+            if (empty($results)) {
+                $errors[] = $provider . ': بدون نتیجه';
+                continue;
+            }
+            $used[] = $provider;
+            $rank = 0;
+            foreach ($results as $r) {
+                $r['engine'] = $provider;
+                $r['engine_rank'] = $rank++;
+                $rows[] = $r;
+            }
+            /* ⏱️ اگر کمتر از ۶ ثانیه تا پایان بودجه مانده، همین یک موتور کافی است */
+            if ($deadline !== null && microtime(true) > $deadline - 6.0) {
+                break;
+            }
+        }
+
+        if (empty($rows)) {
+            $this->lastErrors = array_merge($this->lastErrors, $errors);
+            throw new RuntimeException('جستجوی عریض در همه موتورها ناموفق بود — ' . implode(' | ', array_slice($errors, 0, 3)));
+        }
+
+        $merged = $this->dedupeResults($rows);
+        $this->lastProvider = 'wide:' . implode('+', $used);
+
+        /* 📊 رتبه‌بندی نهایی: توافقِ چندموتوره + اعتماد دامنه + رتبه در هر موتور */
+        usort($merged, function ($a, $b) {
+            $sa = $this->mergeScore($a);
+            $sb = $this->mergeScore($b);
+            return $sb <=> $sa;
+        });
+        foreach ($merged as &$r) {
+            $r['score'] = $this->mergeScore($r);
+        }
+        unset($r);
+
+        return $this->finalizeWideResults($query, $merged, $limit, 'wide:' . implode('+', $used));
+    }
+
+    /** امتیاز ادغام: توافق چندموتوره مهم‌تر از هر چیز (سیگنالِ توافق مستقل) */
+    private function mergeScore(array $r): int
+    {
+        $enginesCount = isset($r['engines']) ? (int)$r['engines'] : 1;
+        $trust        = isset($r['trust']) ? (int)$r['trust'] : $this->domainTrust((string)($r['url'] ?? ''));
+        $rank         = isset($r['engine_rank']) ? (int)$r['engine_rank'] : 9;
+        return ($enginesCount - 1) * 120 + $trust + max(0, 10 - $rank) * 4;
+    }
+
+    /**
+     * 🧹 حذف تکراری نتایجِ چند موتور بر اساس URL نرمال‌شده
+     * لینکی که در چند موتور دیده شده، یک‌بار نگه داشته می‌شود و تعداد موتورها
+     * در کلید engines ثبت می‌گردد (سیگنالِ قویِ «توافق مستقل»).
+     */
+    private function dedupeResults(array $rows): array
+    {
+        $byKey = [];
+        foreach ($rows as $r) {
+            $url = trim((string)($r['url'] ?? ''));
+            if ($url === '') {
+                continue;
+            }
+            $key = $this->urlDedupeKey($url);
+            if ($key === '') {
+                continue;
+            }
+            if (!isset($byKey[$key])) {
+                $r['engines']    = 1;
+                $r['engine_list'] = [(string)($r['engine'] ?? '')];
+                $byKey[$key] = $r;
+                continue;
+            }
+            $byKey[$key]['engines'] = (int)$byKey[$key]['engines'] + 1;
+            $engine = (string)($r['engine'] ?? '');
+            if ($engine !== '' && !in_array($engine, (array)$byKey[$key]['engine_list'], true)) {
+                $byKey[$key]['engine_list'][] = $engine;
+            }
+            /* متن بلندتر برنده است (اسنیپت کامل‌تر از موتور دیگر) */
+            $oldSnip = (string)($byKey[$key]['snippet'] ?? '');
+            $newSnip = (string)($r['snippet'] ?? '');
+            if (mb_strlen($newSnip) > mb_strlen($oldSnip)) {
+                $byKey[$key]['snippet'] = $newSnip;
+            }
+            $oldTitle = (string)($byKey[$key]['title'] ?? '');
+            $newTitle = (string)($r['title'] ?? '');
+            if (mb_strlen($newTitle) > mb_strlen($oldTitle)) {
+                $byKey[$key]['title'] = $newTitle;
+            }
+            $byKey[$key]['engine_rank'] = min((int)$byKey[$key]['engine_rank'], (int)($r['engine_rank'] ?? 9));
+        }
+        return array_values($byKey);
+    }
+
+    /** کلید حذف تکراری: میزبان + مسیر + پارامترهای مهم (بدون پارامترهای رهگیری) */
+    private function urlDedupeKey(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return '';
+        }
+        $host = $this->hostOf($url);
+        $path = (string)(parse_url($url, PHP_URL_PATH) ?? '');
+        $path = rtrim($path, '/');
+        $query = (string)(parse_url($url, PHP_URL_QUERY) ?? '');
+        $keep = [];
+        if ($query !== '') {
+            parse_str($query, $params);
+            /* پارامترهای رهگیری/کمپین حذف می‌شوند تا لینک‌های یکسان یکی شوند */
+            $ignore = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+                       'fbclid', 'gclid', 'ref', 'ref_src', 'source', 'spm', 'mc_cid', 'mc_eid'];
+            foreach ($params as $k => $v) {
+                if (in_array(strtolower((string)$k), $ignore, true)) {
+                    continue;
+                }
+                $keep[(string)$k] = is_array($v) ? implode(',', $v) : (string)$v;
+            }
+            ksort($keep);
+        }
+        return $host . $path . ($keep ? '?' . http_build_query($keep) : '');
+    }
+
+    /** 📊 نهایی‌سازی نتایج ادغامی (مشابه finalizeResults ولی با سقف بیشتر) */
+    private function finalizeWideResults(string $query, array $results, int $limit, string $provider): array
+    {
+        foreach ($results as &$r) {
+            $r['freshness'] = $this->extractDateHint((string)($r['snippet'] ?? '') . ' ' . (string)($r['title'] ?? ''));
+            $r['trust'] = isset($r['trust']) ? (int)$r['trust'] : $this->domainTrust((string)($r['url'] ?? ''));
+        }
+        unset($r);
+        /* سقفِ ادغامی: بیش از limit نگه می‌داریم تا استخراج کدها از همه‌شان ممکن باشد */
+        $cap = min(24, max($limit, $limit + 8));
+        return [
+            'query'    => $query,
+            'results'  => array_slice($results, 0, $cap),
+            'provider' => $provider,
+            'fresh'    => true,
+        ];
+    }
+
+    /** 🌍 نرمال‌سازی زبان برای پارامترهای موتورها */
+    private function normalizeLang(string $lang): string
+    {
+        $lang = strtolower(trim($lang));
+        if (in_array($lang, ['fa', 'fa-ir', 'persian', 'فارسی'], true)) {
+            return 'fa';
+        }
+        if (in_array($lang, ['en', 'en-us', 'en-gb', 'english'], true)) {
+            return 'en';
+        }
+        return 'auto';
+    }
+
+    /** 🌍 نرمال‌سازی کد منطقه (دو حرف لاتین) */
+    private function normalizeRegion(string $region): string
+    {
+        $region = strtoupper(preg_replace('/[^a-zA-Z]/', '', trim($region)) ?? '');
+        return strlen($region) === 2 ? $region : '';
+    }
+
+    /** 🌍 زبان مؤثر این فراخوانی (auto → بر اساس خود متن کوئری) */
+    private function effectiveLang(string $query): string
+    {
+        if (($this->callOpts['lang'] ?? 'auto') !== 'auto') {
+            return (string)$this->callOpts['lang'];
+        }
+        /* تشخیص ساده: حضور نویسه‌های فارسی/عربی */
+        return preg_match('/[\x{0600}-\x{06FF}]/u', $query) ? 'fa' : 'en';
+    }
+
+    /** 🌍 منطقه مؤثر این فراخوانی */
+    private function effectiveRegion(string $lang): string
+    {
+        $region = (string)($this->callOpts['region'] ?? '');
+        if ($region !== '') {
+            return $region;
+        }
+        return $lang === 'fa' ? 'IR' : 'US';
     }
 
     /**
@@ -223,13 +474,27 @@ class WebSearchService
      * @param int    $maxChars  حداکثر کاراکتر متن (پیش‌فرض ۸۰۰۰)
      * @return array [ok, url, title, description, text, chars, took_ms]
      */
-    public function fetchPageText(string $url, int $maxChars = 8000): array
+    /**
+     * 📄 خواندن متن یک صفحه (با fallback خواننده jina برای صفحات بلاک‌شده)
+     *
+     * 🆕 v1.6: پارامتر $deadline — تایم‌اوت cURL با زمانِ باقیمانده تا پایان
+     * بودجه تنظیم می‌شود؛ اگر بودجه تمام شده باشد اصلاً درخواستی نمی‌رود.
+     */
+    public function fetchPageText(string $url, int $maxChars = 8000, ?float $deadline = null): array
     {
         $this->guard();
         $url = $this->sanitizeUrl($url);
         $t0 = microtime(true);
+        if ($deadline !== null && microtime(true) > $deadline) {
+            return ['ok' => false, 'url' => $url, 'error' => 'بودجه زمانی تمام شد', 'took_ms' => 0];
+        }
 
-        [$ok, $status, $body, $error] = $this->httpGet($url);
+        $timeout = null;
+        if ($deadline !== null) {
+            $timeout = (int)max(3, min((int)$this->cfg['timeout'], (int)ceil($deadline - microtime(true))));
+        }
+
+        [$ok, $status, $body, $error] = $this->httpGet($url, [], $timeout);
 
         /* 🆕 v1.4 — fallback خواننده jina (دو محرک):
          *  ① سایت بلاک‌کننده: 403/401/429 یا صفحه چالش (Access Denied / Cloudflare)
@@ -614,8 +879,9 @@ class WebSearchService
      * 🔗 زنجیره ارائه‌دهندگان
      * ================================================== */
 
-    /** اجرای زنده جستجو با جایگزینی خودکار ارائه‌دهنده */
-    private function searchLive(string $query, int $limit): array
+    /** اجرای زنده جستجو با جایگزینی خودکار ارائه‌دهنده
+     *  🆕 v1.6: $deadline — اگر بودجه تمام شده باشد، مراحل بعدی تلاش نمی‌شوند */
+    private function searchLive(string $query, int $limit, ?float $deadline = null): array
     {
         $this->throttle();
         $errors = [];
@@ -646,8 +912,13 @@ class WebSearchService
         // ۲) ⚡ مسابقه موازی رایگان‌ها
         //    🔧 v1.4: اگر ۲ بار پشت‌سرهم کامل شکست خورده باشد، دیگر وقت
         //    برای مسابقه تلف نمی‌شود — مستقیم سراغ jina می‌رویم (هاست بلاک‌شده)
+        //    ⏱️ v1.6: اگر بودجه زمانی تمام شده، مسابقه هم بی‌فایده است
         $raceTried = false;
-        if (!empty($freeGroup) && $this->raceFailureStreak < 2) {
+        if ($deadline !== null && microtime(true) > $deadline) {
+            $errors[] = 'بودجه زمانی پیش از مسابقه‌ی موتورها تمام شد';
+        }
+        if (!empty($freeGroup) && $this->raceFailureStreak < 2
+            && ($deadline === null || microtime(true) <= $deadline)) {
             $raceTried = true;
             try {
                 $raced = $this->raceProviders($freeGroup, $query, $limit);
@@ -766,13 +1037,21 @@ class WebSearchService
     }
 
     /**
-     * 🏗️ ساخت درخواست cURL خام یک ارائه‌دهنده (برای مسابقه موازی)
+     * 🏗️ ساخت درخواست cURL یک ارائه‌دهنده (برای مسابقه موازی)
+     *
+     * 🆕 v1.6: ساخت URL/فرم/هدر به providerUrl() منتقل شد تا مسیرِ «ترتیبی»
+     * (searchGenericProvider) و مسیرِ «مسابقه‌ای» دقیقاً یک URL را بزنند و
+     * پارامترهای زبان/منطقه در هر دو مسیر یکسان اعمال شود.
      * خروجی: [curl_handle|null, context]
      */
     private function buildProviderRequest(string $provider, string $query, int $limit): array
     {
+        $req = $this->providerUrl($provider, $query, $limit);
+        if ($req === null) {
+            return [null, ['method' => 'GET', 'url' => '']];
+        }
         $ch = curl_init();
-        $ctx = ['method' => 'GET', 'url' => ''];
+        $ctx = ['method' => $req['method'], 'url' => $req['url']];
         $common = [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => true,
@@ -782,81 +1061,122 @@ class WebSearchService
             CURLOPT_ENCODING       => '',
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_USERAGENT      => $this->userAgent(),
-            CURLOPT_HTTPHEADER     => [
-                'Accept: text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
-                'Accept-Language: fa-IR,fa;q=0.9,en;q=0.8',
-            ],
+            CURLOPT_HTTPHEADER     => $req['headers'],
         ];
+        if ($req['method'] === 'POST') {
+            curl_setopt_array($ch, $common + [
+                CURLOPT_URL        => $req['url'],
+                CURLOPT_POST       => true,
+                CURLOPT_POSTFIELDS => http_build_query($req['fields']),
+            ]);
+            return [$ch, $ctx];
+        }
+        curl_setopt_array($ch, $common + [CURLOPT_URL => $req['url']]);
+        return [$ch, $ctx];
+    }
+
+    /**
+     * 🌍 v1.6: تنها نقطه‌ی ساخت URL/فرم/هدرِ هر ارائه‌دهنده
+     *
+     * زبان و منطقه از $this->callOpts می‌آیند (در search() تنظیم می‌شود):
+     *   گوگل → hl/gl  |  بینگ → setlang/cc/mkt  |  داج‌داک‌گو → kl
+     *   سیرکس → language  |  ویکی‌پدیا → دامنه‌ی fa/en
+     * یعنی کوئری فارسی واقعاً «با تنظیمات فارسی» پرسیده می‌شود و کوئری
+     * انگلیسی با تنظیمات انگلیسی — نتیجه‌ی هر کدام pagesهای همان زبان است.
+     *
+     * @return array{method:string,url:string,fields:array,headers:array}|null
+     */
+    private function providerUrl(string $provider, string $query, int $limit): ?array
+    {
+        $lang       = $this->effectiveLang($query);
+        $region     = $this->effectiveRegion($lang);
+        $acceptLang = $lang === 'fa' ? 'fa-IR,fa;q=0.9,en;q=0.8' : 'en-US,en;q=0.9';
+        $headers    = [
+            'Accept: text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
+            'Accept-Language: ' . $acceptLang,
+        ];
+
         switch ($provider) {
             case 'wikipedia':
-                $ctx['url'] = 'https://fa.wikipedia.org/w/api.php?' . http_build_query([
-                    'action' => 'query', 'list' => 'search', 'srsearch' => $query,
-                    'srlimit' => min(50, max(1, $limit)), 'format' => 'json', 'utf8' => 1,
-                ]);
-                curl_setopt_array($ch, $common + [CURLOPT_URL => $ctx['url']]);
-                return [$ch, $ctx];
+                $wikiLang = $lang === 'fa' ? 'fa' : 'en';
+                return [
+                    'method'  => 'GET',
+                    'fields'  => [],
+                    'headers' => ['Accept: application/json'],
+                    'url'     => 'https://' . $wikiLang . '.wikipedia.org/w/api.php?' . http_build_query([
+                        'action' => 'query', 'list' => 'search', 'srsearch' => $query,
+                        'srlimit' => min(50, max(1, $limit)), 'format' => 'json', 'utf8' => 1,
+                    ]),
+                ];
             case 'duckduckgo_html':
-                $ctx['method'] = 'POST';
-                $ctx['url'] = 'https://html.duckduckgo.com/html/';
-                curl_setopt_array($ch, $common + [
-                    CURLOPT_URL           => $ctx['url'],
-                    CURLOPT_POST          => true,
-                    CURLOPT_POSTFIELDS    => http_build_query(['q' => $query, 'kl' => 'wt-wt']),
-                ]);
-                return [$ch, $ctx];
+                return [
+                    'method'  => 'POST',
+                    'fields'  => ['q' => $query, 'kl' => $this->ddgRegion($region)],
+                    'headers' => $headers,
+                    'url'     => 'https://html.duckduckgo.com/html/',
+                ];
             case 'duckduckgo_lite':
-                $ctx['method'] = 'POST';
-                $ctx['url'] = 'https://lite.duckduckgo.com/lite/';
-                curl_setopt_array($ch, $common + [
-                    CURLOPT_URL           => $ctx['url'],
-                    CURLOPT_POST          => true,
-                    CURLOPT_POSTFIELDS    => http_build_query(['q' => $query]),
-                ]);
-                return [$ch, $ctx];
+                return [
+                    'method'  => 'POST',
+                    'fields'  => ['q' => $query, 'kl' => $this->ddgRegion($region)],
+                    'headers' => $headers,
+                    'url'     => 'https://lite.duckduckgo.com/lite/',
+                ];
             case 'mojeek':
-                $ctx['url'] = 'https://www.mojeek.com/search?' . http_build_query(['q' => $query, 't' => (string)$limit]);
-                curl_setopt_array($ch, $common + [CURLOPT_URL => $ctx['url']]);
-                return [$ch, $ctx];
+                return [
+                    'method'  => 'GET',
+                    'fields'  => [],
+                    'headers' => $headers,
+                    'url'     => 'https://www.mojeek.com/search?' . http_build_query(['q' => $query, 't' => (string)$limit]),
+                ];
             case 'startpage':
-                $ctx['method'] = 'POST';
-                $ctx['url'] = 'https://www.startpage.com/sp/search';
-                curl_setopt_array($ch, $common + [
-                    CURLOPT_URL           => $ctx['url'],
-                    CURLOPT_POST          => true,
-                    CURLOPT_POSTFIELDS    => http_build_query(['query' => $query]),
-                ]);
-                return [$ch, $ctx];
+                return [
+                    'method'  => 'POST',
+                    'fields'  => ['query' => $query],
+                    'headers' => $headers,
+                    'url'     => 'https://www.startpage.com/sp/search',
+                ];
             case 'bing_html':
-                $ctx['url'] = 'https://www.bing.com/search?' . http_build_query([
-                    'q' => $query, 'count' => (string)$limit, 'setlang' => 'fa', 'cc' => 'IR',
-                ]);
-                curl_setopt_array($ch, $common + [CURLOPT_URL => $ctx['url']]);
-                return [$ch, $ctx];
-            /* ════════ 🆕 v2.15: ارائه‌دهنده‌های جدید — پوشش از هاست‌های محدود/ایرانی ════════ */
+                return [
+                    'method'  => 'GET',
+                    'fields'  => [],
+                    'headers' => $headers,
+                    'url'     => 'https://www.bing.com/search?' . http_build_query([
+                        'q' => $query, 'count' => (string)$limit,
+                        'setlang' => $lang, 'cc' => $region, 'mkt' => $this->bingMarket($region),
+                    ]),
+                ];
             case 'google_html':
-                $ctx['url'] = 'https://www.google.com/search?' . http_build_query([
-                    'q' => $query, 'num' => (string)max(10, $limit), 'hl' => 'en', 'gbv' => '1',
-                ]);
-                curl_setopt_array($ch, $common + [
-                    CURLOPT_URL => $ctx['url'],
-                    CURLOPT_HTTPHEADER => [
-                        'Accept: text/html,application/xhtml+xml',
-                        'Accept-Language: en-US,en;q=0.9,fa;q=0.8',
-                    ],
-                ]);
-                return [$ch, $ctx];
+                return [
+                    'method'  => 'GET',
+                    'fields'  => [],
+                    'headers' => $headers,
+                    'url'     => 'https://www.google.com/search?' . http_build_query([
+                        'q' => $query, 'num' => (string)max(10, $limit),
+                        'hl' => $lang, 'gl' => $region, 'gbv' => '1',
+                    ]),
+                ];
             case 'yandex_html':
-                $ctx['url'] = 'https://yandex.com/search/?' . http_build_query(['text' => $query]);
-                curl_setopt_array($ch, $common + [CURLOPT_URL => $ctx['url']]);
-                return [$ch, $ctx];
+                return [
+                    'method'  => 'GET',
+                    'fields'  => [],
+                    'headers' => $headers,
+                    'url'     => 'https://yandex.com/search/?' . http_build_query(['text' => $query]),
+                ];
             case 'ecosia_html':
-                $ctx['url'] = 'https://www.ecosia.org/search?' . http_build_query(['q' => $query]);
-                curl_setopt_array($ch, $common + [CURLOPT_URL => $ctx['url']]);
-                return [$ch, $ctx];
+                return [
+                    'method'  => 'GET',
+                    'fields'  => [],
+                    'headers' => $headers,
+                    'url'     => 'https://www.ecosia.org/search?' . http_build_query(['q' => $query]),
+                ];
             case 'brave_html':
-                $ctx['url'] = 'https://search.brave.com/search?' . http_build_query(['q' => $query, 'source' => 'web']);
-                curl_setopt_array($ch, $common + [CURLOPT_URL => $ctx['url']]);
-                return [$ch, $ctx];
+                return [
+                    'method'  => 'GET',
+                    'fields'  => [],
+                    'headers' => $headers,
+                    'url'     => 'https://search.brave.com/search?' . http_build_query(['q' => $query, 'source' => 'web']),
+                ];
             case 'searx_json':
                 /* نمونه‌های عمومی SearXNG با خروجی JSON — یکی تصادفی (پراکندگی بار) */
                 $instances = [
@@ -866,17 +1186,36 @@ class WebSearchService
                     'https://opnxng.com/search',
                     'https://paulgo.io/search',
                 ];
-                $ctx['url'] = $instances[array_rand($instances)] . '?' . http_build_query([
-                    'q' => $query, 'format' => 'json', 'language' => 'auto', 'safesearch' => '0',
-                ]);
-                curl_setopt_array($ch, $common + [
-                    CURLOPT_URL => $ctx['url'],
-                    CURLOPT_HTTPHEADER => ['Accept: application/json'],
-                ]);
-                return [$ch, $ctx];
+                return [
+                    'method'  => 'GET',
+                    'fields'  => [],
+                    'headers' => ['Accept: application/json'],
+                    'url'     => $instances[array_rand($instances)] . '?' . http_build_query([
+                        'q' => $query, 'format' => 'json',
+                        'language' => $lang === 'fa' ? 'fa' : 'en', 'safesearch' => '0',
+                    ]),
+                ];
         }
-        curl_close($ch);
-        return [null, $ctx];
+        return null;
+    }
+
+    /** 🌍 پارامتر منطقه‌ی داج‌داک‌گو (kl) */
+    private function ddgRegion(string $region): string
+    {
+        if ($region === '') {
+            return 'wt-wt';
+        }
+        return strtolower($region) . '-' . strtolower($region);
+    }
+
+    /** 🌍 بازارِ بینگ (mkt) */
+    private function bingMarket(string $region): string
+    {
+        $map = [
+            'IR' => 'fa-IR', 'US' => 'en-US', 'GB' => 'en-GB', 'DE' => 'de-DE',
+            'TR' => 'tr-TR', 'FR' => 'fr-FR', 'AE' => 'ar-AE',
+        ];
+        return $map[$region] ?? ($region === 'IR' ? 'fa-IR' : 'en-US');
     }
 
     /**
@@ -1038,26 +1377,23 @@ class WebSearchService
      */
     private function searchGenericProvider(string $provider, string $query, int $limit): array
     {
-        /* ساخت URL با همان منطق مسابقه — از یک handle موقت فقط برای ساخت آپشن‌ها */
-        $urls = [
-            'google_html' => 'https://www.google.com/search?' . http_build_query(['q' => $query, 'num' => (string)max(10, $limit), 'hl' => 'en', 'gbv' => '1']),
-            'yandex_html' => 'https://yandex.com/search/?' . http_build_query(['text' => $query]),
-            'ecosia_html' => 'https://www.ecosia.org/search?' . http_build_query(['q' => $query]),
-            'brave_html'  => 'https://search.brave.com/search?' . http_build_query(['q' => $query, 'source' => 'web']),
-        ];
-        if ($provider === 'searx_json') {
-            $instances = ['https://searx.be/search', 'https://search.inetol.net/search', 'https://priv.au/search', 'https://opnxng.com/search', 'https://paulgo.io/search'];
-            $urls['searx_json'] = $instances[array_rand($instances)] . '?' . http_build_query(['q' => $query, 'format' => 'json', 'language' => 'auto', 'safesearch' => '0']);
+        /* 🆕 v1.6: URL/فرم/هدر دقیقاً همان چیزی است که مسیر مسابقه‌ای می‌سازد
+           (providerUrl) — زبان و منطقه‌ی کوئری اینجا هم رعایت می‌شود */
+        $req = $this->providerUrl($provider, $query, $limit);
+        if ($req === null) {
+            throw new RuntimeException('URL ارائه‌دهنده ساخته نشد: ' . $provider);
         }
-        $url = $urls[$provider] ?? '';
-        if ($url === '') {
-            throw new RuntimeException('URL ارائه‌دهنده ساخته نشد.');
+        $url = $req['url'];
+        $ctx = ['method' => $req['method'], 'url' => $url];
+        if ($req['method'] === 'POST') {
+            [$ok, $status, $body, $error] = $this->httpPostForm($url, $req['fields'], $req['headers']);
+        } else {
+            [$ok, $status, $body, $error] = $this->httpGet($url, $req['headers']);
         }
-        [$ok, $status, $body, $error] = $this->httpGet($url, $provider === 'google_html' ? ['Accept-Language: en-US,en;q=0.9'] : []);
         if (!$ok || $status !== 200) {
             throw new RuntimeException('پاسخ ' . $status . ($error ? ' (' . $error . ')' : ''));
         }
-        return $this->parseProviderResponse($provider, $body, $limit, ['method' => 'GET', 'url' => $url]);
+        return $this->parseProviderResponse($provider, $body, $limit, $ctx);
     }
 
     /* ==================================================
@@ -1146,11 +1482,14 @@ class WebSearchService
 
     private function searchDuckDuckGoHtml(string $query, int $limit): array
     {
+        /* 🆕 v1.6: منطقه (kl) بر اساس زبان کوئری — wt-wt دیگر همیشه نیست
+           (کوئری فارسی → fa-ir، انگلیسی → us-us) */
+        $req = $this->providerUrl('duckduckgo_html', $query, $limit);
+        if ($req === null) {
+            throw new RuntimeException('ساخت درخواست داج‌داک‌گو ناموفق بود.');
+        }
         // POST به دلیل پایداری بیشتر در برابر فیلتر ربات‌ها
-        [$ok, $status, $body, $error] = $this->httpPost('https://html.duckduckgo.com/html/', [
-            'q'  => $query,
-            'kl' => 'wt-wt',
-        ]);
+        [$ok, $status, $body, $error] = $this->httpPostForm($req['url'], $req['fields'], $req['headers']);
         if (!$ok) { throw new RuntimeException($error ?: "HTTP {$status}"); }
         return $this->parseDdgHtml($body, $limit);
     }
@@ -1280,11 +1619,16 @@ class WebSearchService
     /** 🔍 Startpage — جایگزین رایگان با نتایج گوگل (v1.2) */
     private function searchStartpage(string $query, int $limit): array
     {
-        [$ok, $status, $body, $error] = $this->httpPost('https://www.startpage.com/sp/search', [
-            'query' => $query,
-            'cat'   => 'web',
-            'language' => 'farsi',
-        ]);
+        /* 🆕 v1.6: زبانِ رابط استارت‌پیج با زبان کوئری هماهنگ شد
+           (قبلاً همیشه «farsi» بود — نتایج انگلیسی کیفیت نداشتند) */
+        $req = $this->providerUrl('startpage', $query, $limit);
+        if ($req === null) {
+            throw new RuntimeException('ساخت درخواست استارت‌پیج ناموفق بود.');
+        }
+        $fields = $req['fields'];
+        $fields['cat'] = 'web';
+        $fields['language'] = $this->effectiveLang($query) === 'fa' ? 'farsi' : 'english';
+        [$ok, $status, $body, $error] = $this->httpPostForm($req['url'], $fields, $req['headers']);
         if (!$ok) { throw new RuntimeException($error ?: "HTTP {$status}"); }
         return $this->parseStartpageHtml($body, $limit);
     }
@@ -1781,6 +2125,36 @@ class WebSearchService
         return $res;
     }
 
+    /**
+     * POST فرم با cURL و هدرهای دلخواه (🆕 v1.6)
+     * مسیر «ترتیبی»ِ داج‌داک‌گو/استارت‌پیج از این استفاده می‌کند تا هدرِ
+     * Accept-Language و پارامتر منطقه با زبان کوئری هماهنگ باشد.
+     * خروجی: [ok, status, body, error]
+     */
+    private function httpPostForm(string $url, array $form, array $headers = []): array
+    {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => http_build_query($form),
+            CURLOPT_CONNECTTIMEOUT => (int)$this->cfg['connect_timeout'],
+            CURLOPT_TIMEOUT        => (int)$this->cfg['timeout'],
+            CURLOPT_ENCODING       => '',
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_USERAGENT      => $this->userAgent(),
+            CURLOPT_HTTPHEADER     => array_merge(
+                ['Content-Type: application/x-www-form-urlencoded'],
+                $headers
+            ),
+        ]);
+        $body = curl_exec($ch);
+        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch) ?: null;
+        curl_close($ch);
+        return [is_string($body) && $body !== '', $status, is_string($body) ? $body : '', $error];
+    }
+
     /** POST فرم با cURL — خروجی: [ok, status, body, error] */
     private function httpPost(string $url, array $form): array
     {
@@ -1804,6 +2178,52 @@ class WebSearchService
         $error = curl_error($ch) ?: null;
         curl_close($ch);
         return [is_string($body) && $body !== '', $status, is_string($body) ? $body : '', $error];
+    }
+
+    /**
+     * 📚 v1.6 — خواندن دسته‌ای چند صفحه با «یک بودجه زمانی مشترک»
+     *
+     * جستجوی عمیق به‌جای یک صفحه، چند صفحه‌ی برترِ هر کد را می‌خواند؛ این متد
+     * تضمین می‌کند مجموعِ زمانِ خواندن آن‌ها از بودجه بیرون نزند و صفحات
+     * تکراری/نامعتبر دوبار خوانده نشوند.
+     *
+     * @param string[] $urls      آدرس‌ها (به ترتیب اولویت)
+     * @param int      $maxChars  سقف نویسه هر صفحه
+     * @param int      $maxPages  حداکثر تعداد صفحه‌ی موفق
+     * @param float|null $deadline
+     * @return array<int, array> فقط صفحات موفق (هر آیتم خروجی fetchPageText)
+     */
+    public function fetchPages(array $urls, int $maxChars, int $maxPages, ?float $deadline = null): array
+    {
+        $pages = [];
+        $seen  = [];
+        foreach ($urls as $u) {
+            if (count($pages) >= $maxPages) {
+                break;
+            }
+            if ($deadline !== null && microtime(true) > $deadline) {
+                break;
+            }
+            $u = trim((string)$u);
+            if ($u === '' || !preg_match('#^https?://#i', $u)) {
+                continue;
+            }
+            $key = $this->urlDedupeKey($u);
+            if ($key === '' || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            try {
+                $page = $this->fetchPageText($u, $maxChars, $deadline);
+            } catch (Throwable $e) {
+                continue;
+            }
+            if (empty($page['ok'])) {
+                continue;
+            }
+            $pages[] = $page;
+        }
+        return $pages;
     }
 
     /** چرخش User-Agent برای پایداری */

@@ -190,6 +190,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
            پذیرفته می‌شود (HTML هم value="1" گرفت). */
         $useWeb = in_array(post('use_web'), ['1', 'on', 'true'], true);
         $overwrite = in_array(post('overwrite'), ['1', 'on', 'true'], true);
+        /* 🆕 v2.34 — عمق جستجوی اینترنتی (fast | balanced | deep) */
+        $searchDepth = strtolower(trim((string)post('search_depth', 'balanced')));
+        if (!in_array($searchDepth, ['fast', 'balanced', 'deep'], true)) {
+            $searchDepth = 'balanced';
+        }
 
         /* 📊 v2.14 — حالت AJAX با نوار پیشرفت زنده:
            فرانت یک کلید یکتا می‌سازد و با درخواست می‌فرستد؛ پیشرفت موتور در
@@ -252,7 +257,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     @file_put_contents($progressFile, json_encode(['pct' => $pct, 'title' => $title, 'detail' => $detail, 'ts' => time()], JSON_UNESCAPED_UNICODE));
                 });
             }
-            $result = $engine->generateForDevice($brandId, $deviceKey, $useWeb, $overwrite);
+            $result = $engine->generateForDevice($brandId, $deviceKey, $useWeb, $overwrite, $searchDepth);
             if ($isAjax) {
                 @unlink($progressFile);
                 json_response([
@@ -263,6 +268,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'web_found'     => $result['web_found'],
                     'kb_added'      => $result['kb_added'],
                     'sources'       => array_slice($result['sources'], 0, 5),
+                    'source_stats'  => $result['source_stats'] ?? [],
+                    'depth'         => $result['depth'] ?? $searchDepth,
                     'redirect'      => 'error-codes.php?brand=' . $brandId . '&device=' . urlencode($deviceKey),
                 ]);
             }
@@ -551,6 +558,15 @@ try {
                         <option value="">— ابتدا برند را انتخاب کنید —</option>
                     </select>
                     <div class="hint" id="gen-device-hint">فهرست دستگاه‌ها بر اساس برند انتخابی به‌صورت خودکار فیلتر می‌شود.</div>
+                </div>
+                <div class="form-group" style="margin:10px 0">
+                    <label>۳. عمق جستجوی اینترنتی</label>
+                    <select name="search_depth" id="gen-depth" class="form-control">
+                        <option value="balanced">متعادل — حدود ۱ تا ۲ دقیقه (۱۶ کوئری · ۸ صفحه فهرست)</option>
+                        <option value="deep">🌊 عمیق — تا چند دقیقه (۲۸ کوئری · دو موتور همزمان · ۱۲ صفحه فهرست · ۴ صفحه برای هر کد · تا ۶۰ کد)</option>
+                        <option value="fast">سریع — حدود ۳۰ ثانیه (۸ کوئری · ۴ صفحه فهرست)</option>
+                    </select>
+                    <div class="hint">🌍 در همه حالت‌ها سایت‌های <b>فارسی و غیرفارسی</b> با هم جستجو می‌شوند (کوئری‌های فارسی با تنظیمات فارسی و کوئری‌های انگلیسی با تنظیمات انگلیسی به موتورها می‌روند) و منابعِ رسمی برند، دفترچه‌های قطعات، فروشگاه‌های قطعات و انجمن‌های تعمیرات در اولویت‌اند.</div>
                 </div>
                 <label class="form-check" style="margin:10px 0"><input type="checkbox" name="use_web" value="1" checked> 🌐 جستجوی آنلاین اینترنت (فارسی + خارجی) برای کدهای بیشتر با منبع‌یابی</label>
                 <label class="form-check" style="margin-bottom:10px"><input type="checkbox" name="overwrite" value="1"> 🔄 جایگزینی کدهای قبلی همین دستگاه</label>
