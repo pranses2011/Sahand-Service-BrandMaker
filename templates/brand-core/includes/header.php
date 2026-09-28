@@ -41,6 +41,10 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
     <?php if ($pageKey): ?><meta name="keywords" content="<?= e($pageKey) ?>"><?php endif; ?>
     <meta name="robots" content="index,follow">
     <link rel="canonical" href="https://<?= e(BRAND_DOMAIN) ?><?= e($_SERVER['REQUEST_URI'] ?? '/') ?>">
+    <!-- ⚡ v2.33 — preconnect دامنه سایت‌ساز: fonts.css و تصاویر آپلودی از
+         دامنه دیگر می‌آیند؛ DNS+TLS از قبل باز می‌شود (گزارش تحلیل ۵.۲) -->
+    <link rel="preconnect" href="<?= e(BRANDMAKER_URL) ?>" crossorigin>
+    <link rel="dns-prefetch" href="<?= e(BRANDMAKER_URL) ?>">
     <!-- 📗 Open Graph -->
     <meta property="og:title" content="<?= e($pageTitle) ?>">
     <meta property="og:description" content="<?= e($pageDesc) ?>">

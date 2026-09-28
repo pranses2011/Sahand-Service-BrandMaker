@@ -12,6 +12,22 @@
 define('BRAND_INIT', true);
 require_once __DIR__ . '/config.php';
 
+/* 🚀 v2.33 — پیش‌واکشی موازی همه داده‌های صفحه اصلی (گزارش تحلیل ۵.۱:
+   «۸ اندپوینت متمایز / ۹ فراخوانی سریال مسدودکننده در هر بازدید»)
+   اندپوینت‌های دارای کش از کش خوانده می‌شوند؛ در حالت miss همه با
+   curl_multi یک موج موازی می‌شوند (به‌جای ۹ موج سریال) — header و
+   footer هم بعداً از همین کش تازه می‌خوانند (حافظه درون-درخواستی + فایل). */
+fetchFromAPIMulti([
+    'brand/' . BRAND_ID,
+    'brand/' . BRAND_ID . '/menu/header',
+    'brand/' . BRAND_ID . '/page/home',
+    'brand/' . BRAND_ID . '/devices',
+    'brand/' . BRAND_ID . '/articles?per_page=4',
+    'settings',
+    'brand/' . BRAND_ID . '/template/home',
+    'brands',
+], 120);
+
 // 📥 داده‌های مورد نیاز صفحه اصلی
 $pageData = fetchFromAPI('brand/' . BRAND_ID . '/page/home');
 $content = $pageData['data']['content'] ?? [];
