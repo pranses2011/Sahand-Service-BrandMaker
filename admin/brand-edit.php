@@ -73,6 +73,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     /* ---------- بروزرسانی اطلاعات پایه ---------- */
     if ($action === 'update_info') {
+        /* 🕘 v2.34 — تاریخچه: قبل از ذخیره، نسخه فعلی ثبت می‌شود */
+        try {
+            (new Revision())->save('brand', $brandId, $brandId, $brand['name_fa'] ?? '', (new Revision())->snapshotBrand($brandId));
+        } catch (Throwable $revE) { /* تاریخچه نباید جریان اصلی را بشکند */ }
         $update = [
             'name_fa'            => post('name_fa'),
             'name_en'            => post('name_en'),

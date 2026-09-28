@@ -48,6 +48,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'status') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save') {
     Auth::enforceCsrf();
     $id = (int)post('article_id');
+    /* 🕘 v2.34 — تاریخچه: قبل از ذخیره، نسخه فعلی ثبت می‌شود */
+    try {
+        $rev = new Revision();
+        $old = $db->fetch('SELECT brand_id, title FROM brand_articles WHERE id = ?', [$id]);
+        $rev->save('article', $id, $old ? (int)$old['brand_id'] : null, $old['title'] ?? '', $rev->snapshotArticle($id));
+    } catch (Throwable $revE) { /* تاریخچه نباید جریان اصلی را بشکند */ }
     $db->update('brand_articles', [
         'title'           => post('title'),
         'content'         => Validator::sanitizeHtml((string)($_POST['content'] ?? '')),

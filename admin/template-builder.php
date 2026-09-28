@@ -40,6 +40,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save_template')
     if ($brandPageId > 0) {
         $bp = $db->fetch('SELECT id, brand_id, page_type FROM brand_pages WHERE id = ?', [$brandPageId]);
         if ($bp) {
+            /* 🕘 v2.34 — تاریخچه: قبل از ذخیره چیدمان، نسخه فعلی ثبت می‌شود */
+            try {
+                $rev = new Revision();
+                $rev->save('page', $brandPageId, (int)$bp['brand_id'], 'چیدمان ' . ($bp['page_type'] ?? ''), $rev->snapshotPage($brandPageId));
+            } catch (Throwable $revE) { /* تاریخچه نباید جریان اصلی را بشکند */ }
             $db->update('brand_pages', ['layout_json' => $layoutJson], 'id = ?', [$brandPageId]);
             /* 🎨 v2.27 — کش چیدمان همان برند پاک شود تا تغییر بلافاصله روی
                سایت برند دیده شود (چیدمان از کش ۱۲۰ث خوانده می‌شد). */
@@ -901,6 +906,14 @@ try {
                 <button type="button" class="device-tab" onclick="setDevice(this,'mobile')" title="موبایل">📲</button>
             </div>
             <button type="button" class="btn btn-outline" id="btn-page-settings" onclick="renderPageProps()" title="تنظیمات کل صفحه: زمینه، فاصله‌ها، عرض محتوا، گردی گوشه‌ها و ...">⚙️ تنظیمات صفحه</button>
+            <!-- ⏪ v2.34 — Undo/Redo قالب‌ساز -->
+            <div style="display:flex;gap:0;align-items:center;border:1.5px solid var(--border);border-radius:10px;overflow:hidden">
+                <button type="button" id="btn-undo" onclick="undoLayout()" disabled title="واگرد آخرین تغییر (Ctrl+Z)"
+                        style="border:none;background:#fff;padding:7px 12px;cursor:pointer;font-size:15px;line-height:1">↩️</button>
+                <button type="button" id="btn-redo" onclick="redoLayout()" disabled title="بازانجام (Ctrl+Y)"
+                        style="border:none;border-inline-start:1.5px solid var(--border);background:#fff;padding:7px 12px;cursor:pointer;font-size:15px;line-height:1">↪️</button>
+                <span id="hist-badge" style="display:none;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:800;padding:2px 8px;min-width:24px;text-align:center" title="گام‌های قابل بازگشت">0</span>
+            </div>
             <div style="margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap">
                 <button type="button" class="btn btn-outline" onclick="toggleExtractPanel()" id="btn-extract-toggle" title="استخراج عناصر یک سایت دیگر همراه با استایل — پیش‌نمایش و ذخیره در عناصر شخصی">🌐 استخراج از سایت</button>
                 <button type="button" class="btn btn-info" onclick="uiuxDesign()" id="btn-uiux-design" title="طراحی چیدمان حرفه‌ای با اسکیل UI/UX Pro">✨ طراحی با UI/UX Pro</button>
@@ -1224,6 +1237,114 @@ function setPageProp(key, value) {
     applyPageSettings();
     syncAndRender();
 }
+
+/* ═══════════════════════════════════════════════════════════════
+ * ⏪ v2.34 — Undo / Redo قالب‌ساز (P1 #9)
+ * تاریخچه = پشته snapshot از fullLayout (چیدمان + تنظیمات صفحه).
+ *   • هر تغییر ساختاری (افزودن/حذف/جابجایی/کپی/خالی‌کردن) = گام جدید
+ *   • ورودی‌های متنی/رنگی با «ادغام ۹۰۰ms» = یک گام (تایپ پیوسته یکجا واگرد می‌شود)
+ *   • Ctrl+Z واگرد | Ctrl+Y یا Ctrl+Shift+Z بازانجام
+ *   • سقف ۶۰ گام — قدیمی‌ها می‌ریزند
+ * @package SahandBrandMaker
+ * ═══════════════════════════════════════════════════════════════ */
+const HIST_MAX = 60;
+let histStack = [];      // پشته snapshotها (رشته JSON)
+let histIndex = -1;      // اشاره‌گر گام فعلی
+let histLastPushAt = 0;  // آخرین زمان push (برای ادغام تایپ)
+let histSuppress = false;// خاموشی موقت (هنگام بازگردانی خودِ تاریخچه)
+
+function histSnapshot() { return JSON.stringify(fullLayout()); }
+
+/** ثبت گام جدید — coalesce=true ورودی‌های پیوسته را در یک گام ادغام می‌کند */
+function pushHistory(coalesce) {
+    if (histSuppress) { return; }
+    const snap = histSnapshot();
+    if (histIndex >= 0 && histStack[histIndex] === snap) { return; } // بدون تغییر
+    const now = Date.now();
+    const canMerge = coalesce === true
+        && histIndex === histStack.length - 1   // گام فعلی آخرین است (redo معلق نیست)
+        && histIndex >= 0
+        && (now - histLastPushAt) < 900;        // تایپ/درگ پیوسته
+    if (canMerge) {
+        histStack[histIndex] = snap;            // جایگزینی گام جاری (تایپ = یک گام)
+        histLastPushAt = now;
+        updateUndoButtons();
+        return;
+    }
+    histStack = histStack.slice(0, histIndex + 1); // حذف آینده redo
+    histStack.push(snap);
+    if (histStack.length > HIST_MAX) { histStack.shift(); }
+    histIndex = histStack.length - 1;
+    histLastPushAt = now;
+    updateUndoButtons();
+}
+
+/** بازگردانی یک snapshot به بوم (بدون ثبت در تاریخچه) */
+function restoreSnapshot(snap) {
+    const obj = JSON.parse(snap);
+    const pageNode = (obj || []).find(function (n) { return n && n.block === '_page'; });
+    pageProps = (pageNode && pageNode.props) ? pageNode.props : {};
+    layout = (obj || []).filter(function (n) { return !n || n.block !== '_page'; });
+    selected = '';
+    histSuppress = true;
+    try {
+        render();            // فیلد مخفی layout-json را هم بازنویسی می‌کند
+        applyPageSettings();
+        renderProps();
+    } finally {
+        histSuppress = false;
+    }
+    updateUndoButtons();
+}
+
+function undoLayout() {
+    if (histIndex <= 0) { return; }
+    histIndex--;
+    restoreSnapshot(histStack[histIndex]);
+    histLastPushAt = 0; // گام بعدی تایپ، گام جدید باشد نه ادغام
+}
+
+function redoLayout() {
+    if (histIndex >= histStack.length - 1) { return; }
+    histIndex++;
+    restoreSnapshot(histStack[histIndex]);
+    histLastPushAt = 0;
+}
+
+/** فعال/غیرفعال‌سازی دکمه‌ها + شمارنده گام */
+function updateUndoButtons() {
+    const ub = document.getElementById('btn-undo');
+    const rb = document.getElementById('btn-redo');
+    if (ub) {
+        ub.disabled = histIndex <= 0;
+        ub.title = 'واگرد آخرین تغییر (Ctrl+Z)' + (histIndex > 0 ? ' — ' + histIndex + ' گام قابل بازگشت' : '');
+    }
+    if (rb) {
+        rb.disabled = histIndex >= histStack.length - 1;
+        rb.title = 'بازانجام (Ctrl+Y)';
+    }
+    const badge = document.getElementById('hist-badge');
+    if (badge) {
+        const n = histStack.length - 1;
+        badge.textContent = n > 0 ? String(n) : '';
+        badge.style.display = n > 0 ? '' : 'none';
+    }
+}
+
+/* ⌨️ میانبرهای کیبورد — فقط وقتی فوکوس روی ورودی/دیالوگ نیست */
+document.addEventListener('keydown', function (e) {
+    if (!(e.ctrlKey || e.metaKey)) { return; }
+    const k = (e.key || '').toLowerCase();
+    if (k !== 'z' && k !== 'y') { return; }
+    const t = e.target || e.srcElement;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) {
+        /* در ورودی‌ها: Ctrl+Z رفتار بومی مرورگر (واگرد خود متن) بماند؛
+           فقط Ctrl+Shift+Z / Ctrl+Y بوم را بازگرداند */
+        if (!(k === 'z' && e.shiftKey)) { return; }
+    }
+    e.preventDefault();
+    if (k === 'y' || (k === 'z' && e.shiftKey)) { redoLayout(); } else { undoLayout(); }
+});
 /* اعمال تنظیمات صفحه روی بوم — متغیرهای CSS روی #canvas-blocks */
 function applyPageSettings() {
     const stage = document.getElementById('canvas-blocks');
@@ -2269,6 +2390,7 @@ function attachDropzone(dz, colPath) {
             arr.push(...makeBlocks(data.slice(4)));
             selected = colPath + '.' + (arr.length - 1);
         }
+        structuralChange(); /* ⏪ v2.34 — رها کردن بلوک = گام تاریخچه */
         syncAndRender();
         renderProps();
     });
@@ -2301,6 +2423,7 @@ function attachInsertDrop(el, path) {
             arr.splice(target, 0, ...makeBlocks(data.slice(4)));
             selected = (parentPath ? parentPath + '.' : '') + target;
         }
+        structuralChange(); /* ⏪ v2.34 — درج بین بلوک‌ها = گام تاریخچه */
         syncAndRender();
         renderProps();
     });
@@ -3305,6 +3428,7 @@ function moveBlock(path, dir) {
     if (j < 0 || j >= arr.length) { return; }
     [arr[idx], arr[j]] = [arr[j], arr[idx]];
     selected = (parentPath ? parentPath + '.' : '') + j;
+    structuralChange();
     syncAndRender();
     renderProps();
 }
@@ -3316,6 +3440,7 @@ function duplicateBlock(path) {
     if (!arr) { return; }
     arr.splice(idx + 1, 0, JSON.parse(JSON.stringify(arr[idx])));
     selected = (parentPath ? parentPath + '.' : '') + (idx + 1);
+    structuralChange();
     syncAndRender();
     renderProps();
 }
@@ -3327,11 +3452,12 @@ function removeBlock(path) {
     if (!arr) { return; }
     arr.splice(idx, 1);
     selected = '';
+    structuralChange();
     syncAndRender();
     renderProps();
 }
 function clearLayout() {
-    const doClear = () => { layout = []; selected = ''; syncAndRender(); renderProps(); };
+    const doClear = () => { layout = []; selected = ''; structuralChange(); syncAndRender(); renderProps(); };
     if (!layout.length) { doClear(); return; }
     /* 🌉 کادر زیبا (v2.28) */
     sahandConfirm({ title: 'خالی‌کردن بوم', message: 'همه بلوک‌های بوم پاک شوند؟', type: 'warning', confirmText: 'بله، پاک کن' })
@@ -3339,7 +3465,13 @@ function clearLayout() {
 }
 function syncAndRender() {
     document.getElementById('layout-json').value = JSON.stringify(fullLayout());
+    pushHistory(true); /* ⏪ v2.34 — هر تغییر چیدمان (ساختاری با ادغام خاموش در فراخوانی‌های ساختاری) تاریخچه می‌شود */
     render();
+}
+
+/* 🧲 v2.34 — تغییر ساختاری: گام تاریخچه بدون ادغام (افزودن/حذف/جابجایی/کپی هرگز نباید با تایپ قبلی ادغام شوند) */
+function structuralChange() {
+    pushHistory(false);
 }
 
 /* 🖥️ تغییر نمای دستگاه */
@@ -3720,6 +3852,10 @@ function sahandsAlert(msg) {
 applyPageSettings();
 render();
 renderProps();
+/* ⏪ v2.34 — نقطه صفر تاریخچه: وضعیت بارگذاری‌شده از دیتابیس */
+histStack = [histSnapshot()];
+histIndex = 0;
+updateUndoButtons();
 </script>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>
