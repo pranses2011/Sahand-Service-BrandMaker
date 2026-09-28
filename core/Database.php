@@ -35,6 +35,18 @@ class Database
                 PDO::ATTR_EMULATE_PREPARES   => false,                     // Prepared واقعی
                 PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . DB_CHARSET . " COLLATE utf8mb4_unicode_ci",
             ]);
+            /* ⏰ v2.34 — همترازی تایم‌زون نشست دیتابیس با PHP (تهران +03:30)
+               ریشه باگ کشف‌شده در تست زمان‌بندی انتشار: PHP با Asia/Tehran زمان می‌سازد
+               (published_at/expires_at/...) اما NOW() دیتابیس روی تایم‌زون سرور (اغلب UTC)
+               بود → همه مقایسه‌های «<= NOW()» و «expires_at > NOW()» تا ۳.۵ ساعت
+               انحراف داشتند (زمان‌بندی دیر منتشر می‌شد / توکن‌ها دیر منقضی می‌شدند).
+               ایران از ۱۴۰۱ DST ندارد → +03:30 ثابت است. */
+            try {
+                $this->pdo->exec("SET time_zone = '+03:30'");
+            } catch (Throwable $tzE) {
+                // هاست اشتراکی ممکن است اجازه ندهد — رفتار قبلی (تایم‌زون سرور) حفظ می‌شود
+                error_log('[DB] set timezone failed: ' . $tzE->getMessage());
+            }
         } catch (PDOException $e) {
             error_log('[DB] خطای اتصال: ' . $e->getMessage());
             die('<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><body style="font-family:Tahoma;display:flex;align-items:center;justify-content:center;height:100vh"><div style="text-align:center"><h2>🗄️ خطای اتصال به دیتابیس</h2><p>لطفاً تنظیمات config.php را بررسی کنید یا <a href="' . BASE_URL . '/install.php">نصب را اجرا کنید</a>.</p></div></body></html>');

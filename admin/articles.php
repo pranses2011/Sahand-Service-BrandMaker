@@ -54,7 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save') {
         $old = $db->fetch('SELECT brand_id, title FROM brand_articles WHERE id = ?', [$id]);
         $rev->save('article', $id, $old ? (int)$old['brand_id'] : null, $old['title'] ?? '', $rev->snapshotArticle($id));
     } catch (Throwable $revE) { /* تاریخچه نباید جریان اصلی را بشکند */ }
-    $db->update('brand_articles', [
+    /* ⏰ v2.34 — زمان‌بندی انتشار: draft | publish | schedule */
+    $update = [
         'title'           => post('title'),
         'content'         => Validator::sanitizeHtml((string)($_POST['content'] ?? '')),
         'excerpt'         => post('excerpt'),
@@ -63,9 +64,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save') {
         'og_image'        => trim((string)post('og_image')) ?: null, /* 🆕 v2.6: OG قابل ویرایش/تعویض */
         'tags'            => json_encode(array_filter(array_map('trim', explode('،', post('tags')))), JSON_UNESCAPED_UNICODE),
         'updated_at'      => date('Y-m-d H:i:s'),
-    ], 'id = ?', [$id]);
+    ];
+    $publishMode = (string)post('publish_mode', 'keep');
+    if ($publishMode === 'draft') {
+        $update['status'] = 'draft';
+    } elseif ($publishMode === 'publish') {
+        $update['status'] = 'published';
+        $update['published_at'] = date('Y-m-d H:i:s');
+    } elseif ($publishMode === 'schedule') {
+        /* فرمت datetime-local: YYYY-MM-DDTHH:MM — تایم‌زون تهران سرور */
+        $raw = trim((string)post('schedule_at'));
+        $ts = strtotime(str_replace('T', ' ', $raw));
+        if ($raw === '' || $ts === false) {
+            flash('danger', 'زمان‌بندی نامعتبر است — تاریخ و ساعت را کامل وارد کنید.');
+            redirect('articles.php?edit=' . $id);
+        }
+        if ($ts <= time()) {
+            flash('warning', '⏰ زمان انتخابی گذشته است — مقاله همین حالا منتشر شد.');
+            $update['status'] = 'published';
+            $update['published_at'] = date('Y-m-d H:i:s');
+        } else {
+            $update['status'] = 'scheduled';
+            $update['published_at'] = date('Y-m-d H:i:s', $ts);
+        }
+    }
+    $db->update('brand_articles', $update, 'id = ?', [$id]);
     (new Cache())->delete('brand_articles_all');
-    flash('success', '✅ مقاله ذخیره شد.');
+    if (($update['status'] ?? '') === 'published') {
+        flash('success', '✅ مقاله ذخیره و منتشر شد.');
+    } elseif (($update['status'] ?? '') === 'scheduled') {
+        flash('success', '⏰ مقاله زمان‌بندی شد — انتشار خودکار در ' . fa_num(jdate('Y/m/d H:i', strtotime((string)$update['published_at']))));
+    } else {
+        flash('success', '✅ مقاله ذخیره شد.');
+    }
     redirect('articles.php?edit=' . $id);
 }
 
@@ -610,10 +641,55 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
                 </div>
             </div>
 
+            <!-- ⏰ v2.34 — زمان‌بندی انتشار -->
+            <div class="form-row" style="background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:14px 16px">
+                <div class="form-group" style="margin:0">
+                    <label>⏰ وضعیت انتشار</label>
+                    <select name="publish_mode" id="publish-mode" onchange="toggleScheduleBox()" style="max-width:230px">
+                        <option value="keep">— بدون تغییر —</option>
+                        <option value="draft">📝 پیش‌نویس</option>
+                        <option value="publish">🚀 انتشار فوری</option>
+                        <option value="schedule">⏰ زمان‌بندی انتشار</option>
+                    </select>
+                    <?php if (($editArticle['status'] ?? '') === 'scheduled'): ?>
+                        <div class="hint" style="margin-top:6px;color:#b45309">
+                            ⏰ این مقاله زمان‌بندی شده است: <?= e(fa_num(jdate('Y/m/d H:i', strtotime((string)$editArticle['published_at'])))) ?>
+                            (تولید خودکار در سرِ وقت توسط cron)
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <div class="form-group" id="schedule-box" style="margin:0;display:none">
+                    <label>📅 تاریخ و ساعت انتشار (تایم‌زون تهران)</label>
+                    <input type="datetime-local" name="schedule_at" id="schedule-at" class="form-control" style="max-width:230px;direction:ltr"
+                           min="<?= e(date('Y-m-d\TH:i', time())) ?>">
+                    <div class="hint" style="margin-top:6px">مقاله در این زمان به‌صورت خودکار منتشر می‌شود (نیازمند cron فعال — cron/cron.php هر ۵ دقیقه).</div>
+                </div>
+            </div>
+
             <button type="submit" class="btn btn-primary btn-lg">💾 ذخیره مقاله</button>
         </form>
     </div>
 </div>
+
+<script>
+/* ⏰ نمایش/پنهان جعبه زمان‌بندی بر اساس انتخاب وضعیت */
+function toggleScheduleBox() {
+    var mode = document.getElementById('publish-mode');
+    var box = document.getElementById('schedule-box');
+    if (!mode || !box) { return; }
+    box.style.display = mode.value === 'schedule' ? '' : 'none';
+    if (mode.value === 'schedule') {
+        var inp = document.getElementById('schedule-at');
+        if (inp && !inp.value) {
+            /* پیش‌فرض: فردا ساعت ۹ صبح */
+            var d = new Date(Date.now() + 86400000);
+            d.setHours(9, 0, 0, 0);
+            var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+            inp.value = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+        }
+    }
+}
+</script>
 
 <!-- 🖼️ v2.15 — مودال پیشرفت زنده تولید تصاویر مقاله (الگوی خطایاب: گرادیانت + درصد فارسی + لاگ مرحله‌به‌مرحله) -->
 <div class="modal-overlay" id="imggen-modal" style="display:none">
