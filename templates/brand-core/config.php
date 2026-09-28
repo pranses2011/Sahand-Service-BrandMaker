@@ -61,21 +61,92 @@ mb_internal_encoding('UTF-8');                           // 🔤 انکودین�
  */
 function fetchFromAPI(string $endpoint, int $cacheTtl = CACHE_TTL): ?array
 {
+    /* 🧠 v2.33 — حافظه درون-درخواستی: همان اندپوینت در یک بازدید فقط
+       یک‌بار کش/شبکه می‌خورد (header و footer هر دو settings می‌خواندند) */
+    static $memo = [];
+    $memoKey = $endpoint . '|' . $cacheTtl;
+    if (array_key_exists($memoKey, $memo)) {
+        return $memo[$memoKey];
+    }
+    $result = __fetch_cached($endpoint, $cacheTtl);
+    $memo[$memoKey] = $result;
+    return $result;
+}
+
+/**
+ * 📥 v2.33 — لایه کش سخت‌گیرانه (گزارش تحلیل بخش ۵.۱)
+ * 🔒 قفل flock: جلوگیری از Cache Stampede — فقط یک فرآیند پس از انقضا
+ *    به سرور مرکزی می‌زند؛ بقیه تا ۳ ثانیه منتظر کش تازه می‌مانند.
+ * 🎲 TTL جیتر (±۲۰٪): انقضای دسته‌جمعی همه فراخوانی‌ها هم‌زمان رخ نمی‌دهد.
+ * ⏳ سقف کهنه ۲۴ ساعت: اگر API قطع بماند، سایت حداکثر یک روز کهنه سرو
+ *    می‌کند و بعد صادقانه null می‌دهد (قبلاً «کهنه ابدی» = یخ‌زدگی بی‌پایان).
+ */
+function __fetch_cached(string $endpoint, int $cacheTtl): ?array
+{
     // 🚫 کش غیرفعال است → مستقیم به API
     if (!CACHE_ENABLED) {
         return fetchFromAPILive($endpoint);
     }
 
     $cacheFile = CACHE_DIR . '/' . sha1($endpoint) . '.json';
+    $ttl = $cacheTtl + random_int(0, (int)max(1, ceil($cacheTtl * 0.2)));
+
+    $isValid = static function () use ($cacheFile, $ttl): bool {
+        clearstatcache(true, $cacheFile);
+        return is_file($cacheFile) && (time() - (int)filemtime($cacheFile)) < $ttl;
+    };
+    $readCache = static function () use ($cacheFile): ?array {
+        $cached = json_decode((string)@file_get_contents($cacheFile), true);
+        return is_array($cached) ? $cached : null;
+    };
+    $age = static function () use ($cacheFile): int {
+        clearstatcache(true, $cacheFile);
+        return is_file($cacheFile) ? (time() - (int)filemtime($cacheFile)) : PHP_INT_MAX;
+    };
 
     // 📦 کش معتبر؟
-    if (file_exists($cacheFile) && time() - filemtime($cacheFile) < $cacheTtl) {
-        $cached = json_decode((string)@file_get_contents($cacheFile), true);
-        if (is_array($cached)) {
-            return $cached;
-        }
+    if ($isValid()) {
+        return $readCache();
     }
 
+    /* 🔒 قفل کش — فقط یک فرآیند شبکه می‌زند */
+    $lock = @fopen($cacheFile . '.lock', 'c');
+    if ($lock === false) {
+        // فایل‌سیستم قدیمی بدون قفل → رفتار قبلی
+        return __fetch_and_store($endpoint, $cacheFile, $readCache, $age);
+    }
+    if (!flock($lock, LOCK_EX | LOCK_NB)) {
+        // فرآیند دیگری در حال دریافت است — کوتاه منتظر کش تازه بمان
+        $waited = 0.0;
+        while ($waited < 3.0) {
+            usleep(250000);
+            $waited += 0.25;
+            if ($isValid()) {
+                flock($lock, LOCK_UN);
+                fclose($lock);
+                return $readCache();
+            }
+        }
+        flock($lock, LOCK_UN);
+        fclose($lock);
+        // ⏳ کهنه با سقف ۲۴ ساعت — بعد از آن صادقانه null
+        return ($age() < 86400) ? $readCache() : null;
+    }
+    // قفل را گرفتیم — دوباره چک (شاید فرآیند قبلی تازه کرده باشد)
+    if ($isValid()) {
+        flock($lock, LOCK_UN);
+        fclose($lock);
+        return $readCache();
+    }
+    $out = __fetch_and_store($endpoint, $cacheFile, $readCache, $age);
+    flock($lock, LOCK_UN);
+    fclose($lock);
+    return $out;
+}
+
+/** 💾 دریافت و ذخیره — با سقف کهنه ۲۴ ساعت در قطعی شبکه */
+function __fetch_and_store(string $endpoint, string $cacheFile, callable $readCache, callable $age): ?array
+{
     $data = fetchFromAPILive($endpoint);
 
     // 💾 ذخیره در کش — فقط پاسخ موفق
@@ -84,14 +155,95 @@ function fetchFromAPI(string $endpoint, int $cacheTtl = CACHE_TTL): ?array
             @mkdir(CACHE_DIR, 0755, true);
         }
         @file_put_contents($cacheFile, json_encode($data, JSON_UNESCAPED_UNICODE), LOCK_EX);
-    } elseif (file_exists($cacheFile)) {
-        // 🩹 شبکه قطع است — کش کهنه بهتر از هیچ
-        $cached = json_decode((string)@file_get_contents($cacheFile), true);
-        if (is_array($cached)) {
-            return $cached;
+        return $data;
+    }
+    // 🩹 شبکه قطع است — کهنه بهتر از هیچ، اما حداکثر ۲۴ ساعت
+    if ($age() < 86400) {
+        return $readCache();
+    }
+    return null;
+}
+
+/**
+ * 🚀 v2.33 — دریافت موازی چند اندپوینت با curl_multi (گزارش تحلیل ۵.۱:
+ * «عدم استفاده از curl_multi — فراخوانی‌ها کاملاً سریال‌اند در حالی که مستقل‌اند»)
+ * اندپوینت‌های دارای کش معتبر از کش خوانده می‌شوند؛ بقیه همه یک‌جا موازی گرفته می‌شوند.
+ *
+ * @param string[] $endpoints فهرست اندپوینت‌ها
+ * @param int      $cacheTtl  مدت کش نوشته‌شده
+ * @return array<string, array|null> اندپوینت => داده (یا null)
+ */
+function fetchFromAPIMulti(array $endpoints, int $cacheTtl = CACHE_TTL): array
+{
+    $out = [];
+    $need = [];
+    foreach (array_unique($endpoints) as $ep) {
+        $cached = fetchFromAPI($ep, $cacheTtl);
+        if ($cached !== null) {
+            $out[$ep] = $cached;
+        } else {
+            $need[] = $ep;
         }
     }
-    return $data;
+    if (!$need) {
+        return $out;
+    }
+
+    /* حالت بدون curl_multi (نیاز به fallback) */
+    if (!function_exists('curl_multi_init')) {
+        foreach ($need as $ep) {
+            $out[$ep] = fetchFromAPILive($ep);
+        }
+        return $out;
+    }
+
+    $mh = curl_multi_init();
+    $handles = [];
+    foreach ($need as $ep) {
+        $ch = curl_init(BRANDMAKER_API . '/' . $ep);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_CONNECTTIMEOUT => 6,
+            CURLOPT_HTTPHEADER     => ['X-API-Key: ' . BRAND_API_KEY],
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_USERAGENT      => 'SahandBrandSite/1.2',
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 2,
+        ]);
+        curl_multi_add_handle($mh, $ch);
+        $handles[$ep] = $ch;
+    }
+
+    do {
+        $status = curl_multi_exec($mh, $active);
+        if ($active) {
+            curl_multi_select($mh, 0.2);
+        }
+    } while ($active && $status === CURLM_OK);
+
+    foreach ($handles as $ep => $ch) {
+        $body = (string)curl_multi_getcontent($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_multi_remove_handle($mh, $ch);
+        curl_close($ch);
+        $decoded = ($code === 200 && $body !== '') ? json_decode($body, true) : null;
+        $data = (is_array($decoded) && !empty($decoded['success'])) ? $decoded : null;
+        if ($data === null) {
+            // پاسخ موازی ناموفق → fallback تک‌تک (با منطق کهنه‌ی سخت‌گیرانه)
+            $data = fetchFromAPILive($ep);
+        }
+        if ($data !== null && CACHE_ENABLED) {
+            if (!is_dir(CACHE_DIR)) {
+                @mkdir(CACHE_DIR, 0755, true);
+            }
+            @file_put_contents(CACHE_DIR . '/' . sha1($ep) . '.json', json_encode($data, JSON_UNESCAPED_UNICODE), LOCK_EX);
+        }
+        $out[$ep] = $data;
+    }
+    curl_multi_close($mh);
+    return $out;
 }
 
 /**

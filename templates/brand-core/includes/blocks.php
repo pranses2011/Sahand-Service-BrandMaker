@@ -671,8 +671,9 @@ if (!function_exists('pv_generic_block')) {
                 /* 📋 v2.31 — فرم واقعی با فیلدهای قابل تنظیم + مقصد ارسال
                    (درخواست کاربر: «عنصر فرم درخواست خدمات با فیلدهای کامل باشه و
                    امکان غیرفعال کردن هر کدام از فیلدها هم باشه» + «تنظیم کنیم که
-                   اطلاعات فرم به کجا ارسال بشه») */
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '>' . bb_real_form($block, $props, $title) . '</div>';
+                   اطلاعات فرم به کجا ارسال بشه»)
+                   🎨 v2.33 — hero-form کلاس هیرو می‌گیرد (طراحی تفصیلی ادغام‌شده) */
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . ($block === 'hero-form' ? ' hero-blk split-hero' : '') . '"' . $styleAttr . '>' . bb_real_form($block, $props, $title) . '</div>';
             case 'newsletter-form':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '>' . bb_real_form($block, $props, $title) . '</div>';
             case 'callback-form':
@@ -797,8 +798,6 @@ if (!function_exists('pv_generic_block')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . ' crump-blk">' . e($props['text'] ?? '© تمامی حقوق برای نمایندگی محفوظ است') . '</div>';
             case 'notification-bar':
                 return '<div class="blk notif-bar ' . e($props['notifColor'] ?? 'info') . '" style="padding:8px 14px">' . e($props['text'] ?? '🎉 سرویس ویژه تعطیلات') . '</div>';
-            case 'hero-form':
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' hero-blk split-hero"' . $styleAttr . '><div class="hero-split"><div><div class="hero-title">' . ($title ?: 'درخواست تعمیر آنلاین') . '</div><div class="hero-sub">' . e($props['subtitle'] ?? 'فرم را پر کنید — کارشناسان ما تماس می‌گیرند') . '</div><div class="hero-btns"><span class="hero-btn">📞 تماس فوری</span></div></div><div class="fake-card" style="text-align:right;background:rgba(255,255,255,.14);border:none"><div class="fake-input">نام و شماره تماس</div><div class="fake-input">نوع دستگاه</div><div class="hero-btn full" style="margin-top:8px">' . e($props['btnText'] ?? 'ثبت درخواست') . '</div></div></div></div>';
             case 'hero-marquee':
                 return '<div class="blk marquee-blk"><div class="marquee-track"><span>' . e($props['text'] ?? '⚡ اعزام تکنسین در کمتر از ۲ ساعت — ⭐ بیش از ۵۰ هزار تعمیر موفق') . '</span></div></div>';
             case 'brand-story': {
@@ -832,8 +831,6 @@ if (!function_exists('pv_generic_block')) {
                     $ccIts[] = ['icon' => '🕐', 'text' => 'ساعات کاری', 'desc' => (pv_brand_hours() ?: 'شنبه تا پنجشنبه ۹ تا ۲۰'), 'link' => ''];
                 }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'راه‌های ارتباطی') . '</div><div class="cols c3">' . implode('', array_map(static fn($it) => pvA($it, '<div class="fake-card"><div class="card-ico">' . e($it['icon'] ?: '📞') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>'), $ccIts)) . '</div></div>';
-            case 'appointment-form':
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"><div class="blk-title">' . ($title ?: 'رزرو نوبت سرویس') . '</div><div class="form-grid"><div class="fake-input">نام و شماره تماس</div><div class="fake-input">📅 تاریخ مورد نظر</div><div class="fake-input">🕐 بازه ساعتی (۹-۱۲ / ۱۲-۱۵ / ۱۵-۱۸)</div><div class="fake-input">نوع دستگاه و شرح مشکل</div><div class="hero-btn full">رزرو نوبت</div></div></div>';
             case 'stats-grid':
                 $its = pvItems($props, [['۱۲+', 'سال تجربه'], ['۵۰k', 'تعمیر موفق'], ['۹۸٪', 'رضایت'], ['۴۲', 'نوع دستگاه'], ['۲۴/۷', 'پشتیبانی'], ['۶ ماه', 'ضمانت']]);
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'در یک نگاه') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card" style="text-align:center"><div class="stat-n">' . e($it['icon'] ?: '۰') . '</div><div class="feat-d">' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
@@ -933,12 +930,6 @@ if (!function_exists('pv_generic_block')) {
             case 'feature-icons-grid':
                 $its = pvItems($props, [['🧊', 'یخچال', ''], ['🧺', 'لباسشویی', ''], ['📺', 'تلویزیون', ''], ['🔥', 'فر و اجاق', '']]);
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'خدمات ما در یک نگاه') . '</div><div class="cols c' . pvCols($props, 4) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card" style="text-align:center;padding:15px 8px"><div style="font-size:31px">' . e($it['icon'] ?: '🔧') . '</div><div class="feat-d" style="font-weight:700;margin-top:6px">' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
-            case 'callback-form':
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'درخواست تماس کارشناس') . '</div><div class="news-row"><div class="fake-input" style="flex:1">شماره تماس شما</div><div class="hero-btn">' . e($props['btnText'] ?? 'با من تماس بگیرید') . '</div></div><div class="feat-d" style="margin-top:7px">✅ کارشناسان ما در کمتر از ۱۵ دقیقه تماس می‌گیرند</div></div>';
-            case 'survey-form': {
-                $its = pvItems($props, [['⭐', 'بسیار راضی', ''], ['👍', 'راضی', ''], ['😐', 'معمولی', '']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'میزان رضایت شما از سرویس؟') . '</div><div class="cols c' . max(2, min(4, count($its))) . '" style="gap:9px">' . implode('', array_map(static fn($it) => '<div class="fake-card" style="text-align:center;padding:13px 8px"><div style="font-size:23px">' . e($it['icon'] ?: '⭐') . '</div><div class="feat-d" style="font-weight:700">' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
-            }
             case 'chat-widget':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div style="display:flex;justify-content:flex-end"><div style="background:var(--card);border:1.5px solid var(--border);border-radius:15px 15px 3px 15px;padding:11px 15px;max-width:290px;box-shadow:0 8px 22px rgba(2,8,23,.12)"><div style="font-size:12.5px"><b>💬 ' . e($title ?: 'پشتیبانی آنلاین') . '</b></div><div class="feat-d">سلام! چطور می‌تونیم کمکتون کنیم؟</div><div style="display:flex;gap:6px;margin-top:8px"><span class="hero-btn" style="font-size:11px;padding:5px 12px">شروع گفتگو</span></div></div></div></div>';
             case 'vote-poll': {
@@ -1021,8 +1012,6 @@ if (!function_exists('pv_generic_block')) {
                 foreach ($its as $it) { $rows .= '<div class="ft-row"><span>' . e($it['text']) . '</span><b>—</b><b>✓</b><b class="ft-hl">✓</b></div>'; }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'مقایسه پلن‌های سرویس') . '</div><div class="feature-table-demo"><div class="ft-row ft-head"><span>ویژگی</span><b>اقتصادی</b><b>استاندارد</b><b class="ft-hl">ویژه</b></div>' . $rows . '</div></div>';
             }
-            case 'quick-contact-form':
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="quick-form-demo"><div class="fake-input" style="flex:1">📱 شماره تماس شما</div><span class="hero-btn">' . e($props['btnText'] ?? 'درخواست تماس') . '</span></div><div class="feat-d" style="text-align:center;margin-top:7px">' . e($props['subtitle'] ?? $title ?? 'کارشناسان ما در کمتر از ۱۵ دقیقه تماس می‌گیرند') . '</div></div>';
             case 'related-links':
                 $its = pvItems($props, [['', 'کد خطای LE لباسشویی ال‌جی — معنی و رفع'], ['', '۱۰ علامت خرابی کمپرسور یخچال'], ['', 'راهنمای نگهداری ماکروویو']]);
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($it) => '<div class="feat-row"><span class="feat-ico">🔗</span><div>' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
@@ -1124,8 +1113,6 @@ if (!function_exists('pv_generic_block')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="faq-mini-demo"><div class="sc-row"><span class="sc-num">؟</span><b style="font-size:13.5px">' . ($title ?: 'سوال متداول') . '</b></div><div class="feat-d" style="margin-top:7px;font-size:12.5px">' . e($props['text'] ?? 'پاسخ کارشناسان ما به سوال متداول...') . '</div></div></div>';
             case 'reviews-carousel':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($r) => '<div class="fake-card"><div class="stars">⭐⭐⭐⭐⭐</div><div class="feat-d">«' . $r . '»</div></div>', ['عالی بود، همان روز آمدند', 'قیمت منصفانه و کار تمیز', 'دستگاه ۵ ساله‌ام مثل نو شد'])) . '</div><div class="slider-dots" style="margin-top:8px">● ○ ○</div></div>';
-            case 'appointment-compact':
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="apt-compact-demo"><b style="font-size:14px">' . ($title ?: 'نوبت تعمیر رزرو کنید') . '</b><div class="news-row" style="margin-top:9px"><div class="fake-input" style="flex:1">شماره تماس شما</div><div class="fake-input" style="flex:1">دستگاه + مشکل</div><div class="hero-btn">' . e($props['btnText'] ?? 'رزرو نوبت') . '</div></div></div></div>';
             case 'contact-map-split':
                 /* 🆕 v2.29 — مقادیر پویا از تنظیمات سایت‌ساز + نقشه لینک‌دار */
                 $cmPh = trim((string)($props['phone'] ?? '')) ?: pv_brand_phone() ?: '۰۲۱-۱۲۳۴۵۶۷۸';
@@ -1262,12 +1249,35 @@ if (!function_exists('pv_generic_block')) {
 
         if ($fields === '') { $fields = '<div class="feat-d">همه فیلدهای این فرم غیرفعال شده‌اند.</div>'; }
 
-        $head = $title ? '<div class="blk-title">' . e($title) . '</div>' : '';
-        return $head . '<form class="sahand-form" data-form="' . e($block) . '" data-dest="' . e(implode(',', $dest)) . '" novalidate>'
+        /* 🆕 v2.33 — survey-form: گزینه‌های امتیازی به‌صورت radio واقعی داخل فرم
+           (طراحی تفصیلیِ سابق که case تکراریِ مرده بود — اکنون عملکردی) */
+        if ($block === 'survey-form') {
+            $opts = '';
+            foreach (pvItems($props, [['⭐', 'بسیار راضی'], ['👍', 'راضی'], ['😐', 'معمولی']]) as $si => $so) {
+                $opts .= '<label class="survey-opt"><input type="radio" name="rating" value="' . e($so['text']) . '"' . ($si === 0 ? ' checked' : '') . '> <span style="font-size:21px">' . e($so['icon'] ?: '⭐') . '</span> ' . e($so['text']) . '</label>';
+            }
+            $fields = '<div class="form-group" style="grid-column:1/-1"><label>میزان رضایت شما</label><div class="survey-opts">' . $opts . '</div></div>' . $fields;
+        }
+
+        $form = '<form class="sahand-form" data-form="' . e($block) . '" data-dest="' . e(implode(',', $dest)) . '" novalidate>'
             . '<div class="form-grid">' . $fields . '</div>'
             . '<button type="submit" class="hero-btn full sahand-form-btn">' . e($btnText) . '</button>'
             . '<div class="sahand-form-msg" style="display:none"></div>'
             . '</form>';
+
+        /* 🎨 v2.33 — قالب اختصاصی هر فرم (ادغام طراحی تفصیلیِ سابق در فرم واقعی) */
+        if ($block === 'hero-form') {
+            $ph = trim((string)($props['phone'] ?? '')) ?: pv_brand_phone();
+            return '<div class="hero-split"><div><div class="hero-title">' . e($title ?: 'درخواست تعمیر آنلاین') . '</div><div class="hero-sub">' . e($props['subtitle'] ?? 'فرم را پر کنید — کارشناسان ما تماس می‌گیرند') . '</div><div class="hero-btns">' . ($ph !== '' ? '<a class="hero-btn" href="tel:' . e($ph) . '">📞 ' . e($ph) . '</a>' : '<span class="hero-btn">📞 تماس فوری</span>') . '</div></div><div class="bb-form-card">' . $form . '</div></div>';
+        }
+        if ($block === 'callback-form' || $block === 'quick-contact-form') {
+            return '<div class="quick-form-demo"><b>' . e($title ?: 'درخواست تماس کارشناس') . '</b>' . $form . '</div><div class="feat-d" style="text-align:center;margin-top:7px">✅ کارشناسان ما در کمتر از ۱۵ دقیقه تماس می‌گیرند</div>';
+        }
+        if ($block === 'appointment-compact') {
+            return '<div class="apt-compact-demo"><b style="font-size:14px">' . e($title ?: 'نوبت تعمیر رزرو کنید') . '</b>' . $form . '</div>';
+        }
+        $head = $title ? '<div class="blk-title">' . e($title) . '</div>' : '';
+        return $head . $form;
     }
 
     /** 🏛 رندر سطح‌بهدار — ستون‌های تودرتو */

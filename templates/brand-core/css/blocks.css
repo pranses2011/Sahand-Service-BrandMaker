@@ -433,3 +433,11 @@
 .bb-back-top.show { opacity: 1; visibility: visible; transform: translateY(0); }
 .bb-back-top:hover { transform: translateY(-3px); box-shadow: 0 12px 26px rgba(2,8,23,.36); }
 @media (prefers-reduced-motion: reduce) { .bb-scroll-progress { transition: none; } }
+
+/* ════════ 🆕 v2.33 — قالب‌های اختصاصی فرم‌ها (ادغام طراحی تفصیلی در فرم واقعی) ════════ */
+.bb-wrap .hero-split .bb-form-card { background: rgba(255,255,255,.14); border: 1.5px solid rgba(255,255,255,.28); border-radius: 16px; padding: 18px; flex: 1 1 320px; min-width: 270px; backdrop-filter: blur(4px); }
+.bb-wrap .hero-split .bb-form-card .form-grid { grid-template-columns: 1fr; }
+.bb-wrap .survey-opts { display: flex; gap: 9px; flex-wrap: wrap; }
+.bb-wrap .survey-opt { display: inline-flex; align-items: center; gap: 7px; background: var(--color-surface, #f1f5f9); border: 1.5px solid var(--border, #e2e8f0); border-radius: 11px; padding: 8px 14px; cursor: pointer; font-weight: 700; }
+.bb-wrap .survey-opt:has(input:checked) { border-color: var(--p); background: var(--p-light, #dbeafe); }
+.bb-wrap .survey-opt input { accent-color: var(--p); width: 16px; height: 16px; }

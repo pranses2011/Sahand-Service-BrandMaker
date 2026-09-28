@@ -17,6 +17,9 @@ require_once dirname(__DIR__) . '/config.php';
 
 $auth = new Auth();
 $auth->requireLogin();
+/* 🛡️ v2.33 — دفاع در عمق: رد درخواست بین‌سایتی (گزارش تحلیل — بخش امنیت) */
+reject_cross_origin();
+
 
 /* 📥 چیدمان از یکی از سه منبع */
 $layout = [];
@@ -575,8 +578,6 @@ function renderPreviewBlockInner(string $block, array $props = []): string
         case 'features':
             $its = pvItems($props, [['🔧', 'تعمیر لباسشویی', 'با قطعات فابریک'], ['🧊', 'تعمیر یخچال', 'همان روز'], ['⚡', 'تعمیر ماکروویو', 'ضمانت‌دار'], ['🎓', 'سرویس دوره‌ای', 'در محل شما']]);
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: ($block === 'features' ? 'چرا ما را انتخاب کنید؟' : 'خدمات ما')) . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="card-ico">' . e($it['icon'] ?: '🔧') . '</div><div class="card-t">' . e($it['text']) . '</div>' . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div>', $its)) . '</div></div>';
-        case 'features':
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: ($block === 'features' ? 'چرا ما را انتخاب کنید؟' : 'خدمات ما')) . '</div><div class="cols c3">' . str_repeat('<div class="fake-card"><div class="card-ico">🔧</div><div class="card-t">سرویس نمونه</div><div class="fl w80"></div></div>', 3) . '</div></div>';
         case 'devices-grid':
             $devs = ['🌀 لباسشویی', '🧊 یخچال', '🍽️ ظرفشویی', '❄️ کولر', '📺 تلویزیون', '♨️ پکیج', '📻 مایکروویو', '🔥 فر و اجاق'];
             $cards = '';
@@ -636,10 +637,40 @@ function renderPreviewBlockInner(string $block, array $props = []): string
             $dl = [];
             if (!isset($FD['panel']) || (int)$FD['panel'] !== 0) { $dl[] = '🖥️ پنل'; }
             foreach (['email' => '📧 ایمیل', 'telegram' => '📱 تلگرام', 'bale' => '💬 بله'] as $dk => $dv) { if (!empty($FD[$dk])) { $dl[] = $dv; } }
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="blk-title">' . ($title ?: ($block === 'request-form' ? 'فرم درخواست خدمات' : 'فرم')) . '</div><div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:9px">' . $fields . '</div><div class="hero-btn full">' . e($props['btnText'] ?? 'ارسال') . '</div><div class="hint" style="margin-top:7px;font-size:10px">📨 ارسال به: ' . e(implode(' + ', $dl) ?: '🖥️ پنل') . ' — روی سایت برند واقعی است.</div></div>';
+            /* 🎨 v2.33 — قالب اختصاصی هر فرم: طراحی تفصیلیِ سابق (که case تکراریِ مرده بود)
+               اکنون دور همین فرمِ پیکربندی‌شده پیچیده شد → پیش‌نمایش = سایت واقعی */
+            $ttl = $title ?: ([
+                'request-form' => 'فرم درخواست خدمات', 'hero-form' => 'درخواست تعمیر آنلاین',
+                'appointment-form' => 'رزرو نوبت سرویس', 'callback-form' => 'درخواست تماس کارشناس',
+                'quick-contact-form' => 'درخواست تماس سریع', 'appointment-compact' => 'نوبت تعمیر رزرو کنید',
+                'survey-form' => 'میزان رضایت شما از سرویس؟', 'newsletter-form' => 'عضویت در خبرنامه',
+                'contact-form' => 'تماس با ما'][$block] ?? 'فرم');
+            $grid = '<div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:9px">' . $fields . '</div>';
+            $btn = '<div class="hero-btn full">' . e($props['btnText'] ?? 'ارسال') . '</div>';
+            $hint = '<div class="hint" style="margin-top:7px;font-size:10px">📨 ارسال به: ' . e(implode(' + ', $dl) ?: '🖥️ پنل') . ' — روی سایت برند واقعی است.</div>';
+            if ($block === 'hero-form') {
+                /* هیرو دو-ستونه: متن تشویقی + کارت فرم */
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' hero-blk split-hero"' . $styleAttr . '><div class="hero-split"><div><div class="hero-title">' . e($ttl) . '</div><div class="hero-sub">' . e($props['subtitle'] ?? 'فرم را پر کنید — کارشناسان ما تماس می‌گیرند') . '</div><div class="hero-btns"><span class="hero-btn">📞 تماس فوری</span></div></div><div class="fake-card" style="text-align:right">' . $grid . $btn . '</div></div>' . $hint . '</div>';
+            }
+            if ($block === 'callback-form' || $block === 'quick-contact-form') {
+                /* فشرده: کارت ردیفی + یادداشت ۱۵ دقیقه‌ای */
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"' . $styleAttr . '><div class="quick-form-demo" style="flex-direction:column;align-items:stretch"><b>' . e($ttl) . '</b>' . $grid . $btn . '</div><div class="feat-d" style="text-align:center;margin-top:7px">✅ کارشناسان ما در کمتر از ۱۵ دقیقه تماس می‌گیرند</div>' . $hint . '</div>';
+            }
+            if ($block === 'appointment-compact') {
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="apt-compact-demo"><b style="font-size:14px">' . e($ttl) . '</b>' . $grid . $btn . '</div>' . $hint . '</div>';
+            }
+            if ($block === 'survey-form') {
+                /* گزینه‌های امتیازی بالای فرم (مثل سایت واقعی) */
+                $rits = pvItems($props, [['⭐', 'بسیار راضی'], ['👍', 'راضی'], ['😐', 'معمولی']]);
+                $rc = '';
+                foreach ($rits as $ri) { $rc .= '<div class="fake-card" style="text-align:center;padding:13px 8px"><div style="font-size:23px">' . e($ri['icon'] ?: '⭐') . '</div><div class="feat-d" style="font-weight:700">' . e($ri['text']) . '</div></div>'; }
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="blk-title">' . e($ttl) . '</div><div class="cols c' . max(2, min(4, count($rits))) . '" style="gap:9px;margin-bottom:10px">' . $rc . '</div>' . $grid . $btn . $hint . '</div>';
+            }
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="blk-title">' . e($ttl) . '</div>' . $grid . $btn . $hint . '</div>';
         case 'counter-stats':
         case 'stats':
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' stats-blk"><div class="stat"><div class="stat-n">۱۲+</div><div class="stat-l">سال تجربه</div></div><div class="stat"><div class="stat-n">۵۰هزار+</div><div class="stat-l">تعمیر موفق</div></div><div class="stat"><div class="stat-n">۹۸٪</div><div class="stat-l">رضایت</div></div></div>';
+            /* 🐛 v2.33 — مثل سایت واقعی: مقادیر از $props (رفع هاردکد «۱۲+ سال تجربه») */
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' stats-blk">' . pvStatStrip($props) . '</div>';
         case 'progress-bars':
         case 'skill-bars':
             /* 🎨 v2.31 — رنگ هر نوار از آیتم
@@ -732,8 +763,6 @@ function renderPreviewBlockInner(string $block, array $props = []): string
         /* ════════ 🆕 v2.12: عناصر — پیش‌نمایش واقعی (قبلاً fallback بودند!) ════════ */
         case 'notification-bar':
             return '<div class="blk notif-bar ' . e($props['notifColor'] ?? 'info') . '" style="padding:8px 14px">' . e($props['text'] ?? '🎉 سرویس ویژه تعطیلات — ۱۵٪ تخفیف سرویس دوره‌ای') . '</div>';
-        case 'hero-form':
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' hero-blk split-hero"' . $styleAttr . '><div class="hero-split"><div><div class="hero-title">' . ($title ?: 'درخواست تعمیر آنلاین') . '</div><div class="hero-sub">' . e($props['subtitle'] ?? 'فرم را پر کنید — کارشناسان ما تماس می‌گیرند') . '</div><div class="hero-btns"><span class="hero-btn">📞 تماس فوری</span></div></div><div class="fake-card" style="text-align:right;background:rgba(255,255,255,.14);border:none"><div class="fake-input">نام و شماره تماس</div><div class="fake-input">نوع دستگاه</div><div class="hero-btn full" style="margin-top:8px">' . e($props['btnText'] ?? 'ثبت درخواست') . '</div></div></div></div>';
         case 'hero-marquee':
             return '<div class="blk marquee-blk"><div class="marquee-track"><span>' . e($props['text'] ?? '⚡ اعزام تکنسین در کمتر از ۲ ساعت — ⭐ بیش از ۵۰ هزار تعمیر موفق') . '</span></div></div>';
         case 'brand-story':
@@ -757,8 +786,6 @@ function renderPreviewBlockInner(string $block, array $props = []): string
         case 'contact-cards':
             $its = pvItems($props, [['📞', 'تلفن', '۰۲۱-۱۲۳۴۵۶۷۸'], ['💬', 'واتساپ', '۰۹۱۲-۰۰۰-۰۰۰۰'], ['📍', 'آدرس', 'تهران، خیابان نمونه']]);
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'راه‌های ارتباطی') . '</div><div class="cols c3">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="card-ico">' . e($it['icon'] ?: '📞') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
-        case 'appointment-form':
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '"><div class="blk-title">' . ($title ?: 'رزرو نوبت سرویس') . '</div><div class="form-grid"><div class="fake-input">نام و شماره تماس</div><div class="fake-input">📅 تاریخ مورد نظر</div><div class="fake-input">🕐 بازه ساعتی (۹-۱۲ / ۱۲-۱۵ / ۱۵-۱۸)</div><div class="fake-input">نوع دستگاه و شرح مشکل</div><div class="hero-btn full">رزرو نوبت</div></div></div>';
         case 'stats-grid':
             $its = pvItems($props, [['۱۲+', 'سال تجربه'], ['۵۰k', 'تعمیر موفق'], ['۹۸٪', 'رضایت'], ['۴۲', 'نوع دستگاه'], ['۲۴/۷', 'پشتیبانی'], ['۶ ماه', 'ضمانت']]);
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'سهند سرویس در یک نگاه') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card" style="text-align:center"><div class="stat-n">' . e($it['icon'] ?: '۰') . '</div><div class="feat-d">' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
@@ -848,11 +875,6 @@ function renderPreviewBlockInner(string $block, array $props = []): string
         case 'feature-icons-grid':
             $its = pvItems($props, [['🧊', 'یخچال', ''], ['🧺', 'لباسشویی', ''], ['📺', 'تلویزیون', ''], ['🔥', 'فر و اجاق', '']]);
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'خدمات ما در یک نگاه') . '</div><div class="cols c' . pvCols($props, 4) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card" style="text-align:center;padding:15px 8px"><div style="font-size:31px">' . e($it['icon'] ?: '🔧') . '</div><div class="feat-d" style="font-weight:700;margin-top:6px">' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
-        case 'callback-form':
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'درخواست تماس کارشناس') . '</div><div class="news-row"><div class="fake-input" style="flex:1">شماره تماس شما</div><div class="hero-btn">' . e($props['btnText'] ?? 'با من تماس بگیرید') . '</div></div><div class="feat-d" style="margin-top:7px">✅ کارشناسان ما در کمتر از ۱۵ دقیقه تماس می‌گیرند</div></div>';
-        case 'survey-form':
-            $its = pvItems($props, [['⭐', 'بسیار راضی', ''], ['👍', 'راضی', ''], ['😐', 'معمولی', '']]);
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'میزان رضایت شما از سرویس؟') . '</div><div class="cols c' . max(2, min(4, count($its))) . '" style="gap:9px">' . implode('', array_map(static fn($it) => '<div class="fake-card" style="text-align:center;padding:13px 8px;cursor:pointer"><div style="font-size:23px">' . e($it['icon'] ?: '⭐') . '</div><div class="feat-d" style="font-weight:700">' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
         case 'chat-widget':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div style="display:flex;justify-content:flex-end"><div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:15px 15px 3px 15px;padding:11px 15px;max-width:290px;box-shadow:0 8px 22px rgba(2,8,23,.12)"><div style="font-size:12.5px"><b>💬 ' . e($title ?: 'پشتیبانی آنلاین') . '</b></div><div class="feat-d">سلام! چطور می‌تونیم کمکتون کنیم؟</div><div style="display:flex;gap:6px;margin-top:8px"><span class="hero-btn" style="font-size:11px;padding:5px 12px">شروع گفتگو</span></div></div></div></div>';
         case 'vote-poll':
@@ -900,9 +922,12 @@ function renderPreviewBlockInner(string $block, array $props = []): string
         case 'emergency-strip':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border-radius:13px;padding:13px 19px"><b style="font-size:14px">' . e($props['text'] ?? '🚑 امداد تعمیر فوری — ۲۴ ساعته') . '</b><span class="hero-btn" style="background:#fff;color:#b91c1c">📞 ' . e($props['phone'] ?? '۰۲۱-۱۲۳۴۵۶۷۸') . '</span></div></div>';
         case 'stats-strip':
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' stats-strip"><span class="ss-item"><b>۱۲+</b> سال تجربه</span><span class="ss-sep"></span><span class="ss-item"><b>۵۰k</b> تعمیر موفق</span><span class="ss-sep"></span><span class="ss-item"><b>۹۸٪</b> رضایت</span><span class="ss-sep"></span><span class="ss-item"><b>۲h</b> اعزام</span></div>';
+            /* 🐛 v2.33 — مثل سایت واقعی: pvStatStrip($props) */
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' stats-strip">' . pvStatStrip($props) . '</div>';
         case 'benefits-list':
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($b) => '<div class="feat-row"><span class="feat-ico" style="background:#f0fdf4">✅</span><div><b>' . e($b) . '</b></div></div>', ['اعزام تکنسین در کمتر از ۲ ساعت', 'قطعات فابریک با فاکتور معتبر', '۶ ماه ضمانت کتبی قطعه و خدمات', 'پیش‌فاکتور شفاف قبل از شروع کار', 'پیگیری وضعیت درخواست آنلاین'])) . '</div></div>';
+            /* 🐛 v2.33 — مثل سایت واقعی: pvItems($props) قابل ویرایش */
+            $its = pvItems($props, [['', 'اعزام تکنسین در کمتر از ۲ ساعت', ''], ['', 'قطعات فابریک با فاکتور معتبر', ''], ['', '۶ ماه ضمانت کتبی قطعه و خدمات', ''], ['', 'پیش‌فاکتور شفاف قبل از شروع کار', ''], ['', 'پیگیری وضعیت درخواست آنلاین', '']]);
+            return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($it) => '<div class="feat-row"><span class="feat-ico" style="background:#f0fdf4">✅</span><div><b>' . e($it['text']) . '</b></div></div>', $its)) . '</div></div>';
         case 'warning-box':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="warning-box-demo"><span class="feat-ico" style="background:#fef2f2;font-size:22px">' . e($props['icon'] ?? '⚠️') . '</span><div><b style="color:#b91c1c">' . ($title ?: 'هشدار ایمنی مهم') . '</b><div class="feat-d">' . e($props['text'] ?? 'قبل از هرگونه باز کردن دستگاه، برق را کاملاً قطع کنید.') . '</div></div></div></div>';
         case 'brand-intro-card':
@@ -923,8 +948,6 @@ function renderPreviewBlockInner(string $block, array $props = []): string
             $rows = '';
             foreach ($its as $it) { $rows .= '<div class="ft-row"><span>' . e($it['text']) . '</span><b>—</b><b>✓</b><b class="ft-hl">✓</b></div>'; }
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'مقایسه پلن‌های سرویس') . '</div><div class="feature-table-demo"><div class="ft-row ft-head"><span>ویژگی</span><b>اقتصادی</b><b>استاندارد</b><b class="ft-hl">ویژه</b></div>' . $rows . '</div></div>';
-        case 'quick-contact-form':
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="quick-form-demo"><div class="fake-input" style="flex:1">📱 شماره تماس شما</div><span class="hero-btn">' . e($props['btnText'] ?? 'درخواست تماس') . '</span></div><div class="feat-d" style="text-align:center;margin-top:7px">' . e($props['subtitle'] ?? $title ?? 'کارشناسان ما در کمتر از ۱۵ دقیقه تماس می‌گیرند') . '</div></div>';
         case 'related-links':
             $its = pvItems($props, [['', 'کد خطای LE لباسشویی ال‌جی — معنی و رفع'], ['', '۱۰ علامت خرابی کمپرسور یخچال'], ['', 'راهنمای نگهداری ماکروویو']]);
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($it) => '<div class="feat-row"><span class="feat-ico">🔗</span><div>' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
@@ -1023,8 +1046,6 @@ function renderPreviewBlockInner(string $block, array $props = []): string
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="faq-mini-demo"><div class="sc-row"><span class="sc-num">؟</span><b style="font-size:13.5px">' . ($title ?: 'سوال متداول') . '</b></div><div class="feat-d" style="margin-top:7px;font-size:12.5px">' . e($props['text'] ?? 'پاسخ کارشناسان ما به سوال متداول...') . '</div></div></div>';
         case 'reviews-carousel':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . ' reviews-blk">' . $head . '<div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($r) => '<div class="fake-card"><div class="stars">⭐⭐⭐⭐⭐</div><div class="feat-d">«' . $r . '»</div><div class="fake-ava" style="width:26px;height:26px;font-size:11px">😊</div></div>', ['عالی بود، همان روز آمدند', 'قیمت منصفانه و کار تمیز', 'دستگاه ۵ ساله‌ام مثل نو شد'])) . '</div><div class="slider-dots" style="margin-top:8px">● ○ ○</div></div>';
-        case 'appointment-compact':
-            return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="apt-compact-demo"><b style="font-size:14px">' . ($title ?: 'نوبت تعمیر رزرو کنید') . '</b><div class="news-row" style="margin-top:9px"><div class="fake-input" style="flex:1">شماره تماس شما</div><div class="fake-input" style="flex:1">دستگاه + مشکل</div><div class="hero-btn">' . e($props['btnText'] ?? 'رزرو نوبت') . '</div></div></div></div>';
         case 'contact-map-split':
             return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="split"><div><div class="chip-row" style="flex-direction:column;align-items:stretch;gap:7px"><span class="chip">📞 <b dir="ltr">' . e($props['phone'] ?? '۰۲۱-۱۲۳۴۵۶۷۸') . '</b></span><span class="chip">📍 تهران، خیابان نمونه، پلاک ۱۲</span><span class="chip">🕐 شنبه تا پنجشنبه ۹ تا ۲۰</span></div></div><div class="fake-img" style="min-height:130px;background:linear-gradient(135deg,#e2e8f0,#cbd5e1)"><span style="font-size:30px">🗺️</span></div></div></div>';
         case 'stats-inline':

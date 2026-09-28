@@ -15,6 +15,9 @@ require_once dirname(__DIR__) . '/config.php';
 
 $auth = new Auth();
 $auth->requireLogin();
+/* 🛡️ v2.33 — دفاع در عمق: رد درخواست بین‌سایتی (گزارش تحلیل — بخش امنیت) */
+reject_cross_origin();
+
 
 $pageId = (int)get_param('id');
 $page = Database::getInstance()->fetch(

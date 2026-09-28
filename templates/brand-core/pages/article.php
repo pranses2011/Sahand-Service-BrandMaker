@@ -27,7 +27,7 @@ $pageTitle = $article['seo']['title'] ?? $article['title'];
 $pageDesc = $article['seo']['description'] ?? ($article['excerpt'] ?? '');
 $crumbTitle = mb_substr($article['title'], 0, 30);
 require __DIR__ . '/_page_base.php';
-render_article_seo($article, 'https://' . BRAND_DOMAIN . '/blog/article?slug=' . urlencode($slug));
+render_article_seo($article, 'https://' . BRAND_DOMAIN . '/blog/article?slug=' . urlencode($slug), (string)($GLOBALS['brandSeoName'] ?? ''));
 ?>
 <article class="section">
     <div class="container article-single">

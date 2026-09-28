@@ -1344,3 +1344,45 @@
 - [x] 📄 گزارش چاپی: ۴ بخش جدید (تقویم + تعامل + عمق + نرخ پرش)
 - [x] 🐛 رفع تایپو sahand-fi در فرم + docs (CHANGELOG/README/WORKLOG/CHECKLIST/AI-API-GUIDE/UPGRADE)
 - [x] 📦 رلیز v2.32.0: install.zip + update.zip + SHA256SUMS + رلیز گیت‌هاب
+### بخش ۲.۳۳ — گزارش تحلیل جامع + بسته P0 «پایداری و امنیت پایه» (۱۴۰۵/۰۷/۰۸)
+
+> منبع: فایل improvement.md (تحلیل ایستای کدبیس 2.32.0) — سند کامل در BrandMaker.md بخش ۲۳
+
+**۸ یافته فوری گزارش (قابل راستی‌آزمایی):**
+
+- [ ] 🐛 ۶ برچسب case تکراری در switch هر دو رندرگر (hero-form/survey-form/callback-form/appointment-form/quick-contact-form/appointment-compact) + features در پیش‌نمایش → پیاده‌سازی تفصیلی مرده است
+- [ ] 🐛 هاردکد stats/stats-strip در پیش‌نمایش (۱۲+ سال تجربه) به‌جای pvStatStrip($props)
+- [ ] 🐛 هاردکد benefits-list در پیش‌نمایش به‌جای pvItems($props)
+- [ ] 🔴 مسدودسازی .git در .htaccess
+- [ ] 🟠 CSRF در ۱۰ صفحه باقیمانده پنل
+- [ ] 🔴 افزودن CSP (Report-Only)
+- [ ] 🔴 اسکیمای LocalBusiness ناقص (۸ فیلد مفقود) + BreadcrumbList + Article ناقص
+- [ ] 🔴 sitemap.xml ایستا (مقاله جدید وارد نمی‌شود)
+
+**بسته P0 (این نسخه):**
+
+- [ ] 🔒 امنیت: مسدودسازی .git + فایل‌های حساس (md/sql/log) در .htaccess
+- [ ] 🔒 امنیت: CSP Report-Only
+- [ ] 🔒 امنیت: CSRF صفحات باقیمانده
+- [ ] 🐛 رندرگر: حذف برچسب‌های case تکراری + فعال‌سازی پیاده‌سازی تفصیلی ۶ بلوک فرم
+- [ ] 🐛 رندرگر: رفع هاردکد stats/stats-strip/benefits-list در پیش‌نمایش
+- [ ] 🔍 سئو: LocalBusiness کامل (address/telephone/geo/openingHours/priceRange/rating/image/areaServed)
+- [ ] 🔍 سئو: BreadcrumbList + تکمیل Article (author/publisher/image/dateModified)
+- [ ] 🔍 سئو: sitemap.xml پویا + پینگ IndexNow
+- [ ] 🔍 سئو: ابعاد تصاویر (رفع CLS)
+- [ ] ⚡ کارایی: قفل کش flock + TTL jitter + سقف عمر کهنه ۲۴ ساعت
+- [ ] ⚡ کارایی: curl_multi برای فراخوانی‌های موازی سایت برند
+- [ ] ⚡ کارایی: heartbeat بهینه (فقط تب فعال) + کاهش نویز نوشتن
+- [ ] ⚡ کارایی: preconnect برای منابع بین‌مبدأ
+- [ ] 🧪 تست: مجموعه تست بومی بدون composer + تست انطباق دو رندرگر
+- [ ] 🧪 تست: CI گیت‌هاب (lint + تست)
+
+**نقشه راه بعدی (P1 → P3 — خارج از این نسخه):**
+
+- [ ] P1: Undo/Redo قالب‌ساز + تاریخچه تغییرات (Revisions)
+- [ ] P1: جستجو در سایت برند + بازیابی رمز عبور + 2FA
+- [ ] P1: کتابخانه رسانه + ACL سطح‌برند + زمان‌بندی انتشار با cron
+- [ ] P1: سیاست نگهداری داده + RSS + URL تمیز مقالات + کاهش fonts.css
+- [ ] P2: blocks.json منبع حقیقت واحد + رندرگر PHP واحد + بوم AJAX سرور-محور
+- [ ] P2: جداسازی ۶٬۲۹۲ خط JS درون‌خطی + تقسیم فایل‌های غول‌پیکر + لایه Repository
+- [ ] P3: چندزبانگی + دیدگاه + وب‌هوک + A/B + PWA واقعی
