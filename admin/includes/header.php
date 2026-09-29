@@ -183,6 +183,25 @@ try {
                 <a class="nav-link <?= $activeMenu === 'media' ? 'active' : '' ?>" href="media.php">
                     <span class="icon">🗃️</span> رسانه‌ها
                 </a>
+                <!-- 💬 v2.37 — P3: دیدگاه مقالات + وب‌هوک + تست A/B -->
+                <a class="nav-link <?= $activeMenu === 'comments' ? 'active' : '' ?>" href="comments.php">
+                    <span class="icon">💬</span> دیدگاه‌ها
+                    <?php
+                    /* 🆕 v2.37 — بج دیدگاه‌های در انتظار تأیید */
+                    try {
+                        $pendingComments = (int)Database::getInstance()->fetchValue("SELECT COUNT(*) FROM article_comments WHERE status = 'pending'");
+                    } catch (Throwable $pcE) { $pendingComments = 0; }
+                    if ($pendingComments > 0):
+                        ?>
+                        <span class="badge"><?= en_to_fa_digits((string)$pendingComments) ?></span>
+                    <?php endif; ?>
+                </a>
+                <a class="nav-link <?= $activeMenu === 'ab-tests' ? 'active' : '' ?>" href="ab-tests.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
+                    <span class="icon">🧪</span> تست A/B
+                </a>
+                <a class="nav-link <?= $activeMenu === 'webhooks' ? 'active' : '' ?>" href="webhooks.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
+                    <span class="icon">🪝</span> وب‌هوک‌ها
+                </a>
                 <a class="nav-link <?= $activeMenu === 'revisions' ? 'active' : '' ?>" href="revisions.php">
                     <span class="icon">🕘</span> تاریخچه تغییرات
                 </a>
