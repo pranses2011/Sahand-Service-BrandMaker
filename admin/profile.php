@@ -220,6 +220,9 @@ $activeMenu = 'profile';
 require __DIR__ . '/includes/header.php';
 ?>
 
+<!-- 🎨 v2.40 — کادرهای متنی لوکس (دامنه lux-fields) -->
+<div class="lux-fields">
+
 <div class="page-header">
     <h1>👤 حساب کاربری من</h1>
     <p class="page-header-desc">رمز عبور، اطلاعات حساب و ورود دومرحله‌ای (2FA)</p>
@@ -472,4 +475,7 @@ window.addEventListener('beforeunload', function () { /* session plain بعد ا
 <?php
 /* 🧹 کدهای بازیابی فقط یک‌بار نمایش داده شوند — بعد از رندر از سشن پاک می‌شوند */
 unset($_SESSION['totp_recovery_plain']);
+?>
+</div><!-- /lux-fields -->
+<?php
 require __DIR__ . '/includes/footer.php';

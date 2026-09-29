@@ -261,6 +261,9 @@ $activeMenu = 'media';
 require __DIR__ . '/includes/header.php';
 ?>
 
+<!-- 🎨 v2.40 — کادرهای متنی لوکس (دامنه lux-fields) -->
+<div class="lux-fields">
+
 <div class="page-header">
     <h1>🗃️ کتابخانه رسانه</h1>
     <p class="page-header-desc">همه تصاویر سایت‌ساز یک‌جا — متادیتا، متن جایگزین (alt)، جایگزینی و حذف ایمن</p>
@@ -399,4 +402,5 @@ require __DIR__ . '/includes/header.php';
 <?php endif; ?>
 
 <style>.btn-sm{padding:5px 11px;font-size:12px}</style>
+</div><!-- /lux-fields -->
 <?php require __DIR__ . '/includes/footer.php'; ?>

@@ -249,6 +249,9 @@ $avatarFor = static function (string $name, int $id) use ($gradPool): array {
 .perm-matrix thead th{background:#f1f5f9;font-size:11.5px}
 </style>
 
+<!-- 🎨 v2.40 — کادرهای متنی لوکس (دامنه lux-fields) -->
+<div class="lux-fields">
+
 <div class="page-header">
     <h1>👥 کاربران و دسترسی‌ها</h1>
     <p class="page-header-desc">
@@ -569,4 +572,5 @@ $avatarFor = static function (string $name, int $id) use ($gradPool): array {
 })();
 </script>
 
+</div><!-- /lux-fields -->
 <?php require __DIR__ . '/includes/footer.php'; ?>
