@@ -22,7 +22,9 @@
 
 - ✅ ریشه‌یابی قطعی «تست نهایی استقرار: HTTP 500 — thrown in index.php on line 20»: ConfigGenerator تابع fetchFromAPIMulti را تعریف نمی‌کرد ولی index.php (v2.33+) صدایش می‌زد → Call to undefined function → فاتل در تست نهایی → رول‌بک (تکرار کلاس باگ v2.22 برای تابع جدید)
 - ✅ ترمیم سه‌لایه: ① افزودن fetchFromAPIMulti کامل به خروجی ConfigGenerator (هم‌ارز قالب) ② گارد function_exists در index.php با fallback سریالی (سایت‌های با config قدیمی) ③ خوددرمانی لایه دوم در runFinalTestWithHealing — بازنویسی config و تست مجدد قبل از رول‌بک
+- ✅ آیکون‌پک برای منوها و المنت‌ها: فرمت svg:pack/file.svg + کامپوننت مشترک IconPicker (مودال دوزبانه ایموجی/پک + جستجو + دسته + صفحه‌بندی) + اندپوینت icon-picker.ajax.php + pv_icon() در رندرگر واحد (۵۰ محل رندر — بوم/پیش‌نمایش/سایت برند هم‌زمان) + هدر سایت برند <img> با cdn_asset + پیش‌نمایش زنده در پنل ویژگی‌ها
 - 🧪 تست شبیه‌سازی heredoc: رندر نمونه‌ی config تولیدی + توازن براکت + تأیید وجود تابع — سبز
+- 🧪 صحت‌سنجی: node --check روی template-builder.js و JS مودال‌ها + توازن PHP همه فایل‌ها — سبز
 
 ---
 

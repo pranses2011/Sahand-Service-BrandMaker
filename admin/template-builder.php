@@ -878,6 +878,12 @@ const TB_SERVER_DATA = {
     genericFieldsV231: <?= json_encode(array_fill_keys(['btn-duo','btn-gradient','btn-outline-row','btn-icon-row','btn-mega-cta','btn-social','progress-multi','progress-striped','progress-thin','progress-circles','progress-ring-big','progress-semi','rating-hero','info-tiles','feature-split','hover-cards','alert-gradient','gradient-quote','chips-filter','counter-cards'], ['T', 'S', 'CLR', 'IT'])) ?>,
 };
 </script>
-<script src="../assets/js/template-builder.js?v=2.36"></script>
+<script src="../assets/js/template-builder.js?v=2.38"></script>
+
+<?php
+/* 🎨 v2.38 — انتخابگر مشترک آیکون (ایموجی + پک SVG) برای فیلدهای آیکون عناصر */
+require_once __DIR__ . '/includes/icon-picker.php';
+sahand_icon_picker_assets();
+?>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

@@ -244,7 +244,13 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
                     <?php $href = !empty($item['url']) ? $item['url'] : '/' . ($item['page_type'] === 'home' ? '' : $item['page_type']); ?>
                     <li>
                         <a href="<?= e($href) ?>" <?= !empty($item['nofollow']) ? 'rel="nofollow"' : '' ?>>
-                            <?= $item['icon'] ? '<span class="menu-icon">' . e($item['icon']) . '</span>' : '' ?>
+                            <?php if (!empty($item['icon'])): ?>
+                                <?php if (strpos((string)$item['icon'], 'svg:') === 0): /* 🆕 v2.38 — آیکون SVG از پک آیکون‌ها */ ?>
+                                    <img class="menu-icon menu-icon-svg" src="<?= e(cdn_asset('icons/' . ltrim(substr((string)$item['icon'], 4), '/'))) ?>" alt="" loading="lazy" style="width:15px;height:15px;object-fit:contain;vertical-align:-2px;display:inline-block">
+                                <?php else: ?>
+                                    <span class="menu-icon"><?= e($item['icon']) ?></span>
+                                <?php endif; ?>
+                            <?php endif; ?>
                             <?= e($item['title']) ?>
                         </a>
                         <?php if (!empty($item['children'])): ?>

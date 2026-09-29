@@ -1622,11 +1622,13 @@ function renderProps() {
         } else if (code === 'I') {
             /* 🐛 v2.27 — رشته قبلی با \${...} اِسکیپ‌شده بود (درون template
                literal) → خروجی HTML به‌جای مقدار، متن خام «${esc(label)}» را
-               نشان می‌داد! اکنون interpolation واقعی. */
+               نشان می‌داد! اکنون interpolation واقعی.
+               🆕 v2.38 — پیش‌نمایش زنده‌ی آیکون (ایموجی یا SVG از پک) + ورودی گسترده‌تر */
             html += `<div class="form-group"><label>${esc(label)}</label>
-                <div style="display:flex;gap:6px">
-                    <input type="text" class="form-control" style="font-size:15px;width:60px;text-align:center" value="${esc(props.icon || '')}" oninput="setProp('${selected}','icon',this.value)" placeholder="${FIELD_DEFS.icon.ph}" title="آیکون (ایموجی)">
-                    <button type="button" class="btn btn-outline btn-sm" style="flex:0 0 auto" onclick="openEmojiPicker(this.closest('.form-group').querySelector('input'))" title="انتخاب از کتابخانه آیکون‌ها">😀 انتخاب آیکون</button>
+                <div style="display:flex;gap:6px;align-items:center">
+                    <span class="tb-ico-prev" style="flex:0 0 auto;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:7px;background:var(--card,#fff)">${iconPreviewHtml(props.icon, 15)}</span>
+                    <input type="text" class="form-control" style="font-size:12px;flex:1;min-width:86px;direction:ltr;text-align:left" value="${esc(props.icon || '')}" oninput="setProp('${selected}','icon',this.value);refreshIconPreviews()" placeholder="${FIELD_DEFS.icon.ph}" title="آیکون (ایموجی یا svg:pack/file.svg)">
+                    <button type="button" class="btn btn-outline btn-sm" style="flex:0 0 auto" onclick="openEmojiPicker(this.closest('.form-group').querySelector('input'))" title="انتخاب از کتابخانه آیکون‌ها + پک‌های SVG">🎨 انتخاب آیکون</button>
                 </div></div>`;
         } else if (code === 'placeholder') {
             html += `<div class="form-group"><label>${esc(label)}</label>
@@ -1735,7 +1737,8 @@ function renderProps() {
             html += `<div style="font-size:11px;font-weight:800;color:var(--primary);margin:11px 0 7px">➕ آیتم‌های لیست (${faDigJS(items.length)})</div>`;
             items.forEach((it, idx) => {
                 html += `<div class="item-edit-row" style="flex-wrap:wrap">
-                    <input type="text" class="form-control" style="width:42px;text-align:center;font-size:14px" value="${esc(it.icon || '')}" oninput="setItemProp('${selected}',${idx},'icon',this.value)" placeholder="⚡" onclick="openEmojiPicker(this)" title="کلیک: انتخابگر آیکون">
+                    <span class="tb-ico-prev" style="flex:0 0 auto;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:7px;background:var(--card,#fff);cursor:pointer" onclick="openEmojiPicker(this.parentNode.querySelector('input'))" title="کلیک: انتخابگر آیکون (ایموجی + پک SVG)">${iconPreviewHtml(it.icon, 15)}</span>
+                    <input type="text" class="form-control" style="width:76px;text-align:center;font-size:10.5px;direction:ltr" value="${esc(it.icon || '')}" oninput="setItemProp('${selected}',${idx},'icon',this.value);refreshIconPreviews()" placeholder="⚡" onclick="openEmojiPicker(this)" title="کلیک: انتخابگر آیکون — ایموجی یا svg:pack/file.svg">
                     <input type="text" class="form-control" style="flex:1;min-width:110px;font-size:11.5px" value="${esc(it.text || '')}" oninput="setItemProp('${selected}',${idx},'text',this.value)" placeholder="متن آیتم...">
                     <input type="text" class="form-control" style="flex:1;min-width:110px;font-size:11px;color:var(--text-light)" value="${esc(it.desc || '')}" oninput="setItemProp('${selected}',${idx},'desc',this.value)" placeholder="${esc(descPh)}">
                     <input type="text" class="form-control" style="flex:1;min-width:110px;font-size:11px;direction:ltr;text-align:left;color:#2563eb" value="${esc(it.link || '')}" oninput="setItemProp('${selected}',${idx},'link',this.value)" placeholder="${esc(linkPh)}" title="🔗 لینک این آیتم — در سایت برند قابل کلیک می‌شود">
@@ -1746,7 +1749,7 @@ function renderProps() {
                 </div>`;
             });
             html += `<button type="button" class="btn btn-info btn-sm btn-block" style="margin-top:6px" onclick="addListItem('${selected}')">➕ افزودن آیتم جدید (بدون محدودیت)</button>
-                <div class="hint" style="margin-top:5px;font-size:10px;line-height:1.7">💡 روی کادر آیکون کلیک کنید تا <b>انتخابگر آیکون</b> باز شود — ستون سوم برای توضیح/قیمت/درصد و ستون آبی <b>لینک</b> است${COLOR_ITEMS ? ' و ستون رنگ، <b>رنگ اختصاصی همین آیتم</b> (نوار/گردونه/دکمه)' : ''}.</div>`;
+                <div class="hint" style="margin-top:5px;font-size:10px;line-height:1.7">💡 روی کادر آیکون کلیک کنید تا <b>انتخابگر آیکون</b> (ایموجی + <b>پک آیکون SVG</b>) باز شود — ستون سوم برای توضیح/قیمت/درصد و ستون آبی <b>لینک</b> است${COLOR_ITEMS ? ' و ستون رنگ، <b>رنگ اختصاصی همین آیتم</b> (نوار/گردونه/دکمه)' : ''}.</div>`;
         } else {
             /* فیلدهای متنی ساده: عنوان/زیرعنوان/تلفن/دکمه/برچسب/قیمت/ساعات */
             const isLtr = key === 'phone';
@@ -2033,6 +2036,28 @@ function removeListItem(path, idx) {
     renderProps();
 }
 /* ==================================================
+ * 🎨 v2.38 — پیش‌نمایش آیکون در پنل ویژگی‌ها + انتخابگر کامل
+ * مقادیر svg:pack/file.svg (از پک آیکون‌ها) در بوم و سایت برند
+ * به‌صورت <img> رندر می‌شوند؛ ایموجی/عدد مثل قبل متن می‌مانند.
+ * ================================================== */
+function iconPreviewHtml(v, px) {
+    v = String(v == null ? '' : v).trim();
+    if (v === '') { return '<span style="opacity:.35;font-size:13px">⚡</span>'; }
+    if (window.IconPicker) {
+        const h = IconPicker.iconHtml(v, px || 16);
+        if (h) { return h; }
+    }
+    if (v.indexOf('svg:') === 0) { return '<span style="font-size:9px;opacity:.6">SVG</span>'; }
+    return esc(v);
+}
+function refreshIconPreviews() {
+    document.querySelectorAll('.tb-ico-prev').forEach(function (sp) {
+        const inp = sp.parentNode && sp.parentNode.querySelector('input');
+        if (inp) { sp.innerHTML = iconPreviewHtml(inp.value, 15); }
+    });
+}
+
+/* ==================================================
  * 😀 v2.25: انتخابگر آیکون (ایموجی) — کتابخانه ۱۲۶ آیکون موضوعی
  * رفع «نمیشه آیکون عوض کرد» — روی هر کادر آیکون (فیلد تکی یا آیتم
  * لیست) کلیک کنید؛ انتخاب، همان لحظه در بوم اعمال می‌شود.
@@ -2070,6 +2095,21 @@ function emojiOutside(e) {
 }
 function openEmojiPicker(inputEl) {
     if (!inputEl) { return; }
+    /* 🆕 v2.38 — انتخابگر کامل مشترک (ایموجی + پک آیکون SVG): وقتی کامپوننت
+     * IconPicker روی صفحه حاضر است، همان مودال دوزبانه باز می‌شود و مقدار
+     * svg:pack/file.svg هم قابل انتخاب است (در بوم/سایت به‌صورت <img> رندر می‌شود).
+     * اگر کامپوننت حاضر نبود، پاپ‌آور ایموجیِ قدیمی به‌عنوان fallback می‌ماند. */
+    if (window.IconPicker) {
+        IconPicker.open({
+            current: inputEl.value || '',
+            onPick: function (value) {
+                inputEl.value = value;
+                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                refreshIconPreviews();
+            }
+        });
+        return;
+    }
     if (emojiPickerEl) { closeEmojiPicker(); }
     emojiPickerEl = document.createElement('div');
     emojiPickerEl.className = 'emoji-picker-pop';

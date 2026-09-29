@@ -59,6 +59,30 @@ if (!function_exists('pv_asset')) {
         return function_exists('cdn_asset') ? cdn_asset($url) : $url;
     }
 }
+if (!function_exists('pv_icon')) {
+    /** 🎨 v2.38 — رندر آیکون آیتم: ایموجی/متن/عدد یا SVG از پک آیکون‌ها
+     * مقدار با پیشوند «svg:» (مثلاً svg:remix-icons/home.svg) به‌صورت <img>
+     * از assets/icons/ سایت‌ساز رندر می‌شود؛ هر مقدار دیگری مثل قبل به‌صورت
+     * متن اِسکیپ‌شده (ایموجی/عدد/نام) — سازگار کامل با داده‌های موجود.
+     * اندازه با em نسبت به فونتِ محل رندر مقیاس می‌شود (هم‌زبان با بافت). */
+    function pv_icon(?string $icon, string $style = ''): string
+    {
+        $icon = trim((string)$icon);
+        if ($icon === '') {
+            return '';
+        }
+        if (strpos($icon, 'svg:') === 0) {
+            $rel = 'icons/' . ltrim(substr($icon, 4), '/');
+            /* سایت برند → cdn_asset (دامنه سایت‌ساز)؛ پنل/پیش‌نمایش → BASE_URL مطلق */
+            $url = function_exists('cdn_asset')
+                ? cdn_asset($rel)
+                : (defined('BASE_URL') ? BASE_URL . '/' . $rel : $rel);
+            $st = $style !== '' ? $style : 'width:1.2em;height:1.2em;object-fit:contain;vertical-align:-0.22em';
+            return '<img src="' . e($url) . '" alt="" loading="lazy" style="' . $st . '">';
+        }
+        return e($icon);
+    }
+}
 pv_renderer_init(); /* حالت پیش‌فرض site — آغازگرها بازنویسی می‌کنند */
 
 /* ═══════════════════════════════════════════════════════════════
@@ -107,7 +131,7 @@ if (!function_exists('pvStatStrip')) {
         $items = pvItems($props, [['۱۲+', 'سال تجربه'], ['۵۰k', 'تعمیر'], ['۹۸٪', 'رضایت']]);
         $out = [];
         foreach (array_slice($items, 0, 8) as $i) {
-            $out[] = '<span class="ss-item"><b>' . e($i['icon'] !== '' ? $i['icon'] : '۰') . '</b> ' . e($i['text'] ?: 'آمار') . '</span>';
+            $out[] = '<span class="ss-item"><b>' . pv_icon($i['icon'] !== '' ? $i['icon'] : '۰') . '</b> ' . e($i['text'] ?: 'آمار') . '</span>';
         }
         return implode('<span class="ss-sep"></span>', $out);
     }
@@ -187,7 +211,7 @@ if (!function_exists('pvItemImg')) {
         if (preg_match('#^(https?://|/)#i', $url)) {
             return '<div class="fake-img small" style="' . ($style !== '' ? $style : 'min-height:90px') . '"><img src="' . e($url) . '" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>';
         }
-        return '<div class="fake-img small" style="' . ($style !== '' ? $style : 'min-height:90px') . '">' . e($it['icon'] ?: '🖼️') . '</div>';
+        return '<div class="fake-img small" style="' . ($style !== '' ? $style : 'min-height:90px') . '">' . pv_icon($it['icon'] ?: '🖼️') . '</div>';
     }
 }
 
@@ -378,7 +402,7 @@ if (!function_exists('pv_slider_slides')) {
                 if (preg_match('#^uploads/#i', $url)) { $url = pv_asset($url); }
                 $inner = preg_match('#^(https?://|/)#i', $url)
                     ? '<img src="' . e($url) . '" alt="' . e($it['text']) . '" style="width:100%;height:100%;object-fit:cover" loading="lazy">'
-                    : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:38px">' . e($it['icon'] !== '' ? $it['icon'] : '🖼️') . '</div>';
+                    : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:38px">' . pv_icon($it['icon'] !== '' ? $it['icon'] : '🖼️') . '</div>';
                 $out .= $aOpen . '<div style="position:relative;margin:4px 6px"><div class="fake-img" style="min-height:230px;height:230px;flex:none;width:100%">' . $inner . '</div>' . ($it['text'] !== '' ? '<div class="feat-d" style="text-align:center;margin-top:6px;font-weight:700">' . e($it['text']) . '</div>' : '') . '</div>' . $aClose;
             }
         }
@@ -503,14 +527,14 @@ if (!function_exists('pv_generic_block')) {
         $its = array_values(array_filter(pvItems($props, []), static fn($i) => trim((string)$i['text']) !== '' || trim((string)$i['icon']) !== ''));
         $sub = !empty($props['subtitle']) ? '<div class="feat-d" style="text-align:center;max-width:560px;margin:0 auto 10px">' . e((string)$props['subtitle']) . '</div>' : '';
         if ($type === 'features') {
-            return $PV($head . '<div class="feat-list">' . implode('', array_map(static fn($it) => pvA($it, '<div class="feat-row"><span class="feat-ico">' . e($it['icon'] ?: '✨') . '</span><div><b>' . e($it['text']) . '</b>' . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div></div>'), $its)) . '</div>');
+            return $PV($head . '<div class="feat-list">' . implode('', array_map(static fn($it) => pvA($it, '<div class="feat-row"><span class="feat-ico">' . pv_icon($it['icon'] ?: '✨') . '</span><div><b>' . e($it['text']) . '</b>' . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div></div>'), $its)) . '</div>');
         }
         if ($type === 'stats') {
             $n = max(2, min(6, count($its) ?: 3));
-            return $PV($head . '<div class="cols c' . $n . '" style="gap:14px">' . implode('', array_map(static fn($i) => '<div class="stat"><div class="stat-n">' . e($i['icon'] !== '' ? $i['icon'] : '۰') . '</div><div class="stat-l">' . e($i['text'] !== '' ? $i['text'] : 'آمار') . '</div></div>', $its)) . '</div>');
+            return $PV($head . '<div class="cols c' . $n . '" style="gap:14px">' . implode('', array_map(static fn($i) => '<div class="stat"><div class="stat-n">' . pv_icon($i['icon'] !== '' ? $i['icon'] : '۰') . '</div><div class="stat-l">' . e($i['text'] !== '' ? $i['text'] : 'آمار') . '</div></div>', $its)) . '</div>');
         }
         if ($type === 'chips') {
-            return $PV($head . '<div class="chip-row">' . implode('', array_map(static fn($i) => pvA($i, '<span class="chip">' . ($i['icon'] !== '' ? e($i['icon']) . ' ' : '') . e($i['text']) . ($i['desc'] !== '' ? ' — ' . e($i['desc']) : '') . '</span>'), $its)) . '</div>');
+            return $PV($head . '<div class="chip-row">' . implode('', array_map(static fn($i) => pvA($i, '<span class="chip">' . ($i['icon'] !== '' ? pv_icon($i['icon']) . ' ' : '') . e($i['text']) . ($i['desc'] !== '' ? ' — ' . e($i['desc']) : '') . '</span>'), $its)) . '</div>');
         }
         if ($type === 'banner') {
             $bLink = trim((string)($props['link'] ?? '')) ?: trim((string)($props['btnLink'] ?? ''));
@@ -519,14 +543,14 @@ if (!function_exists('pv_generic_block')) {
                     ? '<a href="' . e($bLink) . '" class="hero-btn" style="text-decoration:none;margin-top:10px">' . e((string)$props['btnText']) . '</a>'
                     : '<div class="hero-btn" style="margin-top:10px">' . e((string)$props['btnText']) . '</div>')
                 : '';
-            $bIts = $its ? '<div class="cols c' . min(4, max(2, count($its))) . '" style="margin-top:11px">' . implode('', array_map(static fn($i) => pvA($i, '<div class="fake-card"><div class="card-ico">' . e($i['icon'] ?: '✨') . '</div><div class="card-t">' . e($i['text']) . '</div>' . ($i['desc'] !== '' ? '<div class="feat-d">' . e($i['desc']) . '</div>' : '') . '</div>'), $its)) . '</div>' : '';
+            $bIts = $its ? '<div class="cols c' . min(4, max(2, count($its))) . '" style="margin-top:11px">' . implode('', array_map(static fn($i) => pvA($i, '<div class="fake-card"><div class="card-ico">' . pv_icon($i['icon'] ?: '✨') . '</div><div class="card-t">' . e($i['text']) . '</div>' . ($i['desc'] !== '' ? '<div class="feat-d">' . e($i['desc']) . '</div>' : '') . '</div>'), $its)) . '</div>' : '';
             return $PV('<div class="hero-title" style="font-size:22px">' . e($title !== '' ? $title : 'بنر ویژه') . '</div>' . $sub . $bIts . $btn);
         }
         if ($type === 'steps') {
             $out = '';
             foreach ($its as $i => $it) {
                 $fa = static fn($x) => strtr((string)$x, ['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹']);
-                $out .= ($i > 0 ? '<div class="step-arrow">←</div>' : '') . pvA($it, '<div class="step"><span class="step-n">' . e($it['icon'] !== '' ? $it['icon'] : $fa($i + 1)) . '</span><div class="step-t">' . e($it['text']) . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div></div>');
+                $out .= ($i > 0 ? '<div class="step-arrow">←</div>' : '') . pvA($it, '<div class="step"><span class="step-n">' . pv_icon($it['icon'] !== '' ? $it['icon'] : $fa($i + 1)) . '</span><div class="step-t">' . e($it['text']) . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div></div>');
             }
             return $PV($head . '<div class="steps-row" style="flex-wrap:wrap">' . $out . '</div>');
         }
@@ -583,7 +607,7 @@ if (!function_exists('pv_generic_block')) {
                 $st = trim((string)($it['desc'] ?? 'primary')) ?: 'primary';
                 $cls = 'hero-btn' . ($st === 'ghost' || $st === 'outline' ? ' ghost' : '');
                 $style = preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($it['color'] ?? '')) ? ' style="background:' . e((string)$it['color']) . '"' : ($st === 'gradient' ? ' style="background:linear-gradient(135deg,#1e40af,#0ea5e9)"' : '');
-                $inner = '<span class="' . $cls . '"' . $style . '>' . ($it['icon'] !== '' ? e($it['icon']) . ' ' : '') . e($it['text'] !== '' ? $it['text'] : 'دکمه') . '</span>';
+                $inner = '<span class="' . $cls . '"' . $style . '>' . ($it['icon'] !== '' ? pv_icon($it['icon']) . ' ' : '') . e($it['text'] !== '' ? $it['text'] : 'دکمه') . '</span>';
                 $lk = trim((string)($it['link'] ?? ''));
                 $out .= $lk !== ''
                     ? '<a href="' . e($lk) . '"' . (preg_match('#^https?://#i', $lk) ? ' target="_blank" rel="noopener"' : '') . ' style="text-decoration:none;display:inline-block">' . $inner . '</a>'
@@ -592,7 +616,7 @@ if (!function_exists('pv_generic_block')) {
             return $PV($head . $sub . '<div class="hero-btns" style="justify-content:flex-start;flex-wrap:wrap;gap:10px">' . $out . '</div>');
         }
         $cols = pvCols($props, 3);
-        return $PV($head . '<div class="cols c' . $cols . '">' . implode('', array_map(static fn($it) => pvA($it, '<div class="fake-card">' . ($it['icon'] !== '' ? '<div class="card-ico">' . e($it['icon']) . '</div>' : '') . '<div class="card-t">' . e($it['text']) . '</div>' . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div>'), $its)) . '</div>');
+        return $PV($head . '<div class="cols c' . $cols . '">' . implode('', array_map(static fn($it) => pvA($it, '<div class="fake-card">' . ($it['icon'] !== '' ? '<div class="card-ico">' . pv_icon($it['icon']) . '</div>' : '') . '<div class="card-t">' . e($it['text']) . '</div>' . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div>'), $its)) . '</div>');
     }
 }
 
@@ -690,11 +714,11 @@ if (!function_exists('pv_render_block_inner')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . ($head ?: '') . '</div>';
             case 'feature-list':
                 $its = pvItems($props, [['⚡', 'سرعت عمل', 'اعزام تکنسین در کمتر از ۲ ساعت'], ['🛡️', 'ضمانت کتبی', '۶ ماه ضمانت قطعه و خدمات']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($it) => pvA($it, '<div class="feat-row"><span class="feat-ico">' . e($it['icon'] ?: '⚡') . '</span><div><b>' . e($it['text']) . '</b>' . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div></div>'), $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($it) => pvA($it, '<div class="feat-row"><span class="feat-ico">' . pv_icon($it['icon'] ?: '⚡') . '</span><div><b>' . e($it['text']) . '</b>' . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div></div>'), $its)) . '</div></div>';
             case 'services-grid':
             case 'features':
                 $its = pvItems($props, [['🔧', 'تعمیر لباسشویی', 'با قطعات فابریک'], ['🧊', 'تعمیر یخچال', 'همان روز'], ['⚡', 'تعمیر ماکروویو', 'ضمانت‌دار'], ['🎓', 'سرویس دوره‌ای', 'در محل شما']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: ($block === 'features' ? 'چرا ما را انتخاب کنید؟' : 'خدمات ما')) . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => pvA($it, '<div class="fake-card"><div class="card-ico">' . e($it['icon'] ?: '🔧') . '</div><div class="card-t">' . e($it['text']) . '</div>' . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div>'), $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: ($block === 'features' ? 'چرا ما را انتخاب کنید؟' : 'خدمات ما')) . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => pvA($it, '<div class="fake-card"><div class="card-ico">' . pv_icon($it['icon'] ?: '🔧') . '</div><div class="card-t">' . e($it['text']) . '</div>' . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div>'), $its)) . '</div></div>';
             case 'devices-grid':
                 $devs = ['🌀 لباسشویی', '🧊 یخچال', '🍽️ ظرفشویی', '❄️ کولر', '📺 تلویزیون', '♨️ پکیج', '📻 مایکروویو', '🔥 فر و اجاق'];
                 $cards = '';
@@ -712,13 +736,13 @@ if (!function_exists('pv_render_block_inner')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'مقالات اخیر') . '</div><div class="cols c3">' . str_repeat('<div class="fake-card"><div class="fake-img small">📰</div><div class="card-t">عنوان مقاله نمونه</div></div>', 3) . '</div></div>';
             case 'team':
                 $its = pvItems($props, [['👨‍🔧', 'مهندس کریمی', 'متخصص لباسشویی'], ['👩‍🔧', 'مهندس رضایی', 'متخصص یخچال و فریزر'], ['🧑‍🔧', 'مهندس موسوی', 'متخصص تلویزیون']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'تیم ما') . '</div><div class="cols c' . pvCols($props, 4) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="fake-ava">' . e($it['icon'] ?: '👨‍🔧') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'تیم ما') . '</div><div class="cols c' . pvCols($props, 4) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="fake-ava">' . pv_icon($it['icon'] ?: '👨‍🔧') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
             case 'pricing-table':
                 $its = pvItems($props, [['', 'دریافت و عیب‌یابی تخصصی', 'رایگان'], ['', 'سرویس دوره‌ای لباسشویی', 'از ۴۵۰ هزار تومان'], ['', 'شارژ گاز کولر گازی', 'از ۹۰۰ هزار تومان']]);
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'تعرفه خدمات') . '</div><div class="price-table">' . implode('', array_map(static fn($it) => '<div class="price-row"><span>' . e($it['text']) . '</span><b>' . e($it['desc']) . '</b></div>', $its)) . '</div></div>';
             case 'brands-links':
                 $its = pvItems($props, [['🏷️', 'ال‌جی'], ['🏷️', 'سامسونگ'], ['🏷️', 'بوش'], ['🏷️', 'سونی'], ['🏷️', 'اسنوا'], ['🏷️', 'پاکس']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'برندهای مورد خدمت') . '</div><div class="cols c' . max(3, pvCols($props, 6)) . '">' . implode('', array_map(static fn($it) => '<div class="fake-logo-s" title="' . e($it['text']) . '">' . e($it['icon'] ?: '🏷️') . '</div>', $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'برندهای مورد خدمت') . '</div><div class="cols c' . max(3, pvCols($props, 6)) . '">' . implode('', array_map(static fn($it) => '<div class="fake-logo-s" title="' . e($it['text']) . '">' . pv_icon($it['icon'] ?: '🏷️') . '</div>', $its)) . '</div></div>';
             case 'hero-form':
             case 'contact-form':
             case 'request-form':
@@ -780,7 +804,7 @@ if (!function_exists('pv_render_block_inner')) {
             case 'timeline': {
                 $its = pvItems($props, [['✓', 'ثبت درخواست', 'انجام شد'], ['✓', 'عیب‌یابی و پیش‌فاکتور', 'انجام شد'], ['۳', 'تعمیر در حال انجام', 'در جریان'], ['۴', 'تحویل و ضمانت', 'در انتظار']]);
                 $out = '';
-                foreach ($its as $i => $it) { $cls = $i < 2 ? ' done' : ($i === 2 ? ' cur' : ''); $out .= '<div class="tl-item' . $cls . '"><span class="tl-dot">' . e($it['icon'] ?: (string)($i + 1)) . '</span><div>' . e($it['text']) . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div></div>'; }
+                foreach ($its as $i => $it) { $cls = $i < 2 ? ' done' : ($i === 2 ? ' cur' : ''); $out .= '<div class="tl-item' . $cls . '"><span class="tl-dot">' . pv_icon($it['icon'] ?: (string)($i + 1)) . '</span><div>' . e($it['text']) . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div></div>'; }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'مراحل پیشرفت کار') . '</div><div class="tl">' . $out . '</div></div>';
             }
             case 'steps-process': {
@@ -876,7 +900,7 @@ if (!function_exists('pv_render_block_inner')) {
             case 'brand-story': {
                 $its = pvItems($props, [['۱۳۸۵', 'شروع فعالیت', 'با یک تعمیرگاه کوچک'], ['۱۳۹۲', 'نمایندگی رسمی', 'اخذ گواهی‌های تخصصی'], ['۱۴۰۲', '۵۰ هزارمین تعمیر', 'و بیش از ۳۰ همکار']]);
                 $out = '';
-                foreach ($its as $it) { $out .= '<div class="story-sec"><span class="story-year">' . e($it['icon']) . '</span><div><b>' . e($it['text']) . '</b><div class="feat-d">' . e($it['desc']) . '</div></div></div>'; }
+                foreach ($its as $it) { $out .= '<div class="story-sec"><span class="story-year">' . pv_icon($it['icon']) . '</span><div><b>' . e($it['text']) . '</b><div class="feat-d">' . e($it['desc']) . '</div></div></div>'; }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="story-wrap">' . $out . '</div></div>';
             }
             case 'area-list':
@@ -884,15 +908,15 @@ if (!function_exists('pv_render_block_inner')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="chip-row">' . implode('', array_map(static fn($a) => '<span class="chip">📍 ' . e($a['text']) . '</span>', $its)) . '</div></div>';
             case 'checklist':
                 $its = pvItems($props, [['☑️', 'دستگاه را روشن و خاموش کنید و دوباره امتحان کنید'], ['☑️', 'کد خطای نمایشگر را یادداشت کنید'], ['☑️', 'صداهای غیرعادی و بوی سوختگی را بررسی کنید'], ['☑️', 'فاکتور خرید و گارانتی را آماده داشته باشید']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($it) => pvA($it, '<div class="feat-row"><span class="feat-ico">' . e($it['icon'] ?: '☑️') . '</span><div>' . e($it['text']) . '</div></div>'), $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($it) => pvA($it, '<div class="feat-row"><span class="feat-ico">' . pv_icon($it['icon'] ?: '☑️') . '</span><div>' . e($it['text']) . '</div></div>'), $its)) . '</div></div>';
             case 'search-bar':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="search-wrap"><span class="search-ico">🔎</span><div class="fake-input" style="flex:1;border:none">' . e($props['placeholder'] ?? 'جستجوی کد خطا، مقاله یا دستگاه...') . '</div><span class="hero-btn">جستجو</span></div></div>';
             case 'certificates':
                 $its = pvItems($props, [['🎖️', 'نمایندگی رسمی', 'از سال ۱۳۸۵'], ['🏆', 'برند برتر خدمات', 'رأی مشتریان ۱۴۰۲'], ['📋', 'مجوز اتحادیه', 'کد ۱۲۳۴۵']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'گواهینامه‌ها و افتخارات') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="card-ico">' . e($it['icon'] ?: '🎖️') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'گواهینامه‌ها و افتخارات') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="card-ico">' . pv_icon($it['icon'] ?: '🎖️') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
             case 'review-grid':
                 $its = pvItems($props, [['علی محمدی', 'سرویس سریع و منظم بود؛ راضی بودم.'], ['مریم احمدی', 'قیمت شفاف و ضمانت واقعی.'], ['رضا کریمی', 'تکنسین دقیق و حرفه‌ای اعزام شد.']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'مشتریان ما چه می‌گویند') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => pvA($it, '<div class="fake-card"><div class="feat-d" style="direction:ltr;text-align:left">⭐⭐⭐⭐⭐</div><div class="feat-d">«' . e($it['text']) . '»</div><b class="feat-d">' . e($it['icon']) . '</b></div>'), $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'مشتریان ما چه می‌گویند') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => pvA($it, '<div class="fake-card"><div class="feat-d" style="direction:ltr;text-align:left">⭐⭐⭐⭐⭐</div><div class="feat-d">«' . e($it['text']) . '»</div><b class="feat-d">' . pv_icon($it['icon']) . '</b></div>'), $its)) . '</div></div>';
             case 'contact-cards':
                 /* 🆕 v2.29 — خالی = از تنظیمات سایت‌ساز (تلفن/آدرس) + آیتم‌ها لینک‌دار */
                 $ccIts = array_values(array_filter(pvItems($props, []), static fn($i) => trim((string)$i['text']) !== ''));
@@ -903,15 +927,15 @@ if (!function_exists('pv_render_block_inner')) {
                     if ($ccAd !== '') { $ccIts[] = ['icon' => '📍', 'text' => 'آدرس', 'desc' => $ccAd, 'link' => pv_brand_map_url()]; }
                     $ccIts[] = ['icon' => '🕐', 'text' => 'ساعات کاری', 'desc' => (pv_brand_hours() ?: 'شنبه تا پنجشنبه ۹ تا ۲۰'), 'link' => ''];
                 }
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'راه‌های ارتباطی') . '</div><div class="cols c3">' . implode('', array_map(static fn($it) => pvA($it, '<div class="fake-card"><div class="card-ico">' . e($it['icon'] ?: '📞') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>'), $ccIts)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'راه‌های ارتباطی') . '</div><div class="cols c3">' . implode('', array_map(static fn($it) => pvA($it, '<div class="fake-card"><div class="card-ico">' . pv_icon($it['icon'] ?: '📞') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>'), $ccIts)) . '</div></div>';
             case 'stats-grid':
                 /* 🎭 P2-21 — پیش‌نمایش: محتوای نمونه (رفتار قدیمی) */
                 if ($pvPreview) {
                     $its = pvItems($props, [['۱۲+', 'سال تجربه'], ['۵۰k', 'تعمیر موفق'], ['۹۸٪', 'رضایت'], ['۴۲', 'نوع دستگاه'], ['۲۴/۷', 'پشتیبانی'], ['۶ ماه', 'ضمانت']]);
-                    return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'سهند سرویس در یک نگاه') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card" style="text-align:center"><div class="stat-n">' . e($it['icon'] ?: '۰') . '</div><div class="feat-d">' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
+                    return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'سهند سرویس در یک نگاه') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card" style="text-align:center"><div class="stat-n">' . pv_icon($it['icon'] ?: '۰') . '</div><div class="feat-d">' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
                 }
                 $its = pvItems($props, [['۱۲+', 'سال تجربه'], ['۵۰k', 'تعمیر موفق'], ['۹۸٪', 'رضایت'], ['۴۲', 'نوع دستگاه'], ['۲۴/۷', 'پشتیبانی'], ['۶ ماه', 'ضمانت']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'در یک نگاه') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card" style="text-align:center"><div class="stat-n">' . e($it['icon'] ?: '۰') . '</div><div class="feat-d">' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'در یک نگاه') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card" style="text-align:center"><div class="stat-n">' . pv_icon($it['icon'] ?: '۰') . '</div><div class="feat-d">' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
             case 'before-after':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'نتیجه تعمیر حرفه‌ای') . '</div><div class="ba-wrap"><div class="ba-side"><div class="ba-tag bad">قبل</div><div class="fake-card" style="text-align:center">' . e($props['text'] ?? 'دستگاه روشن نمی‌شود — کد خطا فعال') . '</div></div><div class="ba-arrow">←</div><div class="ba-side"><div class="ba-tag ok">بعد</div><div class="fake-card" style="text-align:center">' . e($props['textAfter'] ?? 'کارکرد کامل — تست‌شده و ضمانت‌دار') . '</div></div></div></div>';
             case 'cta-whatsapp': {
@@ -930,7 +954,7 @@ if (!function_exists('pv_render_block_inner')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'ساعات کاری') . '</div><div class="price-table">' . implode('', array_map(static fn($it) => '<div class="price-row"><span>' . e($it['text']) . '</span><b>' . e($it['desc']) . '</b></div>', $its)) . '</div></div>';
             case 'social-follow':
                 $its = pvItems($props, [['📡', 'تلگرام'], ['📷', 'اینستاگرام'], ['💬', 'واتساپ'], ['▶️', 'آپارات']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'ما را دنبال کنید') . '</div><div class="hero-btns">' . implode('', array_map(static fn($it) => '<span class="hero-btn">' . e($it['icon'] ?: '📣') . ' ' . e($it['text']) . '</span>', $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'ما را دنبال کنید') . '</div><div class="hero-btns">' . implode('', array_map(static fn($it) => '<span class="hero-btn">' . pv_icon($it['icon'] ?: '📣') . ' ' . e($it['text']) . '</span>', $its)) . '</div></div>';
             case 'trust-badges':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '>' . $head . '<div class="chip-row" style="justify-content:space-around">' . implode('', array_map(static fn($p) => '<div style="text-align:center;min-width:86px"><div style="font-size:26px">' . e($p['icon'] ?: '🏅') . '</div><div class="feat-d" style="font-size:11px">' . e($p['text']) . '</div></div>', pvItems($props, [['🛡️', 'ضمانت کتبی'], ['💳', 'پرداخت اقساطی'], ['⚡', 'اعزام فوری'], ['🏆', 'نمایندگی رسمی'], ['🔧', 'قطعات اصلی']]))) . '</div></div>';
             case 'footer-links': {
@@ -947,9 +971,9 @@ if (!function_exists('pv_render_block_inner')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div style="text-align:center"><div class="blk-title" style="font-size:23px">' . ($title ?: 'عنوان بزرگ بخش') . '</div><div class="feat-d" style="font-size:13.5px;margin-top:6px">' . e($props['subtitle'] ?? 'زیرعنوان توضیحی این بخش') . '</div><div style="width:56px;height:4px;border-radius:4px;background:var(--p);margin:14px auto 0"></div></div></div>';
             case 'numbered-list':
                 $its = pvItems($props, [['۱', 'عیب‌یابی تخصصی رایگان', 'بررسی کامل با دستگاه تست'], ['۲', 'پیش‌فاکتور شفاف', 'تأیید قیمت قبل از شروع کار'], ['۳', 'تعمیر با قطعات اصلی', 'همراه با ۶ ماه ضمانت']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<div class="num-list">' . implode('', array_map(static fn($it) => '<div class="num-row"><span class="num-n">' . e($it['icon']) . '</span><div><b>' . e($it['text']) . '</b><div class="feat-d">' . e($it['desc']) . '</div></div></div>', $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<div class="num-list">' . implode('', array_map(static fn($it) => '<div class="num-row"><span class="num-n">' . pv_icon($it['icon']) . '</span><div><b>' . e($it['text']) . '</b><div class="feat-d">' . e($it['desc']) . '</div></div></div>', $its)) . '</div></div>';
             case 'info-box':
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="info-box-demo"><span class="feat-ico" style="font-size:22px">' . e($props['icon'] ?? '💡') . '</span><div><b>' . ($title ?: 'نکته مهم') . '</b><div class="feat-d">' . e($props['text'] ?? 'متن توضیح جعبه اطلاعات...') . '</div></div></div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="info-box-demo"><span class="feat-ico" style="font-size:22px">' . pv_icon($props['icon'] ?? '💡') . '</span><div><b>' . ($title ?: 'نکته مهم') . '</b><div class="feat-d">' . e($props['text'] ?? 'متن توضیح جعبه اطلاعات...') . '</div></div></div></div>';
             case 'price-cards': {
                 $its = pvItems($props, [['اقتصادی', 'سرویس پایه — ۴۵۰ هزار تومان', ''], ['استاندارد', 'سرویس کامل — ۹۵۰ هزار تومان', ''], ['ویژه', 'سرویس + قطعه — ۱٫۵ میلیون', '']]);
                 $out = '';
@@ -958,14 +982,14 @@ if (!function_exists('pv_render_block_inner')) {
             }
             case 'location-cards':
                 $its = pvItems($props, [['🏬', 'شعبه مرکزی', 'تهران، ولیعصر'], ['🏬', 'شعبه غرب', 'تهران، سعادت‌آباد']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'شعب ما') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="card-ico">' . e($it['icon'] ?: '🏬') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'شعب ما') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="card-ico">' . pv_icon($it['icon'] ?: '🏬') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
             case 'expert-cards':
                 $its = pvItems($props, [['🔧', 'مهندس کریمی', 'برد و الکترونیک'], ['❄️', 'مهندس رضایی', 'سیستم سرمایش']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'متخصصین ما') . '</div><div class="cols c' . pvCols($props, 4) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="fake-ava">' . e($it['icon'] ?: '👨‍🔧') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'متخصصین ما') . '</div><div class="cols c' . pvCols($props, 4) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="fake-ava">' . pv_icon($it['icon'] ?: '👨‍🔧') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
             case 'logo-cloud': {
                 $its = pvItems($props, [['🏅', 'نشان سفیر خدمت'], ['📋', 'مجوز اتحادیه'], ['🎖️', 'نمایندگی رسمی'], ['✅', 'تاییدیه کیفیت']]);
                 $out = '';
-                foreach ($its as $it) { $out .= '<div style="text-align:center;min-width:86px"><div style="font-size:26px">' . e($it['icon'] ?: '🏅') . '</div><div class="feat-d" style="font-size:11px">' . e($it['text']) . '</div></div>'; }
+                foreach ($its as $it) { $out .= '<div style="text-align:center;min-width:86px"><div style="font-size:26px">' . pv_icon($it['icon'] ?: '🏅') . '</div><div class="feat-d" style="font-size:11px">' . e($it['text']) . '</div></div>'; }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="chip-row" style="justify-content:center">' . $out . '</div></div>';
             }
             case 'social-proof':
@@ -975,7 +999,7 @@ if (!function_exists('pv_render_block_inner')) {
             case 'promo-card':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="promo-card-demo"><div><span class="badge badge-warning" style="font-size:10.5px">🎁 پیشنهاد ویژه</span><div class="blk-title" style="font-size:19px;margin:9px 0 5px">' . ($title ?: 'کمپین سرویس بهاره') . '</div><div class="feat-d">' . e($props['subtitle'] ?? 'تا ۲۵٪ تخفیف — تا پایان ماه') . '</div></div><div style="text-align:center"><div class="stat-n" style="font-size:33px">۲۵٪</div><span class="hero-btn" style="margin-top:8px">همین حالا رزرو کنید</span></div></div></div>';
             case 'divider-icon':
-                return '<div class="blk ' . $bgClass . '" style="padding:10px 16px"><div class="divider-ico"><span class="divider-line"></span><span style="font-size:17px">' . e($props['icon'] ?? '🔧') . '</span><span class="divider-line"></span></div></div>';
+                return '<div class="blk ' . $bgClass . '" style="padding:10px 16px"><div class="divider-ico"><span class="divider-line"></span><span style="font-size:17px">' . pv_icon($props['icon'] ?? '🔧') . '</span><span class="divider-line"></span></div></div>';
             case 'contact-info-bar':
                 /* 🆕 v2.29 — مقادیر پویا از تنظیمات سایت‌ساز */
                 $ciPh = trim((string)($props['phone'] ?? '')) ?: pv_brand_phone() ?: '۰۲۱-۱۲۳۴۵۶۷۸';
@@ -987,36 +1011,36 @@ if (!function_exists('pv_render_block_inner')) {
                 if ($pvPreview) {
                     $its = pvItems($props, [['✅', 'قطعات اصلی و ضمانت‌دار', ''], ['✅', 'اعزام سریع تکنسین', ''], ['⚠️', 'زمان تعمیر ۲ تا ۴ روز کاری', '']]);
                     $pros = '';
-                    foreach ($its as $it) { if (!str_starts_with($it['icon'], '⚠') && !str_starts_with($it['icon'], '❌')) { $pros .= '<div class="feat-row"><span class="feat-ico" style="background:#f0fdf4">' . e($it['icon'] ?: '✅') . '</span><div>' . e($it['text']) . '</div></div>'; } }
+                    foreach ($its as $it) { if (!str_starts_with($it['icon'], '⚠') && !str_starts_with($it['icon'], '❌')) { $pros .= '<div class="feat-row"><span class="feat-ico" style="background:#f0fdf4">' . pv_icon($it['icon'] ?: '✅') . '</span><div>' . e($it['text']) . '</div></div>'; } }
                     $cons = '';
-                    foreach ($its as $it) { if (str_starts_with($it['icon'], '⚠') || str_starts_with($it['icon'], '❌')) { $cons .= '<div class="feat-row"><span class="feat-ico" style="background:#fef2f2">' . e($it['icon']) . '</span><div>' . e($it['text']) . '</div></div>'; } }
+                    foreach ($its as $it) { if (str_starts_with($it['icon'], '⚠') || str_starts_with($it['icon'], '❌')) { $cons .= '<div class="feat-row"><span class="feat-ico" style="background:#fef2f2">' . pv_icon($it['icon']) . '</span><div>' . e($it['text']) . '</div></div>'; } }
                     return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="cols c2"><div class="fake-card" style="border-inline-start:4px solid #16a34a"><div class="card-t" style="color:#15803d">✅ مزایا</div><div class="feat-list">' . $pros . '</div></div><div class="fake-card" style="border-inline-start:4px solid #dc2626"><div class="card-t" style="color:#b91c1c">⚠️ نکات</div><div class="feat-list">' . ($cons !== '' ? $cons : '<div class="feat-d">موردی ثبت نشده — آیتم با آیکون ⚠️ اضافه کنید</div>') . '</div></div></div></div>';
                 }
                 $its = pvItems($props, [['✅', 'قطعات اصلی و ضمانت‌دار', ''], ['✅', 'اعزام سریع تکنسین', ''], ['⚠️', 'زمان تعمیر ۲ تا ۴ روز کاری', '']]);
                 $pros = '';
-                foreach ($its as $it) { if (!str_starts_with($it['icon'], '⚠') && !str_starts_with($it['icon'], '❌')) { $pros .= '<div class="feat-row"><span class="feat-ico" style="background:#f0fdf4">' . e($it['icon'] ?: '✅') . '</span><div>' . e($it['text']) . '</div></div>'; } }
+                foreach ($its as $it) { if (!str_starts_with($it['icon'], '⚠') && !str_starts_with($it['icon'], '❌')) { $pros .= '<div class="feat-row"><span class="feat-ico" style="background:#f0fdf4">' . pv_icon($it['icon'] ?: '✅') . '</span><div>' . e($it['text']) . '</div></div>'; } }
                 $cons = '';
-                foreach ($its as $it) { if (str_starts_with($it['icon'], '⚠') || str_starts_with($it['icon'], '❌')) { $cons .= '<div class="feat-row"><span class="feat-ico" style="background:#fef2f2">' . e($it['icon']) . '</span><div>' . e($it['text']) . '</div></div>'; } }
+                foreach ($its as $it) { if (str_starts_with($it['icon'], '⚠') || str_starts_with($it['icon'], '❌')) { $cons .= '<div class="feat-row"><span class="feat-ico" style="background:#fef2f2">' . pv_icon($it['icon']) . '</span><div>' . e($it['text']) . '</div></div>'; } }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="cols c2"><div class="fake-card" style="border-inline-start:4px solid #16a34a"><div class="card-t" style="color:#15803d">✅ مزایا</div><div class="feat-list">' . $pros . '</div></div><div class="fake-card" style="border-inline-start:4px solid #dc2626"><div class="card-t" style="color:#b91c1c">⚠️ نکات</div><div class="feat-list">' . ($cons !== '' ? $cons : '<div class="feat-d">موردی ثبت نشده</div>') . '</div></div></div></div>';
             }
             case 'text-accent-box':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-inline-start:5px solid var(--p);border-radius:12px;padding:15px 17px">' . ($title ? '<div class="card-t" style="margin-bottom:6px">' . e($title) . '</div>' : '') . '<div class="feat-d" style="color:#1e40af">' . e($props['text'] ?? 'متنی که باید توجه کاربر را جلب کند.') . '</div></div></div>';
             case 'definition-list':
                 $its = pvItems($props, [['🔧', 'ایرادیابی', 'بررسی کامل دستگاه برای یافتن عیب'], ['🧲', 'مگنترون', 'قطعه تولید امواج مایکروویو']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($it) => '<div class="feat-row"><span class="feat-ico">' . e($it['icon'] ?: '📖') . '</span><div><b>' . e($it['text']) . '</b><div class="feat-d">' . e($it['desc']) . '</div></div></div>', $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($it) => '<div class="feat-row"><span class="feat-ico">' . pv_icon($it['icon'] ?: '📖') . '</span><div><b>' . e($it['text']) . '</b><div class="feat-d">' . e($it['desc']) . '</div></div></div>', $its)) . '</div></div>';
             case 'article-highlight':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #fdba74;border-radius:15px;padding:19px 21px">' . pvImg($props, '🌟', 'width:130px;height:110px;flex:0 0 130px') . '<div style="flex:1;min-width:200px"><div class="card-t" style="font-size:15px">' . e($title ?: 'محتوای ویژه') . '</div>' . (!empty($props['subtitle']) ? '<div class="feat-d" style="font-weight:700;color:#9a3412">' . e($props['subtitle']) . '</div>' : '') . '<div class="feat-d">' . e($props['text'] ?? 'خلاصه‌ای از مزیت ویژه این بخش.') . '</div></div></div></div>';
             case 'page-header':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div style="text-align:center;padding:18px 10px 8px"><div class="hero-title" style="font-size:24px">' . e($title ?: 'عنوان صفحه') . '</div>' . (!empty($props['subtitle']) ? '<div class="feat-d">' . e($props['subtitle']) . '</div>' : '') . '<div class="feat-d" style="margin-top:8px;opacity:.65">خانه / ' . e($title ?: 'صفحه') . '</div></div></div>';
             case 'steps-vertical':
                 $its = pvItems($props, [['۱', 'ثبت درخواست', 'آنلاین یا تلفنی'], ['۲', 'عیب‌یابی و اعلام هزینه', 'شفاف و پیش از شروع'], ['۳', 'تعمیر و تحویل', 'همراه با ضمانت کتبی']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($it) => '<div class="feat-row"><span class="feat-ico" style="background:linear-gradient(135deg,var(--p),var(--s));color:#fff;font-weight:800">' . e($it['icon'] ?: '•') . '</span><div><b>' . e($it['text']) . '</b><div class="feat-d">' . e($it['desc']) . '</div></div></div>', $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($it) => '<div class="feat-row"><span class="feat-ico" style="background:linear-gradient(135deg,var(--p),var(--s));color:#fff;font-weight:800">' . pv_icon($it['icon'] ?: '•') . '</span><div><b>' . e($it['text']) . '</b><div class="feat-d">' . e($it['desc']) . '</div></div></div>', $its)) . '</div></div>';
             case 'service-price-cards':
                 $its = pvItems($props, [['🧺', 'شست‌وشوی کامل ماشین لباس', 'از ۹۵۰ هزار تومان'], ['❄️', 'شارژ گاز کولر', 'از ۱٫۲ میلیون تومان'], ['🔥', 'تعویض هیتر ماشین ظرفشویی', 'از ۱٫۵ میلیون تومان']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'تعرفه خدمات پرتقاضا') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="card-ico">' . e($it['icon'] ?: '🔧') . '</div><div class="card-t" style="font-size:12.5px">' . e($it['text']) . '</div><div class="feat-d" style="font-weight:800;color:var(--p)">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'تعرفه خدمات پرتقاضا') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="card-ico">' . pv_icon($it['icon'] ?: '🔧') . '</div><div class="card-t" style="font-size:12.5px">' . e($it['text']) . '</div><div class="feat-d" style="font-weight:800;color:var(--p)">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
             case 'feature-icons-grid':
                 $its = pvItems($props, [['🧊', 'یخچال', ''], ['🧺', 'لباسشویی', ''], ['📺', 'تلویزیون', ''], ['🔥', 'فر و اجاق', '']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'خدمات ما در یک نگاه') . '</div><div class="cols c' . pvCols($props, 4) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card" style="text-align:center;padding:15px 8px"><div style="font-size:31px">' . e($it['icon'] ?: '🔧') . '</div><div class="feat-d" style="font-weight:700;margin-top:6px">' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'خدمات ما در یک نگاه') . '</div><div class="cols c' . pvCols($props, 4) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card" style="text-align:center;padding:15px 8px"><div style="font-size:31px">' . pv_icon($it['icon'] ?: '🔧') . '</div><div class="feat-d" style="font-weight:700;margin-top:6px">' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
             case 'chat-widget':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div style="display:flex;justify-content:flex-end"><div style="background:var(--card);border:1.5px solid var(--border);border-radius:15px 15px 3px 15px;padding:11px 15px;max-width:290px;box-shadow:0 8px 22px rgba(2,8,23,.12)"><div style="font-size:12.5px"><b>💬 ' . e($title ?: 'پشتیبانی آنلاین') . '</b></div><div class="feat-d">سلام! چطور می‌تونیم کمکتون کنیم؟</div><div style="display:flex;gap:6px;margin-top:8px"><span class="hero-btn" style="font-size:11px;padding:5px 12px">شروع گفتگو</span></div></div></div></div>';
             case 'vote-poll': {
@@ -1024,7 +1048,7 @@ if (!function_exists('pv_render_block_inner')) {
                 $faP = static fn($n) => strtr((string)$n, ['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹']);
                 $total = count($its) * 12 + 30;
                 $out = '';
-                foreach ($its as $i => $it) { $p = (int)round(($total - $i * 11) / max(1, $total) * 100); $out .= '<div class="cap-row"><span class="cap-h">' . e($it['icon']) . ' ' . e($it['text']) . '</span><div class="track" style="flex:1"><div class="fill" style="width:' . $p . '%"></div></div><span class="cap-l">' . $faP($p) . '٪</span></div>'; }
+                foreach ($its as $i => $it) { $p = (int)round(($total - $i * 11) / max(1, $total) * 100); $out .= '<div class="cap-row"><span class="cap-h">' . pv_icon($it['icon']) . ' ' . e($it['text']) . '</span><div class="track" style="flex:1"><div class="fill" style="width:' . $p . '%"></div></div><span class="cap-l">' . $faP($p) . '٪</span></div>'; }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'رای‌گیری') . '</div><div class="cap-demo">' . $out . '</div></div>';
             }
             case 'video-grid': {
@@ -1036,7 +1060,7 @@ if (!function_exists('pv_render_block_inner')) {
             case 'logo-marquee': {
                 $its = pvItems($props, [['🏷️', 'ال‌جی', ''], ['🏷️', 'سامسونگ', ''], ['🏷️', 'بوش', ''], ['🏷️', 'سونی', ''], ['🏷️', 'پاکس', ''], ['🏷️', 'اسنوا', '']]);
                 $chips = '';
-                foreach (array_merge($its, $its) as $it) { $chips .= '<span class="chip" style="margin-inline-end:9px">' . e($it['icon'] ?: '🏷️') . ' ' . e($it['text']) . '</span>'; }
+                foreach (array_merge($its, $its) as $it) { $chips .= '<span class="chip" style="margin-inline-end:9px">' . pv_icon($it['icon'] ?: '🏷️') . ' ' . e($it['text']) . '</span>'; }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'برندهای مورد خدمت') . '</div><div style="overflow:hidden;border-radius:12px;padding:11px 0"><div class="chip-row" style="animation:tickMove 18s linear infinite;white-space:nowrap;width:max-content">' . $chips . '</div></div></div>';
             }
             case 'tag-cloud': {
@@ -1055,7 +1079,7 @@ if (!function_exists('pv_render_block_inner')) {
             case 'stats-circles': {
                 $its = pvItems($props, [['۹۲٪', 'تعمیر در روز اول', ''], ['۸۷٪', 'رضایت کامل', ''], ['۹۶٪', 'حل قطعی ایراد', '']]);
                 $out = '';
-                foreach ($its as $it) { $num = preg_replace('/[^0-9]/', '', $it['icon']) ?: '80'; $deg = (int)round((int)$num / 100 * 360); $out .= '<div style="text-align:center"><div style="width:86px;height:86px;margin:0 auto;border-radius:50%;background:conic-gradient(var(--p) ' . $deg . 'deg,var(--border) ' . $deg . 'deg);display:flex;align-items:center;justify-content:center"><div style="width:66px;height:66px;background:var(--card);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16.5px">' . e($it['icon'] ?: $num) . '</div></div><div class="feat-d" style="margin-top:8px;font-weight:700">' . e($it['text']) . '</div></div>'; }
+                foreach ($its as $it) { $num = preg_replace('/[^0-9]/', '', $it['icon']) ?: '80'; $deg = (int)round((int)$num / 100 * 360); $out .= '<div style="text-align:center"><div style="width:86px;height:86px;margin:0 auto;border-radius:50%;background:conic-gradient(var(--p) ' . $deg . 'deg,var(--border) ' . $deg . 'deg);display:flex;align-items:center;justify-content:center"><div style="width:66px;height:66px;background:var(--card);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16.5px">' . pv_icon($it['icon'] ?: $num) . '</div></div><div class="feat-d" style="margin-top:8px;font-weight:700">' . e($it['text']) . '</div></div>'; }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'عملکرد ما در آمار واقعی') . '</div><div class="cols c' . max(2, min(4, count($its))) . '" style="gap:14px">' . $out . '</div></div>';
             }
             case 'counter-big': {
@@ -1066,7 +1090,7 @@ if (!function_exists('pv_render_block_inner')) {
             case 'brand-stats-bar': {
                 $its = pvItems($props, [['۱۵+', 'سال تجربه', ''], ['۴۲', 'نوع دستگاه تخصصی', ''], ['۲۴/۷', 'پشتیبانی', ''], ['۶ ماه', 'ضمانت کتبی', '']]);
                 $out = '';
-                foreach ($its as $i => $it) { $out .= ($i > 0 ? '<span class="ss-sep"></span>' : '') . '<span class="ss-item"><b>' . e($it['icon']) . '</b> ' . e($it['text']) . '</span>'; }
+                foreach ($its as $i => $it) { $out .= ($i > 0 ? '<span class="ss-sep"></span>' : '') . '<span class="ss-item"><b>' . pv_icon($it['icon']) . '</b> ' . e($it['text']) . '</span>'; }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="stats-strip">' . $out . '</div></div>';
             }
             case 'emergency-strip':
@@ -1079,11 +1103,11 @@ if (!function_exists('pv_render_block_inner')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($it) => '<div class="feat-row"><span class="feat-ico" style="background:#f0fdf4">✅</span><div><b>' . e($it['text']) . '</b></div></div>', $its)) . '</div></div>';
             }
             case 'warning-box':
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="warning-box-demo"><span class="feat-ico" style="background:#fef2f2;font-size:22px">' . e($props['icon'] ?? '⚠️') . '</span><div><b style="color:#b91c1c">' . ($title ?: 'هشدار ایمنی مهم') . '</b><div class="feat-d">' . e($props['text'] ?? 'قبل از هرگونه باز کردن دستگاه، برق را کاملاً قطع کنید.') . '</div></div></div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="warning-box-demo"><span class="feat-ico" style="background:#fef2f2;font-size:22px">' . pv_icon($props['icon'] ?? '⚠️') . '</span><div><b style="color:#b91c1c">' . ($title ?: 'هشدار ایمنی مهم') . '</b><div class="feat-d">' . e($props['text'] ?? 'قبل از هرگونه باز کردن دستگاه، برق را کاملاً قطع کنید.') . '</div></div></div></div>';
             case 'brand-intro-card':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="brand-intro-demo"><div class="fake-logo" style="font-size:34px">🏗️</div><div style="flex:1"><div class="blk-title" style="margin-bottom:4px">' . ($title ?: 'نمایندگی رسمی خدمات') . '</div><div class="feat-d">' . e($props['subtitle'] ?? 'بیش از یک دهه تجربه تخصصی') . '</div><div class="stars" style="font-size:11px;margin-top:5px">⭐⭐⭐⭐⭐ <b>۴.۹ از ۵</b></div></div><span class="hero-btn" style="align-self:center">مشاهده خدمات</span></div></div>';
             case 'author-box':
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="author-box-demo"><div class="fake-ava" style="font-size:38px">' . e($props['icon'] ?? '👨‍🔧') . '</div><div style="flex:1"><b style="font-size:14px">' . ($title ?: 'مهندس کریمی') . '</b><div class="feat-d">کارشناس برد و الکترونیک — ۱۴ سال تجربه</div><div class="feat-d" style="margin-top:4px">' . e($props['text'] ?? 'متخصص تعمیر برد‌های اصلی لباسشویی، یخچال و کولر گازی.') . '</div></div></div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="author-box-demo"><div class="fake-ava" style="font-size:38px">' . pv_icon($props['icon'] ?? '👨‍🔧') . '</div><div style="flex:1"><b style="font-size:14px">' . ($title ?: 'مهندس کریمی') . '</b><div class="feat-d">کارشناس برد و الکترونیک — ۱۴ سال تجربه</div><div class="feat-d" style="margin-top:4px">' . e($props['text'] ?? 'متخصص تعمیر برد‌های اصلی لباسشویی، یخچال و کولر گازی.') . '</div></div></div></div>';
             case 'download-card':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="download-card-demo"><span class="feat-ico" style="font-size:30px">📄</span><div style="flex:1"><div class="blk-title" style="margin-bottom:3px;text-align:right">' . ($title ?: 'بروشور خدمات ما') . '</div><div class="feat-d">' . e($props['subtitle'] ?? 'فهرست کامل خدمات و تعرفه‌ها در یک فایل PDF') . '</div></div><span class="hero-btn">' . e($props['btnText'] ?? '⬇ دانلود بروشور') . '</span></div></div>';
             case 'schedule-table':
@@ -1105,7 +1129,7 @@ if (!function_exists('pv_render_block_inner')) {
             case 'warranty-steps': {
                 $its = pvItems($props, [['', 'ثبت سریال دستگاه'], ['', 'صدور برگه ضمانت'], ['', 'پشتیبانی ۶ ماهه']]);
                 $out = '';
-                foreach ($its as $i => $it) { $out .= ($i > 0 ? '<div class="step-arrow">←</div>' : '') . '<div class="step"><span class="step-n">' . e($it['icon'] ?: strtr((string)($i + 1), ['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴'])) . '</span><div class="step-t">' . e($it['text']) . '</div></div>'; }
+                foreach ($its as $i => $it) { $out .= ($i > 0 ? '<div class="step-arrow">←</div>' : '') . '<div class="step"><span class="step-n">' . pv_icon($it['icon'] ?: strtr((string)($i + 1), ['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴'])) . '</span><div class="step-t">' . e($it['text']) . '</div></div>'; }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'گارانتی ما چگونه کار می‌کند') . '</div><div class="steps-row">' . $out . '</div></div>';
             }
             case 'ticker-bar':
@@ -1145,11 +1169,11 @@ if (!function_exists('pv_render_block_inner')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="blk-title">' . ($title ?: 'جستجوی کد خطای دستگاه') . '</div><div class="search-wrap"><span class="search-ico">🔢</span><div class="fake-input" style="flex:1;border:none;direction:ltr">E4 / LE / CH-05 ...</div><span class="hero-btn">جستجو</span></div><div class="feat-d" style="text-align:center;margin-top:7px">کد روی نمایشگر دستگاه را وارد کنید — علت، راه‌حل فوری و هزینه تعمیر را ببینید</div></div>';
             case 'live-queue':
                 $its = pvItems($props, [['🟢', 'دریافت و عیب‌یابی', 'در حال انجام — ۲ دستگاه'], ['🟡', 'تعمیر برد', 'در صف — ۱ دستگاه'], ['🔴', 'آماده تحویل', '۳ دستگاه']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'وضعیت صف تعمیرات — زنده') . '</div><div class="queue-demo">' . implode('', array_map(static fn($it) => '<div class="queue-row"><span>' . e($it['icon'] ?: '🟢') . ' ' . e($it['text']) . '</span><b>' . e($it['desc']) . '</b></div>', $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'وضعیت صف تعمیرات — زنده') . '</div><div class="queue-demo">' . implode('', array_map(static fn($it) => '<div class="queue-row"><span>' . pv_icon($it['icon'] ?: '🟢') . ' ' . e($it['text']) . '</span><b>' . e($it['desc']) . '</b></div>', $its)) . '</div></div>';
             case 'hourly-capacity': {
                 $its = pvItems($props, [['۹–۱۲', '20', 'کم‌تقاضا'], ['۱۲–۱۵', '60', 'متوسط'], ['۱۵–۱۸', '85', 'پرتقاضا']]);
                 $out = '';
-                foreach ($its as $it) { $p = max(5, min(100, (int)(preg_replace('/[^0-9]/', '', $it['text']) ?: 50))); $out .= '<div class="cap-row"><span class="cap-h">' . e($it['icon']) . '</span><div class="track" style="flex:1"><div class="fill" style="width:' . $p . '%"></div></div><span class="cap-l">' . e($it['desc']) . '</span></div>'; }
+                foreach ($its as $it) { $p = max(5, min(100, (int)(preg_replace('/[^0-9]/', '', $it['text']) ?: 50))); $out .= '<div class="cap-row"><span class="cap-h">' . pv_icon($it['icon']) . '</span><div class="track" style="flex:1"><div class="fill" style="width:' . $p . '%"></div></div><span class="cap-l">' . e($it['desc']) . '</span></div>'; }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'ظرفیت سرویس امروز') . '</div><div class="cap-demo">' . $out . '</div></div>';
             }
             case 'faq-search':
@@ -1160,7 +1184,7 @@ if (!function_exists('pv_render_block_inner')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="blk-title">' . ($title ?: 'جستجو در سوالات متداول') . '</div><div class="search-wrap"><span class="search-ico">🔎</span><div class="fake-input" style="flex:1;border:none">' . e($props['placeholder'] ?? 'سوال خود را بنویسید...') . '</div><span class="hero-btn">پرسیدن</span></div></div>';
             case 'faq-category':
                 $its = pvItems($props, [['🌀', 'لباسشویی و ظرفشویی', '۱۲ سوال'], ['❄️', 'یخچال و فریزر', '۹ سوال'], ['📺', 'تلویزیون', '۷ سوال']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'سوالات متداول بر اساس موضوع') . '</div><div class="cols c3">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="card-ico">' . e($it['icon'] ?: '❓') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'سوالات متداول بر اساس موضوع') . '</div><div class="cols c3">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="card-ico">' . pv_icon($it['icon'] ?: '❓') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
             case 'before-after-slider': {
                 $imgUrl = trim((string)($props['imageUrl'] ?? ''));
                 if (preg_match('#^uploads/#i', $imgUrl)) { $imgUrl = pv_asset($imgUrl); }
@@ -1171,7 +1195,7 @@ if (!function_exists('pv_render_block_inner')) {
             }
             case 'social-wall':
                 $its = pvItems($props, [['📷', 'نکته سرویس دوره‌ای', '۲ روز پیش'], ['🎥', 'ویدیوی عیب‌یابی زنده', '۵ روز پیش'], ['📝', 'معرفی تکنسین هفته', '۱ هفته پیش']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'آخرین پست‌های ما') . '</div><div class="cols c3">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div style="font-size:24px">' . e($it['icon'] ?: '📷') . '</div><div class="card-t" style="font-size:12px">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'آخرین پست‌های ما') . '</div><div class="cols c3">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div style="font-size:24px">' . pv_icon($it['icon'] ?: '📷') . '</div><div class="card-t" style="font-size:12px">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
             case 'newsletter-popup':
                 /* 🎭 P2-21 — پیش‌نمایش: محتوای نمونه (رفتار قدیمی) */
                 if ($pvPreview) {
@@ -1213,13 +1237,13 @@ if (!function_exists('pv_render_block_inner')) {
             }
             case 'brand-values':
                 $items = pvItems($props, [['💎', 'ارزش برند']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($i) => '<div class="fake-card"><div class="card-ico">' . e($i['icon'] ?: '💎') . '</div><div class="card-t">' . e($i['text'] ?: 'ارزش') . '</div></div>', $items)) . '</div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($i) => '<div class="fake-card"><div class="card-ico">' . pv_icon($i['icon'] ?: '💎') . '</div><div class="card-t">' . e($i['text'] ?: 'ارزش') . '</div></div>', $items)) . '</div></div>';
             case 'tech-tips':
             case 'steps-compact': {
                 $items = pvItems($props, [['۱', 'ثبت درخواست'], ['۲', 'اعزام تکنسین'], ['۳', 'تعمیر و تحویل']]);
                 $rows = '';
                 foreach ($items as $n => $i) {
-                    $rows .= '<div class="sc-row"><span class="sc-num">' . e($i['icon'] !== '' ? $i['icon'] : (string)($n + 1)) . '</span><div class="feat-d" style="font-size:12.5px">' . e($i['text'] ?: 'مرحله') . '</div></div>';
+                    $rows .= '<div class="sc-row"><span class="sc-num">' . pv_icon($i['icon'] !== '' ? $i['icon'] : (string)($n + 1)) . '</span><div class="feat-d" style="font-size:12.5px">' . e($i['text'] ?: 'مرحله') . '</div></div>';
                 }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="steps-compact-demo">' . $rows . '</div></div>';
             }

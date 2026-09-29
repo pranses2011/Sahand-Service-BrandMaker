@@ -314,25 +314,11 @@ $iconPalette = [
     <input type="hidden" name="source_brand_id" id="copy-source-hidden" value="">
 </form>
 
-<!-- 🎨 انتخابگر آیکون -->
-<div class="modal-backdrop" id="icon-picker" style="display:none" onclick="if(event.target===this)closeIconPicker()">
-    <div class="modal" style="max-width:480px">
-        <div class="modal-header" style="justify-content:space-between">
-            <span>🎨 انتخاب آیکون آیتم</span>
-            <button type="button" class="btn btn-outline btn-sm" onclick="closeIconPicker()">✕</button>
-        </div>
-        <div class="modal-body">
-            <div id="icon-grid" style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px"></div>
-            <div class="form-group" style="margin-top:12px">
-                <label>آیکون سفارشی (ایموجی یا خالی برای حذف)</label>
-                <div style="display:flex;gap:8px">
-                    <input type="text" id="icon-custom" class="form-control" style="direction:ltr;font-size:18px" maxlength="8" placeholder="🏠">
-                    <button type="button" class="btn btn-primary" onclick="applyCustomIcon()">تأیید</button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+<?php
+/* 🎨 v2.38 — انتخابگر مشترک آیکون (ایموجی + پک SVG) — جایگزین مودال قدیمی فقط-ایموجی */
+require_once __DIR__ . '/includes/icon-picker.php';
+sahand_icon_picker_assets(['emoji_palette' => $iconPalette]);
+?>
 
 <script>
 /* ☰ ویرایشگر منو — v2.12: درگ‌اند‌دراپ درختی + nofollow + انتخابگر آیکون + پیش‌نمایش زنده */
@@ -340,8 +326,12 @@ let menuData = <?= json_encode($menuTree, JSON_UNESCAPED_UNICODE) ?>;
 let counter = 1000;
 
 const PAGE_TYPES = <?= json_encode($pageTypes, JSON_UNESCAPED_UNICODE) ?>;
-const ICON_PALETTE = <?= json_encode($iconPalette, JSON_UNESCAPED_UNICODE) ?>;
-let iconTarget = null; // [i, path] آیتم در انتظار آیکون
+
+/* 🎨 v2.38 — رندر آیکون آیتم: ایموجی یا <img> SVG از پک آیکون‌ها */
+function iconCell(icon) {
+    if (!icon) { return '📄'; }
+    return IconPicker.iconHtml(icon, 17) || '📄';
+}
 
 function renderMenu() {
     const editor = document.getElementById('menu-editor');
@@ -373,7 +363,7 @@ function renderItem(item, i, path) {
         </div>
         <div class="block-label" style="gap:6px;flex-wrap:wrap">
             <span style="cursor:grab;font-size:15px">⠿</span>
-            <button type="button" onclick="openIconPicker(${i}, ${pStr})" title="تغییر آیکون" style="border:none;background:none;cursor:pointer;font-size:17px">${item.icon || '📄'}</button>
+            <button type="button" onclick="openIconPicker(${i}, ${pStr})" title="تغییر آیکون" style="border:none;background:none;cursor:pointer;font-size:17px;min-width:22px;display:inline-flex;align-items:center;justify-content:center">${iconCell(item.icon)}</button>
             <input type="text" value="${(item.title || '').replace(/"/g, '&quot;')}" placeholder="عنوان" style="border:none;font-family:inherit;font-size:13px;font-weight:700;width:140px;background:none" oninput="updItem(${i}, ${pStr}, 'title', this.value)">
             <select onchange="updItem(${i}, ${pStr}, 'page_type', this.value)" style="border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:11px;padding:2px 6px;max-width:125px">
                 <option value="">— صفحه سیستمی —</option>
@@ -428,7 +418,7 @@ function renderPreview() {
         html += '<span style="color:#94a3b8;font-size:12px">منو خالی است — آیتم اضافه کنید</span>';
     }
     visible.slice(0, 8).forEach(m => {
-        const icon = m.icon ? `<span style="font-size:12px">${m.icon}</span> ` : '';
+        const icon = m.icon ? `<span style="font-size:12px;display:inline-flex;align-items:center">${IconPicker.iconHtml(m.icon, 13)}</span> ` : '';
         const kids = (m.children || []).filter(c => c.is_active).length;
         const arrow = kids ? ' <span style="font-size:9px;opacity:.7">▾</span>' : '';
         html += `<span style="color:#e2e8f0;cursor:default">${icon}${m.title || 'بدون عنوان'}${arrow}</span>`;
@@ -466,34 +456,16 @@ function addMissingPages() {
     alert(added + ' صفحه استاندارد به انتهای منو اضافه شد — در صورت نیاز جابجا کنید و ذخیره کنید.');
 }
 
-/* 🎨 انتخابگر آیکون */
+/* 🎨 انتخابگر آیکون (v2.38 — ایموجی + پک SVG مشترک) */
 function openIconPicker(i, path) {
-    iconTarget = [i, path];
-    const grid = document.getElementById('icon-grid');
-    grid.innerHTML = ICON_PALETTE.map(ic =>
-        `<button type="button" style="font-size:20px;padding:7px;border:1px solid var(--border);border-radius:8px;background:var(--card,#fff);cursor:pointer" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'" onclick="pickIcon('${ic}')">${ic}</button>`
-    ).join('');
     const item = getItem([...path, i]);
-    document.getElementById('icon-custom').value = item.icon || '';
-    document.getElementById('icon-picker').style.display = 'flex';
-}
-function pickIcon(ic) {
-    if (!iconTarget) return;
-    const [i, path] = iconTarget;
-    getItem([...path, i]).icon = ic;
-    closeIconPicker();
-    syncAndRender();
-}
-function applyCustomIcon() {
-    if (!iconTarget) return;
-    const [i, path] = iconTarget;
-    getItem([...path, i]).icon = document.getElementById('icon-custom').value.trim();
-    closeIconPicker();
-    syncAndRender();
-}
-function closeIconPicker() {
-    document.getElementById('icon-picker').style.display = 'none';
-    iconTarget = null;
+    IconPicker.open({
+        current: item.icon || '',
+        onPick: function (value) {
+            getItem([...path, i]).icon = value;
+            syncAndRender();
+        }
+    });
 }
 
 /* 📋 کپی منو از برند دیگر */
