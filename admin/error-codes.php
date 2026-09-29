@@ -266,7 +266,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     @file_put_contents($progressFile, json_encode(['pct' => $pct, 'title' => $title, 'detail' => $detail, 'ts' => time()], JSON_UNESCAPED_UNICODE));
                 });
             }
-            $result = $engine->generateForDevice($brandId, $deviceKey, $useWeb, $overwrite, $searchDepth);
+            /* 🪜 v2.38 — بودجه‌ی «راند» در حالت AJAX: هر درخواست فقط ~۶۵ ثانیه
+             * جستجو می‌کند (زیرِ مهلتِ کشنده‌ی هاست اشتراکی)؛ فرانت در صورت
+             * مرگِ درخواست، «راند بعدی» را خودکار می‌سازد — جستجوهای قبلی از
+             * کش ۳۰ دقیقه‌ای سریع برمی‌گردند و درج‌ها idempotent هستند. */
+            $result = $engine->generateForDevice($brandId, $deviceKey, $useWeb, $overwrite, $searchDepth, $isAjax ? ['step_budget' => 65.0] : []);
             if ($isAjax) {
                 @unlink($progressFile);
                 json_response([
@@ -279,6 +283,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'sources'       => array_slice($result['sources'], 0, 5),
                     'source_stats'  => $result['source_stats'] ?? [],
                     'depth'         => $result['depth'] ?? $searchDepth,
+                    'more'          => !empty($result['more']),
+                    'rate_limited'  => !empty($result['rate_limited']),
                     'redirect'      => 'error-codes.php?brand=' . $brandId . '&device=' . urlencode($deviceKey),
                 ]);
             }
@@ -975,15 +981,22 @@ try {
         var csrf = form.querySelector('input[name="csrf_token"]');
         var csrfVal = csrf ? csrf.value : '';
         var progressKey = 'eg' + Date.now() + Math.random().toString(36).slice(2, 10);
+        var brandIdVal = form.querySelector('[name=brand_id]').value;
+        var deviceKeyVal = deviceSel.value;
+        var useWebVal = form.querySelector('[name=use_web]').checked ? '1' : '0';
+        var overwriteVal = form.querySelector('[name=overwrite]').checked ? '1' : '0';
 
-        var body = new URLSearchParams();
-        body.append('action', 'generate_device');
-        body.append('brand_id', form.querySelector('[name=brand_id]').value);
-        body.append('device_key', deviceSel.value);
-        body.append('use_web', form.querySelector('[name=use_web]').checked ? '1' : '0');
-        body.append('overwrite', form.querySelector('[name=overwrite]').checked ? '1' : '0');
-        body.append('progress_key', progressKey);
-        body.append('csrf_token', csrfVal);
+        /* 🪜 v2.38 — جستجوی چندراندیِ خودکار: هر راند یک درخواستِ کوتاه (~۶۵ث)
+         * است؛ اگر درخواست بمیرد یا موتور بگوید «more» (برنامه‌ی جستجو کامل
+         * نشده)، راند بعدی خودکار ساخته می‌شود — جستجوهای قبلی از کش ۳۰ دقیقه‌ای
+         * سریع برمی‌گردند و کدهای تکراری رد می‌شوند (idempotent).
+         * ⚠️ «جایگزینی کدها» فقط در راند ۱ اعمال می‌شود. */
+        var MAX_ROUNDS = 6;
+        var round = 0;
+        var totalInserted = 0;
+        var totalSkipped = 0;
+        var allSources = [];
+        var lastReport = '';
 
         backdrop.style.display = 'flex';
         logEl.innerHTML = '';
@@ -1006,60 +1019,102 @@ try {
             }).catch(function () {});
         }, 800);
 
-        /* 🚀 اجرای اصلی موتور */
-        fetch('error-codes.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfVal, 'X-Requested-With': 'XMLHttpRequest' },
-            body: body.toString(),
-            credentials: 'same-origin'
-        }).then(function (r) {
-            /* 🛡️ v2.24 — پاسخ HTML = مرگ درخواست توسط محدودیت زمان هاست
-             * (صفحه خطای HTML به‌جای JSON → «Unexpected token '<'»).
-             * متن پاسخ می‌خوانیم و خودمان JSON می‌پارزیم تا پیام دقیق بدهیم. */
-            return r.text().then(function (txt) {
-                var trimmed = (txt || '').trim();
-                if (trimmed === '' || trimmed.charAt(0) === '<' || /^<!doctype/i.test(trimmed)) {
-                    throw new Error('پاسخ سرور JSON نبود (صفحه HTML/خطای سرور)');
-                }
-                try { return JSON.parse(trimmed); }
-                catch (parseErr) { throw new Error('پاسخ سرور قابل تفسیر نبود'); }
-            });
-        }).then(function (res) {
+        function addLogRow(txt) {
+            var row = document.createElement('div');
+            row.className = 'eg-row cur';
+            row.innerHTML = '<span class="eg-ico">⏳</span><span class="eg-txt"></span>';
+            row.querySelector('.eg-txt').textContent = txt;
+            logEl.appendChild(row);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        function finishAll(ok) {
             clearInterval(pollTimer);
             running = false;
-            finishModal(res.success);
-            var title = res.success
-                ? '🚨 ' + faDigits(res.inserted || 0) + ' کد خطای واقعی ثبت شد'
-                : (res.timeout ? '⏱️ پایان زمان مجاز سرور' : 'نتیجه خطایاب');
-            var msg = (res.report || 'پاسخی از سرور دریافت نشد.') +
-                (res.sources && res.sources.length ? '\n\n🔗 منابع:\n' + res.sources.slice(0, 3).join('\n') : '');
+            finishModal(ok);
+            var isMulti = round > 1;
+            var title = totalInserted > 0
+                ? '🚨 ' + faDigits(totalInserted) + ' کد خطای واقعی ثبت شد' + (isMulti ? ' — در ' + faDigits(round) + ' راند پیوسته' : '')
+                : 'نتیجه خطایاب';
+            var msg = isMulti
+                ? ('جستجوی چندراندی کامل شد — مجموع ' + faDigits(totalInserted) + ' کد جدید ثبت و ' + faDigits(totalSkipped) + ' کد تکراری رد شد.'
+                    + (lastReport ? '\n\n📄 گزارش آخرین راند: ' + lastReport : ''))
+                : (lastReport || 'پاسخی از سرور دریافت نشد.');
+            if (allSources.length) {
+                msg += '\n\n🔗 منابع:\n' + allSources.slice(0, 3).join('\n');
+            }
             sahandAlert({
                 title: title,
                 message: msg,
-                type: res.success ? 'success' : 'warning',
-                icon: res.success ? '🚨' : (res.timeout ? '⏱️' : '⚠️'),
-                confirmText: res.success ? 'مشاهده کدها' : 'باشه',
+                type: totalInserted > 0 ? 'success' : 'warning',
+                icon: totalInserted > 0 ? '🚨' : '⚠️',
+                confirmText: totalInserted > 0 ? 'مشاهده کدها' : 'باشه',
             }).then(function () {
-                if (res.redirect) { window.location.href = res.redirect; }
-                else { window.location.reload(); }
+                window.location.href = 'error-codes.php?brand=' + encodeURIComponent(brandIdVal) + '&device=' + encodeURIComponent(deviceKeyVal);
             });
-        }).catch(function (err) {
-            clearInterval(pollTimer);
-            running = false;
-            finishModal(false);
-            /* 🆕 v2.24 — پیام اقدام‌پذیر به‌جای خطای خام JSON؛ چون موتور کدها را
-             * در حین اجرا ثبت می‌کند و کدهای موجود در تلاش مجدد رد می‌شوند،
-             * «تلاش مجدد» واقعاً ادامه‌دهنده است. */
-            var isHtml = /JSON نبود|قابل تفسیر نبود/.test(err.message || '');
-            sahandAlert({
-                title: isHtml ? '⏱️ پایان زمان مجاز سرور' : 'خطای ارتباط',
-                message: isHtml
-                    ? 'اجرای خطایاب بیشتر از زمان مجاز هاست طول کشید و سرور درخواست را قطع کرد. کدهای تأییدشده تا این لحظه ذخیره شده‌اند — «دوباره تلاش کنید»: جستجو ادامه می‌یابد و کدهای تکراری رد می‌شوند. اگر باز هم تکرار شد: ① جستجوی آنلاین را موقتاً خاموش کنید (کدهای پایگاه دانش ثبت می‌شوند) ② یا از VPN/IP دیگر امتحان کنید (موتورهای جستجو رایگان ممکن است IP هاست را محدود کرده باشند).'
-                    : 'ارتباط با سرور برقرار نشد: ' + (err.message || 'خطای نامشخص') + ' — دوباره تلاش کنید.',
-                type: 'warning',
-                icon: isHtml ? '⏱️' : '🌐'
+        }
+
+        function runRound() {
+            round++;
+            var body = new URLSearchParams();
+            body.append('action', 'generate_device');
+            body.append('brand_id', brandIdVal);
+            body.append('device_key', deviceKeyVal);
+            body.append('use_web', useWebVal);
+            if (round === 1) {
+                body.append('overwrite', overwriteVal); /* ⚠️ فقط راند ۱ — راندهای بعدی نباید کدهای قبلی را پاک کنند */
+            }
+            body.append('progress_key', progressKey);
+            body.append('csrf_token', csrfVal);
+            if (round > 1) {
+                setProgress({ pct: 2, title: '🔄 ادامه جستجو — راند ' + faDigits(round), detail: 'جستجوهای قبلی از کش برگشت می‌شوند و کدهای تکراری رد می‌شوند...' });
+                addLogRow('🔄 راند ' + faDigits(round) + ' — ادامه‌ی جستجو از جایی که مانده بود (کدهای جدید: ' + faDigits(totalInserted) + ')');
+            }
+
+            /* 🚀 اجرای این راند */
+            fetch('error-codes.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfVal, 'X-Requested-With': 'XMLHttpRequest' },
+                body: body.toString(),
+                credentials: 'same-origin'
+            }).then(function (r) {
+                /* 🛡️ v2.24 — پاسخ HTML = مرگ درخواست توسط محدودیت زمان هاست
+                 * (صفحه خطای HTML به‌جای JSON → «Unexpected token '<'»).
+                 * متن پاسخ می‌خوانیم و خودمان JSON می‌پارزیم تا پیام دقیق بدهیم. */
+                return r.text().then(function (txt) {
+                    var trimmed = (txt || '').trim();
+                    if (trimmed === '' || trimmed.charAt(0) === '<' || /^<!doctype/i.test(trimmed)) {
+                        throw new Error('پاسخ سرور JSON نبود (صفحه HTML/خطای سرور)');
+                    }
+                    try { return JSON.parse(trimmed); }
+                    catch (parseErr) { throw new Error('پاسخ سرور قابل تفسیر نبود'); }
+                });
+            }).then(function (res) {
+                totalInserted += parseInt(res.inserted || 0, 10) || 0;
+                totalSkipped += parseInt(res.skipped || 0, 10) || 0;
+                (res.sources || []).forEach(function (s) { if (allSources.indexOf(s) < 0) { allSources.push(s); } });
+                lastReport = res.report || lastReport;
+                /* 🪜 راند بعدی؟ ① موتور گفت برنامه‌ی جستجو کامل نشد (more)
+                 * ② یا درخواست کشته شد (timeout) — هر دو با شرط سقف راند. */
+                var wantMore = (res.more || res.timeout) && !res.rate_limited && round < MAX_ROUNDS;
+                if (wantMore) {
+                    if (res.timeout) {
+                        addLogRow('⏱️ زمان راند ' + faDigits(round) + ' تمام شد — کدهای تأییدشده ذخیره شدند؛ راند بعدی خودکار ادامه می‌دهد...');
+                    }
+                    setTimeout(runRound, 900);
+                    return;
+                }
+                finishAll(totalInserted > 0);
+            }).catch(function (err) {
+                /* 🪜 v2.38 — مرگِ شبکه/درخواست هم «ادامه» است نه خطا (تا سقف راند) */
+                if (round < MAX_ROUNDS) {
+                    addLogRow('⚠️ پاسخ راند ' + faDigits(round) + ' قطع شد — ادامه از کش در راند بعدی...');
+                    setTimeout(runRound, 1500);
+                    return;
+                }
+                finishAll(totalInserted > 0);
             });
-        });
+        }
+        runRound();
     });
 })();
 </script>

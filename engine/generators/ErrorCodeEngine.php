@@ -124,9 +124,14 @@ class ErrorCodeEngine
      * @param bool   $useWeb    جستجوی آنلاین (منبع اصلی)
      * @param bool   $overwrite جایگزینی کدهای قبلی همان دستگاه
      * @param string $depth     🆕 v2.34 عمق جستجو: fast | balanced | deep
+     * @param array  $opts      🆕 v2.38 گزینه‌های غیرهمزمان: ['step_budget' => float]
+     *                          سقفِ بودجه‌ی زمانیِ همین «راند» (ثانیه) — فرانتِ خطایاب
+     *                          هر راند را در یک درخواستِ کوتاهِ مجزا اجرا می‌کند و
+     *                          در صورت مرگ درخواست، راند بعدی از جایی که کش شده
+     *                          ادامه می‌یابد (درج‌ها idempotent + جستجوها کش ۳۰ دقیقه).
      * @return array ['inserted' => int, 'skipped' => int, 'sources' => string[], 'report' => string]
      */
-    public function generateForDevice(int $brandId, string $deviceKey, bool $useWeb = true, bool $overwrite = false, string $depth = 'balanced'): array
+    public function generateForDevice(int $brandId, string $deviceKey, bool $useWeb = true, bool $overwrite = false, string $depth = 'balanced', array $opts = []): array
     {
         $brand = $this->db->fetch('SELECT * FROM brands WHERE id = ?', [$brandId]);
         if (!$brand) {
@@ -147,8 +152,17 @@ class ErrorCodeEngine
            🆕 v2.34: بودجه با «عمق جستجو» تنظیم می‌شود:
              fast/balanced → ۱۳۰ ثانیه (رفتار قبلی)
              deep          → تا ۴۲۰ ثانیه (چند موتور + صفحات بیشتر + کدهای بیشتر)
-           مهلت اجرای PHP هم متناسب با همان بالا می‌رود. */
+           مهلت اجرای PHP هم متناسب با همان بالا می‌رود.
+           🪜 🆕 v2.38 — «بودجه‌ی راند» (step_budget): حالتِ غیرهمزمان؛ هر راند
+           فقط تا سقفِ امنِ زیرِ مهلتِ کشنده‌ی هاستِ اشتراکی (~۶۵ ثانیه) جستجو
+           می‌کند و فرانت راندهای بعدی را می‌سازد — عمقِ «عمیق» از این طریق
+           به‌جای یک درخواستِ ۴۲۰ ثانیه‌ایِ محکوم‌به‌مرگ، در چند راندِ پیوسته
+           (با کش ۳۰ دقیقه‌ای جستجو) به همان عمق می‌رسد. */
         $budgetWant = ($depth === 'deep') ? 420.0 : 130.0;
+        $stepBudget = (isset($opts['step_budget']) && (float)$opts['step_budget'] > 0) ? (float)$opts['step_budget'] : 0.0;
+        if ($stepBudget > 0.0) {
+            $budgetWant = min($budgetWant, $stepBudget);
+        }
         if (function_exists('set_time_limit')) {
             @set_time_limit($depth === 'deep' ? 900 : 300);
         }
@@ -214,7 +228,13 @@ class ErrorCodeEngine
                    رسیدن به راند نجات تمام می‌شد؛ شرط «deadline-8» عملاً هرگز برقرار
                    نبود و مترادف‌ها هرگز امتحان نمی‌شدند. */
                 if (!$webCodes) {
-                    $deadline = max($deadline, microtime(true) + ($depth === 'deep' ? 90.0 : 45.0));
+                    /* 🪜 v2.38 — در حالتِ راندی، راندِ نجات هم داخل سقفِ امن می‌ماند
+                       (۲۵ ثانیه اضافه) تا مجموعِ راند از مهلتِ هاست بیرون نزند */
+                    $rescueWant = ($depth === 'deep') ? 90.0 : 45.0;
+                    if ($stepBudget > 0.0) {
+                        $rescueWant = min($rescueWant, 25.0);
+                    }
+                    $deadline = max($deadline, microtime(true) + $rescueWant);
                     $this->progress(30, 'راند نجات — کوئری‌های جایگزین', 'با نام‌های مترادف دستگاه دوباره جستجو می‌شود...');
                     foreach (self::DEVICE_ALIASES_EN[$deviceKey] ?? [] as $altEn) {
                         if (microtime(true) > $deadline - 10.0) { break; }
@@ -367,6 +387,10 @@ class ErrorCodeEngine
             'report'   => $report,
             'depth'    => $depth,
             'source_stats' => $sourceStats,
+            /* 🪜 v2.38 — آیا «راندِ بعدی» ارزش دارد؟ (فرانتِ غیرهمزمان)
+             * true = بودجه‌ی این راند تمام شد در حالی که برنامه‌ی جستجو کامل
+             * نشده بود → راند بعدی (با کش ۳۰ دقیقه‌ای) ادامه می‌یابد. */
+            'more'     => $useWeb && !$this->rateLimited && (microtime(true) >= $deadline - 5.0),
         ];
     }
 
