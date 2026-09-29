@@ -85,15 +85,40 @@ foreach ($templates as $tpl) {
     $grouped[$tpl['page_type']][] = $tpl;
 }
 $pageTypeNames = TemplateLibrary::pageTypeLabels(); /* 🆕 v2.21: همه ۱۷ نوع صفحه */
+$pageTypeIcons = [
+    'home' => '🏠', 'services' => '🔧', 'service-area' => '📍', 'warranty' => '🛡️', 'blog' => '📰',
+    'about-agency' => '🏢', 'about-brand' => '🏷️', 'contact' => '📞', 'request' => '📝',
+    'other-brands' => '🔁', 'error-codes' => '🚨', 'faq' => '❓', 'terms' => '📜',
+    'privacy' => '🔒', 'sitemap-page' => '🗺️',
+];
 $libVariants = array_map(static fn($k) => TemplateLibrary::variantLabel($k), array_keys(TemplateLibrary::styleLabels()));
 $libCount = TemplateLibrary::countLibraryTemplates($db);
 $styleDesc = TemplateLibrary::info()['styles_fa'];
+$totalDesigns = count($templates);
 ?>
+
+<style>
+/* 🎨 v2.41 — آکاردئون انواع صفحه (درخواست کاربر: هر صفحه آکاردئونی + طرح‌ها) */
+.tpl-acc { border: 1.5px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 12px; background: var(--card); }
+.tpl-acc > summary {
+    list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px;
+    padding: 13px 16px; user-select: none; transition: background .14s;
+    font-weight: 800; font-size: 13.5px; background: linear-gradient(180deg, rgba(30,64,175,.045), transparent);
+}
+.tpl-acc > summary::-webkit-details-marker { display: none; }
+.tpl-acc > summary:hover { background: linear-gradient(180deg, rgba(30,64,175,.10), rgba(30,64,175,.03)); }
+.tpl-acc[open] > summary { border-bottom: 1px solid var(--border); }
+.tpl-acc .chev { margin-inline-start: auto; transition: transform .18s; color: var(--text-light); font-size: 12px; }
+.tpl-acc[open] .chev { transform: rotate(180deg); }
+.tpl-acc .acc-count { font-size: 10.5px; font-weight: 700; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; border-radius: 20px; padding: 2px 10px; }
+.tpl-acc .acc-body { padding: 14px; }
+</style>
 
 <div class="card" style="margin-bottom:16px">
     <div class="card-body" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:14px 18px">
         <div style="flex:1;min-width:240px">
             <b>📚 کتابخانه قالب‌های آماده</b> — <span class="badge badge-info"><?= en_to_fa_digits((string)$libCount) ?> قالب کتابلایه</span>
+            <span class="badge badge-secondary"><?= en_to_fa_digits((string)$totalDesigns) ?> طرح در <?= en_to_fa_digits((string)count($grouped)) ?> نوع صفحه</span>
             <span class="hint" style="display:block;margin-top:4px">هر نوع صفحه ۱۰ سبک متفاوت دارد: <?= implode(' • ', $styleDesc) ?></span>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -104,12 +129,14 @@ $styleDesc = TemplateLibrary::info()['styles_fa'];
 </div>
 
 <?php foreach ($grouped as $pageType => $list): ?>
-<div class="card">
-    <div class="card-header">
-        <h3><?= $pageTypeNames[$pageType] ?? e($pageType) ?> <span class="badge badge-secondary"><?= en_to_fa_digits((string)count($list)) ?> طرح</span></h3>
-        <div class="tools"><a href="template-builder.php?page=<?= e($pageType) ?>" class="btn btn-primary btn-sm">🎭 قالب‌ساز</a></div>
-    </div>
-    <div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px">
+<details class="tpl-acc"<?= $pageType === array_key_first($grouped) ? ' open' : '' ?>>
+    <summary>
+        <span><?= $pageTypeIcons[$pageType] ?? '📄' ?></span>
+        <span><?= $pageTypeNames[$pageType] ?? e($pageType) ?></span>
+        <span class="acc-count"><?= en_to_fa_digits((string)count($list)) ?> طرح</span>
+        <span class="chev">▾</span>
+    </summary>
+    <div class="acc-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px">
         <?php foreach ($list as $tpl): ?>
             <?php $isLib = in_array((string)$tpl['variant'], $libVariants, true); ?>
             <div style="border:1.5px solid var(--border);border-radius:12px;overflow:hidden">
@@ -144,10 +171,11 @@ $styleDesc = TemplateLibrary::info()['styles_fa'];
                 </div>
             </div>
         <?php endforeach; ?>
+        <a href="template-builder.php?page=<?= e($pageType) ?>" style="border:2px dashed var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;min-height:196px;text-decoration:none;color:var(--text-light);font-size:12.5px;font-weight:700;transition:all .15s" onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-light)'">➕ قالب جدید این صفحه</a>
     </div>
-</div>
+</details>
 <?php endforeach; ?>
 
-<div class="alert alert-info">💡 قالب پیش‌فرض هر صفحه، هنگام ساخت سایت برند جدید به‌صورت خودکار اعمال می‌شود. برای ویرایش چیدمان بلوک‌ها از <a href="template-builder.php" style="color:inherit"><b>قالب‌ساز</b></a> استفاده کنید. قالب‌های 📚 کتابلایه قابل حذف نیستند اما آزادانه ویرایش می‌شوند — نسخه ویرایش‌شده را با نام جدید ذخیره کنید تا در کتابلایه بماند.</div>
+<div class="alert alert-info">💡 قالب پیش‌فرض هر صفحه، هنگام ساخت سایت برند جدید به‌صورت خودکار اعمال می‌شود. برای ویرایش چیدمان بلوک‌ها از <a href="template-builder.php" style="color:inherit"><b>قالب‌ساز</b></a> استفاده کنید. قالب‌های 📚 کتابلایه قابل حذف نیستند اما آزادانه ویرایش می‌شوند — نسخه ویرایش‌شده را با نام جدید ذخیره کنید تا در کتابلایه بماند. روی عنوان هر صفحه کلیک کنید تا طرح‌هایش باز/بسته شود.</div>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>
