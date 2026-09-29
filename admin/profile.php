@@ -262,8 +262,8 @@ require __DIR__ . '/includes/header.php';
                     ورود دومرحله‌ای حساب شما فعال است. هنگام ورود، بعد از رمز عبور یک کد ۶ رقمی از اپ احرازکننده پرسیده می‌شود.<br>
                     کدهای بازیابی باقیمانده: <b><?= e(fa_num((string)$recoveryCount)) ?></b> عدد
                 </div>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px">
-                    <form method="post" style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:16px">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
+                    <form method="post" style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:16px;min-width:0">
                         <?= Auth::csrfField() ?>
                         <input type="hidden" name="action" value="twofa_new_recovery">
                         <h4 style="margin:0 0 8px;font-size:14px;color:#92400e">🔄 تولید مجدد کدهای بازیابی</h4>
@@ -274,7 +274,7 @@ require __DIR__ . '/includes/header.php';
                         </div>
                         <button type="submit" class="btn btn-outline">تولید کدهای جدید</button>
                     </form>
-                    <form method="post" style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px">
+                    <form method="post" style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px;min-width:0">
                         <?= Auth::csrfField() ?>
                         <input type="hidden" name="action" value="twofa_disable">
                         <h4 style="margin:0 0 8px;font-size:14px;color:#991b1b">🚫 غیرفعال‌سازی دومرحله‌ای</h4>
@@ -292,31 +292,46 @@ require __DIR__ . '/includes/header.php';
                 </div>
 
             <?php elseif ($setupStep): ?>
-                <!-- مرحله ۲: اسکن + تأیید کد -->
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px;align-items:start">
-                    <div style="text-align:center">
-                        <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:14px;display:inline-block">
+                <!-- مرحله ۲: اسکن + تأیید کد — 🩹 v2.38: چیدمان مقاوم (رفع به‌هم‌ریختگی) -->
+                <style>
+                /* 🛡️ v2.38 — نشانگر مراحل راه‌اندازی 2FA + چیدمان شکست‌ناپذیر */
+                .tfa-steps{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+                .tfa-st{font-size:12px;font-weight:800;padding:6px 16px;border-radius:20px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0}
+                .tfa-st.active{background:linear-gradient(90deg,#7c3aed,#2563eb);color:#fff;border-color:transparent;box-shadow:0 3px 10px rgba(124,58,237,.3)}
+                .tfa-arrow{color:#94a3b8;font-size:14px}
+                @media (max-width:640px){.tfa-arrow{transform:rotate(90deg)}}
+                </style>
+                <div class="tfa-steps">
+                    <span class="tfa-st active">۱. اسکن QR با اپ احرازکننده</span>
+                    <span class="tfa-arrow">←</span>
+                    <span class="tfa-st">۲. وارد کردن کد ۶ رقمی</span>
+                    <span class="tfa-arrow">←</span>
+                    <span class="tfa-st">۳. ذخیره کدهای بازیابی</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,430px));gap:20px;align-items:start;justify-content:center">
+                    <div style="text-align:center;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:18px;min-width:0">
+                        <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:14px;display:inline-block;max-width:100%">
                             <?php $qr = Totp::qrDataUri($qrUri); ?>
                             <?php if ($qr !== ''): ?>
-                                <img src="<?= e($qr) ?>" alt="QR راه‌اندازی دومرحله‌ای" width="230" height="230">
+                                <img src="<?= e($qr) ?>" alt="QR راه‌اندازی دومرحله‌ای" width="230" height="230" style="max-width:100%;height:auto;display:block">
                             <?php else: ?>
-                                <div style="width:230px;height:230px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px">QR در دسترس نیست — کلید دستی زیر</div>
+                                <div style="width:230px;max-width:100%;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px;padding:12px">QR در دسترس نیست — کلید دستی زیر</div>
                             <?php endif; ?>
                         </div>
-                        <p style="font-size:12.5px;color:#64748b;line-height:2;margin-top:10px">
+                        <p style="font-size:12.5px;color:#64748b;line-height:2;margin-top:12px">
                             ① اپ Google Authenticator / Aegis / Authy را باز کنید<br>
                             ② «+» → «اسکن QR» → این کد را اسکن کنید
                         </p>
                         <div style="font-size:11.5px;color:#94a3b8;margin-top:8px">
                             کلید دستی (اگر اسکن ممکن نیست):<br>
-                            <code dir="ltr" style="background:#f1f5f9;padding:4px 10px;border-radius:6px;font-weight:700;word-break:break-all"><?= e(trim(chunk_split($secretShow, 4, ' '))) ?></code>
+                            <code dir="ltr" style="background:#f1f5f9;padding:4px 10px;border-radius:6px;font-weight:700;word-break:break-all;overflow-wrap:anywhere;display:inline-block;max-width:100%"><?= e(trim(chunk_split($secretShow, 4, ' '))) ?></code>
                         </div>
                     </div>
-                    <div>
+                    <div style="min-width:0;background:linear-gradient(160deg,#eff6ff,#f0f9ff);border:1px solid #bfdbfe;border-radius:14px;padding:18px">
                         <form method="post">
                             <?= Auth::csrfField() ?>
                             <input type="hidden" name="action" value="twofa_confirm">
-                            <h4 style="margin:0 0 8px">۲. کد ۶ رقمی نمایش‌داده‌شده در اپ را وارد کنید</h4>
+                            <h4 style="margin:0 0 8px;font-size:15px">۲. کد ۶ رقمی نمایش‌داده‌شده در اپ را وارد کنید</h4>
                             <p style="font-size:12.5px;color:#64748b;line-height:2;margin:0 0 12px">
                                 با وارد کردن کد درست، دومرحله‌ای فعال می‌شود و <b>کدهای بازیابی</b> به شما نشان داده می‌شود — آن‌ها را ذخیره کنید.
                             </p>
@@ -325,8 +340,10 @@ require __DIR__ . '/includes/header.php';
                                 <input type="text" name="totp_code" required maxlength="6" inputmode="numeric" dir="ltr" autofocus
                                        placeholder="------" style="letter-spacing:8px;text-align:center;font-size:20px;font-weight:800">
                             </div>
-                            <button type="submit" class="btn btn-primary">✅ تأیید و فعال‌سازی</button>
-                            <a href="profile.php" class="btn btn-outline" style="margin-inline-start:6px">انصراف</a>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                                <button type="submit" class="btn btn-primary">✅ تأیید و فعال‌سازی</button>
+                                <a href="profile.php" class="btn btn-outline">انصراف</a>
+                            </div>
                         </form>
                     </div>
                 </div>
