@@ -342,6 +342,48 @@ class ArticleGenerator
     }
 
     /**
+     * 🔎 v2.38 — تحقیق وبِ مستقل برای تولید «غیرهمزمانِ گام‌محور» مقاله
+     * =====================================================================
+     * همان منطقِ تحقیقِ داخل generate() ولی به‌صورت متد عمومیِ جدا، تا صفِ
+     * وظایفِ مرحله‌ای (admin/includes/async-task.php) بتواند تحقیقِ وب را در
+     * یک درخواستِ HTTPِ کوتاهِ مجزا (سقفِ امنِ زیرِ ~۷۰ ثانیه) انجام دهد و
+     * نتیجه را به‌عنوان research_context به گامِ نگارش پاس دهد — بدون آنکه
+     * کلِ «تحقیق + نگارش + ثبت + تصویر» در یک درخواستِ طولانیِ کشنده جمع شود.
+     *
+     * @param array      $brand      رکورد برند
+     * @param string     $topicType  نوع مقاله
+     * @param string|null $deviceKey کلید دستگاه (null = تصادفی)
+     * @param string|null $customTitle عنوان دلخواه کاربر
+     * @param string     $depth      عمق تحقیق: fast | balanced | deep
+     * @param float      $budgetCap سقف بودجه زمانی بر حسب ثانیه (۰ = بودجه پیش‌فرضِ عمق)
+     * @return array|null خروجی ساختاریافته‌ی تحقیق یا null
+     */
+    public function researchForArticle(array $brand, string $topicType, ?string $deviceKey = null, ?string $customTitle = null, string $depth = 'balanced', float $budgetCap = 0.0): ?array
+    {
+        $meta = $this->deviceMetaFor($brand, $deviceKey, $customTitle);
+        $topic = $this->researchTopicFor($customTitle, $topicType, $meta);
+        $opts = [
+            'depth'      => $depth,
+            'brand_id'   => (int)$brand['id'],
+            'device_key' => (string)$meta['device_key'],
+            'learn'      => true,
+        ];
+        if ($budgetCap > 0.0) {
+            /* ⏱️ سقفِ ایمنِ هاست اشتراکی — تحقیقِ «عمیق» هم در برشِ زمانیِ مجاز */
+            $opts['budget'] = $budgetCap;
+        }
+        $research = (new ArticleResearchService())->research($topic, [
+            'brand_fa'   => (string)$brand['name_fa'],
+            'brand_en'   => (string)($brand['name_en'] ?? ''),
+            'device_fa'  => (string)$meta['device_fa'],
+            'device_en'  => (string)$meta['device_en'],
+            'topic_type' => $topicType,
+            'subject'    => $topic,
+        ], $opts);
+        return !empty($research) ? $research : null;
+    }
+
+    /**
      * 🎯 v2.35 — دستگاهِ هدف برای تحقیق (بدون اجرای کلِ منطقِ generateSingle)
      *
      * @return array ['device_key'=>string, 'device_fa'=>string, 'device_en'=>string]

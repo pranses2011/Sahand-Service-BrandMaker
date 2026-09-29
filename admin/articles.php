@@ -322,6 +322,295 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'generate') {
     }
 }
 
+/* ============================================================
+ * 🪜 v2.38 — تولید «غیرهمزمانِ گام‌محور» مقاله + نوار پیشرفت زنده
+ * ============================================================
+ * ریشه‌یابیِ «تولید مقاله در مرحله‌ی پایانی با خطای داخلی سرور قطع
+ * می‌شود»: هاست اشتراکی (LiteSpeed) هر درخواست HTTP را پس از ~۱۰۰ تا
+ * ۳۰۰ ثانیه می‌کُشد — مهم نیست PHP چقدر مهلت داشته باشد. پاسخِ قطری:
+ * «صف کارِ سمت-کلاینت» — هر درخواست فقط «یک گام» کوتاه انجام می‌دهد،
+ * وضعیت در فایل کش ذخیره می‌شود و مرورگر بلافاصله گام بعدی را می‌خواهد.
+ *
+ * گام‌ها (هر کدام یک درخواست مجزای کوتاه):
+ *   ① research — تحقیق وب (سقف امن ~۷۰ ثانیه — حتی برای عمق عمیق)
+ *   ② compose  — نگارش ۲ واریانت + انتخاب بهترین (کاملاً محلی و سریع)
+ *   ③ save     — ثبت مقاله در دیتابیس (تقریباً آنی)
+ *   ④ images   — تصاویر AI (مستقل — شکستش مقاله‌ی ذخیره‌شده را تهدید نمی‌کند)
+ *
+ * مزیت حیاتی: حتی اگر گام تصویر کشته شود، مقاله از قبل ثبت شده است؛
+ * کاربر به‌جای «خطای سرور و از دست رفتن همه‌چیز»، مقاله + دکمه‌ی
+ * «تولید مجدد تصاویر» را دریافت می‌کند.
+ * ============================================================ */
+require_once __DIR__ . '/includes/async-task.php';
+async_task_gc();
+
+/* 🚀 شروع وظیفه — اعتبارسنجی ورودی + ساخت کلید یکتا */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'generate_start') {
+    Auth::enforceCsrf();
+    header('Content-Type: application/json; charset=utf-8');
+    $brandId = (int)post('brand_id');
+    if ($db->fetch('SELECT id FROM brands WHERE id = ?', [$brandId]) === false) {
+        json_response(['success' => false, 'error' => 'برند یافت نشد.']);
+    }
+    $depth = (string)post('research_depth');
+    if (!in_array($depth, ['fast', 'balanced', 'deep'], true)) {
+        $depth = 'balanced';
+    }
+    $key = async_task_create('articlegen', [
+        'brand_id'     => $brandId,
+        'topic_type'   => (string)(post('topic_type') ?: 'troubleshooting'),
+        'device_key'   => (string)(post('device_key') ?: ''),
+        'custom_title' => trim((string)post('custom_title')) ?: '',
+        'research'     => post('research') === '1',
+        'with_images'  => post('with_images') === '1',
+        'depth'        => $depth,
+    ]);
+    json_response(['success' => true, 'task_key' => $key]);
+}
+
+/* ⚙️ اجرای «یک گام» از صف — فرانت پس از هر پاسخ، گام بعدی را می‌خواهد */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'generate_step') {
+    Auth::enforceCsrf();
+    header('Content-Type: application/json; charset=utf-8');
+    $key = preg_replace('/[^a-z0-9]/i', '', (string)post('task_key', ''));
+    $task = $key !== '' ? async_task_load('articlegen', $key) : null;
+    if ($task === null) {
+        json_response(['success' => false, 'error' => 'وظیفه یافت نشد (منقضی یا پاک شده است) — دوباره فرم را ارسال کنید.', 'restart' => true]);
+    }
+
+    /* 🛂 ACL: brand_manager فقط به برندهای خودش */
+    try {
+        (new Auth())->requireBrandAccess((int)($task['payload']['brand_id'] ?? 0));
+    } catch (Throwable $aclE) {
+        json_response(['success' => false, 'error' => 'دسترسی به این برند مجاز نیست.']);
+    }
+
+    /* 🔒 قفل گام — دو گامِ هم‌زمان روی یک وظیفه اجرا نشوند (دوبار کلیک/تلاش مجدد) */
+    $lockPath = CACHE_PATH . '/tasks/articlegen-' . $key . '.lock';
+    $lockH = @fopen($lockPath, 'c');
+    if (!$lockH || !@flock($lockH, LOCK_EX | LOCK_NB)) {
+        @fclose($lockH);
+        json_response(['success' => true, 'busy' => true]);
+    }
+
+    session_write_close(); /* 🔓 قفل سشن باز — polling آزاد است */
+    if (function_exists('set_time_limit')) { @set_time_limit(160); }
+    @ignore_user_abort(true);
+    @ini_set('display_errors', '0');
+
+    $p = $task['payload'];
+    $phase = (string)($task['phase'] ?: 'research');
+    $skipImages = post('skip_images') === '1';
+    $notices = (array)($task['state']['notices'] ?? []);
+
+    try {
+        $brand = $db->fetch('SELECT * FROM brands WHERE id = ?', [(int)$p['brand_id']]);
+        if (!$brand) {
+            throw new RuntimeException('برند یافت نشد.');
+        }
+
+        /* ---------- ① تحقیق وب — گامِ شبکه‌ایِ اول (سقف امن ~۷۰ ثانیه) ---------- */
+        if ($phase === 'research') {
+            if (!empty($p['research'])) {
+                $attempts = (int)($task['state']['research_attempts'] ?? 0) + 1;
+                $task['state']['research_attempts'] = $attempts;
+                if ($attempts > 2) {
+                    /* 🛟 دو بار کشته شد — ادامه بدون تحقیق آنلاین (مقاله محلی هم کامل و یکتاست) */
+                    $notices[] = '⚠️ تحقیق وب دو بار ناتمام ماند (محدودیت زمان هاست) — مقاله با دانش داخلی و بدون جستجوی آنلاین ادامه یافت.';
+                } else {
+                    async_task_save('articlegen', $key, $task);
+                    async_task_progress_write('articlegen', $key, 6, '🔎 تحقیق وب — تلاش ' . $attempts . ' از ۲',
+                        'کوئری‌های فارسی و انگلیسی به موتورهای جستجو ارسال می‌شود (عمق: ' . $p['depth'] . ')...');
+                    $gen0 = new ArticleGenerator();
+                    $research = $gen0->researchForArticle($brand, $p['topic_type'], $p['device_key'] ?: null, $p['custom_title'] ?: null, $p['depth'], 70.0);
+                    $task['state']['research'] = $research;
+                    if (!empty($research['results'])) {
+                        $notices[] = '🔎 تحقیق وب: ' . (int)$research['results'] . ' نتیجه از موتورها، '
+                            . (int)($research['pages_read'] ?? 0) . ' صفحه کامل خوانده شد ('
+                            . (int)(($research['facts'] ?? []) ? count($research['facts']) : 0) . ' فکت).';
+                    }
+                }
+            }
+            $task['phase'] = 'compose';
+            $task['state']['notices'] = $notices;
+            async_task_save('articlegen', $key, $task);
+            async_task_progress_write('articlegen', $key, 46, '✍️ نوبت نگارش مقاله', 'تحقیق وب تمام شد — واریانت‌ها در گام بعد نوشته می‌شوند...');
+            json_response(['success' => true, 'done' => false, 'phase' => 'compose']);
+        }
+
+        /* ---------- ② نگارش واریانت‌ها (کاملاً محلی — بدون شبکه) ---------- */
+        if ($phase === 'compose') {
+            async_task_progress_write('articlegen', $key, 50, '✍️ نگارش مقاله (۲ واریانت)',
+                'دو پیش‌نویس مستقل نوشته و بهترین امتیاز کیفیت انتخاب می‌شود — این گام محلی و سریع است...');
+            $gen = new ArticleGenerator();
+            $hasResearch = !empty($task['state']['research']);
+            $article = $gen->generate(
+                $brand,
+                $p['topic_type'],
+                $p['device_key'] ?: null,
+                2,
+                $p['custom_title'] ?: null,
+                [
+                    /* تحقیقِ از پیش انجام‌شده پاس داده می‌شود؛ اگر تحقیق نتیجه نداد،
+                       research=false تا گامِ نگارشِ «محلی» ناگهان شبکه‌ای نشود */
+                    'research'         => $hasResearch,
+                    'research_context' => $hasResearch ? $task['state']['research'] : null,
+                    'with_images'      => false, /* تصاویر در گامِ مستقلِ بعدی */
+                    'depth'            => $p['depth'],
+                ]
+            );
+            $task['state']['article'] = $article;
+            $task['phase'] = 'save';
+            $task['state']['notices'] = $notices;
+            async_task_save('articlegen', $key, $task);
+            async_task_progress_write('articlegen', $key, 78, '💾 نوبت ثبت مقاله',
+                '«' . ($article['title'] ?? '') . '» با ' . ($article['word_count'] ?? 0) . ' کلمه آماده ثبت است...');
+            json_response(['success' => true, 'done' => false, 'phase' => 'save']);
+        }
+
+        /* ---------- ③ ثبت مقاله (تقریباً آنی — بدون تصویر AI) ---------- */
+        if ($phase === 'save') {
+            async_task_progress_write('articlegen', $key, 82, '💾 ثبت مقاله در پایگاه داده', 'درج رکورد + سئو + منابع تحقیق...');
+            $article = $task['state']['article'] ?? null;
+            if (!is_array($article) || empty($article['title'])) {
+                throw new RuntimeException('محتوای مقاله در وضعیت وظیفه یافت نشد — وظیفه را از نو اجرا کنید.');
+            }
+            /* 🖼️ تصاویر AI عمداً به گام بعد موکول می‌شوند — ثبتِ مقاله سبک و تضمینی بماند */
+            $article['ai_images_wanted'] = false;
+            $id = (new SahandAI())->saveArticle((int)$p['brand_id'], $article, $p['topic_type']);
+            if ($id < 1) {
+                throw new RuntimeException('ثبت مقاله در پایگاه داده ناموفق بود.');
+            }
+            $task['article_id'] = $id;
+            $task['phase'] = (!empty($p['with_images']) && !$skipImages) ? 'images' : 'done';
+            $task['state']['notices'] = $notices;
+            async_task_save('articlegen', $key, $task);
+            (new Cache())->delete('brand_articles_all');
+            if ($task['phase'] === 'done') {
+                async_task_progress_write('articlegen', $key, 100, '✅ مقاله آماده شد', 'بدون تصاویر AI (طبق درخواست)');
+            } else {
+                async_task_progress_write('articlegen', $key, 85, '🖼️ نوبت تصاویر AI', 'مقاله ثبت شد — تولید ۳ تصویر واقعی شروع می‌شود...');
+            }
+            json_response(['success' => true, 'done' => false, 'phase' => $task['phase'], 'article_id' => $id]);
+        }
+
+        /* ---------- ④ تصاویر AI (شبکه‌ای — مقاله از قبل امن است) ---------- */
+        if ($phase === 'images') {
+            if ($skipImages) {
+                /* 🛟 سه بار تلاش ناموفق — مقاله بدون تصویر AI تحویل می‌شود (دکمه‌ی
+                   «تولید مجدد تصاویر» در ویرایشگر همیشه در دسترس است) */
+                $notices[] = '🖼️ گام تصاویر AI پس از چند تلاش ناتمام ماند (محدودیت زمان هاست) — مقاله بدون تصویر AI ثبت شد؛ از دکمه‌ی «تولید مجدد تصاویر» در ویرایشگر استفاده کنید.';
+                $task['phase'] = 'done';
+                $task['state']['notices'] = $notices;
+                async_task_save('articlegen', $key, $task);
+                async_task_progress_write('articlegen', $key, 100, '✅ مقاله آماده شد (بدون تصویر AI)', 'گام تصویر طبق درخواست رد شد');
+                json_response(['success' => true, 'done' => false, 'phase' => 'done', 'article_id' => (int)($task['article_id'] ?? 0)]);
+            }
+            $id = (int)($task['article_id'] ?? 0);
+            $row = $db->fetch('SELECT a.*, b.name_fa AS brand_name, b.logo AS brand_logo, b.extra_settings FROM brand_articles a JOIN brands b ON b.id = a.brand_id WHERE a.id = ?', [$id]);
+            if (!$row) {
+                throw new RuntimeException('مقاله ثبت‌شده یافت نشد (id=' . $id . ').');
+            }
+            $brandArr = [
+                'name_fa'        => $row['brand_name'] ?? '',
+                'extra_settings' => $row['extra_settings'] ?? '',
+                'logo'           => $row['logo'] ?? '',
+                'id'             => (int)$p['brand_id'],
+            ];
+            $gen = new AiImageGenerator();
+            /* 📊 پیشرفت واقعیِ سرویس تصویر → نگاشت به بازه‌ی ۸۵ تا ۹۷ */
+            $gen->setProgressSink(static function (int $ipct, string $ititle, string $idetail) use ($key): void {
+                async_task_progress_write('articlegen', $key, 85 + (int)round($ipct * 0.12), '🖼️ ' . $ititle, $idetail);
+            });
+            $aiImages = $gen->generateForArticle(
+                $id,
+                (string)$row['title'],
+                (string)($task['state']['article']['device_key'] ?? ''),
+                (string)$p['topic_type'],
+                $brandArr,
+                '',
+                strip_tags((string)$row['content'])
+            );
+            /* 🧹 جایگزینی تصاویر تولیدیِ قبلی (در صورت تلاش مجددِ گام) + درج درون‌متن */
+            $injector = new ArticleImageService();
+            $stripped = $injector->stripGeneratedFigures((string)$row['content']);
+            $rich = $injector->injectIntoContent($stripped, $aiImages['images']);
+            $upd = ['content' => $rich, 'og_image' => $aiImages['og']['path'], 'updated_at' => date('Y-m-d H:i:s')];
+            if (!empty($aiImages['featured'])) {
+                $upd['featured_image'] = $aiImages['featured']['path'];
+            }
+            $db->update('brand_articles', $upd, 'id = ?', [$id]);
+            (new Cache())->delete('brand_articles_all');
+            $task['state']['images_done'] = true;
+            $task['state']['photo_source'] = (string)($aiImages['photo_source'] ?? 'package');
+            foreach ((array)($aiImages['notices'] ?? []) as $nItem) {
+                $notices[] = '⚠️ ' . (is_string($nItem) ? $nItem : json_encode($nItem, JSON_UNESCAPED_UNICODE));
+            }
+            $task['phase'] = 'done';
+            $task['state']['notices'] = $notices;
+            async_task_save('articlegen', $key, $task);
+            async_task_progress_write('articlegen', $key, 97, '✅ تصاویر آماده شد', 'درج در محتوا + ثبت تصویر OG و شاخص...');
+            json_response(['success' => true, 'done' => false, 'phase' => 'done', 'article_id' => $id]);
+        }
+
+        /* ---------- 🏁 پایان — گزارش نهایی ---------- */
+        $art = is_array($task['state']['article'] ?? null) ? $task['state']['article'] : [];
+        $r = is_array($art['research'] ?? null) ? $art['research'] : [];
+        $summary = '«' . ($art['title'] ?? 'مقاله') . '» با ' . ($art['word_count'] ?? 0) . ' کلمه تولید و ثبت شد';
+        if (!empty($r['used'])) {
+            $summary .= ' — 🔎 تحقیق وب: ' . (int)($r['facts'] ?? 0) . ' فکت، '
+                . (int)($r['stats'] ?? 0) . ' آمار، ' . (int)($r['questions'] ?? 0) . ' پرسش از '
+                . (int)($r['sources'] ?? 0) . ' منبع';
+        }
+        if (!empty($task['state']['images_done'])) {
+            $summary .= ($task['state']['photo_source'] === 'ai_photo') ? ' — 🖼️ ۳ تصویر واقعی AI' : ' — 🖼️ تصاویر بسته دستگاه';
+        }
+        async_task_progress_write('articlegen', $key, 100, '✅ تولید مقاله کامل شد', $summary);
+        json_response([
+            'success'    => true,
+            'done'       => true,
+            'article_id' => (int)($task['article_id'] ?? 0),
+            'summary'    => $summary,
+            'notices'    => $notices,
+            'redirect'   => 'articles.php?edit=' . (int)($task['article_id'] ?? 0),
+        ]);
+    } catch (Throwable $e) {
+        $task['error'] = $e->getMessage();
+        $task['state']['notices'] = $notices;
+        async_task_save('articlegen', $key, $task);
+        async_task_progress_write('articlegen', $key, 100, '❌ خطا در گام «' . $phase . '»', $e->getMessage());
+        json_response(['success' => false, 'error' => 'خطا در گام «' . $phase . '»: ' . $e->getMessage(), 'phase' => $phase]);
+    } finally {
+        if (isset($lockH) && is_resource($lockH)) {
+            @flock($lockH, LOCK_UN);
+            @fclose($lockH);
+        }
+        @unlink($lockPath);
+    }
+}
+
+/* 📊 روند پیشرفت تولید مقاله (polling سبک — بدون قفل سشن) */
+if (($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'generate_progress')
+    || ($_SERVER['REQUEST_METHOD'] === 'GET' && get_param('action') === 'generate_progress')) {
+    header('Content-Type: application/json; charset=utf-8');
+    session_write_close();
+    $key = preg_replace('/[^a-z0-9]/i', '', (string)post('task_key', get_param('task_key', '')));
+    $task = $key !== '' ? async_task_load('articlegen', $key) : null;
+    if ($task === null) {
+        json_response(['success' => false, 'done' => true]);
+    }
+    $prog = async_task_progress_read('articlegen', $key);
+    json_response([
+        'success'    => true,
+        'done'       => ($task['phase'] ?? '') === 'done',
+        'error'      => $task['error'] ?? null,
+        'article_id' => $task['article_id'] ?? null,
+        'phase'      => $task['phase'] ?? 'research',
+        'progress'   => $prog ?: ['pct' => 1, 'title' => '', 'detail' => ''],
+        'stale_sec'  => $prog ? max(0, time() - (int)($prog['ts'] ?? 0)) : 999,
+    ]);
+}
+
 /* 🎯 پیشنهاد بهترین عنوان سئو برای عنوان دلخواه (فاز Q.5 — AJAX) */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'suggest_titles') {
     Auth::enforceCsrf();
@@ -873,11 +1162,53 @@ function toggleScheduleBox() {
                 </label>
             </div>
             <div class="hint" style="margin-top:6px">🔎 جستجوی آنلاین (روشن پیش‌فرض): کوئری‌های فارسی+انگلیسی، خواندن متن کامل صفحات، استخراجِ سرفصل‌های واقعیِ رقبا، آمارِ منبع‌دار و پرسش‌های کاربران به مقاله اضافه می‌شود. 🎚️ «عمیق» دو موتور جستجو و تا ۷ صفحه را می‌خواند (زمان بیشتر، محتوای غنی‌تر). 🖼️ تصاویر با alt و کپشن استاندارد در متن درج می‌شوند.</div>
-            <button type="submit" class="btn btn-success btn-lg">🚀 تولید مقاله یکتا</button>
-            <div class="hint" style="margin-top:8px">موتور AI محتوای ۸۰۰-۱۵۰۰ کلمه‌ای یکتا با لینک داخلی، سئو و اصلاح خودکار نگارش فارسی تولید می‌کند.</div>
+            <button type="submit" id="btn-generate-article" class="btn btn-success btn-lg">🚀 تولید مقاله یکتا</button>
+            <div class="hint" style="margin-top:8px">موتور AI محتوای ۸۰۰-۱۵۰۰ کلمه‌ای یکتا با لینک داخلی، سئو و اصلاح خودکار نگارش فارسی تولید می‌کند. تولید به‌صورت «گام‌به‌گام» انجام می‌شود و پیشرفت هر مرحله زنده نمایش داده می‌شود — دیگر هیچ تایم‌اوت سروری رخ نمی‌دهد.</div>
         </form>
     </div>
 </div>
+
+<!-- 🪜 v2.38 — مودال پیشرفت زنده‌ی تولید مقاله (الگوی imggen: گرادیانت + درصد فارسی + لاگ گام‌ها) -->
+<div class="modal-overlay" id="articlegen-modal" style="display:none">
+    <div class="modal-box" style="max-width:600px">
+        <div class="modal-header">
+            <h3>🤖 تولید مقاله با هوش مصنوعی — زنده</h3>
+        </div>
+        <div class="modal-body" style="padding:22px">
+            <div class="imggen-bar">
+                <div class="imggen-bar-fill" id="agen-bar">
+                    <span id="agen-percent">۱٪</span>
+                </div>
+            </div>
+            <div class="imggen-title" id="agen-title">آماده‌سازی...</div>
+            <div class="imggen-detail" id="agen-detail">در حال آغاز صف گام‌به‌گام...</div>
+            <div class="agen-steps" id="agen-steps">
+                <span class="st" data-ph="research">🔎 تحقیق وب</span>
+                <span class="st" data-ph="compose">✍️ نگارش مقاله</span>
+                <span class="st" data-ph="save">💾 ثبت</span>
+                <span class="st" data-ph="images">🖼️ تصاویر AI</span>
+            </div>
+            <div class="imggen-log" id="agen-log"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" id="agen-retry" style="display:none">↻ تلاش مجدد این گام</button>
+            <button type="button" class="btn btn-success" id="agen-open" style="display:none">✏️ باز کردن ویرایشگر مقاله</button>
+            <button type="button" class="btn btn-outline" id="agen-close" style="display:none">بستن</button>
+        </div>
+    </div>
+</div>
+<style>
+/* 🪜 v2.38 — مودال تولید گام‌به‌گام مقاله (خوداتکا — هم‌خانواده‌ی imggen) */
+#articlegen-modal.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.58);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+#articlegen-modal .modal-box{background:var(--card-bg,#fff);border-radius:15px;max-width:600px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 22px 60px rgba(0,0,0,.28)}
+#articlegen-modal .modal-header{padding:16px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+#articlegen-modal .modal-header h3{margin:0;font-size:16px}
+#articlegen-modal .modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.agen-steps{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+.agen-steps .st{font-size:11.5px;font-weight:700;padding:5px 12px;border-radius:20px;background:var(--bg-secondary,#e2e8f0);color:var(--text-light,#64748b);border:1px solid transparent;transition:all .35s ease}
+.agen-steps .st.active{background:linear-gradient(90deg,#7c3aed,#2563eb);color:#fff;box-shadow:0 3px 10px rgba(124,58,237,.35)}
+.agen-steps .st.done{background:rgba(16,185,129,.14);color:#059669;border-color:rgba(16,185,129,.4)}
+</style>
 <?php endif; ?>
 
 <!-- 🔎 فیلتر و لیست -->
@@ -1319,6 +1650,230 @@ function toggleScheduleBox() {
             btn.textContent = '🎯 پیشنهاد بهترین عنوان سئو';
             box.innerHTML = '<div style="padding:12px;color:#e74c3c">خطای ارتباط با سرور: ' + esc(err.message) + '</div>';
         });
+    });
+})();
+</script>
+
+<script>
+/* ============================================================
+ * 🪜 v2.38 — تولید گام‌به‌گام مقاله (صف وظایف غیرهمزمان + پیشرفت زنده)
+ * فرانت: ① generate_start → کلید وظیفه ② حلقه‌ی generate_step (هر بار یک گام)
+ * ③ polling هر ۸۰۰ms برای درصد/متن زنده ④ تشخیص گامِ کشته‌شده (توقف
+ * پیشرفت + قطع fetch) → تلاش مجدد خودکار → در گام تصویر: تحویل بدون تصویر.
+ * بدون fetch → فرم به‌صورت همزمانِ قدیم ارسال می‌شود (fallback).
+ * ============================================================ */
+(function () {
+    var btnGen = document.getElementById('btn-generate-article');
+    var form = btnGen ? (btnGen.form || btnGen.closest('form')) : null;
+    if (!form || !window.fetch || !window.URLSearchParams) { return; }
+
+    var modal    = document.getElementById('articlegen-modal');
+    if (!modal) { return; }
+    var bar      = document.getElementById('agen-bar');
+    var pctEl    = document.getElementById('agen-percent');
+    var titleEl  = document.getElementById('agen-title');
+    var detailEl = document.getElementById('agen-detail');
+    var logEl    = document.getElementById('agen-log');
+    var stepEls  = modal.querySelectorAll('.agen-steps .st');
+    var btnRetry = document.getElementById('agen-retry');
+    var btnOpen  = document.getElementById('agen-open');
+    var btnClose = document.getElementById('agen-close');
+
+    var csrfEl = document.querySelector('input[name="csrf_token"]');
+    var csrfVal = csrfEl ? csrfEl.value : '';
+    var faDig = function (n) { return String(Math.round(n)).replace(/[0-9]/g, function (x) { return '۰۱۲۳۴۵۶۷۸۹'[+x]; }); };
+
+    var ORDER = ['research', 'compose', 'save', 'images'];
+    var CAPS  = { research: 44, compose: 77, save: 83, images: 96 };
+    var LABELS = {
+        research: '🔎 تحقیق وب — کوئری‌ها به موتورهای جستجو',
+        compose:  '✍️ نگارش ۲ واریانت و انتخاب بهترین',
+        save:     '💾 ثبت مقاله در پایگاه داده',
+        images:   '🖼️ تولید ۳ تصویر واقعی AI'
+    };
+
+    var taskKey = '', shownPct = 1, phase = 'research', stallCount = 0;
+    var pollTimer = null, creepTimer = null, aborter = null, finished = false;
+    var lastLog = '', lastTitle = '', lastDetail = '';
+
+    function setPct(p) {
+        p = Math.max(1, Math.min(99.5, p));
+        if (p > shownPct) { shownPct = p; bar.style.width = p + '%'; pctEl.textContent = faDig(p) + '٪'; }
+    }
+    function setTitle(t) { if (t && t !== lastTitle) { lastTitle = t; titleEl.textContent = t; } }
+    function setDetail(d) { if (d && d !== lastDetail) { lastDetail = d; detailEl.textContent = d; } }
+    function addLog(icon, text) {
+        if (!text || text === lastLog) { return; }
+        lastLog = text;
+        var div = document.createElement('div');
+        div.className = 'lg';
+        div.innerHTML = '<span class="ic">' + icon + '</span><span>' + text + '</span>';
+        logEl.insertBefore(div, logEl.firstChild);
+    }
+    function setPhase(ph) {
+        phase = ph;
+        var idx = ORDER.indexOf(ph);
+        Array.prototype.forEach.call(stepEls, function (el) {
+            var i = ORDER.indexOf(el.getAttribute('data-ph'));
+            el.className = 'st' + (i >= 0 && i < idx ? ' done' : (i === idx ? ' active' : ''));
+        });
+    }
+    function post(action, params, signal) {
+        var body = new URLSearchParams();
+        body.append('action', action);
+        Object.keys(params || {}).forEach(function (k) { body.append(k, params[k]); });
+        if (csrfEl) { body.append('csrf_token', csrfVal); }
+        return fetch('articles.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfVal, 'X-Requested-With': 'XMLHttpRequest' },
+            body: body.toString(),
+            credentials: 'same-origin',
+            signal: signal || undefined
+        }).then(function (r) { return r.json(); });
+    }
+    function stopTimers() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        if (creepTimer) { clearInterval(creepTimer); creepTimer = null; }
+    }
+    function fail(msg) {
+        finished = true;
+        stopTimers();
+        setPct(99.5);
+        bar.style.background = 'linear-gradient(90deg,#dc2626,#ef4444)';
+        setTitle('❌ تولید ناموفق بود');
+        setDetail(msg || 'خطای نامشخص');
+        addLog('❌', msg || 'خطای نامشخص');
+        btnRetry.style.display = '';
+        btnClose.style.display = '';
+    }
+    function finish(res) {
+        finished = true;
+        stopTimers();
+        setPct(100);
+        bar.style.width = '100%';
+        pctEl.textContent = '۱۰۰٪';
+        bar.style.background = 'linear-gradient(90deg,#059669,#10b981)';
+        setTitle('✅ مقاله با موفقیت تولید و ثبت شد');
+        setDetail(res.summary || '');
+        addLog('✅', res.summary || 'تولید کامل شد');
+        (res.notices || []).forEach(function (n) { addLog('⚠️', n); });
+        Array.prototype.forEach.call(stepEls, function (el) { el.className = 'st done'; });
+        if (res.article_id) {
+            btnOpen.style.display = '';
+            btnOpen.onclick = function () { window.location.href = 'articles.php?edit=' + res.article_id; };
+        }
+        btnClose.style.display = '';
+    }
+    function pollOnce() {
+        if (!taskKey || finished) { return; }
+        var body = new URLSearchParams();
+        body.append('action', 'generate_progress');
+        body.append('task_key', taskKey);
+        fetch('articles.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+            body: body.toString(),
+            credentials: 'same-origin'
+        }).then(function (r) { return r.json(); }).then(function (res) {
+            if (!res.success || finished) { return; }
+            var p = res.progress || {};
+            if (typeof p.pct === 'number' && p.pct > 0) { setPct(p.pct); }
+            setTitle(p.title); setDetail(p.detail);
+            if (p.title || p.detail) { addLog('🔄', (p.title || '') + (p.detail ? ' — ' + p.detail : '')); }
+            if (res.phase) { setPhase(res.phase); }
+            if (res.done) {
+                finish({ article_id: res.article_id, summary: p.detail || 'تولید کامل شد', notices: [] });
+            }
+        }).catch(function () { /* polling بی‌صدا رد می‌شود */ });
+    }
+    function runStep(skipImages) {
+        if (finished || !taskKey) { return; }
+        aborter = ('AbortController' in window) ? new AbortController() : null;
+        var hardKill = setTimeout(function () { if (aborter) { aborter.abort(); } }, 185000);
+        post('generate_step', { task_key: taskKey, skip_images: skipImages ? '1' : '0' }, aborter ? aborter.signal : undefined)
+            .then(function (res) {
+                clearTimeout(hardKill);
+                if (finished) { return; }
+                if (res.busy) { /* گام دیگری در حال اجراست */ setTimeout(function () { runStep(skipImages); }, 1600); return; }
+                if (res.success && res.done) { finish(res); return; }
+                if (res.success) {
+                    stallCount = 0;
+                    if (res.phase) { setPhase(res.phase); }
+                    setPct((CAPS[res.phase] || 90) - 6);
+                    setTimeout(function () { runStep(false); }, 400);
+                    return;
+                }
+                fail(res.error || 'خطای نامشخص در اجرای گام');
+            })
+            .catch(function () {
+                clearTimeout(hardKill);
+                if (finished) { return; }
+                /* 🩺 شبکه قطع یا درخواست توسط هاست کشته شد — اول وضعیت را بپرس */
+                stallCount++;
+                setTimeout(function () {
+                    if (finished) { return; }
+                    addLog('⚠️', 'پاسخ گام قطع شد — تلاش ' + faDig(stallCount) + ' برای ازسرگیری...');
+                    if (stallCount >= 3 && phase === 'images') {
+                        /* 🛟 سه شکست در گام تصویر — تحویل بدون تصویر (مقاله از قبل ثبت است) */
+                        runStep(true);
+                        return;
+                    }
+                    if (stallCount >= 5) {
+                        fail('گام «' + (LABELS[phase] || phase) + '» پس از چند تلاش پاسخ نداد — صفحه را نوسازی و دوباره تلاش کنید.');
+                        return;
+                    }
+                    runStep(false);
+                }, 1800);
+            });
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!form.elements.brand_id || !form.elements.brand_id.value) { return; }
+        /* 🎬 ریست مودال */
+        finished = false; stallCount = 0; shownPct = 1; lastLog = ''; lastTitle = ''; lastDetail = '';
+        bar.style.width = '1%'; bar.style.background = 'linear-gradient(90deg,#7c3aed,#2563eb 55%,#0ea5e9)';
+        pctEl.textContent = '۱٪'; logEl.innerHTML = '';
+        btnRetry.style.display = 'none'; btnOpen.style.display = 'none'; btnClose.style.display = 'none';
+        btnGen.disabled = true; btnGen.textContent = '⏳ در حال تولید...';
+        setPhase('research');
+        setTitle('🚀 آغاز صف تولید گام‌به‌گام');
+        setDetail('در حال ساخت وظیفه و اعتبارسنجی ورودی‌ها...');
+        modal.style.display = 'flex';
+
+        post('generate_start', {
+            brand_id:      form.elements.brand_id.value,
+            topic_type:    form.elements.topic_type ? form.elements.topic_type.value : 'troubleshooting',
+            device_key:    form.elements.device_key ? form.elements.device_key.value : '',
+            custom_title:  form.elements.custom_title ? form.elements.custom_title.value : '',
+            research:      form.elements.research && form.elements.research.checked ? '1' : '0',
+            research_depth: form.elements.research_depth ? form.elements.research_depth.value : 'balanced',
+            with_images:   form.elements.with_images && form.elements.with_images.checked ? '1' : '0'
+        }).then(function (res) {
+            if (!res.success) { fail(res.error || 'شروع تولید ناموفق بود'); return; }
+            taskKey = res.task_key;
+            addLog('🚀', 'وظیفه ساخته شد — گام ۱: ' + LABELS.research);
+            pollTimer = setInterval(pollOnce, 800);
+            creepTimer = setInterval(function () { setPct(shownPct + 0.2); }, 1000);
+            runStep(false);
+        }).catch(function (err) { fail('خطای ارتباط با سرور: ' + err.message); });
+    });
+
+    btnRetry.addEventListener('click', function () {
+        /* تلاش مجدد گام از طریق same task (گام‌ها idempotent هستند) */
+        if (!taskKey) { form.dispatchEvent(new Event('submit')); return; }
+        finished = false; stallCount = 0;
+        btnRetry.style.display = 'none';
+        bar.style.background = 'linear-gradient(90deg,#7c3aed,#2563eb 55%,#0ea5e9)';
+        pollTimer = setInterval(pollOnce, 800);
+        creepTimer = setInterval(function () { setPct(shownPct + 0.2); }, 1000);
+        runStep(false);
+    });
+    btnClose.addEventListener('click', function () {
+        stopTimers(); finished = true;
+        modal.style.display = 'none';
+        btnGen.disabled = false; btnGen.textContent = '🚀 تولید مقاله یکتا';
+        window.location.reload();
     });
 })();
 </script>
