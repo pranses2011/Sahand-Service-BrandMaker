@@ -262,6 +262,18 @@ class RequestCard
             } else {
                 $ok = imagejpeg($out, $outPath, 92);
             }
+            /* 📦 v2.42 — محافظ تحویل‌پذیری: عکس‌های حجیم (> ۳MB) در بله/تلگرام
+               رد می‌شوند؛ PNG/WEBP حجیم «بدون تغییر ابعاد» به JPEG (کیفیت ۹۲)
+               بازکدگذاری می‌شود تا پیام واقعاً تحویل شود — ابعاد طول/عرض همان
+               ابعاد اصلی می‌ماند (درخواست کاربر: «تغییر اندازه نده»)، فقط
+               فشرده‌سازی فایل عوض می‌شود. */
+            if ($ok && (int)@filesize($outPath) > 3 * 1024 * 1024 && $ext !== 'jpg' && function_exists('imagejpeg')) {
+                $jpgPath = $dir . '/wm_' . uniqid('req_') . '.jpg';
+                if (imagejpeg($out, $jpgPath, 92) && (int)@filesize($jpgPath) < (int)@filesize($outPath)) {
+                    @unlink($outPath);
+                    $outPath = $jpgPath;
+                }
+            }
             imagedestroy($out);
             return $ok ? $outPath : null;
         } catch (Throwable $e) {

@@ -65,7 +65,7 @@
 
         /* 🖼️ آپلود تصاویر (فرم درخواست) — همان زنجیره صفحه /request */
         var filesInput = form.querySelector('input[type=file].sahand-file');
-        var files = filesInput && filesInput.files ? Array.prototype.slice.call(filesInput.files, 0, 3) : [];
+        var files = filesInput && filesInput.files ? Array.prototype.slice.call(filesInput.files, 0, 5) : [];
         var previews = form.querySelector('.sahand-imgs');
         if (previews) { previews.innerHTML = ''; }
 
@@ -135,7 +135,7 @@
             var prev = e.target.closest('form') && e.target.closest('form').querySelector('.sahand-imgs');
             if (prev) {
                 prev.innerHTML = '';
-                Array.prototype.slice.call(e.target.files, 0, 3).forEach(function (f) {
+                Array.prototype.slice.call(e.target.files, 0, 5).forEach(function (f) {
                     var img = document.createElement('img');
                     img.src = URL.createObjectURL(f);
                     prev.appendChild(img);

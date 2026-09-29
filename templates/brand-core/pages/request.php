@@ -82,7 +82,7 @@ require __DIR__ . '/_page_base.php';
                 <textarea name="description" required minlength="10" rows="4" placeholder="مشکل دستگاه را توضیح دهید..."></textarea>
             </div>
             <div class="form-group">
-                <label>تصویر دستگاه (اختیاری — حداکثر ۳ تصویر)</label>
+                <label>تصویر دستگاه (اختیاری — حداکثر ۵ تصویر)</label>
                 <input type="file" name="images" accept="image/*" multiple id="images-input">
                 <div class="hint">در صورت امکان، از صفحه نمایش خطا یا محل ایراد عکس بگیرید.</div>
                 <div id="images-preview" class="images-preview"></div>
@@ -116,7 +116,7 @@ require __DIR__ . '/_page_base.php';
     document.getElementById('images-input').addEventListener('change', function () {
         var preview = document.getElementById('images-preview');
         preview.innerHTML = '';
-        Array.from(this.files).slice(0, 3).forEach(function (file) {
+        Array.from(this.files).slice(0, 5).forEach(function (file) {
             var img = document.createElement('img');
             img.src = URL.createObjectURL(file);
             preview.appendChild(img);
@@ -137,7 +137,7 @@ require __DIR__ . '/_page_base.php';
            ساز منتقل و URL آنها در فیلد images ارسال می‌شود.
            (قبلاً File در JSON به {} تبدیل می‌شد و تصاویر گم می‌شدند!) */
         var filesInput = document.getElementById('images-input');
-        var files = filesInput && filesInput.files ? Array.from(filesInput.files).slice(0, 3) : [];
+        var files = filesInput && filesInput.files ? Array.from(filesInput.files).slice(0, 5) : [];
 
         function uploadOne(file) {
             var fd = new FormData();

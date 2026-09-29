@@ -1544,7 +1544,7 @@ if (!function_exists('pv_real_form')) {
         }
         /* تصویر */
         if ($on('images', false) && $block === 'request-form') {
-            $fields .= '<div class="form-group"><label>تصویر دستگاه (اختیاری — حداکثر ۳)</label><input type="file" name="images" class="sahand-fi sahand-file" accept="image/*" multiple><div class="sahand-imgs"></div></div>';
+            $fields .= '<div class="form-group"><label>تصویر دستگاه (اختیاری — حداکثر ۵)</label><input type="file" name="images" class="sahand-fi sahand-file" accept="image/*" multiple><div class="sahand-imgs"></div></div>';
         }
 
         if ($fields === '') { $fields = '<div class="feat-d">همه فیلدهای این فرم غیرفعال شده‌اند.</div>'; }

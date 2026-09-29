@@ -692,6 +692,15 @@ class NotificationService
     /**
      * 🖼️ ارسال عکس به Bot API (تلگرام/بله)
      * فایل محلی → multipart آپلود | فایل خارجی → پارامتر photo با URL
+     *
+     * 🚨 v2.42 — ریشه‌یابی «تست پیام به بله می‌رسد ولی درخواست‌ها نه»:
+     *   ① CURLFile بدون MIME صریح → بخش multipart بدون Content-Type می‌رفت؛
+     *      تلگرام مدارا می‌کند اما API بله عکس را رد می‌کند (الگوی کارکردی
+     *      BaleBot::sendImageAlbum از ابتدا MIME صریح داشت!) → اکنون MIME
+     *      از پسوند فایل تعیین می‌شود
+     *   ② تایم‌اوت ۲۵ ثانیه برای آپلود عکس‌های چند‌مگابایتی روی آپ‌لینک
+     *      ایرانی کم بود → ۱۲۰ ثانیه (همتر کد کارکردی BaleBot::apiUpload)
+     *   ③ پاسخ خطای سرور (description) در لاگ ثبت می‌شود تا ریشه پیدا شود
      */
     private function sendPhotoGeneric(string $apiUrl, string $chatId, string $photoPathOrUrl, string $caption = ''): bool
     {
@@ -703,17 +712,27 @@ class NotificationService
             return false;
         }
 
+        /* 🏷️ MIME صریح از پسوند — الزام API بله */
+        $mimeOf = static function (string $p): string {
+            $ext = strtolower((string)preg_replace('/^.*\./', '', $p));
+            if ($ext === 'png') { return 'image/png'; }
+            if ($ext === 'webp') { return 'image/webp'; }
+            if ($ext === 'gif') { return 'image/gif'; }
+            return 'image/jpeg';
+        };
+
         $ch = curl_init($apiUrl);
-        if ($diskPath !== '' && filesize($diskPath) > 0 && filesize($diskPath) < 9 * 1024 * 1024) {
+        if ($diskPath !== '' && (int)filesize($diskPath) > 0 && (int)filesize($diskPath) < 9 * 1024 * 1024) {
             curl_setopt_array($ch, [
                 CURLOPT_POST           => true,
                 CURLOPT_POSTFIELDS     => [
                     'chat_id' => $chatId,
                     'caption' => mb_substr($caption, 0, 900),
-                    'photo'   => new CURLFile($diskPath),
+                    'photo'   => new CURLFile($diskPath, $mimeOf($diskPath), basename($diskPath)),
                 ],
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT        => 25,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_TIMEOUT        => 120,
             ]);
         } else {
             curl_setopt_array($ch, [
@@ -724,7 +743,8 @@ class NotificationService
                     'photo'   => $absUrl,
                 ]),
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT        => 15,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_TIMEOUT        => 30,
             ]);
         }
         $response = curl_exec($ch);
@@ -732,10 +752,21 @@ class NotificationService
         $curlErr = curl_error($ch);
         curl_close($ch);
         if ($response === false || $httpCode !== 200) {
-            Logger::warning('ارسال عکس ناموفق', ['url' => substr($apiUrl, 0, 60), 'http' => $httpCode, 'curl' => $curlErr]);
+            Logger::warning('ارسال عکس ناموفق', [
+                'url' => substr($apiUrl, 0, 60),
+                'http' => $httpCode,
+                'curl' => $curlErr,
+                'body' => mb_substr((string)$response, 0, 300),
+            ]);
             return false;
         }
         $data = json_decode((string)$response, true);
+        if (!is_array($data) || empty($data['ok'])) {
+            Logger::warning('پاسخ رد شده ارسال عکس', [
+                'url' => substr($apiUrl, 0, 60),
+                'body' => mb_substr((string)$response, 0, 300),
+            ]);
+        }
         return is_array($data) && !empty($data['ok']);
     }
 

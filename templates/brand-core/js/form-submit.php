@@ -61,7 +61,7 @@ foreach ($allowed as $field) {
 if (isset($payload['images'])) {
     $imgs = [];
     if (is_array($payload['images'])) {
-        foreach (array_slice($payload['images'], 0, 3) as $imgUrl) {
+        foreach (array_slice($payload['images'], 0, 5) as $imgUrl) {
             if (is_string($imgUrl) && preg_match('#^https?://[^\s"\'<>]{5,500}$#i', $imgUrl)) {
                 $imgs[] = $imgUrl;
             }
