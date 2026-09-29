@@ -59,6 +59,8 @@ $router->use(function (array $params) {
     if (preg_match('#^brand/[^/]+/request$#', $path) || preg_match('#^request$#', $path)
         || preg_match('#^brand/[^/]+/upload-request-image$#', $path) || preg_match('#^upload-request-image$#', $path)
         || preg_match('#^brand/[^/]+/form-entry$#', $path) || preg_match('#^form-entry$#', $path)
+        || preg_match('#^brand/[^/]+/comment$#', $path) || preg_match('#^comment$#', $path)
+        || preg_match('#^brand/[^/]+/ab-event$#', $path) || preg_match('#^ab-event$#', $path)
         || preg_match('#^track$#', $path)
         || preg_match('#^icon/#', $path)
         || preg_match('#^brands$#', $path)
@@ -175,6 +177,36 @@ $router->add('POST', 'brand/{brandId}/form-entry', function ($p) {
 $router->add('POST', 'form-entry', function () {
     require __DIR__ . '/endpoints/form-entry.php';
     api_submit_form_entry(0);
+});
+
+/* 📮 v2.37 — P3: دیدگاه مقالات (ارسال عمومی + فهرست تأییدشده‌ها) */
+$router->add('POST', 'brand/{brandId}/comment', function ($p) {
+    require __DIR__ . '/endpoints/comment.php';
+    api_submit_comment((int)$p['brandId']);
+});
+$router->add('POST', 'comment', function () {
+    require __DIR__ . '/endpoints/comment.php';
+    api_submit_comment(0);
+});
+$router->add('GET', 'brand/{brandId}/article-comments/{slug}', function ($p) {
+    require __DIR__ . '/endpoints/comment.php';
+    api_brand_article_comments((int)$p['brandId'], (string)$p['slug']);
+});
+
+/* 🧪 v2.37 — P3: بیکِن رویدادهای تست A/B (view/click) */
+$router->add('POST', 'brand/{brandId}/ab-event', function ($p) {
+    require __DIR__ . '/endpoints/ab-test.php';
+    api_ab_event((int)$p['brandId']);
+});
+$router->add('POST', 'ab-event', function () {
+    require __DIR__ . '/endpoints/ab-test.php';
+    api_ab_event(0);
+});
+
+/* 🧪 v2.37 — P3: تست فعال A/B برند (برای رندر واریانت هیرو) */
+$router->add('GET', 'brand/{brandId}/ab-active', function ($p) {
+    require __DIR__ . '/endpoints/ab-test.php';
+    api_ab_active((int)$p['brandId']);
 });
 
 // ⚙️ تنظیمات عمومی قابل نمایش در سایت برند

@@ -449,6 +449,77 @@ class NotificationService
     }
 
     /**
+     * 📮 اعلان دیدگاه جدید مقاله (P3 — v2.37)
+     * ==========================================
+     * نقشه راه P3: «دیدگاه مقالات» — مدیران با همان کانال‌های موجود
+     * (ایمیل/تلگرام/بله) از دیدگاه در انتظار تأیید باخبر می‌شوند.
+     * 🔒 اصل: اعلان «اختیاری» است — ثبت دیدگاه هرگز به آن وابسته نیست.
+     */
+    public function sendComment(array $comment, array $brand): array
+    {
+        $result = ['email' => false, 'telegram' => false, 'bale' => false];
+        $errors = [];
+        $agencyName = (string)(Config::get(Config::KEY_AGENCY_NAME_FA) ?: 'سهند سرویس');
+        $articleTitle = (string)($comment['article_title'] ?? '');
+        $author = (string)($comment['author_name'] ?? '');
+        $body = mb_substr(trim(strip_tags((string)($comment['body'] ?? ''))), 0, 600);
+
+        /* متن یکپارچه — تلگرام/بله (HTML) و ایمیل (ساده) */
+        $lines = ["💬 <b>دیدگاه جدید در انتظار تأیید</b>\n"];
+        $lines[] = "🏷️ برند: <b>" . ($brand['name_fa'] ?? '') . "</b>\n";
+        if ($agencyName !== '') { $lines[] = "🏢 نمایندگی: {$agencyName}\n"; }
+        $lines[] = "─────────────────\n";
+        $lines[] = "📰 مقاله: {$articleTitle}\n";
+        $lines[] = "👤 نویسنده: {$author}\n";
+        $lines[] = "📝 متن: " . $body . "\n";
+        $lines[] = "⏰ " . jdate(date('Y-m-d H:i'), true);
+        $message = implode('', $lines);
+        $plain = trim(strip_tags(str_replace(['<b>', '</b>'], '', $message)));
+
+        /* 📧 ایمیل */
+        $emailCfg = (array)(Config::get(Config::KEY_NOTIFY_EMAIL) ?: []);
+        if (!empty($emailCfg['enabled']) && !empty($emailCfg['to'])) {
+            try {
+                $mailer = new Mailer();
+                $result['email'] = $mailer->send(
+                    $emailCfg['to'],
+                    '💬 دیدگاه جدید — ' . ($brand['name_fa'] ?? ''),
+                    '<div style="font-family:Tahoma;direction:rtl;text-align:right;max-width:640px;margin:auto;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">'
+                    . '<div style="background:#7c3aed;color:#fff;padding:14px 20px;font-weight:bold">💬 دیدگاه جدید در انتظار تأیید — ' . e($brand['name_fa'] ?? '') . '</div>'
+                    . '<div style="padding:18px;font-size:13px;line-height:2">'
+                    . '<p>📰 مقاله: <b>' . e($articleTitle) . '</b></p>'
+                    . '<p>👤 نویسنده: <b>' . e($author) . '</b></p>'
+                    . '<p style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px">' . nl2br(e($body)) . '</p>'
+                    . '<p style="margin-top:14px"><a href="' . e(BASE_URL . '/admin/comments.php?status=pending') . '" style="background:#7c3aed;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">بررسی و تأیید در پنل ←</a></p>'
+                    . '<p style="color:#64748b;font-size:12px">⏰ ' . e(jdate(date('Y-m-d H:i'), true)) . '</p></div></div>'
+                );
+                if (!$result['email']) { $errors[] = 'ایمیل: ' . Mailer::lastError(); }
+            } catch (Throwable $e) { $errors[] = 'ایمیل: ' . $e->getMessage(); }
+        }
+
+        /* 📱 تلگرام */
+        $tgCfg = (array)(Config::get(Config::KEY_NOTIFY_TELEGRAM) ?: []);
+        if (!empty($tgCfg['enabled']) && !empty($tgCfg['bot_token']) && !empty($tgCfg['chat_id'])) {
+            $result['telegram'] = $this->sendMessageGeneric(
+                'https://api.telegram.org/bot' . (string)$tgCfg['bot_token'] . '/sendMessage',
+                ['chat_id' => (string)$tgCfg['chat_id'], 'text' => $message, 'parse_mode' => 'HTML']
+            );
+        }
+
+        /* 💬 بله */
+        $baleCfg = (array)(Config::get(Config::KEY_NOTIFY_BALE) ?: []);
+        if (!empty($baleCfg['enabled']) && !empty($baleCfg['bot_token']) && !empty($baleCfg['chat_id'])) {
+            $result['bale'] = $this->sendMessageGeneric(
+                'https://tapi.bale.ai/bot' . (string)$baleCfg['bot_token'] . '/sendMessage',
+                ['chat_id' => (string)$baleCfg['chat_id'], 'text' => $plain]
+            );
+        }
+
+        $result['errors'] = $errors;
+        return $result;
+    }
+
+    /**
      * 🔢 عدد فارسی
      */
     private static function faNum(int $n): string
