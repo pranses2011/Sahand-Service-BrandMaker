@@ -180,6 +180,159 @@ class RequestCard
     }
 
     /* ═══════════════════════════════════════════════════════════
+     * 🏷️ واترمارک تصاویر درخواست — v2.41 (درخواست کاربر)
+     * ==========================================================
+     * «تصاویر به هر تعدادی که باشند برای همه آنها واترمارک لوگوی
+     *  برند و لوگوی نمایندگی رو بزار که در گوشه های پایین تصویر و با
+     *  زمینه شفاف باشند. بجز واترمارک ها چیز دیگری روی تصاویر نزار.
+     *  طول و عرض تصاویر رو تغییر اندازه نده.»
+     *
+     * ① ابعاد تصویر اصلی هرگز تغییر نمی‌کند (بدون برش/کوچک‌سازی)
+     * ② فقط دو واترمارک در گوشه‌های پایین: برند (چپ) + نمایندگی (راست)
+     * ③ زمینه واترمارک «شفاف» است: کپسول شیشه‌ای با ماتی ~۳۸٪ —
+     *    تصویر کاملاً از پشتش پیدا است (نه چیپ سفید مات قدیمی)
+     * ④ هیچ متن/سایه/نوار دیگری روی تصویر قرار نمی‌گیرد — متن کامل
+     *    درخواست به‌صورت کپشن همان پیام ارسال می‌شود (زیر تصویر)
+     * ⑤ خروجی در همان فرمت ورودی (PNG→PNG / JPEG→JPEG / WebP→WebP)
+     * ═══════════════════════════════════════════════════════════ */
+
+    /**
+     * 🏷️ اعمال واترمارک دو لوگو روی یک تصویر — بدون تغییر ابعاد
+     *
+     * @param string $imgPath        مسیر تصویر (نسبی به ROOT_PATH یا مطلق)
+     * @param array  $brand          برند [logo => مسیر]
+     * @param string $agencyLogoPath مسیر لوگوی نمایندگی
+     * @return string|null مسیر فایل واترمارک‌شده یا null در خطا
+     */
+    public static function watermark(string $imgPath, array $brand, string $agencyLogoPath = ''): ?string
+    {
+        if (!function_exists('imagecreatetruecolor')) {
+            return null;
+        }
+        try {
+            $abs = (strpos($imgPath, '/') === 0) ? $imgPath : ROOT_PATH . '/' . ltrim($imgPath, '/');
+            if (!is_file($abs)) {
+                return null;
+            }
+            $info = @getimagesize($abs);
+            if (!$info || !in_array($info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP], true)) {
+                return null;
+            }
+            $src = self::loadImage($abs);
+            if ($src === null) {
+                return null;
+            }
+            $w = imagesx($src);
+            $h = imagesy($src);
+
+            /* ① بوم خروجی با همان ابعاد — تصویر کامل، بدون هیچ تغییری */
+            $out = imagecreatetruecolor($w, $h);
+            imagealphablending($out, false);
+            imagesavealpha($out, true);
+            $transparent = imagecolorallocatealpha($out, 0, 0, 0, 127);
+            imagefill($out, 0, 0, $transparent);
+            imagealphablending($out, true);
+            imagecopy($out, $src, 0, 0, 0, 0, $w, $h);
+            imagedestroy($src);
+
+            /* ② اندازه واترمارک متناسب با ابعاد واقعی تصویر (۸٪ ارتفاع، سقف ۹۰px) */
+            $wmH = (int)max(26, min(90, round($h * 0.08)));
+            $margin = (int)max(7, round(min($w, $h) * 0.028));
+
+            /* ③ دو گوشه پایین: برند — پایین چپ | نمایندگی — پایین راست */
+            if (!empty($brand['logo'])) {
+                self::stampWatermark($out, (string)$brand['logo'], $margin, $h - $margin, 'left', $wmH);
+            }
+            if ($agencyLogoPath !== '') {
+                self::stampWatermark($out, $agencyLogoPath, $w - $margin, $h - $margin, 'right', $wmH);
+            }
+
+            /* ④ ذخیره در همان فرمت ورودی */
+            $dir = ROOT_PATH . '/uploads/requests/watermarked';
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0755, true);
+            }
+            $ext = $info[2] === IMAGETYPE_PNG ? 'png' : ($info[2] === IMAGETYPE_WEBP ? 'webp' : 'jpg');
+            $outPath = $dir . '/wm_' . uniqid('req_') . '.' . $ext;
+            $ok = false;
+            if ($info[2] === IMAGETYPE_PNG) {
+                $ok = imagepng($out, $outPath, 6);
+            } elseif ($info[2] === IMAGETYPE_WEBP && function_exists('imagewebp')) {
+                $ok = imagewebp($out, $outPath, 90);
+            } else {
+                $ok = imagejpeg($out, $outPath, 92);
+            }
+            imagedestroy($out);
+            return $ok ? $outPath : null;
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * 🏷️ مهر واترمارک — کپسول شیشه‌ای شفاف + لوگو، بدون هیچ پس‌زمینه مات
+     * $anchorX/$anchorY: لنگر گوشه (چپ یا راست، پایین) | $targetH: ارتفاع لوگو
+     */
+    private static function stampWatermark($canvas, string $logoPath, int $anchorX, int $anchorY, string $side, int $targetH): void
+    {
+        $abs = (strpos($logoPath, '/') === 0) ? $logoPath : ROOT_PATH . '/' . ltrim($logoPath, '/');
+        if (!is_file($abs)) {
+            return;
+        }
+        $logo = self::loadImage($abs);
+        if ($logo === null) {
+            return;
+        }
+        $lw = imagesx($logo);
+        $lh = imagesy($logo);
+        /* نسبت لوگو حفظ می‌شود؛ سقف عرض ۳ برابر ارتفاع (لوگوی افقی خیلی کشیده) */
+        $scale = min($targetH / max(1, $lh), ($targetH * 3) / max(1, $lw));
+        $dw = (int)max(12, round($lw * $scale));
+        $dh = (int)max(10, round($lh * $scale));
+        /* کپسول: لوگو + ۳۰٪ آستانه امن دو طرف + ۲۲٪ بالا/پایین */
+        $padX = (int)max(5, round($dw * 0.15));
+        $padY = (int)max(4, round($dh * 0.22));
+        $chipW = min($dw + $padX * 2, 340);
+        $chipH = $dh + $padY * 2;
+        $chipR = (int)max(8, round($chipH / 2));
+
+        /* کپسول شیشه‌ای — زمینه شفاف (ماتی ~۳۸٪): تصویر از پشت پیدا است */
+        $chip = imagecreatetruecolor($chipW, $chipH);
+        imagealphablending($chip, false);
+        imagesavealpha($chip, true);
+        $tr = imagecolorallocatealpha($chip, 0, 0, 0, 127);
+        imagefill($chip, 0, 0, $tr);
+        imagealphablending($chip, true);
+        $glass = imagecolorallocatealpha($chip, 255, 255, 255, 79); /* 127−79 → ~۳۸٪ مات */
+        self::imageRoundedRect($chip, 0, 0, $chipW - 1, $chipH - 1, $chipR, $glass);
+        /* حاشیه خیلی ملایم شیشه */
+        $rim = imagecolorallocatealpha($chip, 255, 255, 255, 96);
+        self::roundedRectOutline($chip, 0, 0, $chipW - 1, $chipH - 1, $chipR, $rim);
+        /* لوگو داخل کپسول (آلفای خودش حفظ می‌شود) */
+        imagecopyresampled($chip, $logo, (int)(($chipW - $dw) / 2), (int)(($chipH - $dh) / 2), 0, 0, $dw, $dh, $lw, $lh);
+        imagedestroy($logo);
+
+        /* جایگذاری — لنگر = گوشه پایین سمت مربوطه */
+        $x = $side === 'left' ? $anchorX : $anchorX - $chipW;
+        $y = $anchorY - $chipH;
+        imagecopyresampled($canvas, $chip, $x, $y, 0, 0, $chipW, $chipH, $chipW, $chipH);
+        imagedestroy($chip);
+    }
+
+    /** مستطیل گرد خط‌دار (outline) — حاشیه کپسول شیشه‌ای */
+    private static function roundedRectOutline($img, int $x1, int $y1, int $x2, int $y2, int $r, $color): void
+    {
+        imagerectangle($img, $x1 + $r, $y1, $x2 - $r, $y1, $color);
+        imagerectangle($img, $x1 + $r, $y2, $x2 - $r, $y2, $color);
+        imagerectangle($img, $x1, $y1 + $r, $x1, $y2 - $r, $color);
+        imagerectangle($img, $x2, $y1 + $r, $x2, $y2 - $r, $color);
+        imagearc($img, $x1 + $r, $y1 + $r, $r * 2, $r * 2, 180, 270, $color);
+        imagearc($img, $x2 - $r, $y1 + $r, $r * 2, $r * 2, 270, 360, $color);
+        imagearc($img, $x1 + $r, $y2 - $r, $r * 2, $r * 2, 90, 180, $color);
+        imagearc($img, $x2 - $r, $y2 - $r, $r * 2, $r * 2, 0, 90, $color);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
      * 🏗 ساخت کارت
      * ═══════════════════════════════════════════════════════════ */
 

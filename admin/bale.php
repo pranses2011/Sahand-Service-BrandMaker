@@ -82,6 +82,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         redirect('bale.php');
     }
+
+    /* 🆕 v2.41 — تنظیمات ارسال درخواست‌ها به بله (notify_bale_settings)
+       ریشه «درخواست‌ها به ربات بله ارسال نمی‌شوند»: این تنظیمات در صفحه
+       «تنظیمات ← بخش ارسال درخواست» پنهان مانده بود و کاربر فقط پنل ربات
+       را پرمی‌کرد. اکنون همین‌جا هم قابل مدیریت + تست است. */
+    if ($action === 'save_notify') {
+        $botToken = trim((string)post('notify_token'));
+        $chatId = trim((string)post('notify_chat'));
+        Config::set(Config::KEY_NOTIFY_BALE, [
+            'enabled'   => !empty($_POST['notify_enabled']) || ($botToken !== '' && $chatId !== ''),
+            'bot_token' => $botToken,
+            'chat_id'   => $chatId,
+        ]);
+        flash('success', '✅ تنظیمات ارسال درخواست‌ها به بله ذخیره شد — درخواست‌های جدید (تصویر واترمارک‌دار + متن کامل) به این چت ارسال می‌شوند.');
+        redirect('bale.php');
+    }
+    if ($action === 'test_notify') {
+        try {
+            $cfg = (array)(Config::get(Config::KEY_NOTIFY_BALE) ?: []);
+            $token = trim((string)post('notify_token')) ?: (string)($cfg['bot_token'] ?? '');
+            $chat = trim((string)post('notify_chat')) ?: (string)($cfg['chat_id'] ?? '');
+            if ($token === '' || $chat === '') {
+                throw new RuntimeException('توکن یا شناسه چت خالی است.');
+            }
+            $testMsg = "📨 تست کانال ارسال درخواست‌ها به بله\n"
+                . "🏷️ برند: آزمایشی\n👤 نام: کاربر آزمایشی\n📞 تماس: ۰۹۱۲۰۰۰۰۰۰۰\n"
+                . "🔧 دستگاه: لباسشویی\n📅 زمان ترجیحی: " . jdate(date('Y-m-d')) . "\n"
+                . "⏰ " . jdate(date('Y-m-d H:i'), true) . "\n✅ اگر این پیام را می‌بینید، ارسال درخواست‌ها به بله به‌درستی کار می‌کند.";
+            $ok = (new NotificationService())->testBaleChannel($token, $chat, $testMsg);
+            flash($ok ? 'success' : 'danger', $ok ? '✅ پیام آزمایشی کانال درخواست‌ها به بله ارسال شد — چت را بررسی کنید.' : '❌ ارسال ناموفق — توکن و شناسه چت را بررسی کنید (مقصد باید حداقل یک‌بار به ربات /start داده باشد).');
+        } catch (Throwable $e) {
+            flash('danger', '❌ خطا: ' . $e->getMessage());
+        }
+        redirect('bale.php');
+    }
 }
 
 $pageTitle = 'ربات بله';
@@ -190,6 +225,49 @@ if (!empty($cfg['bot_token'])) {
     </div>
 </div>
 <?php endif; ?>
+
+<!-- 📨 v2.41 — کانال ارسال درخواست‌ها به بله -->
+<?php $nBale = (array)(Config::get(Config::KEY_NOTIFY_BALE) ?: []); ?>
+<div class="card">
+    <div class="card-header">
+        <h3>📨 ارسال درخواست‌های خدمات به بله</h3>
+        <span class="badge <?= !empty($nBale['enabled']) && !empty($nBale['bot_token']) && !empty($nBale['chat_id']) ? 'badge-success' : 'badge-warning' ?>">
+            <?= !empty($nBale['enabled']) && !empty($nBale['bot_token']) && !empty($nBale['chat_id']) ? '✅ فعال' : 'غیرفعال' ?>
+        </span>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info" style="margin-bottom:14px">
+            📨 با این کانال، <b>درخواست‌های خدمات سایت‌های برند</b> به بله ارسال می‌شوند: هر تصویر پیوست با همان ابعاد اصلی + واترمارک لوگوی برند (پایین چپ) و لوگوی نمایندگی (پایین راست) با زمینه شفاف + متن کامل درخواست به‌صورت کپشن همان پیام + زمان ترجیحی شمسی.
+            <br>💡 اگر توکن و چت را خالی بگذارید، همان توکن ربات بالا و اولین شناسه مجاز آن به‌طور خودکار استفاده می‌شود.
+        </div>
+        <form method="post">
+            <?= Auth::csrfField() ?>
+            <input type="hidden" name="action" value="save_notify">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>🤖 توکن ربات ارسال‌کننده درخواست‌ها</label>
+                    <input type="text" name="notify_token" class="form-control" style="direction:ltr;text-align:left" value="<?= e((string)($nBale['bot_token'] ?? '')) ?>" placeholder="خالی = توکن ربات بالا">
+                </div>
+                <div class="form-group">
+                    <label>💬 شناسه چت مقصد درخواست‌ها</label>
+                    <input type="text" name="notify_chat" class="form-control" style="direction:ltr;text-align:left" value="<?= e((string)($nBale['chat_id'] ?? '')) ?>" placeholder="مثلاً 123456789">
+                    <div class="hint">شناسه چت خودتان یا گروه/کانال مدیریتی — مقصد باید یک‌بار به ربات پیام داده باشد.</div>
+                </div>
+            </div>
+            <label class="form-check" style="margin:8px 0">
+                <input type="checkbox" name="notify_enabled" value="1" <?= !empty($nBale['enabled']) || (!empty($nBale['bot_token']) && !empty($nBale['chat_id'])) ? 'checked' : '' ?>> فعال‌سازی ارسال درخواست‌ها به بله
+            </label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+                <button type="submit" class="btn btn-primary">💾 ذخیره کانال درخواست‌ها</button>
+            </div>
+        </form>
+        <form method="post" style="margin-top:10px">
+            <?= Auth::csrfField() ?>
+            <input type="hidden" name="action" value="test_notify">
+            <button class="btn btn-outline btn-sm">🧪 تست ارسال درخواست آزمایشی</button>
+        </form>
+    </div>
+</div>
 
 <div class="card">
     <div class="card-header"><h3>📖 فرمان‌های پشتیبانی‌شده</h3></div>

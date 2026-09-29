@@ -21,8 +21,17 @@
  *      دستگاه انگلیسی») — اکنون در sendFormEntry هم فارسی می‌شود
  *   ⑦ کارت بدون تصویر مشتری هم ساخته می‌شود (لوگوها در فوتر)
  *
+ * 🆕 v2.41 — بازطراحی کامل منطق ارسال (درخواست کاربر):
+ *   ⑧ «هر تصویر به همان ابعاد اصلی + فقط واترمارک دو لوگو در گوشه‌های
+ *      پایین با زمینه شفاف» → RequestCard::watermark برای همه تصاویر؛
+ *      کارت مرکب (متن روی تصویر) حذف شد — متن کامل = کپشن همان پیام
+ *   ⑨ «زمان ترجیحی شمسی» → preferredFa() در همه پیام‌ها/کارت‌ها/ایمیل
+ *  ⑩ بله: فال‌بک به تنظیمات ربات بله (bale_bot_settings) — ریشه
+ *      «درخواست‌ها به ربات بله ارسال نمی‌شوند": دو کلید تنظیمات جدا
+ *      بودند و فعال‌سازی فقط ربات، کانال ارسال را خالی می‌گذاشت
+ *
  * @package SahandBrandMaker
- * @version 1.4.0
+ * @version 1.5.0
  */
 class NotificationService
 {
@@ -80,6 +89,25 @@ class NotificationService
     }
 
     /**
+     * 🗓️ زمان ترجیحی شمسی — v2.41 (درخواست کاربر)
+     * مقدار میلادی ISO (ذخیره در DB) به شمسی فارسی تبدیل می‌شود؛
+     * مقدار شمسی/متنی از قبل دست‌نخورده نمایش داده می‌شود.
+     */
+    public static function preferredFa(string $date, string $time = ''): string
+    {
+        $date = trim($date);
+        $out = '';
+        if ($date !== '') {
+            if (preg_match('/^\d{4}-\d{2}-\d{2}/', $date)) {
+                $out = jdate(substr($date, 0, 10)); /* 1405/07/15 با ارقام فارسی */
+            } else {
+                $out = $date; /* از قبل شمسی یا متن آزاد */
+            }
+        }
+        return trim($out . ($time !== '' ? ' ' . $time : ''));
+    }
+
+    /**
      * 🚀 ارسال درخواست خدمات به همه کانال‌های فعال
      *
      * @param array $request داده‌های درخواست
@@ -115,22 +143,20 @@ class NotificationService
             }
         }
 
-        /* ═══ 🖼️ کارت تصویری واحد — تصویر + واترمارک + همه فیلدها (v2.31) ═══
-           🆕 v2.32: کارت حتی بدون تصویر مشتری هم ساخته می‌شود تا فرم
-           درخواست بدون عکس هم کارت تک‌پیامی داشته باشد (لوگوها در فوتر) */
-        $cardPath = null;
-        try {
-            if (class_exists('RequestCard')) {
-                $cardPath = RequestCard::render(
-                    $request,
-                    $brand,
-                    $agencyName,
-                    $agencyLogoDisk ?: $agencyLogo,
-                    !empty($requestImages) ? $requestImages[0] : null
-                );
+        /* 🖼️ v2.41 — واترمارک همه تصاویر درخواست (به همان ابعاد اصلی):
+           هر تصویر فقط دو لوگوی گوشه‌های پایین با زمینه شفاف می‌گیرد؛
+           متن کامل درخواست به‌صورت کپشن همان پیام ارسال می‌شود. */
+        $wmImages = [];
+        foreach ($requestImages as $img) {
+            $wm = null;
+            try {
+                if (class_exists('RequestCard')) {
+                    $wm = RequestCard::watermark($img, $brand, $agencyLogoDisk ?: $agencyLogo);
+                }
+            } catch (Throwable $wmE) {
+                Logger::error('واترمارک تصویر ناموفق', ['error' => $wmE->getMessage()]);
             }
-        } catch (Throwable $cardE) {
-            Logger::error('ساخت کارت درخواست ناموفق', ['error' => $cardE->getMessage()]);
+            $wmImages[] = $wm ?? $img; /* فال‌بک: تصویر اصلی بدون واترمارک */
         }
 
         /* 📝 v2.32 — کپشن کامل: همه فیلدهای متنی درخواست (نه خلاصه) —
@@ -145,8 +171,9 @@ class NotificationService
                 $result['email'] = $mailer->sendServiceRequest($emailCfg['to'], $request, $brand, [
                     'agency_name' => $agencyName,
                     'agency_logo' => self::resolveAsset($agencyLogo)[0],
-                    'card_path'   => $cardPath,
-                    'extra_images' => array_slice($requestImages, 1),
+                    /* 🆕 v2.41 — همه تصاویر واترمارک‌دار (به همان ابعاد اصلی) */
+                    'card_path'   => $wmImages[0] ?? null,
+                    'extra_images' => array_slice($wmImages, 1),
                 ]);
                 if (!$result['email']) {
                     $errors[] = 'ایمیل: ارسال ناموفق — ' . Mailer::lastError();
@@ -165,35 +192,30 @@ class NotificationService
         }
 
         /* ---------- 🤖 اعلان به ربات دستیار تلگرام ----------
-           🆕 v2.39 — کارت تصویری + کپشن کامل پاس می‌شود تا تصویر و متن
-           در «یک پیام» باشند و نام دستگاه فارسی بماند */
+           🆕 v2.41 — تصویر اول واترمارک‌دار + کپشن کامل پاس می‌شود تا
+           تصویر و متن در «یک پیام» باشند و نام دستگاه فارسی بماند */
         try {
             if (is_file(ROOT_PATH . '/telegram/TelegramBot.php')) {
                 require_once ROOT_PATH . '/telegram/TelegramBot.php';
-                $result['bot'] = TelegramBot::notifyNewRequest($request, $brand, $cardPath, $caption);
+                $botRequest = $request;
+                $botRequest['images'] = $wmImages;
+                $result['bot'] = TelegramBot::notifyNewRequest($botRequest, $brand, $wmImages[0] ?? null, $caption);
             }
         } catch (Throwable $e) {
             $errors[] = 'ربات تلگرام: ' . $e->getMessage();
         }
 
-        // 📱 تلگرام مستقیم — کارت واحد یا پیام متنی
+        // 📱 تلگرام مستقیم — تصویر اول واترمارک‌دار + کپشن کامل در یک پیام
         if (!empty($tgCfg['enabled']) && !empty($tgCfg['bot_token']) && !empty($tgCfg['chat_id'])) {
             $botToken = (string)$tgCfg['bot_token'];
             $chatId = (string)$tgCfg['chat_id'];
             $tgBase = "https://api.telegram.org/bot{$botToken}";
-            if ($cardPath !== null && is_file($cardPath)) {
-                /* 🖼️ یک پیام واحد: کارت (تصویر + متن داخلش) + کپشن کامل (v2.32) */
-                $result['telegram'] = $this->sendPhotoGeneric($tgBase . '/sendPhoto', $chatId, $cardPath, $caption);
-                /* تصاویر تکمیلی ۲ به بعد — به‌عنوان پیوست بعد از کارت */
-                foreach (array_slice($requestImages, 1) as $ii => $img) {
-                    $this->sendPhotoGeneric($tgBase . '/sendPhoto', $chatId, $img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($requestImages)));
-                }
-            } elseif (!empty($requestImages)) {
-                /* 🛡 v2.32 — تک‌پیام تضمینی بدون GD: کارت ساخته نشد اما تصویر
-                   مشتری هست → تصویر اول + متن کامل در همان sendPhoto (نه جدا!) */
-                $result['telegram'] = $this->sendPhotoGeneric($tgBase . '/sendPhoto', $chatId, $requestImages[0], $caption);
-                foreach (array_slice($requestImages, 1) as $ii => $img) {
-                    $this->sendPhotoGeneric($tgBase . '/sendPhoto', $chatId, $img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($requestImages)));
+            if (!empty($wmImages)) {
+                /* 🖼️ یک پیام واحد: تصویر اول (واترمارک‌دار، ابعاد اصلی) + کپشن کامل */
+                $result['telegram'] = $this->sendPhotoGeneric($tgBase . '/sendPhoto', $chatId, $wmImages[0], $caption);
+                /* تصاویر تکمیلی ۲ به بعد — همه واترمارک‌دار */
+                foreach (array_slice($wmImages, 1) as $ii => $img) {
+                    $this->sendPhotoGeneric($tgBase . '/sendPhoto', $chatId, $img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($wmImages)));
                 }
             } else {
                 /* بدون تصویر → یک پیام متنی کامل */
@@ -239,17 +261,11 @@ class NotificationService
                 }
                 return $this->relayTelegramCall((string)$gsCfg['webapp_url'], (string)$tgCfg['bot_token'], 'sendPhoto', $params, ['photo' => $file]);
             };
-            if ($cardPath !== null && is_file($cardPath)) {
-                /* 🖼️ یک پیام واحد: کارت (تصویر + واترمارک + متن داخلش) + کپشن کامل */
-                $result['gscript'] = $relayPhoto($cardPath, $caption);
-                foreach (array_slice($requestImages, 1) as $ii => $img) {
-                    $relayPhoto($img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($requestImages)));
-                }
-            } elseif (!empty($requestImages)) {
-                /* 🛡 تک‌پیام تضمینی: تصویر اول مشتری + متن کامل در همان پیام */
-                $result['gscript'] = $relayPhoto($requestImages[0], $caption);
-                foreach (array_slice($requestImages, 1) as $ii => $img) {
-                    $relayPhoto($img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($requestImages)));
+            if (!empty($wmImages)) {
+                /* 🖼️ یک پیام واحد: تصویر اول واترمارک‌دار + کپشن کامل */
+                $result['gscript'] = $relayPhoto($wmImages[0], $caption);
+                foreach (array_slice($wmImages, 1) as $ii => $img) {
+                    $relayPhoto($img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($wmImages)));
                 }
             } else {
                 /* بدون تصویر → یک پیام متنی کامل */
@@ -266,24 +282,38 @@ class NotificationService
             }
         }
 
-        /* ---------- 💬 پیام‌رسان بله ---------- */
+        /* ---------- 💬 پیام‌رسان بله ----------
+           🆕 v2.41 — فال‌بک هوشمند: ریشه «درخواست‌ها به ربات بله ارسال
+           نمی‌شوند": کانال ارسال (notify_bale_settings در تنظیمات) و ربات
+           دستیار بله (bale_bot_settings در پنل ربات) دو کلید جدا بودند.
+           اگر کانال خالی بود، توکن ربات بله + اولین شناسه مجاز آن به‌کار
+           می‌رود تا با فقط راه‌اندازی ربات، ارسال درخواست هم فعال شود. */
         $baleCfg = (array)(Config::get(Config::KEY_NOTIFY_BALE) ?: []);
+        if (empty($baleCfg['bot_token']) || empty($baleCfg['chat_id'])) {
+            $baleBot = (array)(Config::get('bale_bot_settings') ?: []);
+            if (!empty($baleBot['bot_token'])) {
+                $baleCfg['bot_token'] = (string)$baleBot['bot_token'];
+                if (empty($baleCfg['chat_id'])) {
+                    $firstAllowed = trim((string)preg_split('/[\s,]+/', (string)($baleBot['allowed_chat_ids'] ?? ''))[0] ?? '');
+                    if ($firstAllowed !== '' && $firstAllowed !== '*') {
+                        $baleCfg['chat_id'] = $firstAllowed;
+                    }
+                }
+                if (empty($baleCfg['enabled']) && !empty($baleBot['enabled'])) {
+                    $baleCfg['enabled'] = true;
+                }
+            }
+        }
         if (!empty($baleCfg['enabled']) && !empty($baleCfg['bot_token']) && !empty($baleCfg['chat_id'])) {
             $baleToken = (string)$baleCfg['bot_token'];
             $baleChat = (string)$baleCfg['chat_id'];
             $baleBase = 'https://tapi.bale.ai/bot' . $baleToken;
             $plainMessage = trim(strip_tags(str_replace(['<b>', '</b>', '\n'], ['', '', "\n"], $message)));
-            if ($cardPath !== null && is_file($cardPath)) {
-                /* 🖼️ یک پیام واحد (v2.31) + کپشن کامل (v2.32) */
-                $result['bale'] = $this->sendPhotoGeneric($baleBase . '/sendPhoto', $baleChat, $cardPath, $caption);
-                foreach (array_slice($requestImages, 1) as $ii => $img) {
-                    $this->sendPhotoGeneric($baleBase . '/sendPhoto', $baleChat, $img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($requestImages)));
-                }
-            } elseif (!empty($requestImages)) {
-                /* 🛡 v2.32 — تک‌پیام تضمینی بدون GD (تصویر اول + متن کامل) */
-                $result['bale'] = $this->sendPhotoGeneric($baleBase . '/sendPhoto', $baleChat, $requestImages[0], $caption);
-                foreach (array_slice($requestImages, 1) as $ii => $img) {
-                    $this->sendPhotoGeneric($baleBase . '/sendPhoto', $baleChat, $img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($requestImages)));
+            if (!empty($wmImages)) {
+                /* 🖼️ یک پیام واحد: تصویر اول واترمارک‌دار + کپشن کامل */
+                $result['bale'] = $this->sendPhotoGeneric($baleBase . '/sendPhoto', $baleChat, $wmImages[0], $caption);
+                foreach (array_slice($wmImages, 1) as $ii => $img) {
+                    $this->sendPhotoGeneric($baleBase . '/sendPhoto', $baleChat, $img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($wmImages)));
                 }
             } else {
                 $result['bale'] = $this->sendMessageGeneric($baleBase . '/sendMessage', [
@@ -302,12 +332,12 @@ class NotificationService
             'brand'    => $brand['name_fa'] ?? '',
             'channels' => implode(',', array_keys($channels)) ?: 'هیچ کانالی فعال نیست',
             'images'   => count($requestImages),
-            'card'     => $cardPath !== null ? basename($cardPath) : 'بدون کارت',
+            'watermarked' => count(array_filter($wmImages, static fn($p) => strpos((string)$p, '/watermarked/') !== false)),
             'device'   => $deviceNameFa,
         ]);
 
         $result['errors'] = $errors;
-        $result['card'] = $cardPath;
+        $result['card'] = $wmImages[0] ?? null; /* سازگاری با فراخوان‌های قدیمی */
         return $result;
     }
 
@@ -342,6 +372,11 @@ class NotificationService
             $deviceFa = self::deviceNameFa((int)($brand['id'] ?? 0), (string)($fields['device_type'] ?? ''), (string)($fields['device_other'] ?? ''));
             $fields['device_name'] = $deviceFa;
         }
+        /* 🗓️ v2.41 — تاریخ ترجیحی شمسی در همه پیام‌های فرم */
+        if (!empty($fields['preferred_date'])) {
+            $fields['preferred_date'] = self::preferredFa((string)$fields['preferred_date'], (string)($fields['preferred_time'] ?? ''));
+            unset($fields['preferred_time']); /* ادغام با تاریخ */
+        }
 
         /* برچسب‌های فارسی فیلدها */
         $labels = [
@@ -370,33 +405,35 @@ class NotificationService
         $plainCaption = trim(strip_tags(str_replace(['<b>', '</b>'], '', $message)));
         $plainCaption = mb_substr($plainCaption, 0, 900);
 
-        /* تصاویر پیوست (فرم درخواست از قالب‌ساز) — کارت تصویری واحد
-           🆕 v2.32: کارت برای فرم درخواست حتی «بدون تصویر» هم ساخته می‌شود
-           (متن کامل + لوگوها در فوتر) تا تصویر و متن در یک پیام باشد */
+        /* 🖼️ v2.41 — واترمارک همه تصاویر فرم (به همان ابعاد اصلی، زمینه شفاف) */
         $cardPath = null;
         $images = array_values(array_filter(array_map('strval', (array)($fields['images'] ?? []))));
         $isRequestForm = in_array((string)($fields['form_block'] ?? ''), ['request-form', 'hero-form'], true);
-        if (class_exists('RequestCard') && ($images || $isRequestForm)) {
-            try {
-                $requestForCard = $fields;
-                if ($deviceFa !== '') { $requestForCard['device_name'] = $deviceFa; }
-                $agencyLogoDisk = '';
-                $agencyLogoCfg = (string)(Config::get(Config::KEY_AGENCY_LOGO) ?: '');
-                if ($agencyLogoCfg !== '' && strpos($agencyLogoCfg, 'http') !== 0) {
-                    $disk = ROOT_PATH . '/' . ltrim($agencyLogoCfg, '/');
-                    $agencyLogoDisk = is_file($disk) ? $disk : '';
-                }
-                $cardPath = RequestCard::render(
-                    $requestForCard,
-                    $brand,
-                    $agencyName,
-                    $agencyLogoDisk ?: $agencyLogoCfg,
-                    !empty($images) ? $images[0] : null
-                );
-            } catch (Throwable $cE) {
-                Logger::error('ساخت کارت فرم ناموفق', ['error' => $cE->getMessage()]);
-                $cardPath = null;
+        if ($images) {
+            $agencyLogoCfg = (string)(Config::get(Config::KEY_AGENCY_LOGO) ?: '');
+            $agencyLogoDisk = '';
+            if ($agencyLogoCfg !== '' && strpos($agencyLogoCfg, 'http') !== 0) {
+                $disk = ROOT_PATH . '/' . ltrim($agencyLogoCfg, '/');
+                $agencyLogoDisk = is_file($disk) ? $disk : '';
             }
+            $wmImages = [];
+            foreach ($images as $img) {
+                $wm = null;
+                try {
+                    if (class_exists('RequestCard')) {
+                        $wm = RequestCard::watermark($img, $brand, $agencyLogoDisk ?: $agencyLogoCfg);
+                    }
+                } catch (Throwable $wmE) {
+                    Logger::error('واترمارک تصویر فرم ناموفق', ['error' => $wmE->getMessage()]);
+                }
+                $wmImages[] = $wm ?? $img;
+            }
+            $images = $wmImages;
+            $cardPath = $wmImages[0]; /* تصویر اول واترمارک‌دار — پیام اصلی */
+            $fields['images'] = $wmImages;
+        } elseif ($isRequestForm) {
+            /* بدون تصویر — پیام متنی کامل ارسال می‌شود (متن روی تصویر نیست) */
+            $cardPath = null;
         }
         $caption = $plainCaption;
 
@@ -412,12 +449,13 @@ class NotificationService
                         $lb = $labels[$k] ?? $k;
                         $rowsHtml .= '<tr><td style="padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;font-weight:bold;width:140px">' . e($lb) . '</td><td style="padding:8px 12px;border:1px solid #e2e8f0">' . nl2br(e((string)$v)) . '</td></tr>';
                     }
-                    /* 🖼️ v2.32 — کارت تصویری در ایمیل فرم‌ها هم embedded */
+                    /* 🖼️ v2.41 — تصاویر واترمارک‌دار در ایمیل فرم‌ها (embedded با MIME درست) */
                     $cardHtml = '';
                     if ($cardPath !== null && is_file($cardPath)) {
                         $cardData = @file_get_contents($cardPath);
                         if ($cardData !== false && strlen($cardData) > 500) {
-                            $cardHtml = '<p style="margin:0 0 14px"><img src="data:image/jpeg;base64,' . base64_encode($cardData) . '" alt="کارت فرم" style="width:100%;max-width:900px;border-radius:12px;border:1px solid #e2e8f0"></p>';
+                            $mime = preg_match('/\.png$/i', $cardPath) ? 'image/png' : (preg_match('/\.webp$/i', $cardPath) ? 'image/webp' : 'image/jpeg');
+                            $cardHtml = '<p style="margin:0 0 14px"><img src="data:' . $mime . ';base64,' . base64_encode($cardData) . '" alt="تصویر پیوست فرم" style="width:100%;max-width:900px;border-radius:12px;border:1px solid #e2e8f0"></p>';
                         }
                     }
                     $result['email'] = $mailer->send(
@@ -460,9 +498,24 @@ class NotificationService
             }
         }
 
-        /* 💬 بله — 🛡 v2.32: تک‌پیام تضمینی */
+        /* 💬 بله — 🛡 v2.41: تک‌پیام تضمینی + فال‌بک به تنظیمات ربات بله */
         if (in_array('bale', $dests, true)) {
             $baleCfg = (array)(Config::get(Config::KEY_NOTIFY_BALE) ?: []);
+            if (empty($baleCfg['bot_token']) || empty($baleCfg['chat_id'])) {
+                $baleBot = (array)(Config::get('bale_bot_settings') ?: []);
+                if (!empty($baleBot['bot_token'])) {
+                    $baleCfg['bot_token'] = (string)$baleBot['bot_token'];
+                    if (empty($baleCfg['chat_id'])) {
+                        $firstAllowed = trim((string)preg_split('/[\s,]+/', (string)($baleBot['allowed_chat_ids'] ?? ''))[0] ?? '');
+                        if ($firstAllowed !== '' && $firstAllowed !== '*') {
+                            $baleCfg['chat_id'] = $firstAllowed;
+                        }
+                    }
+                    if (empty($baleCfg['enabled']) && !empty($baleBot['enabled'])) {
+                        $baleCfg['enabled'] = true;
+                    }
+                }
+            }
             if (!empty($baleCfg['enabled']) && !empty($baleCfg['bot_token']) && !empty($baleCfg['chat_id'])) {
                 $base = 'https://tapi.bale.ai/bot' . (string)$baleCfg['bot_token'];
                 if ($cardPath !== null && is_file($cardPath)) {
@@ -586,7 +639,8 @@ class NotificationService
             '📍 آدرس'        => trim((string)($request['address'] ?? '')),
             '🔧 دستگاه'      => trim($device . (!empty($request['device_model']) ? ' — مدل: ' . $request['device_model'] : '')),
             '📝 شرح ایراد'   => trim((string)($request['description'] ?? '')),
-            '📅 زمان ترجیحی' => trim(($request['preferred_date'] ?? '') . ' ' . ($request['preferred_time'] ?? '')),
+            /* 🗓️ v2.41 — زمان ترجیحی شمسی (درخواست کاربر) */
+            '📅 زمان ترجیحی' => self::preferredFa((string)($request['preferred_date'] ?? ''), (string)($request['preferred_time'] ?? '')),
         ];
         $text = "📨 درخواست خدمات جدید\n";
         $text .= "🏷️ برند: " . ($brand['name_fa'] ?? '') . "\n";
@@ -613,7 +667,8 @@ class NotificationService
             '🔧 دستگاه'       => ($request['device_name'] ?? self::deviceNameFa((int)($brand['id'] ?? 0), (string)($request['device_key'] ?? ''), (string)($request['device_other'] ?? '')))
                 . (!empty($request['device_model']) ? ' — مدل: ' . $request['device_model'] : ''),
             '📝 شرح ایراد'    => $request['description'] ?? '-',
-            '📅 زمان ترجیحی'  => trim(($request['preferred_date'] ?? '') . ' ' . ($request['preferred_time'] ?? '')) ?: '-',
+            /* 🗓️ v2.41 — زمان ترجیحی شمسی (درخواست کاربر) */
+            '📅 زمان ترجیحی'  => self::preferredFa((string)($request['preferred_date'] ?? ''), (string)($request['preferred_time'] ?? '')) ?: '-',
         ];
         $text = "📨 <b>درخواست خدمات جدید</b>\n\n";
         $text .= "🏷️ برند: <b>" . ($brand['name_fa'] ?? '') . "</b> (" . ($brand['name_en'] ?? '') . ")\n";
@@ -768,6 +823,17 @@ class NotificationService
         }
         $data = json_decode((string)$response, true);
         return is_array($data) && !empty($data['ok']);
+    }
+
+    /**
+     * 🧪 تست کانال بله — v2.41 (پنل ربات بله ← بخش ارسال درخواست‌ها)
+     */
+    public function testBaleChannel(string $token, string $chatId, string $message): bool
+    {
+        return $this->sendMessageGeneric('https://tapi.bale.ai/bot' . $token . '/sendMessage', [
+            'chat_id' => $chatId,
+            'text'    => $message,
+        ]);
     }
 
     /**

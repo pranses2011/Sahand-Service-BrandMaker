@@ -135,7 +135,8 @@ class Mailer
             'نوع دستگاه'         => $request['device_name'] ?? ($request['device_type'] ?? '-'),
             'مدل دستگاه'         => $request['device_model'] ?? '-',
             'شرح ایراد'          => nl2br(htmlspecialchars($request['description'] ?? '-')),
-            'زمان مراجعه ترجیحی' => ($request['preferred_date'] ?? '') . ' ' . ($request['preferred_time'] ?? ''),
+            /* 🗓️ v2.41 — زمان ترجیحی شمسی (درخواست کاربر) */
+            'زمان مراجعه ترجیحی' => NotificationService::preferredFa((string)($request['preferred_date'] ?? ''), (string)($request['preferred_time'] ?? '')),
         ];
         $rowsHtml = '';
         foreach ($rows as $label => $value) {
@@ -148,13 +149,14 @@ class Mailer
                 . '</tr>';
         }
 
-        /* 🖼️ v2.31 — کارت تصویری واحد (تصویر + واترمارک + فیلدها) در بالای ایمیل */
+        /* 🖼️ v2.41 — تصویر اول واترمارک‌دار (ابعاد اصلی) در بالای ایمیل */
         $cardHtml = '';
         if (!empty($agency['card_path']) && is_file($agency['card_path'])) {
             $cardData = @file_get_contents($agency['card_path']);
             if ($cardData !== false && strlen($cardData) > 500) {
                 $cardB64 = base64_encode($cardData);
-                $cardHtml = '<p style="margin:0 0 14px"><img src="data:image/jpeg;base64,' . $cardB64 . '" alt="کارت درخواست" style="width:100%;max-width:900px;border-radius:12px;border:1px solid #e2e8f0"></p>';
+                $mime = preg_match('/\.png$/i', (string)$agency['card_path']) ? 'image/png' : (preg_match('/\.webp$/i', (string)$agency['card_path']) ? 'image/webp' : 'image/jpeg');
+                $cardHtml = '<p style="margin:0 0 14px"><img src="data:' . $mime . ';base64,' . $cardB64 . '" alt="تصویر درخواست" style="width:100%;max-width:900px;border-radius:12px;border:1px solid #e2e8f0"></p>';
             }
         }
 
