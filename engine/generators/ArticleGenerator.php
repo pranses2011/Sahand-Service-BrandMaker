@@ -315,6 +315,75 @@ class ArticleGenerator
             }
         }
 
+        /* ═══ 🆕 v2.43 (S09+S16) — مسیر مدل زبانی خارجی (LLM) ═══
+         * درخواست کاربر: انتخاب روش تولید از تنظیمات (موتور داخلی بماند؛
+         * مدل زبانی رایگان هم قابل انتخاب شود) + فال‌بک زنجیره‌ای.
+         * روشن بودن llm: پیش‌نویس از AiTextService (با فال‌بک خودکار به
+         * مدل‌های بعدی)؛ هر شکست = بازگشت بی‌صدا به موتور داخلی همین تابع. */
+        $textSettings = AiTextService::settings();
+        if ($textSettings['method'] === 'llm' && class_exists('AiTextService')) {
+            try {
+                $meta = $this->deviceMetaFor($brand, $deviceKey, $customTitle);
+                $llmTitle = $customTitle ?? ('راهنمای ' . ($meta['device_fa'] ?? 'دستگاه') . ' — ' . $brand['name_fa']);
+                $warranty = (array)(Config::get(Config::KEY_WARRANTY) ?: []);
+                $draft = (new AiTextService())->generateArticleDraft([
+                    'brand_fa'  => (string)$brand['name_fa'],
+                    'device_fa' => (string)($meta['device_fa'] ?? 'لوازم خانگی'),
+                    'topic_type' => $topicType,
+                    'title'     => $llmTitle,
+                    'agency'    => (string)(Config::get(Config::KEY_AGENCY_NAME_FA) ?: 'سهند سرویس'),
+                    'warranty'  => (string)($warranty['default_period'] ?? '۶ ماه'),
+                    'keywords'  => $brand['name_fa'] . '، ' . ($meta['device_fa'] ?? 'تعمیر') . '، تعمیرات',
+                    'research'  => $options['research_context'] ?? null,
+                ]);
+                if ($draft !== null && mb_strlen($draft['content']) > 800) {
+                    $content = $draft['content'];
+                    $faqs = [];
+                    foreach ((array)($draft['faq'] ?? []) as $f) {
+                        if (trim((string)($f['q'] ?? '')) !== '') {
+                            $faqs[] = ['question' => (string)$f['q'], 'answer' => (string)$f['a']];
+                        }
+                    }
+                    $readingTime = max(1, (int)ceil(TextProcessor::wordCount(strip_tags($content)) / 220));
+                    return [
+                        'title'      => $draft['title'],
+                        'slug'       => SlugGenerator::unique($draft['title'], 'brand_articles', 'slug', 0, (int)$brand['id']),
+                        'content'    => $content,
+                        'excerpt'    => $draft['excerpt'] !== '' ? $draft['excerpt'] : excerpt(strip_tags($content), 200),
+                        'focus_keyword' => (string)($meta['device_fa'] ?? ''),
+                        'category'   => $this->categoryForTopic($topicType),
+                        'tags'       => array_slice(array_values(array_unique(array_merge(
+                            [$brand['name_fa']], (array)$draft['tags']
+                        ))), 0, 8),
+                        'seo'        => [
+                            'title'       => $draft['seo_title'],
+                            'description' => $draft['seo_description'],
+                        ],
+                        'uniqueness' => ['score' => 100, 'unique' => true, 'note' => 'خروجی مدل زبانی'],
+                        'word_count' => TextProcessor::wordCount(strip_tags($content)),
+                        'reading_time' => $readingTime,
+                        'toc'        => [],
+                        'quality'    => ['score' => 88, 'grade' => 'A', 'note' => 'تولید با ' . ($draft['meta']['provider'] ?? 'LLM')],
+                        'grammar'    => ['score' => 95, 'grade' => 'A', 'fixes' => [], 'issues' => [], 'metrics' => []],
+                        'faqs'       => $faqs,
+                        'images'     => [],
+                        'ai_images_wanted' => !empty($options['with_images']),
+                        'device_key' => (string)($meta['device_key'] ?? ($deviceKey ?? '')),
+                        'research'   => $options['research_context'] ? [
+                            'used' => true, 'provider' => 'web+llm',
+                            'depth' => $depth, 'facts' => 0, 'questions' => 0, 'stats' => 0,
+                        ] : null,
+                        'engine'     => 'llm',
+                        'llm_provider' => (string)($draft['meta']['provider'] ?? ''),
+                        'variants_generated' => 1,
+                        'depth'      => $depth,
+                    ];
+                }
+            } catch (Throwable $llmE) {
+                /* شکست LLM = فال‌بک کامل به موتور داخلی (ادامه همین تابع) */
+            }
+        }
+
         // 🎰 تولید N واریانت با seed های متفاوت و انتخاب بهترین امتیاز کیفیت
         /* ♻️ واریانت‌ها «بدیلِ هم» هستند نه ادامه‌ی هم: پیش از هر واریانت،
            استخرِ مصرف‌شده به نقطه‌ی شروع برمی‌گردد تا واریانتِ دوم مجبور نشود

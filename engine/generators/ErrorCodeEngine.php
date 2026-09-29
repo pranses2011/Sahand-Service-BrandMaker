@@ -202,6 +202,48 @@ class ErrorCodeEngine
             return true;
         };
 
+                /* ═══ 🆕 v2.43 (S09+S16) — مسیر LLM خطایاب ═══
+         * درخواست کاربر: خطایاب هم از مدل‌های زبانی رایگان استفاده کند
+         * (با انتخاب روش در تنظیمات + فال‌بک زنجیره‌ای به مدل‌های بعدی
+         * و در نهایت بازگشت به همین موتور داخلی/جستجوی وب). */
+        $textSettings = class_exists('AiTextService') ? AiTextService::settings() : ['method' => 'internal'];
+        if ($textSettings['method'] === 'llm') {
+            try {
+                $existingCodes = $this->db->fetchAll(
+                    'SELECT UPPER(code) AS c FROM error_codes WHERE brand_id = ? AND device_key = ?',
+                    [$brandId, $deviceKey]
+                );
+                $llmCodes = (new AiTextService())->generateErrorCodes([
+                    'brand_fa'      => (string)$brand['name_fa'],
+                    'device_fa'     => $deviceFa,
+                    'existing_codes' => array_map(static fn($r) => (string)$r['c'], (array)$existingCodes),
+                ]);
+                if (is_array($llmCodes) && count($llmCodes) >= 3) {
+                    $inserted = 0;
+                    $skipped = 0;
+                    foreach ($llmCodes as $rec) {
+                        $ok = $insertOne($rec);
+                        $ok ? $inserted++ : $skipped++;
+                    }
+                    $provider = '';
+                    foreach ($llmCodes as $rec) {
+                        if (!empty($rec['source']) && strpos((string)$rec['source'], 'llm:') === 0) {
+                            $provider = substr((string)$rec['source'], 4);
+                            break;
+                        }
+                    }
+                    return [
+                        'inserted' => $inserted,
+                        'skipped'  => $skipped,
+                        'sources'  => ['LLM:' . ($provider ?: 'زنجیره فال‌بک')],
+                        'report'   => sprintf('تولید با مدل زبانی (%s) — %d کد جدید، %d تکراری', $provider !== '' ? $provider : 'فال‌بک زنجیره‌ای', $inserted, $skipped),
+                    ];
+                }
+            } catch (Throwable $llmE) {
+                /* شکست LLM → ادامه با موتور داخلی و جستجوی وب */
+            }
+        }
+
         $this->progress(4, 'بررسی برند و دستگاه', $brand['name_fa'] . ' — ' . $deviceFa . ($useWeb ? ' — جستجوی آنلاین ' . $depthLabel . ' فعال' : ' — جستجوی آنلاین غیرفعال'));
 
         /* ---------- ۱) جستجوی آنلاین — تنها منبع ثبت کد ---------- */

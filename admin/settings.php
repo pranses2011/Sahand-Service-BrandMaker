@@ -219,6 +219,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         'timeout' => max(20, min(120, (int)clean_input($_POST['photo_timeout'] ?? 45))),
     ]);
 
+    /* 🤖 v2.43 (S09+S16) — سرویس مدل زبانی رایگان (تولید مقاله + خطایاب) */
+    $textMethod = clean_input($_POST['ai_text_method'] ?? 'internal');
+    if (!in_array($textMethod, ['internal', 'llm'], true)) { $textMethod = 'internal'; }
+    $textProvider = clean_input($_POST['ai_text_provider'] ?? 'pollinations');
+    if (!array_key_exists($textProvider, AiTextService::PROVIDERS)) { $textProvider = 'pollinations'; }
+    $textKeys = [];
+    foreach (array_keys(AiTextService::PROVIDERS) as $pKey) {
+        $savedKey = trim((string)($_POST['ai_text_key_' . $pKey] ?? ''));
+        if ($savedKey !== '') { $textKeys[$pKey] = $savedKey; }
+    }
+    Config::set('article_text_settings', [
+        'method'   => $textMethod,
+        'provider' => $textProvider,
+        'model'    => clean_input($_POST['ai_text_model'] ?? ''),
+        'keys'     => $textKeys,
+        'fallback' => !empty($_POST['ai_text_fallback']),
+        'timeout'  => max(15, min(180, (int)clean_input($_POST['ai_text_timeout'] ?? 45))),
+        'cloudflare_account_id' => clean_input($_POST['ai_cf_account_id'] ?? ''),
+    ]);
+
     Logger::activity((int)$_SESSION['user_id'], 'بروزرسانی تنظیمات', 'تنظیمات عمومی سایت ساز ذخیره شد');
     flash('success', '✅ تنظیمات با موفقیت ذخیره شد.');
     redirect('settings.php');
@@ -236,6 +256,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'test_
         $keyOverride = isset($_POST['key']) ? trim((string)$_POST['key']) : null; /* مقدار فرم — بدون ذخیره */
         if (function_exists('set_time_limit')) { @set_time_limit(90); }
         $health = (new AiPhotoService())->healthCheck($svc, $keyOverride);
+        json_response(['success' => true, 'data' => $health]);
+    } catch (Throwable $e) {
+        json_response(['success' => false, 'error' => $e->getMessage()], 400);
+    }
+}
+
+/* 🧪 v2.43 (S09) — تست ارائه‌دهنده مدل زبانی (AJAX) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'test_ai_text') {
+    Auth::enforceCsrf();
+    header('Content-Type: application/json; charset=utf-8');
+    try {
+        $p = clean_input($_POST['provider'] ?? '');
+        if (!array_key_exists($p, AiTextService::PROVIDERS)) {
+            json_response(['success' => false, 'error' => 'ارائه‌دهنده ناشناخته است.'], 400);
+        }
+        $keyOverride = isset($_POST['key']) ? trim((string)$_POST['key']) : null;
+        if (function_exists('set_time_limit')) { @set_time_limit(120); }
+        $health = (new AiTextService())->healthCheck($p, $keyOverride);
         json_response(['success' => true, 'data' => $health]);
     } catch (Throwable $e) {
         json_response(['success' => false, 'error' => $e->getMessage()], 400);
@@ -285,6 +323,11 @@ foreach (($fontsManifest['fonts']['fa'] ?? []) as $uiF) {
 /* 🖼️ v2.15: سرویس‌های تولید تصویر مقاله برای تب تنظیمات */
 $photoSettings = AiPhotoService::settings();
 $photoServices = AiPhotoService::servicesList();
+
+/* 🤖 v2.43 (S09+S16): ارائه‌دهنده‌های مدل زبانی برای تب هوش مصنوعی */
+$aiTextSettings = AiTextService::settings();
+$aiTextProviders = AiTextService::providersList();
+$aiTextChain = (new AiTextService())->fallbackChain();
 ?>
 
 <form method="post" enctype="multipart/form-data">
@@ -303,6 +346,7 @@ $photoServices = AiPhotoService::servicesList();
             <button type="button" class="stab-btn" data-tab="links">🔗 لینک‌دهی</button>
             <button type="button" class="stab-btn" data-tab="uifonts">🔤 فونت محیط</button>
             <button type="button" class="stab-btn" data-tab="photosvc">🖼️ تولید تصویر</button>
+            <button type="button" class="stab-btn" data-tab="aitext">🤖 هوش مصنوعی</button>
         </div>
         <div class="stab-actions">
             <button type="submit" class="btn btn-primary">💾 ذخیره همه تنظیمات</button>
@@ -769,6 +813,88 @@ $photoServices = AiPhotoService::servicesList();
         </div>
     </div>
 
+    <!-- 🤖 v2.43 (S09+S16) — تب هوش مصنوعی: مدل زبانی رایگان با فال‌بک زنجیره‌ای -->
+    <div id="pane-aitext" class="stab-pane">
+        <div class="card">
+            <div class="card-header">
+                <h3>🤖 موتور هوش مصنوعی متن — تولید مقاله و خطایاب</h3>
+                <span class="badge badge-info"><?= en_to_fa_digits((string)count($aiTextProviders)) ?> ارائه‌دهنده</span>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info" style="font-size:12.5px">
+                    <b>دو روش تولید:</b> «موتور داخلی» (همیشه موجود، بدون اینترنت) یا «مدل زبانی رایگان» (کیفیت بالاتر).
+                    <b>🔄 فال‌بک زنجیره‌ای:</b> اگر مدل انتخابی جواب ندهد، به‌ترتیب بقیه مدل‌های بدون‌کلید و مدل‌های دارای کلید امتحان می‌شوند تا یکی جواب دهد؛ در نهایت موتور داخلی همیشه پشتیبان است — هیچ تولیدی هرگز بی‌نتیجه نمی‌ماند.
+                </div>
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label>🚀 روش تولید مقاله و کدهای خطا</label>
+                        <select name="ai_text_method" id="ai-text-method" class="form-control">
+                            <option value="internal" <?= $aiTextSettings['method'] === 'internal' ? 'selected' : '' ?>>🔧 موتور داخلی (پیش‌فرض — بدون نیاز به اینترنت)</option>
+                            <option value="llm" <?= $aiTextSettings['method'] === 'llm' ? 'selected' : '' ?>>🤖 مدل زبانی خارجی + فال‌بک به موتور داخلی</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>🌐 ارائه‌دهنده مدل زبانی</label>
+                        <select name="ai_text_provider" id="ai-text-provider" class="form-control" onchange="toggleAiKeyFields()">
+                            <?php $pList = []; foreach ($aiTextProviders as $pr): $pList[$pr['key']] = $pr; endforeach; ?>
+                            <?php foreach ($pList as $pk => $pr): ?>
+                                <option value="<?= e($pk) ?>" <?= $aiTextSettings['provider'] === $pk ? 'selected' : '' ?>>
+                                    <?= e($pr['label']) ?><?= $pr['needs_key'] ? (!empty($aiTextSettings['keys'][$pk]) ? ' — کلید ثبت شده ✔' : ' — نیازمند کلید') : ' — بدون کلید 🆓' ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label>🏷 نام مدل (اختیاری — خالی = پیش‌فرض ارائه‌دهنده)</label>
+                        <input type="text" name="ai_text_model" class="form-control" style="direction:ltr;text-align:left" value="<?= e($aiTextSettings['model']) ?>" placeholder="مثلاً llama-3.3-70b-versatile">
+                    </div>
+                    <div class="form-group">
+                        <label>⏱ مهلت هر درخواست (ثانیه — ۱۵ تا ۱۸۰)</label>
+                        <input type="number" name="ai_text_timeout" class="form-control" min="15" max="180" value="<?= (int)$aiTextSettings['timeout'] ?>">
+                    </div>
+                </div>
+                <label class="form-check" style="margin:10px 0">
+                    <input type="checkbox" name="ai_text_fallback" <?= !empty($aiTextSettings['fallback']) ? 'checked' : '' ?>>
+                    🔄 فال‌بک زنجیره‌ای — در شکست هر مدل، مدل‌های بعدی خودکار امتحان شوند
+                </label>
+
+                <?php foreach ($pList as $pk => $pr): if (!$pr['needs_key']) { continue; } ?>
+                    <div class="form-group ai-text-key-field" data-provider="<?= e($pk) ?>" style="display:none">
+                        <label>🔑 کلید API «<?= e($pr['label']) ?>»</label>
+                        <input type="text" name="ai_text_key_<?= e($pk) ?>" class="form-control" style="direction:ltr;text-align:left" value="<?= e((string)($aiTextSettings['keys'][$pk] ?? '')) ?>" placeholder="<?= e($pr['hint']) ?>">
+                        <div class="hint" style="margin-top:6px"><?= e($pr['hint']) ?> — مدل پیش‌فرض: <code dir="ltr"><?= e($pr['model']) ?></code></div>
+                    </div>
+                <?php endforeach; ?>
+                <div class="form-group ai-text-key-field" data-provider="cloudflare" style="display:none">
+                    <label>🆔 Account ID کلادفلر (برای ارائه‌دهنده Cloudflare لازم است)</label>
+                    <input type="text" name="ai_cf_account_id" class="form-control" style="direction:ltr;text-align:left" value="<?= e((string)($aiTextSettings['cloudflare_account_id'] ?? '')) ?>" placeholder="32 کاراکتر از داشبورد کلادفلر">
+                </div>
+
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px">
+                    <button type="button" id="btn-test-ai-text" class="btn btn-success">🧪 تست ارائه‌دهنده انتخابی</button>
+                    <span id="ai-text-test-result" style="font-size:12.5px"></span>
+                </div>
+
+                <div style="margin-top:14px;padding:11px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px">
+                    <b style="font-size:12.5px">🔗 زنجیره فال‌بک فعلی (به‌ترتیب تلاش):</b>
+                    <div style="margin-top:7px;font-size:12px;line-height:2.1">
+                        <?php foreach ($aiTextChain as $ci => $cp): ?>
+                            <span class="badge <?= $cp === $aiTextSettings['provider'] ? 'badge-success' : 'badge-secondary' ?>" style="margin-inline-end:5px;font-size:11px">
+                                <?= (int)($ci + 1) ?>. <?= e($pList[$cp]['label'] ?? $cp) ?><?= $cp === $aiTextSettings['provider'] ? ' (انتخابی)' : '' ?>
+                            </span>
+                        <?php endforeach; ?>
+                        <span class="badge badge-info" style="font-size:11px">آخر: 🔧 موتور داخلی (تضمینی)</span>
+                    </div>
+                </div>
+                <div class="hint" style="margin-top:12px">
+                    💡 پولینیشنز بدون کلید و همیشه در زنجیره حاضر است؛ Z.ai (GLM) با کلید رایگان console.z.ai بهترین کیفیت فارسی را دارد. کلید هر ارائه‌دهنده فقط وقتی خالی نباشد در زنجیره قرار می‌گیرد.
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div style="text-align:center;padding:8px 0 20px">
         <button type="submit" class="btn btn-primary btn-lg">💾 ذخیره همه تنظیمات</button>
     </div>
@@ -929,3 +1055,54 @@ function sahandTestEmail(btn) {
 }
 </script>
 <?php require __DIR__ . '/includes/footer.php'; ?>
+
+<script>
+/* 🤖 v2.43 (S09+S16) — تب هوش مصنوعی: نمایش کلید ارائه‌دهنده انتخابی + تست زنده */
+(function () {
+    'use strict';
+    function toggleAiKeyFields() {
+        var sel = document.getElementById('ai-text-provider');
+        if (!sel) { return; }
+        var p = sel.value;
+        document.querySelectorAll('.ai-text-key-field').forEach(function (el) {
+            el.style.display = (el.getAttribute('data-provider') === p) ? '' : 'none';
+        });
+    }
+    window.toggleAiKeyFields = toggleAiKeyFields;
+    toggleAiKeyFields();
+
+    var btn = document.getElementById('btn-test-ai-text');
+    if (!btn) { return; }
+    btn.addEventListener('click', function () {
+        var sel = document.getElementById('ai-text-provider');
+        var p = sel ? sel.value : '';
+        var keyField = document.querySelector('.ai-text-key-field[data-provider="' + p + '"] input');
+        var key = keyField ? keyField.value.trim() : '';
+        var csrf = document.querySelector('input[name="csrf_token"]');
+        var out = document.getElementById('ai-text-test-result');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> در حال تست...';
+        out.textContent = '';
+        var fd = new FormData();
+        fd.append('action', 'test_ai_text');
+        fd.append('provider', p);
+        if (key !== '') { fd.append('key', key); }
+        if (csrf) { fd.append('csrf_token', csrf.value); }
+        fetch('settings.php', { method: 'POST', body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                btn.disabled = false;
+                btn.innerHTML = '🧪 تست ارائه‌دهنده انتخابی';
+                var d = j && j.data ? j.data : { ok: false, message: j && j.error ? j.error : 'خطای نامشخص' };
+                out.textContent = d.message || (d.ok ? '✅ موفق' : '❌ ناموفق');
+                out.style.color = d.ok ? '#059669' : '#dc2626';
+            })
+            .catch(function () {
+                btn.disabled = false;
+                btn.innerHTML = '🧪 تست ارائه‌دهنده انتخابی';
+                out.textContent = '❌ خطای ارتباط — دوباره تلاش کنید';
+                out.style.color = '#dc2626';
+            });
+    });
+})();
+</script>
