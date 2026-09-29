@@ -164,11 +164,13 @@ class NotificationService
             [$logoUrl] = self::resolveAsset((string)$brand['logo']);
         }
 
-        /* ---------- 🤖 اعلان به ربات دستیار تلگرام ---------- */
+        /* ---------- 🤖 اعلان به ربات دستیار تلگرام ----------
+           🆕 v2.39 — کارت تصویری + کپشن کامل پاس می‌شود تا تصویر و متن
+           در «یک پیام» باشند و نام دستگاه فارسی بماند */
         try {
             if (is_file(ROOT_PATH . '/telegram/TelegramBot.php')) {
                 require_once ROOT_PATH . '/telegram/TelegramBot.php';
-                $result['bot'] = TelegramBot::notifyNewRequest($request, $brand);
+                $result['bot'] = TelegramBot::notifyNewRequest($request, $brand, $cardPath, $caption);
             }
         } catch (Throwable $e) {
             $errors[] = 'ربات تلگرام: ' . $e->getMessage();
@@ -206,23 +208,61 @@ class NotificationService
             }
         }
 
-        // 🔄 واسط Google Apps Script
+        // 🔄 واسط Google Apps Script — 🩺 v2.39: بازنویسی کامل!
+        // ریشه: این مسیر قبلاً پیام متنی + عکس‌ها را «جداگانه» و با فرمت
+        // قدیمی (message/photo_urls) می‌فرستاد که اسکریپت گوگل v3 آن را
+        // نمی‌فهمید → «unknown payload» و پیام‌های جدا. اکنون همان فرمت
+        // استاندارد واسط (method/token/params/files_b64) با یک sendPhoto
+        // ترکیبی (کارت + کپشن کامل) ارسال می‌شود — مثل تلگرام مستقیم.
         $gsCfg = (array)(Config::get(Config::KEY_NOTIFY_GSCRIPT) ?: []);
         if (!empty($gsCfg['enabled']) && !empty($gsCfg['webapp_url']) && !empty($tgCfg['bot_token']) && !empty($tgCfg['chat_id'])) {
-            $result['gscript'] = $this->sendViaGoogleScript($gsCfg['webapp_url'], [
-                'bot_token'  => $tgCfg['bot_token'],
-                'chat_id'    => $tgCfg['chat_id'],
-                'message'    => $message,
-                'photo_url'  => $logoUrl ?: self::resolveAsset($agencyLogo)[0],
-                'photo_urls' => array_values(array_filter(array_merge(
-                    $logoUrl ? [$logoUrl] : [],
-                    self::resolveAsset($agencyLogo)[0] ? [self::resolveAsset($agencyLogo)[0]] : [],
-                    array_map(static fn($i) => self::resolveAsset($i)[0], $requestImages)
-                ))),
-                'caption'    => '🏷️ ' . ($brand['name_fa'] ?? '') . ($agencyName ? ' | 🏢 ' . $agencyName : ''),
-            ]);
+            $relayFiles = static function (string $imgPath): array {
+                /* فایل محلی → [b64, نام] | URL → رد می‌شود (به‌صورت پارامتر می‌رود) */
+                [, $disk] = self::resolveAsset($imgPath);
+                if ($disk !== '' && is_file($disk) && (int)filesize($disk) > 0 && (int)filesize($disk) < 6 * 1024 * 1024) {
+                    $data = @file_get_contents($disk);
+                    if ($data !== false && $data !== '') {
+                        return ['b64' => base64_encode($data), 'name' => basename($disk)];
+                    }
+                }
+                return [];
+            };
+            $relayPhoto = function (string $photoPath, string $photoCaption) use ($gsCfg, $tgCfg, $relayFiles): bool {
+                $params = ['chat_id' => (string)$tgCfg['chat_id'], 'caption' => mb_substr($photoCaption, 0, 900)];
+                $file = $relayFiles($photoPath);
+                if ($file === []) {
+                    /* URL عمومی → پارامتر photo (سرورهای گوگل دانلود می‌کنند) */
+                    [$absUrl] = self::resolveAsset($photoPath);
+                    if ($absUrl === '') { return false; }
+                    $params['photo'] = $absUrl;
+                    return $this->relayTelegramCall((string)$gsCfg['webapp_url'], (string)$tgCfg['bot_token'], 'sendPhoto', $params, []);
+                }
+                return $this->relayTelegramCall((string)$gsCfg['webapp_url'], (string)$tgCfg['bot_token'], 'sendPhoto', $params, ['photo' => $file]);
+            };
+            if ($cardPath !== null && is_file($cardPath)) {
+                /* 🖼️ یک پیام واحد: کارت (تصویر + واترمارک + متن داخلش) + کپشن کامل */
+                $result['gscript'] = $relayPhoto($cardPath, $caption);
+                foreach (array_slice($requestImages, 1) as $ii => $img) {
+                    $relayPhoto($img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($requestImages)));
+                }
+            } elseif (!empty($requestImages)) {
+                /* 🛡 تک‌پیام تضمینی: تصویر اول مشتری + متن کامل در همان پیام */
+                $result['gscript'] = $relayPhoto($requestImages[0], $caption);
+                foreach (array_slice($requestImages, 1) as $ii => $img) {
+                    $relayPhoto($img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($requestImages)));
+                }
+            } else {
+                /* بدون تصویر → یک پیام متنی کامل */
+                $result['gscript'] = $this->relayTelegramCall(
+                    (string)$gsCfg['webapp_url'],
+                    (string)$tgCfg['bot_token'],
+                    'sendMessage',
+                    ['chat_id' => (string)$tgCfg['chat_id'], 'text' => $message],
+                    []
+                );
+            }
             if (!$result['gscript']) {
-                $errors[] = 'واسط گوگل: ناموفق';
+                $errors[] = 'واسط گوگل: ناموفق (اسکریپت گوگل را با نسخه جدید پنل → تلگرام، دوباره Deploy کنید)';
             }
         }
 
@@ -645,12 +685,38 @@ class NotificationService
     }
 
     /**
-     * 🔄 ارسال از طریق واسط Google Apps Script
+     * 🌉 فراخوانی تلگرام از طریق واسط Google Apps Script (v2.39)
+     * ==========================================================
+     * همان فرمت استاندارد اسکریپت واسط v3 (مثل TelegramBot::apiViaRelay):
+     *   {secret, method, token, params, files_b64?, files_name?, files_mime?}
+     * فایل‌ها به‌صورت base64 از سرورهای گوگل عبور می‌کنند و به Blob
+     * تبدیل و multipart به تلگرام ارسال می‌شوند — یعنی «کارت تصویری
+     * واحد + کپشن کامل» حتی در زمان تحریم هم تک‌پیامی می‌ماند.
+     *
+     * @param string $webAppUrl آدرس /exec اسکریپت گوگل
+     * @param string $botToken  توکن ربات تلگرام
+     * @param string $method    متد Bot API (sendMessage/sendPhoto/…)
+     * @param array  $params    پارامترهای متد (بدون chat_id فایل)
+     * @param array  $files     ['photo' => ['b64'=>…, 'name'=>…]] فایل‌های base64
      */
-    private function sendViaGoogleScript(string $webAppUrl, array $payload): bool
+    private function relayTelegramCall(string $webAppUrl, string $botToken, string $method, array $params, array $files = []): bool
     {
         if (!function_exists('curl_init')) {
             return false;
+        }
+        /* 🔐 راز مشترک از تنظیمات ربات تلگرام (جای استاندارد آن) */
+        $tgBotCfg = (array)(Config::get('telegram_bot_settings') ?: []);
+        $payload = [
+            'secret' => (string)($tgBotCfg['relay_secret'] ?? ''),
+            'method' => $method,
+            'token'  => $botToken,
+            'params' => $params,
+        ];
+        foreach ($files as $field => $f) {
+            if (!is_array($f) || empty($f['b64'])) { continue; }
+            $payload['files_b64'][$field]  = $f['b64'];
+            $payload['files_name'][$field] = $f['name'] ?? ($field . '.jpg');
+            $payload['files_mime'][$field] = 'image/jpeg';
         }
         $ch = curl_init($webAppUrl);
         curl_setopt_array($ch, [
@@ -658,17 +724,25 @@ class NotificationService
             CURLOPT_POSTFIELDS     => json_encode($payload, JSON_UNESCAPED_UNICODE),
             CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 20,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT        => 70,
             CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_SSL_VERIFYPEER => true,
         ]);
         $response = curl_exec($ch);
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr  = curl_error($ch);
         curl_close($ch);
         if ($response === false || $httpCode !== 200) {
+            Logger::warning('واسط گوگل ناموفق', ['method' => $method, 'http' => $httpCode, 'curl' => $curlErr]);
             return false;
         }
         $data = json_decode((string)$response, true);
-        return is_array($data) && !empty($data['success']);
+        if (is_array($data) && !empty($data['relay_error'])) {
+            Logger::warning('خطای اسکریپت گوگل', ['error' => (string)$data['relay_error']]);
+            return false;
+        }
+        return is_array($data) && !empty($data['ok']);
     }
 
     /**

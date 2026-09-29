@@ -80,6 +80,12 @@ class TelegramBot
         return $this->apiDirect($method, $params);
     }
 
+    /** 🔢 عدد فارسی (v2.39 — کپشن تصاویر تکمیلی) */
+    private static function faN(int $n): string
+    {
+        return strtr((string)$n, ['0' => '۰', '1' => '۱', '2' => '۲', '3' => '۳', '4' => '۴', '5' => '۵', '6' => '۶', '7' => '۷', '8' => '۸', '9' => '۹']);
+    }
+
     /**
      * 🔢 نرمال‌سازی نتیجه Bot API — تلگرام برای برخی متدها
      * (sendChatAction، setWebhook، answerCallbackQuery و ...) به‌جای آبجکت،
@@ -489,6 +495,56 @@ class TelegramBot
             return $base . '/uploads/temp/' . $name;
         } catch (Throwable $e) {
             return null;
+        }
+    }
+
+    /**
+     * 🖼️ ارسال یک عکس با کپشن (v2.39 — پیام ترکیبی واحد درخواست)
+     * استراتژی دو مرحله‌ای:
+     *   ۱) URL عمومی (اگر فایل زیر ROOT_PATH است) → فقط JSON از واسط عبور می‌کند
+     *   ۲) آپلود multipart (base64 از واسط گوگل یا مستقیم)
+     *
+     * @param mixed  $chatId  شناسه چت
+     * @param string $absPath مسیر مطلق فایل تصویر روی دیسک
+     * @param string $caption کپشن کامل (تا ۹۰۰ کاراکتر)
+     * @return int شناسه پیام یا ۰ در صورت شکست
+     */
+    public function sendPhotoFile($chatId, string $absPath, string $caption = ''): int
+    {
+        $absPath = trim($absPath);
+        if ($absPath === '' || !is_file($absPath)) {
+            return 0;
+        }
+        $params = ['chat_id' => $chatId, 'caption' => mb_substr($caption, 0, 900)];
+
+        /* --- مسیر ۱: URL عمومی — سازگار با هر نسخه واسط --- */
+        $publicUrl = null;
+        $base = rtrim((string)BASE_URL, '/');
+        $realRoot = rtrim(str_replace('\\', '/', ROOT_PATH), '/');
+        $realFile = str_replace('\\', '/', (realpath($absPath) ?: $absPath));
+        if ($base !== '' && $realRoot !== '' && strpos($realFile, $realRoot) === 0
+            && !preg_match('#(localhost|127\.0\.0\.1|/var/www/html)$#', $base)) {
+            $publicUrl = $base . '/' . ltrim(substr($realFile, strlen($realRoot)), '/');
+        }
+        if ($publicUrl === null) {
+            $publicUrl = $this->stageTempFile(basename($absPath), (string)@file_get_contents($absPath));
+        }
+        if ($publicUrl !== null) {
+            try {
+                $msg = $this->api('sendPhoto', $params + ['photo' => $publicUrl]);
+                return (int)($msg['message_id'] ?? 0);
+            } catch (Throwable $e) {
+                @error_log('[TelegramBot] URL photo failed → multipart: ' . $e->getMessage());
+            }
+        }
+
+        /* --- مسیر ۲: آپلود multipart (مستقیم یا base64 از واسط) --- */
+        try {
+            $msg = $this->apiUpload('sendPhoto', $params, ['photo' => new CURLFile($absPath, 'image/jpeg', basename($absPath))]);
+            return (int)($msg['message_id'] ?? 0);
+        } catch (Throwable $e) {
+            @error_log('[TelegramBot] photo upload failed: ' . $e->getMessage());
+            return 0;
         }
     }
 
@@ -1872,10 +1928,20 @@ class TelegramBot
      * ================================================== */
 
     /**
-     * 📨 ارسال اعلان درخواست خدمات جدید به چت‌های مجاز
-     * (در صورت فعال بودن notify_new_request)
+     * 📨 اعلان درخواست جدید به چت‌های مجاز ربات دستیار
+     * 🆕 v2.39 — طبق درخواست کاربر:
+     *   ① «تصویر و متن در قالب یک پیام» → کارت تصویری واحد (اگر موجود)
+     *      با کپشنِ کامل همه فیلدها؛ در نبود کارت، تصویر اول مشتری + متن.
+     *      دیگر آلبوم و متن «جداگانه» ارسال نمی‌شوند.
+     *   ② «نام دستگاه انگلیسی» → device_key خام نمی‌رود؛ نام فارسی از
+     *      device_name (تنظیم‌شده در NotificationService) یا brand_devices.
+     *
+     * @param array      $request داده‌های درخواست
+     * @param array      $brand   اطلاعات برند
+     * @param string|null $cardPath مسیر کارت تصویری واحد (اختیاری)
+     * @param string     $fullCaption کپشن کامل همه فیلدها (اختیاری — متن ساده)
      */
-    public static function notifyNewRequest(array $request, array $brand): bool
+    public static function notifyNewRequest(array $request, array $brand, ?string $cardPath = null, string $fullCaption = ''): bool
     {
         $cfg = (array)(Config::get('telegram_bot_settings') ?: []);
         if (empty($cfg['enabled']) || empty($cfg['notify_new_request']) || empty($cfg['bot_token'])) {
@@ -1883,14 +1949,25 @@ class TelegramBot
         }
         try {
             $bot = new self((string)$cfg['bot_token'], $cfg);
-            /* 🚨 v2.30 — فیلدهای صحیح: اندپوینت درخواست full_name/device_key
-               می‌فرستد؛ خواندن name/device قدیمی باعث پیام خالی می‌شد! */
             $name = (string)($request['full_name'] ?? $request['name'] ?? '');
             $phone = (string)($request['phone'] ?? '');
-            $device = (string)($request['device_key'] ?? $request['device'] ?? '');
+            /* 🩺 v2.39 — نام دستگاه «فارسی»: device_name (هسته) با fallback
+               به دیکشنری/جدول برند — device_key خام انگلیسی هرگز نشان داده نمی‌شود */
+            $device = trim((string)($request['device_name'] ?? ''));
+            if ($device === '') {
+                $device = trim((string)($request['device_other'] ?? ''));
+            }
+            if ($device === '' && class_exists('NotificationService')) {
+                try {
+                    $device = NotificationService::deviceNameFa(
+                        (int)($brand['id'] ?? 0),
+                        (string)($request['device_key'] ?? (string)($request['device_type'] ?? '')),
+                        (string)($request['device_other'] ?? '')
+                    );
+                } catch (Throwable $dE) { $device = ''; }
+            }
             $desc = mb_substr((string)($request['description'] ?? ''), 0, 300);
             $brandName = (string)($brand['name_fa'] ?? '');
-            /* 🏢 v2.30 — نام نمایندگی هم در پیام ربات */
             $agencyName = (string)(Config::get(Config::KEY_AGENCY_NAME_FA) ?: '');
             $text = "📨 <b>درخواست خدمات جدید</b>\n\n" .
                 "🏷️ برند: " . htmlspecialchars($brandName) . "\n" .
@@ -1898,27 +1975,51 @@ class TelegramBot
                 "👤 نام: " . htmlspecialchars($name) . "\n" .
                 "📞 تلفن: <code>" . htmlspecialchars($phone) . "</code>\n" .
                 ($device !== '' ? "🔧 دستگاه: " . htmlspecialchars($device) . "\n" : '') .
+                (!empty($request['device_model']) ? "📋 مدل: " . htmlspecialchars((string)$request['device_model']) . "\n" : '') .
                 ($desc !== '' ? "📝 توضیحات: " . htmlspecialchars($desc) . "\n" : '');
-            /* 🖼️ v2.30 — تصاویر پیوست درخواست به‌صورت آلبوم ارسال می‌شوند */
-            $albumItems = [];
+            /* کپشن ترکیبی = متن کامل ساده (اگر از سرویس اعلان آمده) وگرنه متن ربات */
+            $caption = $fullCaption !== '' ? $fullCaption : trim(strip_tags(str_replace(['<b>', '</b>', '<code>', '</code>'], '', $text)));
+
+            /* تصاویر پیوست (۲ به بعد — تصویر اول داخل کارت است) */
+            $extraImages = [];
             if (!empty($request['images']) && is_array($request['images'])) {
-                foreach (array_slice($request['images'], 0, 3) as $img) {
-                    $p = (string)$img;
-                    $abs = (strpos($p, 'http') === 0) ? '' : ROOT_PATH . '/' . ltrim($p, '/');
-                    if ($abs !== '' && is_file($abs)) {
-                        $albumItems[] = ['path' => $abs, 'caption' => '🖼️ تصویر پیوست درخواست'];
-                    }
+                $all = array_values($request['images']);
+                $startIdx = ($cardPath !== null && is_file($cardPath)) ? 1 : 0;
+                foreach (array_slice($all, $startIdx, 3) as $img) {
+                    $p = trim((string)$img);
+                    if ($p === '') { continue; }
+                    $abs = (strpos($p, 'http') === 0) ? $p : ROOT_PATH . '/' . ltrim($p, '/');
+                    $extraImages[] = $abs;
                 }
             }
+
             $sent = false;
             foreach (array_filter(array_map('trim', explode(',', (string)($cfg['allowed_chat_ids'] ?? '')))) as $chatId) {
                 if ($chatId === '*' || $chatId === '') { continue; }
                 try {
-                    if ($albumItems) {
-                        $bot->sendImageAlbum($chatId, $albumItems);
+                    $msgId = 0;
+                    if ($cardPath !== null && is_file($cardPath)) {
+                        /* 🖼️ یک پیام واحد: کارت (تصویر+واترمارک+متن داخلش) + کپشن کامل */
+                        $msgId = $bot->sendPhotoFile($chatId, $cardPath, $caption);
                     }
-                    $bot->sendMessage($chatId, $text, ['disable_preview' => true]);
-                    $sent = true;
+                    if ($msgId === 0 && !empty($extraImages) && is_file((string)$extraImages[0])) {
+                        /* 🛡 تک‌پیام تضمینی: تصویر اول مشتری + متن کامل در همان sendPhoto */
+                        $msgId = $bot->sendPhotoFile($chatId, (string)$extraImages[0], $caption);
+                        $extraImages = array_slice($extraImages, 1);
+                    }
+                    if ($msgId > 0) {
+                        $sent = true;
+                        /* تصاویر تکمیلی بعد از پیام ترکیبی */
+                        foreach ($extraImages as $ii => $ei) {
+                            if (strpos($ei, 'http') === 0 || is_file($ei)) {
+                                $bot->sendPhotoFile($chatId, $ei, '🖼️ تصویر پیوست ' . self::faN($ii + 2));
+                            }
+                        }
+                    } else {
+                        /* بدون تصویر → یک پیام متنی کامل */
+                        $bot->sendMessage($chatId, $text, ['disable_preview' => true]);
+                        $sent = true;
+                    }
                 } catch (Exception $e) {
                     @error_log('[TelegramBot] notify to ' . $chatId . ' failed: ' . $e->getMessage());
                 }
