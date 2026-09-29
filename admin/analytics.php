@@ -522,8 +522,95 @@ $trackerHealthy = $trackerTotal > 0;
 $trackerBoxStyle = $trackerHealthy
     ? 'background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46'
     : 'background:#fffbeb;border:1px solid #fde68a;color:#92400e';
+
+/* ═══ 📥 v2.38 — خروجی CSV (اکسل-سازگار) ═══
+   🚨 ریشه‌یابی: دکمه «خروجی CSV» در فرم فیلتر وجود داشت اما هیچ هندلری
+   برای export=csv نوشته نشده بود — کلیک فقط صفحه را رفرش می‌کرد!
+   اکنون: گزارش کاملِ همین فیلتر (بازه/برند) در یک CSV چندبخشی با BOM
+   (باز شدن مستقیم در اکسل فارسی) دانلود می‌شود. */
+if (get_param('export') === 'csv') {
+    (new Auth())->requireLogin();
+    $csv = [];
+    $csv[] = ['گزارش آمار بازدید — سایت‌ساز برند سهند سرویس'];
+    $csv[] = ['تاریخ تولید', jdate('Y/m/d H:i')];
+    $csv[] = ['بازه', ($dateFrom !== '' ? $dateFrom : 'ابتدا') . ' تا ' . ($dateTo !== '' ? $dateTo : 'امروز')];
+    $csv[] = ['برند', $brandFilter > 0 ? (string)($db->fetchValue('SELECT name_fa FROM brands WHERE id = ?', [$brandFilter]) ?: $brandFilter) : 'همه برندها'];
+    $csv[] = ['بازدیدکننده یکتا', (string)$totalUnique];
+    $csv[] = ['بازدید کل صفحات', (string)$totalViews];
+    $csv[] = ['میانگین مدت حضور (ثانیه)', (string)$avgDuration];
+    $csv[] = ['نرخ پرش (٪)', (string)$bounceRate];
+    $csv[] = [];
+
+    $csv[] = ['■ بازدید روزانه'];
+    $csv[] = ['تاریخ', 'بازدیدکننده یکتا', 'بازدید صفحات'];
+    foreach ((array)$timeline as $t) {
+        $csv[] = [(string)$t['visit_date'], (string)$t['unique_visits'], (string)$t['views']];
+    }
+    $csv[] = [];
+
+    $csv[] = ['■ تفکیک دستگاه'];
+    $csv[] = ['دستگاه', 'بازدیدکننده یکتا'];
+    foreach ((array)$byDevice as $d) {
+        $csv[] = [(string)($deviceFa[$d['device_type']] ?? $d['device_type']), (string)$d['c']];
+    }
+    $csv[] = [];
+
+    $csv[] = ['■ مرورگرها'];
+    $csv[] = ['مرورگر', 'بازدیدکننده یکتا'];
+    foreach ((array)$byBrowser as $b) {
+        $csv[] = [(string)$b['browser'], (string)$b['c']];
+    }
+    $csv[] = [];
+
+    $csv[] = ['■ سیستم‌عامل‌ها'];
+    $csv[] = ['سیستم‌عامل', 'بازدیدکننده یکتا'];
+    foreach ((array)$byOs as $o) {
+        $csv[] = [(string)$o['os'], (string)$o['c']];
+    }
+    $csv[] = [];
+
+    $csv[] = ['■ پراکندگی شهرها'];
+    $csv[] = ['شهر', 'بازدیدکننده یکتا'];
+    foreach ($citiesDist as $city => $c) {
+        $csv[] = [(string)$city, (string)$c];
+    }
+    $csv[] = [];
+
+    $csv[] = ['■ صفحات پربازدید'];
+    $csv[] = ['صفحه', 'بازدید', 'میانگین زمان (ثانیه)'];
+    foreach ((array)$topPages as $p) {
+        $csv[] = [(string)$p['page_url'], (string)$p['views'], (string)round((float)$p['avg_duration'])];
+    }
+    $csv[] = [];
+
+    $csv[] = ['■ سهم برندها'];
+    $csv[] = ['برند', 'بازدیدکننده یکتا'];
+    foreach ((array)$brandShare as $bs) {
+        $csv[] = [(string)($bs['name_fa'] ?? ''), (string)($bs['visits'] ?? '')];
+    }
+
+    /* 📤 خروجی — BOM برای اکسل + escape استاندارد */
+    $filename = 'analytics-' . date('Y-m-d-Hi') . '.csv';
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-store');
+    $out = fopen('php://output', 'w');
+    fwrite($out, "\xEF\xBB\xBF"); /* 🔤 BOM — نمایش درست فارسی در Excel */
+    foreach ($csv as $row) {
+        fputcsv($out, $row, ',', '"', '\\');
+    }
+    fclose($out);
+    exit;
+}
 ?>
 <form method="get" class="card" style="padding:13px 18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+    <!-- 🗓️ v2.38 — چیپ‌های بازه سریع -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap" dir="rtl">
+        <?php foreach (['1' => 'امروز', '7' => '۷ روز', '30' => '۳۰ روز', '90' => '۳ ماه'] as $qp => $ql): ?>
+            <a href="?<?= $brandFilter ? 'brand=' . $brandFilter . '&amp;' : '' ?>period=<?= $qp ?>" class="an-period-chip <?= $period === $qp ? 'active' : '' ?>"><?= $ql ?></a>
+        <?php endforeach; ?>
+        <a href="?<?= $brandFilter ? 'brand=' . $brandFilter . '&amp;' : '' ?>period=all" class="an-period-chip <?= $period === 'all' ? 'active' : '' ?>">همه</a>
+    </div>
     <select name="brand" class="form-control" style="max-width:180px">
         <option value="">🏷️ همه برندها</option>
         <?php foreach ($brands as $brand): ?>
@@ -531,7 +618,7 @@ $trackerBoxStyle = $trackerHealthy
         <?php endforeach; ?>
     </select>
     <select name="period" class="form-control" style="max-width:140px" onchange="if(this.value!=='custom')this.form.submit()">
-        <?php foreach (['7' => '۷ روز', '30' => '۳۰ روز', '90' => '۳ ماه', '365' => '۱ سال', 'all' => 'همه', 'custom' => 'بازه دلخواه'] as $p => $label): ?>
+        <?php foreach (['1' => 'امروز', '7' => '۷ روز', '30' => '۳۰ روز', '90' => '۳ ماه', '365' => '۱ سال', 'all' => 'همه', 'custom' => 'بازه دلخواه'] as $p => $label): ?>
             <option value="<?= $p ?>" <?= $period === $p ? 'selected' : '' ?>><?= $label ?></option>
         <?php endforeach; ?>
     </select>
@@ -541,8 +628,15 @@ $trackerBoxStyle = $trackerHealthy
     <?php endif; ?>
     <button type="submit" class="btn btn-primary">📊 اعمال</button>
     <a href="analytics-report.php?brand=<?= $brandFilter ?>&amp;period=<?= e($period) ?>&amp;from=<?= e($dateFrom) ?>&amp;to=<?= e($dateTo) ?>" target="_blank" class="btn btn-outline" title="نمای چاپی گزارش / ذخیره PDF">🖨️ گزارش PDF</a>
-    <a href="?<?= $brandFilter ? 'brand=' . $brandFilter . '&' : '' ?>export=csv" class="btn btn-outline" style="margin-inline-start:auto">📥 خروجی CSV</a>
+    <a href="?<?= $brandFilter ? 'brand=' . $brandFilter . '&' : '' ?>period=<?= e($period) ?>&<?= $dateFrom !== '' ? 'from=' . e($dateFrom) . '&' : '' ?><?= $dateTo !== '' ? 'to=' . e($dateTo) . '&' : '' ?>export=csv" class="btn btn-outline" style="margin-inline-start:auto" title="دانلود گزارش همین فیلتر در قالب CSV (باز شدن مستقیم در اکسل)">📥 خروجی CSV</a>
 </form>
+
+<style>
+/* 🗓️ v2.38 — چیپ‌های بازه سریع آمار */
+.an-period-chip{font-size:11.5px;font-weight:700;padding:5px 13px;border-radius:18px;border:1px solid var(--border);color:var(--text-light,#64748b);background:var(--card,#fff);text-decoration:none;transition:.14s;display:inline-block}
+.an-period-chip:hover{border-color:#93c5fd;color:#2563eb}
+.an-period-chip.active{background:linear-gradient(90deg,#2563eb,#0ea5e9);color:#fff;border-color:transparent;box-shadow:0 3px 9px rgba(37,99,235,.3)}
+</style>
 
 <!-- 🩺 v2.26 — وضعیت زنده ردیاب بازدید -->
 <div class="card" style="padding:11px 16px;margin-bottom:18px;<?= $trackerBoxStyle ?>">
