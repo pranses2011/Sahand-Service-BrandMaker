@@ -287,20 +287,40 @@ class NotificationService
            نمی‌شوند": کانال ارسال (notify_bale_settings در تنظیمات) و ربات
            دستیار بله (bale_bot_settings در پنل ربات) دو کلید جدا بودند.
            اگر کانال خالی بود، توکن ربات بله + اولین شناسه مجاز آن به‌کار
-           می‌رود تا با فقط راه‌اندازی ربات، ارسال درخواست هم فعال شود. */
+           می‌رود تا با فقط راه‌اندازی ربات، ارسال درخواست هم فعال شود.
+           🆕 v2.43 (S06) — فال‌بک دو مرحله‌ای شد:
+           ① notify_bale_settings کامل نبود → ارث‌بری کامل از ربات بله
+              (توکن + اولین چت مجاز؛ حتی اگر ربات «enabled» صریح نباشد —
+              کاربرِ «تست بله می‌رسد ولی درخواست نه» فقط ربات را پرمی‌کرد)
+           ② بازهم چت مقصد نبود → getUpdates ربات برای کشف اولین
+              گفتگوی فعال (/start خورده) — یک‌بار کش و در تنظیمات ثبت */
         $baleCfg = (array)(Config::get(Config::KEY_NOTIFY_BALE) ?: []);
         if (empty($baleCfg['bot_token']) || empty($baleCfg['chat_id'])) {
             $baleBot = (array)(Config::get('bale_bot_settings') ?: []);
             if (!empty($baleBot['bot_token'])) {
                 $baleCfg['bot_token'] = (string)$baleBot['bot_token'];
                 if (empty($baleCfg['chat_id'])) {
-                    $firstAllowed = trim((string)preg_split('/[\s,]+/', (string)($baleBot['allowed_chat_ids'] ?? ''))[0] ?? '');
+                    $firstAllowed = trim((string)(preg_split('/[\s,]+/', (string)($baleBot['allowed_chat_ids'] ?? ''))[0] ?? ''));
                     if ($firstAllowed !== '' && $firstAllowed !== '*') {
                         $baleCfg['chat_id'] = $firstAllowed;
                     }
                 }
-                if (empty($baleCfg['enabled']) && !empty($baleBot['enabled'])) {
+                /* 🆕 v2.43 — کاربر فقط ربات را راه‌اندازی کرده (enabled صریح نزده)
+                   ولی «تست» موفق بوده → ارسال درخواست هم باید کار کند */
+                if (empty($baleCfg['enabled'])) {
                     $baleCfg['enabled'] = true;
+                }
+                /* 🔍 هنوز چت مقصد نیست؟ — از گفتگوهای فعال ربات کشف کن */
+                if (empty($baleCfg['chat_id'])) {
+                    $baleCfg['chat_id'] = $this->discoverBaleChatId((string)$baleBot['bot_token']);
+                }
+                /* 💾 کشف موفق → ذخیره تا دفعه بعد شبکه نزند */
+                if (!empty($baleCfg['chat_id'])) {
+                    Config::set(Config::KEY_NOTIFY_BALE, [
+                        'enabled'   => true,
+                        'bot_token' => (string)$baleCfg['bot_token'],
+                        'chat_id'   => (string)$baleCfg['chat_id'],
+                    ]);
                 }
             }
         }
@@ -498,7 +518,8 @@ class NotificationService
             }
         }
 
-        /* 💬 بله — 🛡 v2.41: تک‌پیام تضمینی + فال‌بک به تنظیمات ربات بله */
+        /* 💬 بله — 🛡 v2.41: تک‌پیام تضمینی + فال‌بک به تنظیمات ربات بله
+           🆕 v2.43 (S06): فال‌بک تقویت‌شده — enabled خودکار + کشف چت از getUpdates */
         if (in_array('bale', $dests, true)) {
             $baleCfg = (array)(Config::get(Config::KEY_NOTIFY_BALE) ?: []);
             if (empty($baleCfg['bot_token']) || empty($baleCfg['chat_id'])) {
@@ -506,13 +527,23 @@ class NotificationService
                 if (!empty($baleBot['bot_token'])) {
                     $baleCfg['bot_token'] = (string)$baleBot['bot_token'];
                     if (empty($baleCfg['chat_id'])) {
-                        $firstAllowed = trim((string)preg_split('/[\s,]+/', (string)($baleBot['allowed_chat_ids'] ?? ''))[0] ?? '');
+                        $firstAllowed = trim((string)(preg_split('/[\s,]+/', (string)($baleBot['allowed_chat_ids'] ?? ''))[0] ?? ''));
                         if ($firstAllowed !== '' && $firstAllowed !== '*') {
                             $baleCfg['chat_id'] = $firstAllowed;
                         }
                     }
-                    if (empty($baleCfg['enabled']) && !empty($baleBot['enabled'])) {
+                    if (empty($baleCfg['enabled'])) {
                         $baleCfg['enabled'] = true;
+                    }
+                    if (empty($baleCfg['chat_id'])) {
+                        $baleCfg['chat_id'] = $this->discoverBaleChatId((string)$baleBot['bot_token']);
+                    }
+                    if (!empty($baleCfg['chat_id'])) {
+                        Config::set(Config::KEY_NOTIFY_BALE, [
+                            'enabled'   => true,
+                            'bot_token' => (string)$baleCfg['bot_token'],
+                            'chat_id'   => (string)$baleCfg['chat_id'],
+                        ]);
                     }
                 }
             }
@@ -702,6 +733,51 @@ class NotificationService
      *      ایرانی کم بود → ۱۲۰ ثانیه (همتر کد کارکردی BaleBot::apiUpload)
      *   ③ پاسخ خطای سرور (description) در لاگ ثبت می‌شود تا ریشه پیدا شود
      */
+    /**
+     * 🔍 v2.43 (S06) — کشف چت مقصد بله از گفتگوهای فعال ربات
+     * سناریو: کاربر ربات بله را راه‌اندازی و /start داده («تست می‌رسد») اما
+     * شناسه چت را در تنظیمات «ارسال درخواست‌ها» ثبت نکرده. این متد با
+     * getUpdates آخرین گفتگوی خصوصی فعال را پیدا می‌کند.
+     * @return string شناسه چت یا '' در صورت نبود/خطا
+     */
+    private function discoverBaleChatId(string $botToken): string
+    {
+        $token = trim($botToken);
+        if ($token === '' || !function_exists('curl_init')) {
+            return '';
+        }
+        try {
+            $ch = curl_init('https://tapi.bale.ai/bot' . $token . '/getUpdates?limit=25&timeout=0');
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CONNECTTIMEOUT => 8,
+                CURLOPT_TIMEOUT        => 15,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => 0,
+            ]);
+            $body = (string)curl_exec($ch);
+            curl_close($ch);
+            $data = json_decode($body, true);
+            if (!is_array($data) || empty($data['ok']) || !is_array($data['result'] ?? null)) {
+                return '';
+            }
+            /* آخرین پیام خصوصی (به‌ترتیب update_id صعودی → از آخر بگردیم) */
+            foreach (array_reverse($data['result']) as $upd) {
+                $msg = $upd['message'] ?? ($upd['edited_message'] ?? null);
+                $chat = $msg['chat'] ?? null;
+                if (is_array($chat) && (string)($chat['type'] ?? '') === 'private' && !empty($chat['id'])) {
+                    return (string)$chat['id'];
+                }
+                if (is_array($chat) && !empty($chat['id'])) {
+                    return (string)$chat['id']; /* گروه/کانال هم مقصد معتبری است */
+                }
+            }
+        } catch (Throwable $e) {
+            /* بی‌صدا — فرستنده اصلی نتیجه را گزارش می‌کند */
+        }
+        return '';
+    }
+
     private function sendPhotoGeneric(string $apiUrl, string $chatId, string $photoPathOrUrl, string $caption = ''): bool
     {
         if (!function_exists('curl_init')) {

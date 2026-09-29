@@ -239,12 +239,19 @@ class RequestCard
             $wmH = (int)max(26, min(90, round($h * 0.08)));
             $margin = (int)max(7, round(min($w, $h) * 0.028));
 
-            /* ③ دو گوشه پایین: برند — پایین چپ | نمایندگی — پایین راست */
+            /* ③ دو گوشه پایین: برند — پایین چپ | نمایندگی — پایین راست
+               🆕 v2.43 (S05) — فال‌بک متنی: لوگوی SVG (که GD نمی‌تواند بخواند)
+               به جای «بی‌واترمارک ماندن»، نام برند/نمایندگی در همان کپسول
+               شیشه‌ای حک می‌شود — ریشه «فقط واترمارک لوگوی نمایندگی می‌افتد
+               و لوگوی برند نمی‌افتد» = لوگوی برند SVG بود و بی‌صدا رد می‌شد */
+            $brandNameFallback = trim((string)($brand['name_fa'] ?? ''));
             if (!empty($brand['logo'])) {
-                self::stampWatermark($out, (string)$brand['logo'], $margin, $h - $margin, 'left', $wmH);
+                self::stampWatermark($out, (string)$brand['logo'], $margin, $h - $margin, 'left', $wmH, $brandNameFallback);
+            } elseif ($brandNameFallback !== '') {
+                self::stampWatermark($out, '', $margin, $h - $margin, 'left', $wmH, $brandNameFallback);
             }
             if ($agencyLogoPath !== '') {
-                self::stampWatermark($out, $agencyLogoPath, $w - $margin, $h - $margin, 'right', $wmH);
+                self::stampWatermark($out, $agencyLogoPath, $w - $margin, $h - $margin, 'right', $wmH, '');
             }
 
             /* ④ ذخیره در همان فرمت ورودی */
@@ -284,15 +291,27 @@ class RequestCard
     /**
      * 🏷️ مهر واترمارک — کپسول شیشه‌ای شفاف + لوگو، بدون هیچ پس‌زمینه مات
      * $anchorX/$anchorY: لنگر گوشه (چپ یا راست، پایین) | $targetH: ارتفاع لوگو
+     * $fallbackText: 🆕 v2.43 (S05) — اگر لوگو قابل خواندن نبود (SVG/گمشده)،
+     * این متن در همان کپسول شیشه‌ای حک می‌شود تا واترمارک هرگز غایب نماند.
      */
-    private static function stampWatermark($canvas, string $logoPath, int $anchorX, int $anchorY, string $side, int $targetH): void
+    private static function stampWatermark($canvas, string $logoPath, int $anchorX, int $anchorY, string $side, int $targetH, string $fallbackText = ''): void
     {
-        $abs = (strpos($logoPath, '/') === 0) ? $logoPath : ROOT_PATH . '/' . ltrim($logoPath, '/');
-        if (!is_file($abs)) {
-            return;
+        $logo = null;
+        if ($logoPath !== '') {
+            $abs = (strpos($logoPath, '/') === 0) ? $logoPath : ROOT_PATH . '/' . ltrim($logoPath, '/');
+            if (is_file($abs)) {
+                $logo = self::loadImage($abs);
+                /* 🔄 v2.43 — لوگوی SVG: اول Imagick (در صورت وجود روی هاست)،
+                   بعد فال‌بک متن — دیگر بی‌صدا رد نمی‌شود */
+                if ($logo === null && preg_match('/\.svgz?$/i', $abs)) {
+                    $logo = self::rasterizeSvg($abs, $targetH);
+                }
+            }
         }
-        $logo = self::loadImage($abs);
         if ($logo === null) {
+            if ($fallbackText !== '') {
+                self::stampTextWatermark($canvas, $fallbackText, $anchorX, $anchorY, $side, $targetH);
+            }
             return;
         }
         $lw = imagesx($logo);
@@ -342,6 +361,86 @@ class RequestCard
         imagearc($img, $x2 - $r, $y1 + $r, $r * 2, $r * 2, 270, 360, $color);
         imagearc($img, $x1 + $r, $y2 - $r, $r * 2, $r * 2, 90, 180, $color);
         imagearc($img, $x2 - $r, $y2 - $r, $r * 2, $r * 2, 0, 90, $color);
+    }
+
+    /**
+     * 🅰 v2.43 (S05) — واترمارک متنی در کپسول شیشه‌ای: وقتی لوگو SVG است
+     * (GD نمی‌تواند بخواند) یا فایلش نیست، نام برند/نمایندگی حک می‌شود
+     * تا هر دو گوشه پایین «همیشه» واترمارک داشته باشند.
+     */
+    private static function stampTextWatermark($canvas, string $text, int $anchorX, int $anchorY, string $side, int $targetH): void
+    {
+        self::fonts();
+        if (self::$fontBold === null) {
+            return; /* فونت در دسترس نیست — بهتر از کرش */
+        }
+        $text = mb_substr(trim($text), 0, 24);
+        if ($text === '') {
+            return;
+        }
+        $fontSize = (int)max(13, $targetH - 10);
+        $box = imageftbbox($fontSize, 0, self::$fontBold, $text);
+        $tw = abs($box[2] - $box[0]);
+        $th = abs($box[1] - $box[5]);
+        $padX = (int)max(9, round($fontSize * 0.75));
+        $padY = (int)max(6, round($fontSize * 0.42));
+        $chipW = (int)min(360, $tw + $padX * 2);
+        $chipH = (int)($th + $padY * 2);
+        $chipR = (int)max(8, round($chipH / 2));
+
+        $chip = imagecreatetruecolor($chipW, $chipH);
+        imagealphablending($chip, false);
+        imagesavealpha($chip, true);
+        $tr = imagecolorallocatealpha($chip, 0, 0, 0, 127);
+        imagefill($chip, 0, 0, $tr);
+        imagealphablending($chip, true);
+        $glass = imagecolorallocatealpha($chip, 255, 255, 255, 79);
+        self::imageRoundedRect($chip, 0, 0, $chipW - 1, $chipH - 1, $chipR, $glass);
+        $rim = imagecolorallocatealpha($chip, 255, 255, 255, 96);
+        self::roundedRectOutline($chip, 0, 0, $chipW - 1, $chipH - 1, $chipR, $rim);
+        $ink = imagecolorallocate($chip, 15, 23, 42);
+        /* متن فارسی شکل‌دهی‌شده با موتور داخلی خود کارت (Presentation Forms) */
+        $shaped = self::shape($text);
+        imagefttext($chip, $fontSize, 0, (int)(($chipW - $tw) / 2), (int)(($chipH - $th) / 2 + $th * 0.82), $ink, self::$fontBold, $shaped);
+
+        $x = $side === 'left' ? $anchorX : $anchorX - $chipW;
+        $y = $anchorY - $chipH;
+        imagecopyresampled($canvas, $chip, $x, $y, 0, 0, $chipW, $chipH, $chipW, $chipH);
+        imagedestroy($chip);
+    }
+
+    /**
+     * 🔄 v2.43 (S05) — شطرنجی‌سازی SVG با Imagick (در صورت نصب بودن روی هاست)
+     * خروجی: منبع GD PNG با شفافیت یا null
+     */
+    private static function rasterizeSvg(string $absPath, int $targetH)
+    {
+        if (!class_exists('Imagick')) {
+            return null;
+        }
+        try {
+            $im = new Imagick();
+            $im->setBackgroundColor(new ImagickPixel('transparent'));
+            $im->readImage($absPath);
+            $geo = $im->getImageGeometry();
+            $w = (int)($geo['width'] ?? 0);
+            $h = (int)($geo['height'] ?? 0);
+            if ($w < 1 || $h < 1) {
+                return null;
+            }
+            $scaleH = max(24, $targetH * 2) / $h; /* ×۲ برای وضوح بعد از کوچک‌سازی */
+            $im->resizeImage((int)round($w * $scaleH), (int)round($h * $scaleH), Imagick::FILTER_LANCZOS, 1);
+            $im->setImageFormat('png32');
+            $png = tempnam(sys_get_temp_dir(), 'svg_') . '.png';
+            $im->writeImage($png);
+            $im->clear();
+            $im->destroy();
+            $gd = imagecreatefrompng($png);
+            @unlink($png);
+            return $gd ?: null;
+        } catch (Throwable $e) {
+            return null;
+        }
     }
 
     /* ═══════════════════════════════════════════════════════════
