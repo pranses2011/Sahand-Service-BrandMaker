@@ -47,6 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'status') {
                     IndexNow::pingArticle((int)$row['brand_id'], (string)$row['slug']);
                 }
             } catch (Throwable $inE) { /* fire-and-forget */ }
+            /* 🪝 v2.37 — P3: رویداد وب‌هوک article.published */
+            WebhookDispatcher::articlePublished($db, $id);
         }
         flash('success', '✅ وضعیت مقاله تغییر کرد.');
     }
@@ -108,6 +110,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save') {
                 IndexNow::pingArticle((int)$slugRow['brand_id'], (string)$slugRow['slug']);
             }
         } catch (Throwable $inE) { /* fire-and-forget */ }
+        /* 🪝 v2.37 — P3: رویداد وب‌هوک article.published */
+        WebhookDispatcher::articlePublished($db, $id);
     } elseif (($update['status'] ?? '') === 'scheduled') {
         flash('success', '⏰ مقاله زمان‌بندی شد — انتشار خودکار در ' . fa_num(jdate('Y/m/d H:i', strtotime((string)$update['published_at']))));
     } else {

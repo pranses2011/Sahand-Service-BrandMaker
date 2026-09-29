@@ -159,6 +159,17 @@ function api_submit_form_entry(int $urlBrandId): void
 
     Logger::info('ثبت فرم سایت برند', ['form' => $formBlock, 'brand' => $brand['name_fa'], 'entry' => $entryId, 'channels' => implode(',', $sentChannels)]);
 
+    /* 🪝 v2.37 — P3: رویداد وب‌هوک form_entry.created (لیدهای بازاریابی) */
+    WebhookDispatcher::dispatch('form_entry.created', [
+        'entry_id'   => (int)$entryId,
+        'brand_id'   => (int)$brand['id'],
+        'brand_name' => (string)$brand['name_fa'],
+        'form_block' => $formBlock,
+        'page'       => $pageUrl,
+        'fields'     => $fields,
+        'channels'   => $sentChannels,
+    ], (int)$brand['id']);
+
     json_response([
         'success' => true,
         'data'    => [

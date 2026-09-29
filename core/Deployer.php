@@ -271,6 +271,22 @@ class Deployer
                 $done = $nextStep >= count($steps);
                 if ($done) {
                     $this->logger->finish($deploymentId, $state['summary'] ?? []);
+                    /* 🪝 v2.37 — P3: رویداد وب‌هوک brand.deployed (فقط عملیات استقرار/
+                       بروزرسانی — نه حذف) — fire-and-forget، مسیر استقرار را نمی‌شکند */
+                    if (in_array($action, ['deploy', 'update'], true) && $brand) {
+                        try {
+                            WebhookDispatcher::dispatch('brand.deployed', [
+                                'deployment_id' => $deploymentId,
+                                'brand_id'      => (int)$brand['id'],
+                                'brand_name'    => (string)($brand['name_fa'] ?? ''),
+                                'brand_slug'    => (string)($brand['slug'] ?? ''),
+                                'action'        => $action,
+                                'domain'        => (string)($brand['full_domain'] ?: ($brand['domain'] ?? '')),
+                                'url'           => 'https://' . (string)($brand['full_domain'] ?: ($brand['domain'] ?? '')),
+                                'finished_at'   => date('c'),
+                            ], (int)$brand['id']);
+                        } catch (Throwable $whE) { /* بی‌صدا */ }
+                    }
                 }
 
                 return [

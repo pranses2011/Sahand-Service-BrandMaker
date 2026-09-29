@@ -287,4 +287,36 @@ class WebhookDispatcher
     {
         return bin2hex(random_bytes(32));
     }
+
+    /**
+     * 📰 رویداد article.published — کمکی مشترک برای همه نقاط انتشار
+     * (پنل مقالات، ویزارد ساخت برند، انتشار زمان‌بندی‌شده cron)
+     * نام برند + آدرس عمومی مقاله در payload هست تا مصرف‌کننده بی‌کوئری باشد.
+     */
+    public static function articlePublished(Database $db, int $articleId): void
+    {
+        try {
+            $row = $db->fetch(
+                'SELECT a.brand_id, a.title, a.slug, a.excerpt, b.name_fa, b.slug AS brand_slug
+                 FROM brand_articles a LEFT JOIN brands b ON b.id = a.brand_id
+                 WHERE a.id = ? LIMIT 1',
+                [$articleId]
+            );
+            if (!$row) {
+                return;
+            }
+            self::dispatch('article.published', [
+                'article_id'  => $articleId,
+                'brand_id'    => (int)$row['brand_id'],
+                'brand_name'  => (string)($row['name_fa'] ?? ''),
+                'brand_slug'  => (string)($row['brand_slug'] ?? ''),
+                'title'       => (string)$row['title'],
+                'slug'        => (string)$row['slug'],
+                'excerpt'     => mb_substr((string)($row['excerpt'] ?? ''), 0, 300),
+                'published_at' => date('c'),
+            ], (int)$row['brand_id']);
+        } catch (Throwable $e) {
+            /* fire-and-forget */
+        }
+    }
 }

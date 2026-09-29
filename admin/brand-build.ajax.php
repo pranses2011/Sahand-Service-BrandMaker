@@ -238,6 +238,8 @@ try {
             // اولین مقاله منتشر می‌شود، بقیه زمان‌بندی هفتگی
             if ($index === 0) {
                 $db->update('brand_articles', ['status' => 'published', 'published_at' => date('Y-m-d H:i:s')], 'id = ?', [$articleId]);
+                /* 🪝 v2.37 — P3: رویداد وب‌هوک article.published (مقاله اول ویزارد) */
+                try { WebhookDispatcher::articlePublished($db, (int)$articleId); } catch (Throwable $whE) { /* fire-and-forget */ }
             } else {
                 $publishAt = date('Y-m-d H:i:s', strtotime('+' . ($index * 3) . ' days'));
                 $db->update('brand_articles', ['status' => 'scheduled', 'published_at' => $publishAt], 'id = ?', [$articleId]);

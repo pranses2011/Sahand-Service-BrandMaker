@@ -121,6 +121,19 @@ function api_submit_request(int $urlBrandId): void
     // 🔔 اعلان داخلی پنل
     NotificationService::notify(0, 'request', 'درخواست جدید: ' . $fullName, 'برند ' . $brand['name_fa'] . ' — ' . $deviceKey, 'requests.php?view=' . $requestId);
 
+    /* 🪝 v2.37 — P3: رویداد وب‌هوک request.created (اتصال CRM / n8n / ...) */
+    WebhookDispatcher::dispatch('request.created', [
+        'request_id' => (int)$requestId,
+        'brand_id'   => (int)$brand['id'],
+        'brand_name' => (string)$brand['name_fa'],
+        'full_name'  => $fullName,
+        'phone'      => $phone,
+        'device'     => $deviceKey,
+        'address'    => $address,
+        'excerpt'    => mb_substr((string)$description, 0, 200),
+        'off_hours'  => (bool)$offHours,
+    ], (int)$brand['id']);
+
     Logger::info('ثبت درخواست خدمات', ['request_id' => $requestId, 'brand' => $brand['name_fa']]);
 
     json_response([

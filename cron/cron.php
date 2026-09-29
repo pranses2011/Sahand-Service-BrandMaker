@@ -67,6 +67,12 @@ try {
                 IndexNow::pingArticle((int)$a['brand_id'], (string)$a['slug']);
             }
         } catch (Throwable $inE) { /* fire-and-forget — شبکه نباید cron را بشکند */ }
+        /* 🪝 v2.37 — P3: رویداد وب‌هوک article.published */
+        try {
+            if (class_exists('WebhookDispatcher')) {
+                WebhookDispatcher::articlePublished($db, (int)$a['id']);
+            }
+        } catch (Throwable $whE) { /* fire-and-forget */ }
     }
     if ($published > 0) {
         /* 🧹 کش مقالات همه برندها پاک شود تا بلافاصله در سایت دیده شوند */
@@ -96,6 +102,16 @@ try {
     $report['tasks']['cleanup'] = ['ok' => true, 'expired_resets' => $pr1, 'expired_limits' => $pr2];
 } catch (Throwable $e) {
     $report['tasks']['cleanup'] = ['ok' => false, 'error' => $e->getMessage()];
+}
+
+/* ════════════ وظیفه ۴: تلاش مجدد وب‌هوک‌های ناموفق (P3 — v2.37) ════════════ */
+try {
+    if (class_exists('WebhookDispatcher')) {
+        $retry = WebhookDispatcher::retryPending(25);
+        $report['tasks']['webhooks'] = ['ok' => true] + $retry;
+    }
+} catch (Throwable $e) {
+    $report['tasks']['webhooks'] = ['ok' => false, 'error' => $e->getMessage()];
 }
 
 /* 📤 خروجی */
