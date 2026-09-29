@@ -1125,8 +1125,20 @@ if (!function_exists('pv_render_block_inner')) {
                 foreach ($its as $i => $it) { $out .= '<span class="hero-btn' . ($i ? ' ghost' : '') . '">' . e($it['text']) . '</span>'; }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="hero-btns" style="justify-content:flex-start">' . $out . '</div></div>';
             }
-            case 'icon-list':
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="feat-list"><div class="feat-row"><span class="feat-ico">📞</span><div><b>پاسخگویی تلفنی</b><div class="feat-d">۷ روز هفته از ۹ تا ۲۰</div></div></div><div class="feat-row"><span class="feat-ico">📍</span><div><b>اعزام در محل</b><div class="feat-d">کل تهران و کرج</div></div></div></div></div>';
+            case 'icon-list': {
+                /* 🆕 v2.43 (S04) — پویا از تنظیمات سایت‌ساز: ساعات کاری واقعی +
+                   محدوده اعزام از آدرس برند (قبلاً «۷ روز هفته از ۹ تا ۲۰» و
+                   «کل تهران و کرج» hardcoded بود — برای نمایندگی تبریز غلط) */
+                $ilHours = trim((string)($props['hoursText'] ?? '')) ?: pv_brand_hours() ?: '۷ روز هفته از ۹ تا ۲۰';
+                $ilAddr  = pv_brand_address();
+                $ilArea  = trim((string)($props['areaText'] ?? ''));
+                if ($ilArea === '') {
+                    /* شهر از اولین آدرس برند: «تبریز» → «کل تبریز» */
+                    $ilCity = preg_split('/[،,]/u', $ilAddr)[0] ?? '';
+                    $ilArea = $ilCity !== '' ? 'کل ' . trim($ilCity) : 'منطقه نمایندگی';
+                }
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="feat-list"><div class="feat-row"><span class="feat-ico">📞</span><div><b>پاسخگویی تلفنی</b><div class="feat-d">' . e($ilHours) . '</div></div></div><div class="feat-row"><span class="feat-ico">📍</span><div><b>اعزام در محل</b><div class="feat-d">' . e($ilArea) . '</div></div></div></div></div>';
+            }
             case 'separator':
                 return '<hr class="blk-sep">';
             case 'spacer':
