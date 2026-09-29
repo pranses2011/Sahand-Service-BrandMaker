@@ -633,7 +633,7 @@ window.sahandLoadOnlineUsers = function () {
     const body = document.getElementById('online-users-body');
     const badge = document.getElementById('online-badge');
     if (!body) return;
-    fetch('analytics-online.php?ajax=1AD[21]', { credentials: 'same-origin' })
+    fetch('analytics-online.php?ajax=1' + AD[21], { credentials: 'same-origin' })
         .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
         .then(function (res) {
             if (!res || !res.success) { return; }
@@ -671,39 +671,76 @@ window.sahandLoadOnlineUsers = function () {
 };
 
 window.sahandShowOnlineDetails = function (sessionHash) {
-    fetch('analytics-online.php?ajax=1&details=' + encodeURIComponent(sessionHash) + 'AD[21]', { credentials: 'same-origin' })
+    fetch('analytics-online.php?ajax=1&details=' + encodeURIComponent(sessionHash) + AD[21], { credentials: 'same-origin' })
         .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
         .then(function (res) {
-            if (!res || !res.success || !res.details) { return; }
+            if (!res || !res.success || !res.details) {
+                if (window.SahandDialog) { SahandDialog.dialog({ title: '👤 جزئیات کاربر آنلاین', html: '<div class="empty-state" style="padding:18px"><div class="icon">🔇</div><p>نشست دیگر فعال نیست یا یافت نشد — فهرست هر ۳۰ ثانیه بروزرسانی می‌شود.</p></div>', buttons: [{ text: 'بستن', btn: 'primary' }] }); }
+                return;
+            }
             const d = res.details;
             const faNum = n => new Intl.NumberFormat('fa-IR').format(n);
-            let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12.5px">';
-            const row = (k, v) => '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px"><div style="font-size:10.5px;color:#64748b;margin-bottom:3px">' + k + '</div><b>' + (v || '—') + '</b></div>';
-            html += row('🏷️ برند', d.brand_name);
-            html += row('⏰ آخرین فعالیت', d.last_seen);
+            const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+            /* 🎨 هدر پروفایل: آواتار دستگاه + برند + نشان زنده */
+            const devEmo = { mobile: '📱', desktop: '🖥️', tablet: '📲', bot: '🤖' }[d.device_raw] || '🖥️';
+            let html = '<div style="display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#eef2ff,#e0f2fe);border:1px solid #c7d2fe;border-radius:14px;padding:12px 14px;margin-bottom:13px">'
+                + '<div style="width:52px;height:52px;border-radius:14px;background:#fff;border:1px solid #dbeafe;display:flex;align-items:center;justify-content:center;font-size:26px;flex:none;box-shadow:0 2px 8px rgba(30,64,175,.12)">' + devEmo + '</div>'
+                + '<div style="flex:1;min-width:0">'
+                + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+                + (d.brand_logo ? '<img src="' + esc(d.brand_logo) + '" alt="" style="width:22px;height:22px;border-radius:6px;object-fit:contain;background:#fff;border:1px solid #e2e8f0">' : '')
+                + '<b style="font-size:14.5px;color:#0f172a">' + esc(d.brand_name || 'برند') + '</b>'
+                + (d.brand_domain ? '<span style="font-size:10.5px;color:#64748b;direction:ltr">' + esc(d.brand_domain) + '</span>' : '')
+                + '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;color:#15803d;background:#dcfce7;border:1px solid #bbf7d0;border-radius:20px;padding:2px 9px"><span style="width:7px;height:7px;border-radius:50%;background:#22c55e;display:inline-block;box-shadow:0 0 0 3px rgba(34,197,94,.18)"></span> آنلاین</span>'
+                + '</div>'
+                + '<div style="font-size:11.5px;color:#475569;margin-top:4px">⏱️ ' + esc(d.duration_text) + ' حضور · 📄 ' + faNum(d.pages_seen) + ' صفحه در این بازدید' + (d.visit_count > 1 ? ' · 🔁 ' + faNum(d.visit_count) + ' بازدید تا امروز' : ' · 🆕 بازدیدکننده امروز') + '</div>'
+                + '</div></div>';
+            /* 📊 چهار شاخص کلیدی */
+            const lastTime = (d.last_seen || '—').split(' ')[1] || (d.last_seen || '—');
+            html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:13px">'
+                + [['⏱️', d.duration_text, 'مدت حضور'], ['📄', faNum(d.pages_seen), 'صفحات'], ['🔁', faNum(d.visit_count), 'بازدیدها'], ['🕒', lastTime, 'ساعت آخرین فعالیت']]
+                    .map(c => '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:11px;padding:9px 6px;text-align:center"><div style="font-size:17px">' + c[0] + '</div><div style="font-size:13px;font-weight:900;color:#0f172a;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(c[1]) + '</div><div style="font-size:9.5px;color:#64748b;margin-top:2px">' + c[2] + '</div></div>').join('')
+                + '</div>';
+            /* 🗂 مشخصات کامل */
+            const row = (k, v, ltr) => '<div style="background:#fff;border:1px solid #eef2f7;border-radius:10px;padding:8px 11px"><div style="font-size:10px;color:#64748b;margin-bottom:3px">' + k + '</div><b style="font-size:12px;color:#0f172a;' + (ltr ? 'direction:ltr;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' : '') + '">' + (v ? esc(v) : '—') + '</b></div>';
+            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">';
             html += row('📱 دستگاه', d.device_type);
-            html += row('🌐 مرورگر', d.browser + ' · ' + d.os);
-            html += row('📍 مکان', (d.city ? d.city : '') + (d.province ? ' / ' + d.province : '') || 'نامشخص');
-            html += row('🖥️ رزولوشن', d.resolution);
-            html += row('🗣️ زبان', d.language);
-            html += row('🚪 صفحه ورود', d.entry_page);
-            html += row('📄 صفحه فعلی', d.current_page);
-            html += row('🔗 مبدأ ورود', d.referrer);
-            html += row('👁️ صفحات دیده‌شده', faNum(d.pages_seen));
-            html += row('⏱️ مدت حضور', d.duration_text);
+            html += row('🌐 مرورگر', d.browser);
+            html += row('💻 سیستم‌عامل', d.os);
+            html += row('🖥️ رزولوشن', d.resolution, true);
+            html += row('🗣️ زبان', d.language, true);
+            html += row('📍 مکان', [d.city, d.province, d.country].filter(Boolean).join(' / ') || 'نامشخص');
+            html += row('🚪 صفحه ورود', d.entry_page, true);
+            html += row('📄 صفحه فعلی', d.current_page, true);
+            html += row('🔗 مبدأ ورود', d.referrer, true);
+            html += row('🔎 کلمه جستجو', d.search_keyword);
+            html += row('🕐 اولین بازدید', d.first_seen);
+            html += row('🗺️ منبع موقعیت', d.geo_src === 'api' ? 'سرویس جغرافیایی' : (d.geo_src === 'cache' ? 'کش محلی' : (d.geo_src ? 'محلی' : '—')));
             html += '</div>';
-            html += '<div style="margin-top:12px;font-size:11px;font-weight:800;color:#334155;margin-bottom:6px">📜 مسیر بازدید (آخرین ۱۰ صفحه):</div><div style="font-size:11.5px;line-height:2.1">';
-            (d.recent_pages || []).forEach(function (p) {
-                html += '<div style="display:flex;justify-content:space-between;background:#f8fafc;border-radius:8px;padding:4px 10px;margin-bottom:4px"><span style="direction:ltr">' + p.url + '</span><span style="color:#64748b;white-space:nowrap">' + p.time + (p.duration > 0 ? ' · ' + faNum(p.duration) + ' ثانیه' : '') + '</span></div>';
-            });
-            html += '</div>';
+            /* 📜 مسیر بازدید با تایم‌لاین */
+            if (d.recent_pages && d.recent_pages.length) {
+                html += '<div style="margin-top:13px;font-size:11.5px;font-weight:800;color:#334155;margin-bottom:7px">📜 مسیر بازدید (آخرین ' + faNum(d.recent_pages.length) + ' صفحه — از جدید به قدیم):</div>';
+                html += '<div style="max-height:230px;overflow-y:auto;border:1px solid #eef2f7;border-radius:11px;padding:6px;background:#fff">';
+                d.recent_pages.forEach(function (p, idx) {
+                    const durTxt = p.duration > 0 ? faNum(p.duration) + ' ثانیه' : 'در حال مطالعه';
+                    const durColor = p.duration >= 60 ? '#15803d' : (p.duration >= 15 ? '#b45309' : '#64748b');
+                    html += '<div style="display:flex;align-items:center;gap:9px;padding:6px 8px;border-bottom:1px dashed #f1f5f9">'
+                        + '<span style="flex:none;width:22px;height:22px;border-radius:50%;background:' + (idx === 0 ? '#1e40af' : '#e2e8f0') + ';color:' + (idx === 0 ? '#fff' : '#475569') + ';font-size:10.5px;font-weight:800;display:inline-flex;align-items:center;justify-content:center">' + faNum(idx + 1) + '</span>'
+                        + '<span style="flex:1;min-width:0;font-size:11px;direction:ltr;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#0f172a">' + esc(p.url) + '</span>'
+                        + '<span style="flex:none;font-size:10px;color:#64748b">' + esc(p.time) + '</span>'
+                        + '<span style="flex:none;font-size:10px;font-weight:800;color:' + durColor + ';background:#f8fafc;border:1px solid #e2e8f0;border-radius:20px;padding:2px 8px">' + durTxt + '</span>'
+                        + '</div>';
+                });
+                html += '</div>';
+            }
             if (window.SahandDialog) {
                 SahandDialog.dialog({ title: '👤 جزئیات کاربر آنلاین', html: html, buttons: [{ text: 'بستن', btn: 'primary' }] });
             } else {
                 alert(html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '));
             }
         })
-        .catch(function () { /* بی‌صدا */ });
+        .catch(function () {
+            if (window.SahandDialog) { SahandDialog.dialog({ title: '👤 جزئیات کاربر آنلاین', html: '<div class="alert alert-danger">خطا در دریافت جزئیات — دوباره تلاش کنید.</div>', buttons: [{ text: 'بستن', btn: 'primary' }] }); }
+        });
 };
 
 sahandLoadOnlineUsers();

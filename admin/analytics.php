@@ -1283,5 +1283,5 @@ $_ad = [
 /* 📊 آرایه داده‌های آمار (مقادیر سرور — بوت‌استرپ JS خارجی) */
 const AD = <?= json_encode($_ad, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 </script>
-<script src="../assets/js/analytics.js?v=2.39"></script>
+<script src="../assets/js/analytics.js?v=2.41"></script>
 <?php require __DIR__ . '/includes/footer.php'; ?>

@@ -37,49 +37,72 @@ function online_json(array $payload): void
 }
 
 try {
-    /* 👤 جزئیات یک نشست خاص */
+    /* 👤 جزئیات یک نشست خاص — 🆕 v2.41: گزارش کامل و حرفه‌ای
+       (بازدیدهای قبلی همان نشست + کل مدت + مرورگر/OS ساختارمند +
+       معیار تعامل + مسیر کامل تا ۲۰ صفحه) */
     if (!empty($_GET['details'])) {
         $sessionHash = (string)$_GET['details'];
         if (!preg_match('/^[a-f0-9]{16,64}$/', $sessionHash)) {
             online_json(['success' => false, 'error' => 'شناسه نشست نامعتبر']);
         }
         $v = $db->fetch(
-            'SELECT v.*, b.name_fa AS brand_name FROM visits v LEFT JOIN brands b ON b.id = v.brand_id
-             WHERE v.session_hash = ? ORDER BY v.id DESC LIMIT 1',
+            'SELECT v.*, b.name_fa AS brand_name, b.logo AS brand_logo, b.domain AS brand_domain FROM visits v LEFT JOIN brands b ON b.id = v.brand_id
+             WHERE v.session_hash = ? ORDER BY v.last_seen DESC, v.id DESC LIMIT 1',
             [$sessionHash]
         );
         if (!$v) {
             online_json(['success' => false, 'error' => 'نشست یافت نشد']);
         }
+        /* 📑 مسیر کامل تا ۲۰ صفحه اخیر (با مدت هر کدام) */
         $pages = $db->fetchAll(
-            'SELECT page_url, duration, viewed_at FROM visit_details WHERE visit_id = ? ORDER BY id DESC LIMIT 10',
+            'SELECT page_url, duration, viewed_at FROM visit_details WHERE visit_id = ? ORDER BY id DESC LIMIT 20',
             [(int)$v['id']]
         );
         $totalDur = (int)$db->fetchValue(
             'SELECT COALESCE(SUM(duration), 0) FROM visit_details WHERE visit_id = ?',
             [(int)$v['id']]
         );
+        /* 🔄 بازدیدهای قبلی همین نشست (بازگشتی بودن) */
+        $visitCount = (int)$db->fetchValue(
+            'SELECT COUNT(*) FROM visits WHERE session_hash = ?',
+            [$sessionHash]
+        );
+        $firstSeen = (string)$db->fetchValue(
+            'SELECT MIN(visited_at) FROM visits WHERE session_hash = ?',
+            [$sessionHash]
+        );
         $deviceFa = ['mobile' => '📱 موبایل', 'desktop' => '🖥️ رایانه رومیزی', 'tablet' => '📲 تبلت', 'bot' => '🤖 ربات'];
+        /* 🏷️ نام‌های محوشده/ساختارمند مرورگر و سیستم‌عامل */
+        $browserLabel = trim(($v['browser'] ?? '') . (!empty($v['browser_version']) ? ' ' . en_to_fa_digits((string)$v['browser_version']) : ''));
         online_json([
             'success' => true,
             'details' => [
                 'brand_name'    => (string)($v['brand_name'] ?? ''),
+                'brand_logo'    => (string)($v['brand_logo'] ?? ''),
+                'brand_domain'  => (string)($v['brand_domain'] ?? ''),
                 'device_type'   => $deviceFa[$v['device_type']] ?? $v['device_type'],
-                'browser'       => (string)($v['browser'] ?? ''),
+                'device_raw'    => (string)$v['device_type'],
+                'browser'       => $browserLabel !== '' ? $browserLabel : 'نامشخص',
                 'os'            => (string)($v['os'] ?? ''),
                 'resolution'    => (string)($v['resolution'] ?? ''),
                 'language'      => (string)($v['language'] ?? ''),
+                'country'       => (string)($v['country'] ?? ''),
                 'city'          => (string)($v['city'] ?? ''),
                 'province'      => (string)($v['province'] ?? ''),
+                'geo_src'       => (string)($v['geo_src'] ?? ''),
                 'entry_page'    => (string)($v['entry_page'] ?? ''),
                 'current_page'  => (string)($pages[0]['page_url'] ?? ''),
                 'referrer'      => (string)($v['referrer'] ?? ''),
+                'search_keyword'=> (string)($v['search_keyword'] ?? ''),
                 'last_seen'     => jdate((string)($v['last_seen'] ?: $v['visited_at']), true),
+                'first_seen'    => $firstSeen !== '' ? jdate($firstSeen, true) : '',
+                'visit_count'   => $visitCount,
                 'pages_seen'    => count($pages),
-                'duration_text' => gmdate('i:s', $totalDur) . ' دقیقه',
+                'duration_text' => $totalDur >= 3600 ? gmdate('H:i:s', $totalDur) : gmdate('i:s', $totalDur) . ' دقیقه',
+                'duration_sec'  => $totalDur,
                 'recent_pages'  => array_map(static function ($p) {
                     return [
-                        'url'      => mb_substr((string)$p['page_url'], 0, 60),
+                        'url'      => mb_substr((string)$p['page_url'], 0, 80),
                         'time'     => en_to_fa_digits(substr((string)$p['viewed_at'], 11, 5)),
                         'duration' => (int)$p['duration'],
                     ];
