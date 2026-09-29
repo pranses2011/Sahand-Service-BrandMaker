@@ -86,6 +86,11 @@ class AiPhotoService
         'ideogram'           => ['Ideogram — v2 Turbo',          true,  'کلید از ideogram.ai/api — قوی در پوستر و تایپوگرافی'],
         'getimg'             => ['GetImg — SDXL',                true,  'کلید از getimg.ai (اعتبار اولیه رایگان)'],
         'replicate'          => ['Replicate — FLUX schnell',     true,  'کلید از replicate.com/account/api-tokens'],
+        /* 🆕 v2.43 (S10) — چهار سرویس رایگان جدید (درخواست کاربر: همه مدل‌های رایگان + خودت) */
+        'zai_cogview'        => ['Z.ai — CogView-4 (پیشنهادی)',  true,  'کلید رایگان از console.z.ai — مدل تصویرساز خودت'],
+        'prodia'             => ['Prodia — SDXL Lightning',      true,  'کلید رایگان از prodia.com (پلن آزمایشی)'],
+        'segmind'            => ['Segmind — SDXL',               true,  'کلید رایگان از segmind.com (اعتبار روزانه)'],
+        'leonardo'           => ['Leonardo — Phoenix',           true,  'کلید رایگان از app.leonardo.ai (۱۵۰ اعتبار روزانه)'],
     ];
 
     /** 🗺️ نام انگلیسی دستگاه‌ها برای پرامپت (کلید دانش → عبارت پرامپت) */
@@ -739,6 +744,7 @@ class AiPhotoService
                 ]);
                 if ($create === null) { return false; }
                 $data = json_decode($create, true);
+
                 /* مسیر ۱: همگام موفق */
                 if (is_array($data) && ($data['status'] ?? '') === 'succeeded') {
                     $out = $data['output'] ?? [];
@@ -770,6 +776,127 @@ class AiPhotoService
                         }
                         return false;
                     }
+                }
+                return false;
+
+            /* ═══ 🆕 v2.43 (S10) — چهار درایور رایگان جدید ═══ */
+            case 'zai_cogview':
+                /* Z.ai CogView-4 — مدل تصویرساز «خودت» (کلید رایگان console.z.ai)
+                   OpenAI-compatible: POST images/generations → b64_json */
+                if ($key === '') { return false; }
+                $zr = $this->httpPostRaw('https://api.z.ai/api/paas/v4/images/generations', json_encode([
+                    'model'  => 'cogview-4',
+                    'prompt' => $prompt,
+                    'size'   => '1440x720',
+                ], JSON_UNESCAPED_UNICODE), max($timeout, 90), [
+                    'Authorization: Bearer ' . $key,
+                    'Content-Type: application/json',
+                ]);
+                if ($zr === null) { return false; }
+                $zd = json_decode($zr, true);
+                $b64 = (string)($zd['data'][0]['b64_json'] ?? '');
+                if ($b64 === '') { return false; }
+                $bin = base64_decode($b64, true);
+                if ($bin === false || strlen($bin) < 1000) { return false; }
+                return (bool)@file_put_contents($destAbs, $bin);
+
+            case 'prodia':
+                /* Prodia — SDXL Lightning (کلید آزمایشی رایگان): job async + poll */
+                if ($key === '') { return false; }
+                $pr = $this->httpPostRaw('https://api.prodia.com/v1/sd/generate', json_encode([
+                    'model'        => 'sd_xl_base_1.0.safetensors [be9edd61]',
+                    'prompt'       => $prompt,
+                    'negative_prompt' => 'text, words, watermark, logo, blurry, low quality',
+                    'steps'        => 25,
+                    'cfg_scale'    => 7,
+                    'width'        => self::W,
+                    'height'       => self::H,
+                    'upscale'      => false,
+                    'seed'         => $seed % 2147483647,
+                ]), max($timeout, 45), [
+                    'X-Prodia-Key: ' . $key,
+                    'Content-Type: application/json',
+                ]);
+                if ($pr === null) { return false; }
+                $pd = json_decode($pr, true);
+                $jobId = (string)($pd['job'] ?? '');
+                if ($jobId === '') { return false; }
+                /* poll تا ۶۰ ثانیه */
+                $deadline2 = microtime(true) + min(60, $timeout);
+                while (microtime(true) < $deadline2) {
+                    usleep(2500000);
+                    $st = $this->httpGetBody('https://api.prodia.com/v1/job/' . rawurlencode($jobId), ['X-Prodia-Key: ' . $key], 15);
+                    if ($st === null) { continue; }
+                    $sd = json_decode($st, true);
+                    if (($sd['status'] ?? '') === 'succeeded') {
+                        $pu = trim((string)($sd['imageUrl'] ?? ''));
+                        return ($pu !== '' && preg_match('#^https?://#i', $pu)) ? $this->httpDownload($pu, $destAbs, $timeout, []) : false;
+                    }
+                    if (in_array($sd['status'] ?? '', ['failed', 'canceled'], true)) { return false; }
+                }
+                return false;
+
+            case 'segmind':
+                /* Segmind — SDXL (اعتبار روزانه رایگان): همگام، خروجی b64 */
+                if ($key === '') { return false; }
+                $sg = $this->httpPostRaw('https://api.segmind.com/v1/sdxl-base-1.0', json_encode([
+                    'prompt'         => $prompt,
+                    'negative_prompt' => 'text, words, watermark, logo, blurry',
+                    'samples'        => 1,
+                    'width'          => self::W,
+                    'height'         => self::H,
+                    'num_inference_steps' => 24,
+                    'seed'           => $seed % 999999,
+                ], JSON_UNESCAPED_UNICODE), max($timeout, 90), [
+                    'x-api-key: ' . $key,
+                    'Content-Type: application/json',
+                ]);
+                if ($sg === null) { return false; }
+                /* پاسخ: image بکد۶۴ (JSON) یا باینری خام */
+                $imgBin = null;
+                $jd = json_decode($sg, true);
+                if (is_array($jd) && !empty($jd['image'])) {
+                    $bin = base64_decode((string)$jd['image'], true);
+                    if ($bin !== false && strlen($bin) > 1000) { $imgBin = $bin; }
+                } elseif (strlen($sg) > 1000 && (substr($sg, 0, 3) === "\xff\xd8\xff" || substr($sg, 0, 4) === "\x89PNG")) {
+                    $imgBin = $sg;
+                }
+                return $imgBin !== null ? (bool)@file_put_contents($destAbs, $imgBin) : false;
+
+            case 'leonardo':
+                /* Leonardo — Phoenix (۱۵۰ اعتبار روزانه رایگان): ساخت + poll */
+                if ($key === '') { return false; }
+                $cr = $this->httpPostRaw('https://cloud.leonardo.ai/api/rest/v1/generations', json_encode([
+                    'prompt'         => $prompt,
+                    'modelId'        => 'b24e16ff-06e3-43eb-8d33-4416c2d75876', /* Leonardo Phoenix */
+                    'width'          => self::W,
+                    'height'         => self::H,
+                    'num_images'     => 1,
+                    'alchemy'        => false,
+                ], JSON_UNESCAPED_UNICODE), max($timeout, 45), [
+                    'Authorization: Bearer ' . $key,
+                    'Content-Type: application/json',
+                    'Accept: application/json',
+                ]);
+                if ($cr === null) { return false; }
+                $cd = json_decode($cr, true);
+                $genId = (string)($cd['sdGenerationJob']['generationId'] ?? '');
+                if ($genId === '') { return false; }
+                $deadline3 = microtime(true) + min(75, $timeout + 30);
+                while (microtime(true) < $deadline3) {
+                    usleep(3500000);
+                    $gs = $this->httpGetBody('https://cloud.leonardo.ai/api/rest/v1/generations/' . rawurlencode($genId), [
+                        'Authorization: Bearer ' . $key,
+                        'Accept: application/json',
+                    ], 15);
+                    if ($gs === null) { continue; }
+                    $gd = json_decode($gs, true);
+                    $gens = $gd['generations_by_pk'] ?? null;
+                    if (is_array($gens) && ($gens['status'] ?? '') === 'COMPLETE') {
+                        $gu = trim((string)($gens['generated_images'][0]['url'] ?? ''));
+                        return ($gu !== '' && preg_match('#^https?://#i', $gu)) ? $this->httpDownload($gu, $destAbs, $timeout, []) : false;
+                    }
+                    if (is_array($gens) && ($gens['status'] ?? '') === 'FAILED') { return false; }
                 }
                 return false;
         }
@@ -1185,6 +1312,50 @@ class AiPhotoService
                     $data = $create !== null ? json_decode($create, true) : null;
                     $ok = is_array($data) && ($data['status'] ?? '') === 'succeeded' && !empty($data['output']);
                     $message = $ok ? 'کلید معتبر و سرویس در دسترس است.' : 'کلید یا اتصال سرویس معتبر نیست.';
+                    break;
+
+                /* 🆕 v2.43 (S10) — تست سرویس‌های جدید */
+                case 'zai_cogview':
+                    if ($key === '') {
+                        $message = 'کلید Z.ai در تنظیمات ثبت نشده است (console.z.ai).';
+                        break;
+                    }
+                    $zr = $this->httpPostRaw('https://api.z.ai/api/paas/v4/images/generations',
+                        json_encode(['model' => 'cogview-4', 'prompt' => 'a red apple', 'size' => '512x512']),
+                        90, ['Authorization: Bearer ' . $key, 'Content-Type: application/json']);
+                    $zd = $zr !== null ? json_decode($zr, true) : null;
+                    $ok = is_array($zd) && !empty($zd['data'][0]['b64_json']);
+                    $message = $ok ? 'کلید معتبر و CogView-4 تصویر ساخت.' : 'کلید یا اتصال Z.ai معتبر نیست.';
+                    break;
+                case 'prodia':
+                    if ($key === '') {
+                        $message = 'کلید Prodia در تنظیمات ثبت نشده است.';
+                        break;
+                    }
+                    $pr = $this->httpGetBody('https://api.prodia.com/v1/job/list', ['X-Prodia-Key: ' . $key], 15);
+                    $ok = $pr !== null;
+                    $message = $ok ? 'کلید معتبر و سرویس در دسترس است.' : 'کلید یا اتصال Prodia معتبر نیست.';
+                    break;
+                case 'segmind':
+                    if ($key === '') {
+                        $message = 'کلید Segmind در تنظیمات ثبت نشده است.';
+                        break;
+                    }
+                    $sg = $this->httpPostRaw('https://api.segmind.com/v1/sdxl-base-1.0',
+                        json_encode(['prompt' => 'a red apple', 'samples' => 1, 'width' => 512, 'height' => 512, 'num_inference_steps' => 10]),
+                        90, ['x-api-key: ' . $key, 'Content-Type: application/json']);
+                    $ok = $sg !== null && strlen((string)$sg) > 1000;
+                    $message = $ok ? 'کلید معتبر و سرویس تصویر ساخت.' : 'کلید یا اعتبار Segmind کافی نیست.';
+                    break;
+                case 'leonardo':
+                    if ($key === '') {
+                        $message = 'کلید Leonardo در تنظیمات ثبت نشده است.';
+                        break;
+                    }
+                    $us = $this->httpGetBody('https://cloud.leonardo.ai/api/rest/v1/me', ['Authorization: Bearer ' . $key, 'Accept: application/json'], 15);
+                    $ud = $us !== null ? json_decode($us, true) : null;
+                    $ok = is_array($ud) && !empty($ud['user']['id'] ?? ($ud['id'] ?? null));
+                    $message = $ok ? 'کلید معتبر و سرویس در دسترس است.' : 'کلید یا اتصال Leonardo معتبر نیست.';
                     break;
             }
         } catch (Throwable $e) {
