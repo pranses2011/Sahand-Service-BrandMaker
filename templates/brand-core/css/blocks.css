@@ -441,3 +441,14 @@
 .bb-wrap .survey-opt { display: inline-flex; align-items: center; gap: 7px; background: var(--color-surface, #f1f5f9); border: 1.5px solid var(--border, #e2e8f0); border-radius: 11px; padding: 8px 14px; cursor: pointer; font-weight: 700; }
 .bb-wrap .survey-opt:has(input:checked) { border-color: var(--p); background: var(--p-light, #dbeafe); }
 .bb-wrap .survey-opt input { accent-color: var(--p); width: 16px; height: 16px; }
+
+/* ═══ 🆕 v2.39 — تکمیل تنظیمات عناصر ═══
+   ① زیرعنوان سراسری بلوک‌ها (props.subtitle → .blk-sub بعد از تیتر) */
+.bb-wrap .blk-sub { font-size: 12.5px; line-height: 2.1; color: var(--blk-txt, inherit); opacity: .92; text-align: center; max-width: 640px; margin: -8px auto 16px; }
+.bb-wrap .blk-bg-primary .blk-sub, .bb-wrap .blk-bg-dark .blk-sub, .bb-wrap .blk-bg-gradient .blk-sub, .bb-wrap .blk-var-dark .blk-sub, .bb-wrap .blk-var-gradient .blk-sub { opacity: .95; }
+/* ② رنگ اختصاصی دکمه‌های همین بخش (props.btnColor → --blk-btn روی .blk)
+      سلکتور [style*=--blk-btn] فقط وقتی فعال می‌شود که رنگ ست شده باشد —
+      سبک‌های دکمه (شیشه‌ای/خطی/گرادیانت...) بدون رنگ سفارشی دست‌نخورده می‌مانند */
+.bb-wrap .blk[style*="--blk-btn"] .hero-btn { background: var(--blk-btn) !important; color: #fff !important; }
+.bb-wrap .blk[style*="--blk-btn"] .fake-cta { background: var(--blk-btn) !important; color: #fff !important; }
+.bb-wrap .blk[style*="--blk-btn"] .cta-btn { background: var(--blk-btn) !important; color: #fff !important; }

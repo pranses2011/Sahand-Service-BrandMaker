@@ -183,6 +183,10 @@ if (!function_exists('pvStyleVars')) {
         $mt = $px($props['mt'] ?? ''); $mb = $px($props['mb'] ?? '');
         if ($mt !== '') { $s .= '--blk-mt:' . $mt . ';'; }
         if ($mb !== '') { $s .= '--blk-mb:' . $mb . ';'; }
+        /* 🆕 v2.39 — رنگ اختصاصی دکمه‌های همین بخش (تکمیل تنظیمات عناصر:
+           «رنگ» برای دکمه‌ها — هم‌رنگ شدن دکمه با هویت بصری برند) */
+        $btn = trim((string)($props['btnColor'] ?? ''));
+        if (preg_match('/^#[0-9a-fA-F]{3,8}$/', $btn)) { $s .= '--blk-btn:' . $btn . ';'; }
         return $s;
     }
 }
@@ -472,7 +476,7 @@ if (!function_exists('pv_render_block')) {
             $html = preg_replace('#^<div class="blk #', '<div class="blk ' . implode(' ', $inject) . ' ', $html, 1);
         }
         $vars = pvStyleVars($props);
-        if ($vars !== '' && preg_match('#--blk-tc|--blk-grad|--blk-txt|--blk-bg|--blk-mt|--blk-mb#', $html) === 0) {
+        if ($vars !== '' && preg_match('#--blk-tc|--blk-grad|--blk-txt|--blk-bg|--blk-mt|--blk-mb|--blk-btn#', $html) === 0) {
             if (preg_match('#^(<div class="blk [^>]*?)style="([^"]*)"#', $html, $sm)) {
                 $html = preg_replace('#^(<div class="blk [^>]*?)style="[^"]*"#', '$1style="' . $sm[2] . ';' . $vars . '"', $html, 1);
             } else {
@@ -513,6 +517,21 @@ if (!function_exists('pv_render_block')) {
             },
             $html
         );
+        /* 🆕 v2.39 — زیرعنوان سراسری بلوک‌ها: تزریق بعد از اولین تیتر بخش
+           (تکمیل تنظیمات عناصر — «متن»: ۸۵ بلوک تیتردار حالا زیرعنوان هم دارند).
+           بلوک‌هایی که hero-sub اختصاصی دارند (هیروها) از قبل زیرعنوان دارند
+           و چون blk-title ندارند، این تزریق رویشان اثر نمی‌گذارد. */
+        $blkSub = trim((string)($props['subtitle'] ?? ''));
+        if ($blkSub !== '' && strpos($html, 'blk-sub') === false && strpos($html, 'blk-title') !== false) {
+            $subDiv = '<div class="blk-sub">' . e($blkSub) . '</div>';
+            /* callback → مقدار بازگشتی literal است (امن در برابر $ در متن زیرعنوان) */
+            $html = preg_replace_callback(
+                '#<div class="blk-title"[^>]*>.*?</div>#us',
+                static function (array $m) use ($subDiv): string { return $m[0] . $subDiv; },
+                $html,
+                1
+            );
+        }
         /* 🖱 v2.29 — کلیک‌پذیری: کل عنصر داخل لینک */
         return pv_link_wrap($props, $html);
     }

@@ -419,6 +419,9 @@ function blkStyleVars(props) {
     const mt = pxv(props.mt), mb = pxv(props.mb);
     if (mt) { s += `--blk-mt:${mt};`; }
     if (mb) { s += `--blk-mb:${mb};`; }
+    /* 🆕 v2.39 — رنگ اختصاصی دکمه‌های همین بخش (آینهٔ PHP pvStyleVars) */
+    const btnC = String(props.btnColor || '').trim();
+    if (/^#[0-9a-fA-F]{3,8}$/.test(btnC)) { s += `--blk-btn:${btnC};`; }
     return s;
 }
 
@@ -724,6 +727,11 @@ async function pvFlush() {
 .blk-bg-gradient { background:linear-gradient(135deg,#1e40af 0%,#0ea5e9 60%,#f59e0b 100%); color:#fff; }
 .blk-bg-dark { background:#0f172a; color:#e2e8f0; }
 .blk-title { font-size:15px; font-weight:800; margin-bottom:14px; text-align:center; color:#1e293b; }
+/* 🆕 v2.39 — زیرعنوان سراسری بلوک‌ها + رنگ اختصاصی دکمه‌ها (تکمیل تنظیمات عناصر) */
+.blk-sub { font-size:12.5px; line-height:2.1; opacity:.9; text-align:center; max-width:640px; margin:-8px auto 16px; }
+.blk[style*="--blk-btn"] .hero-btn { background: var(--blk-btn) !important; color:#fff !important; }
+.blk[style*="--blk-btn"] .fake-cta { background: var(--blk-btn) !important; color:#fff !important; }
+.blk[style*="--blk-btn"] .cta-btn { background: var(--blk-btn) !important; color:#fff !important; }
 .blk-bg-primary .blk-title, .blk-bg-gradient .blk-title, .blk-bg-dark .blk-title { color:#fff; }
 .topbar-blk .tb-row { display:flex; justify-content:space-between; font-size:11px; color:#64748b; flex-wrap:wrap; gap:6px; }
 .header-blk { padding:12px 16px; } .header-blk .h-row { display:flex; align-items:center; gap:13px; }
@@ -1454,68 +1462,68 @@ const BLOCK_FIELDS = {
     'hero': ['T', 'S', 'BTN'], 'hero-slider': ['T', 'A', 'SLT', 'IT'], 'hero-split': ['T', 'S', 'IMG', 'BTN'],
     'hero-video': ['T', 'IMG'], 'hero-countdown': ['T', 'CD'], 'hero-form': ['T', 'S', 'B', 'FRM', 'DST'],
     'hero-marquee': ['X'], 'announcement-pill': ['T'],
-    'hero-minimal': ['T', 'S', 'B', 'BTN'], 'hero-glass': ['T', 'S', 'BTN'], 'logo-strip': ['T'],
+    'hero-minimal': ['T', 'S', 'B', 'BTN'], 'hero-glass': ['T', 'S', 'BTN'], 'logo-strip': ['T', 'S'],
     /* 🆕 v2.29 — اسلایدر همه‌کاره: هر تعداد و هر نوع (تصویر/متن/کارت/مقاله/برند) */
     'universal-slider': ['T', 'A', 'SLT', 'IT'],
     /* محتوا — 🆕 v2.29: rich-text لیست قابل ویرایش با آیتم‌ها (رفع «لیستش رو نمیشه تغییر داد») */
-    'text': ['T', 'X'], 'text-image': ['T', 'X', 'IMG'], 'intro': ['T', 'X', 'IMG'], 'rich-text': ['T', 'X', 'IT'],
-    'quote': ['X'], 'two-col': ['T', 'IT'], 'three-col': ['T', 'IT'], 'brand-story': ['T', 'IT'],
-    'area-list': ['T', 'IT'], 'checklist': ['T', 'IT'], 'search-bar': ['placeholder', 'BTN'],
-    'heading-center': ['T', 'S'], 'numbered-list': ['T', 'IT'], 'info-box': ['T', 'I', 'X'],
-    'benefits-list': ['T', 'IT'], 'author-box': ['T', 'I', 'X'],
-    'text-columns': ['T', 'X'], 'brand-values': ['T', 'IT'], 'tech-tips': ['T', 'IT'],
-    'pros-cons': ['T', 'IT'], 'text-accent-box': ['T', 'X'], 'definition-list': ['T', 'IT'],
-    'article-highlight': ['T', 'S', 'X', 'IMG'], 'page-header': ['T', 'S'], 'steps-vertical': ['T', 'IT'],
+    'text': ['T', 'S', 'X'], 'text-image': ['T', 'S', 'X', 'IMG'], 'intro': ['T', 'S', 'X', 'IMG'], 'rich-text': ['T', 'S', 'X', 'IT'],
+    'quote': ['T', 'S', 'X'], 'two-col': ['T', 'S', 'IT'], 'three-col': ['T', 'S', 'IT'], 'brand-story': ['T', 'S', 'IT'],
+    'area-list': ['T', 'S', 'IT'], 'checklist': ['T', 'S', 'IT'], 'search-bar': ['placeholder', 'BTN'],
+    'heading-center': ['T', 'S'], 'numbered-list': ['T', 'S', 'IT'], 'info-box': ['T', 'S', 'I', 'X'],
+    'benefits-list': ['T', 'S', 'IT'], 'author-box': ['T', 'S', 'I', 'X'],
+    'text-columns': ['T', 'S', 'X'], 'brand-values': ['T', 'S', 'IT'], 'tech-tips': ['T', 'S', 'IT'],
+    'pros-cons': ['T', 'S', 'IT'], 'text-accent-box': ['T', 'X'], 'definition-list': ['T', 'S', 'IT'],
+    'article-highlight': ['T', 'S', 'X', 'IMG'], 'page-header': ['T', 'S'], 'steps-vertical': ['T', 'S', 'IT'],
     /* ستون‌بندی */
-    'section-columns': ['T', 'SC'], 'section-split': ['T'], 'feature-list': ['T', 'IT'],
+    'section-columns': ['T', 'S', 'SC'], 'section-split': ['T', 'S'], 'feature-list': ['T', 'S', 'IT'],
     /* کارت‌ها */
-    'services-grid': ['T', 'C', 'IT'], 'devices-grid': ['T', 'C'], 'articles-recent': ['T', 'C'],
-    'articles-grid': ['T', 'C'], 'features': ['T', 'C', 'IT'], 'team': ['T', 'C', 'IT'],
-    'pricing-table': ['T', 'IT'], 'brands-links': ['T', 'C', 'IT'], 'certificates': ['T', 'C', 'IT'],
-    'review-grid': ['T', 'C', 'IT'], 'contact-cards': ['T', 'IT'], 'price-cards': ['T', 'IT'],
-    'location-cards': ['T', 'C', 'IT'], 'expert-cards': ['T', 'C', 'IT'], 'logo-cloud': ['T', 'C', 'IT'],
-    'brand-intro-card': ['T', 'S'], 'price-highlight': ['T', 'S', '$', 'G', 'B', 'BTN'], 'price-compare': ['T', 'C', 'BTN'],
-    'service-price-cards': ['T', 'C', 'IT'], 'feature-icons-grid': ['T', 'C', 'IT'],
+    'services-grid': ['T', 'S', 'C', 'IT'], 'devices-grid': ['T', 'S', 'C'], 'articles-recent': ['T', 'S', 'C'],
+    'articles-grid': ['T', 'S', 'C'], 'features': ['T', 'S', 'C', 'IT'], 'team': ['T', 'S', 'C', 'IT'],
+    'pricing-table': ['T', 'S', 'IT'], 'brands-links': ['T', 'S', 'C', 'IT'], 'certificates': ['T', 'S', 'C', 'IT'],
+    'review-grid': ['T', 'S', 'C', 'IT'], 'contact-cards': ['T', 'S', 'IT'], 'price-cards': ['T', 'S', 'IT'],
+    'location-cards': ['T', 'S', 'C', 'IT'], 'expert-cards': ['T', 'S', 'C', 'IT'], 'logo-cloud': ['T', 'S', 'C', 'IT'],
+    'brand-intro-card': ['T', 'S'], 'price-highlight': ['T', 'S', '$', 'G', 'B', 'BTN'], 'price-compare': ['T', 'S', 'C', 'BTN'],
+    'service-price-cards': ['T', 'S', 'C', 'IT'], 'feature-icons-grid': ['T', 'S', 'C', 'IT'],
     /* فرم — 🆕 v2.32: LNK بی‌اثر حذف شد (دکمه فرم عملکردی است و لینک نمی‌شود) */
     'contact-form': ['T', 'B', 'FRM', 'DST'], 'request-form': ['T', 'B', 'FRM', 'DST'], 'newsletter-form': ['T', 'B', 'FRM', 'DST'],
     'appointment-form': ['T', 'B', 'FRM', 'DST'], 'quick-contact-form': ['T', 'B', 'FRM', 'DST'],
-    'booking-calendar': ['T', 'BTN'], 'warranty-check': ['T', 'B', 'BTN'], 'price-estimate': ['T', 'BTN'],
-    'device-error-lookup': ['T', 'BTN'], 'appointment-compact': ['T', 'B', 'FRM', 'DST'],
+    'booking-calendar': ['T', 'S', 'BTN'], 'warranty-check': ['T', 'S', 'B', 'BTN'], 'price-estimate': ['T', 'S', 'BTN'],
+    'device-error-lookup': ['T', 'S', 'BTN'], 'appointment-compact': ['T', 'B', 'FRM', 'DST'],
     'callback-form': ['T', 'B', 'FRM', 'DST'], 'survey-form': ['T', 'IT', 'FRM', 'DST'],
     /* آمار — 🆕 v2.29: رنگ نوارهای پیشرفت (رفع «نوارهای پیشرفت رنگشون عوض نمیشه») */
-    'counter-stats': ['T', 'IT'], 'progress-bars': ['T', 'CLR', 'IT'], 'skill-bars': ['T', 'CLR', 'IT'],
-    'stats-grid': ['T', 'C', 'IT'], 'stats-strip': ['T', 'IT'],
-    'live-queue': ['T', 'IT'], 'hourly-capacity': ['T', 'IT'], 'stats-inline': ['T', 'IT'],
-    'stats-circles': ['T', 'CLR', 'IT'], 'counter-big': ['T', 'IT'], 'brand-stats-bar': ['T', 'IT'],
+    'counter-stats': ['T', 'IT'], 'progress-bars': ['T', 'CLR', 'IT'], 'skill-bars': ['T', 'S', 'CLR', 'IT'],
+    'stats-grid': ['T', 'S', 'C', 'IT'], 'stats-strip': ['T', 'IT'],
+    'live-queue': ['T', 'S', 'IT'], 'hourly-capacity': ['T', 'S', 'IT'], 'stats-inline': ['T', 'S', 'IT'],
+    'stats-circles': ['T', 'S', 'CLR', 'IT'], 'counter-big': ['T', 'IT'], 'brand-stats-bar': ['T', 'S', 'IT'],
     /* تعامل */
-    'testimonials': ['T', 'A', 'IT'], 'faq-accordion': ['T', 'IT'], 'tabs': ['T', 'IT'], 'timeline': ['T', 'IT'],
-    'steps-process': ['T', 'IT'], 'before-after': ['T', 'X', 'X2'], 'social-proof': ['X'],
-    'warranty-steps': ['T', 'IT'], 'feature-table': ['T', 'IT'],
-    'faq-search': ['T', 'placeholder'], 'faq-category': ['T', 'IT'],
-    'faq-mini': ['T', 'X'], 'steps-compact': ['T', 'IT'],
-    'quote-slider': ['T', 'A', 'IT'], 'vote-poll': ['T', 'IT'],
+    'testimonials': ['T', 'S', 'A', 'IT'], 'faq-accordion': ['T', 'S', 'IT'], 'tabs': ['T', 'S', 'IT'], 'timeline': ['T', 'S', 'IT'],
+    'steps-process': ['T', 'S', 'IT'], 'before-after': ['T', 'S', 'X', 'X2'], 'social-proof': ['X'],
+    'warranty-steps': ['T', 'S', 'IT'], 'feature-table': ['T', 'S', 'IT'],
+    'faq-search': ['T', 'S', 'placeholder'], 'faq-category': ['T', 'S', 'IT'],
+    'faq-mini': ['T', 'X'], 'steps-compact': ['T', 'S', 'IT'],
+    'quote-slider': ['T', 'S', 'A', 'IT'], 'vote-poll': ['T', 'S', 'IT'],
     /* رسانه — 🆕 v2.29: کاروسل تصاویر چندمقداری */
-    'gallery': ['T', 'C', 'IMG', 'IT'], 'image-carousel': ['T', 'A', 'IMG', 'IT'], 'video-embed': ['T', 'IMG', 'V'], 'map': ['T', 'X', 'MU'],
-    'before-after-slider': ['T', 'IMG'], 'social-wall': ['T', 'IT'], 'reviews-carousel': ['T', 'A', 'IT'],
-    'video-grid': ['T', 'C', 'IMG'], 'logo-marquee': ['T', 'IT'], 'tag-cloud': ['T', 'IT'],
+    'gallery': ['T', 'S', 'C', 'IMG', 'IT'], 'image-carousel': ['T', 'S', 'A', 'IMG', 'IT'], 'video-embed': ['T', 'S', 'IMG', 'V'], 'map': ['T', 'S', 'X', 'MU'],
+    'before-after-slider': ['T', 'S', 'IMG'], 'social-wall': ['T', 'S', 'IT'], 'reviews-carousel': ['T', 'S', 'A', 'IT'],
+    'video-grid': ['T', 'S', 'C', 'IMG'], 'logo-marquee': ['T', 'S', 'IT'], 'tag-cloud': ['T', 'S', 'IT'],
     /* فراخوان — 🆕 v2.32: BTN = ویرایشگر متن + لینک هر دکمه */
     'cta-phone': ['T', 'P'], 'cta-request': ['T', 'B', 'BTN'], 'cta-banner': ['T', 'B', 'BTN'],
-    'sticky-mobile-cta': ['P', 'B', 'BTN'], 'cta-whatsapp': ['T', 'X', 'BTN'], 'warranty-banner': ['T', 'X', 'BTN'],
-    'link-buttons': ['T', 'IT'], 'promo-card': ['T', 'S', 'BTN'], 'download-card': ['T', 'S', 'B', 'BTN'],
+    'sticky-mobile-cta': ['P', 'B', 'BTN'], 'cta-whatsapp': ['T', 'S', 'X', 'BTN'], 'warranty-banner': ['T', 'X', 'BTN'],
+    'link-buttons': ['T', 'S', 'IT'], 'promo-card': ['T', 'S', 'BTN'], 'download-card': ['T', 'S', 'B', 'BTN'],
     'guarantee-card': ['T', 'S', 'B', 'BTN'], 'cta-timer': ['T', 'S', 'CD', 'BTN'], 'urgent-repair': ['T', 'P', 'B', 'BTN'],
     'newsletter-popup': ['T', 'S', 'B', 'BTN'],
     'emergency-strip': ['X', 'P'],
     /* ساختار */
     'breadcrumb': ['IT'], 'alert-notice': ['X', 'alertT'], 'button-group': ['B', 'IT'],
-    'icon-list': ['T', 'IT'], 'separator': [], 'divider-icon': ['I'], 'spacer': ['H'],
-    'working-hours': ['T', 'IT'], 'social-follow': ['T', 'IT'], 'trust-badges': ['T', 'IT'],
-    'contact-info-bar': ['P', 'W'], 'contact-map-split': ['T', 'P'], 'warning-box': ['T', 'I', 'X'],
-    'related-links': ['T', 'IT'], 'schedule-table': ['T', 'IT'],
-    'ticker-bar': ['X'], 'credit-trust': ['T', 'IT'], 'brand-badges-row': ['T', 'IT'],
+    'icon-list': ['T', 'S', 'IT'], 'separator': [], 'divider-icon': ['I'], 'spacer': ['H'],
+    'working-hours': ['T', 'S', 'IT'], 'social-follow': ['T', 'S', 'IT'], 'trust-badges': ['T', 'S', 'IT'],
+    'contact-info-bar': ['P', 'W'], 'contact-map-split': ['T', 'S', 'P'], 'warning-box': ['T', 'I', 'X'],
+    'related-links': ['T', 'S', 'IT'], 'schedule-table': ['T', 'S', 'IT'],
+    'ticker-bar': ['X'], 'credit-trust': ['T', 'IT'], 'brand-badges-row': ['T', 'S', 'IT'],
     'chat-widget': ['T', 'BTN'],
     /* فوتر */
-    'footer-simple': ['P', 'IT'], 'footer-contact': ['P', 'W'], 'footer-links': ['T', 'IT'],
-    'payment-methods': ['T', 'IT'], 'copyright': ['X'],
+    'footer-simple': ['P', 'IT'], 'footer-contact': ['P', 'W'], 'footer-links': ['T', 'S', 'IT'],
+    'payment-methods': ['T', 'S', 'IT'], 'copyright': ['X'],
 };
 
 /* 🔤 برچسب‌های فارسی کدهای فیلد */
@@ -1774,6 +1782,12 @@ function renderProps() {
         <div class="form-group"><label>🔘 استایل دکمه‌های این بخش</label>
             ${varSel('btnStyle', BLOCK_VARIANTS.btnStyle)}
             <div class="hint" style="margin-top:4px">شیشه‌ای، دایره‌ای (کپسولی)، خطی، گرادیانت و ... — برای عناصری که دکمه دارند.</div></div>
+        <div class="form-group"><label>🎨 رنگ اختصاصی دکمه‌های این بخش</label>
+            <div style="display:flex;gap:7px;align-items:center">
+                <input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="${esc(props.btnColor || '#1e40af')}" oninput="setProp('${selected}','btnColor',this.value)">
+                <button type="button" class="btn btn-outline btn-sm" onclick="setProp('${selected}','btnColor','');renderProps()" title="حذف رنگ — برگشت به رنگ قالب">✕ پیش‌فرض</button>
+            </div>
+            <div class="hint" style="margin-top:4px">🆕 همه دکمه‌های همین بخش (اعم از دکمه اصلی، دکمه‌های کارت و CTA) هم‌رنگ انتخاب شما می‌شوند — رنگ سبک دکمه را هم بازمی‌پوشاند.</div></div>
         <div class="form-group"><label>✨ افکت هاور (رفت و برگشت ماوس)</label>
             ${varSel('hoverFx', BLOCK_VARIANTS.hoverFx)}</div>`;
     }
