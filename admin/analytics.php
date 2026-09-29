@@ -1126,8 +1126,113 @@ if (get_param('export') === 'csv') {
     </div>
 </div>
 
+<!-- ═══ 🆕 v2.39 — تحلیل درخواست‌های خدمات (سمت کسب‌وکار) ═══ -->
+<div class="card" style="margin-bottom:18px;border-inline-start:4px solid #7c3aed">
+    <div class="card-header">
+        <h3>📨 تحلیل درخواست‌های خدمات</h3>
+        <span class="badge badge-secondary" style="font-size:11px"><?= en_to_fa_digits((string)$reqTotal) ?> درخواست در این بازه</span>
+    </div>
+    <div class="card-body">
+        <?php if ($reqTotal < 1): ?>
+            <div class="empty-state" style="padding:18px"><div class="icon">📭</div><p>در این بازه درخواستی ثبت نشده است.</p></div>
+        <?php else: ?>
+        <div class="grid-2">
+            <div>
+                <b style="font-size:13px;display:block;margin-bottom:8px">🔧 دستگاه‌های پردرخواست</b>
+                <canvas id="reqdevices-chart" height="<?= max(150, count($reqDevices) * 40) ?>"></canvas>
+            </div>
+            <div>
+                <b style="font-size:13px;display:block;margin-bottom:8px">📊 وضعیت درخواست‌ها</b>
+                <canvas id="reqstatus-chart" height="230"></canvas>
+            </div>
+        </div>
+        <div style="margin-top:18px">
+            <b style="font-size:13px;display:block;margin-bottom:8px">📈 روند هفتگی درخواست‌ها (۱۲ هفته اخیر)</b>
+            <canvas id="reqtrend-chart" height="180"></canvas>
+        </div>
+        <div style="margin-top:18px">
+            <b style="font-size:13px;display:block;margin-bottom:8px">🏆 برندهای برتر — تعداد درخواست و نرخ تبدیل (درخواست ÷ بازدید)</b>
+            <div id="reqbrands-list"></div>
+        </div>
+        <?php endif; ?>
+    </div>
+</div>
+
 <!-- 🧩 نمودار Canvas بدون وابستگی خارجی -->
 <?php
+/* ═══ 🆕 v2.39 — داده‌های تحلیل درخواست‌ها (سمت کسب‌وکار) ═══ */
+$reqWhere = '1=1';
+$reqParams = [];
+if ($brandFilter > 0) {
+    $reqWhere .= ' AND r.brand_id = ?';
+    $reqParams[] = $brandFilter;
+}
+if ($dateFrom !== '') {
+    $reqWhere .= ' AND r.created_at >= ?';
+    $reqParams[] = $dateFrom . ' 00:00:00';
+}
+if ($dateTo !== '') {
+    $reqWhere .= ' AND r.created_at <= ?';
+    $reqParams[] = $dateTo . ' 23:59:59';
+}
+
+/* ① 🔧 دستگاه‌های پردرخواست — نام فارسی از brand_devices */
+$reqDeviceRows = $safeQuery(
+    "SELECT COALESCE(NULLIF(d.name_fa, ''), NULLIF(r.device_other, ''), r.device_key, 'سایر') AS dev, COUNT(*) AS c
+     FROM service_requests r LEFT JOIN brand_devices d ON d.brand_id = r.brand_id AND d.device_key = r.device_key
+     WHERE {$reqWhere}
+     GROUP BY dev ORDER BY c DESC LIMIT 8",
+    $reqParams
+);
+$reqDevices = array_map(fn($r) => ['label' => (string)$r['dev'], 'value' => (int)$r['c']], (array)$reqDeviceRows);
+
+/* ② 📊 توزیع وضعیت درخواست‌ها */
+$reqStatusRows = $safeQuery(
+    "SELECT r.status, COUNT(*) AS c FROM service_requests r WHERE {$reqWhere} GROUP BY r.status",
+    $reqParams
+);
+$_reqStatusLabels = ['new' => '🆕 جدید', 'reviewing' => '🔍 در بررسی', 'assigned' => '👨‍🔧 تخصیص‌یافته', 'done' => '✅ انجام‌شده', 'canceled' => '🚫 لغوشده'];
+$reqStatusMap = [];
+foreach ((array)$reqStatusRows as $rs) {
+    $reqStatusMap[$_reqStatusLabels[$rs['status']] ?? (string)$rs['status']] = (int)$rs['c'];
+}
+
+/* ③ 📈 روند هفتگی درخواست‌ها (۱۲ هفته اخیر) */
+$reqWeekRows = $safeQuery(
+    "SELECT DATE_SUB(DATE(r.created_at), INTERVAL WEEKDAY(r.created_at) DAY) AS wk, COUNT(*) AS c
+     FROM service_requests r
+     WHERE r.created_at >= DATE_SUB(?, INTERVAL 83 DAY)
+     GROUP BY wk ORDER BY wk",
+    [date('Y-m-d')]
+);
+$reqWeekly = array_map(fn($r) => ['label' => jdate_short((string)$r['wk']), 'value' => (int)$r['c']], (array)$reqWeekRows);
+
+/* ④ 🏆 برندهای برتر بر اساس درخواست + نرخ تبدیل */
+$reqBrandWhere = '1=1';
+$reqBrandParams = [];
+if ($dateFrom !== '') { $reqBrandWhere .= ' AND r2.created_at >= ?'; $reqBrandParams[] = $dateFrom . ' 00:00:00'; }
+if ($dateTo !== '') { $reqBrandWhere .= ' AND r2.created_at <= ?'; $reqBrandParams[] = $dateTo . ' 23:59:59'; }
+if ($brandFilter > 0) { $reqBrandWhere .= ' AND r2.brand_id = ?'; $reqBrandParams[] = $brandFilter; }
+$reqBrandRows = $safeQuery(
+    "SELECT b.id, b.name_fa, b.logo,
+            (SELECT COUNT(*) FROM service_requests r2 WHERE r2.brand_id = b.id AND {$reqBrandWhere}) AS reqs,
+            (SELECT COUNT(DISTINCT v.session_hash) FROM visits v WHERE v.brand_id = b.id" . ($dateFrom !== '' ? ' AND v.visit_date >= ?' : '') . ($dateTo !== '' ? ' AND v.visit_date <= ?' : '') . ") AS vis
+     FROM brands b ORDER BY reqs DESC LIMIT 7",
+    array_merge($reqBrandParams, array_values(array_filter([$dateFrom ?: null, $dateTo ?: null])))
+);
+$reqBrands = [];
+foreach ((array)$reqBrandRows as $rb) {
+    if ((int)$rb['reqs'] < 1 && (int)$rb['vis'] < 1) { continue; }
+    $reqBrands[] = [
+        'label'  => (string)$rb['name_fa'],
+        'logo'   => (string)$rb['logo'],
+        'value'  => (int)$rb['reqs'],
+        'visits' => (int)$rb['vis'],
+        'conv'   => (int)$rb['vis'] > 0 ? round((int)$rb['reqs'] / (int)$rb['vis'] * 100, 1) : 0,
+    ];
+}
+$reqTotal = array_sum(array_map(fn($d) => $d['value'], $reqDevices)) ?: array_sum($reqStatusMap);
+
 /* 📦 P2-23 — داده‌های نمودارها: همان ۳۷ عبارت PHP که قبلاً درون‌خطی در JS بودند */
 $_ad = [
     array_map(fn($r) => ['date' => $r['visit_date'], 'u' => (int)$r['unique_visits'], 'v' => (int)$r['views']], $timeline),
@@ -1167,11 +1272,16 @@ $_ad = [
     en_to_fa_digits((string)$returningPct),
     en_to_fa_digits((string)$engageGoodPct),
     $bouncePages,
+    /* 🆕 v2.39 — تحلیل درخواست‌ها */
+    $reqDevices,
+    $reqStatusMap,
+    $reqWeekly,
+    $reqBrands,
 ];
 ?>
 <script>
 /* 📊 آرایه داده‌های آمار (مقادیر سرور — بوت‌استرپ JS خارجی) */
 const AD = <?= json_encode($_ad, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 </script>
-<script src="../assets/js/analytics.js?v=2.36"></script>
+<script src="../assets/js/analytics.js?v=2.39"></script>
 <?php require __DIR__ . '/includes/footer.php'; ?>

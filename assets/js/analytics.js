@@ -1078,6 +1078,135 @@ setInterval(sahandLoadOnlineUsers, 30000);
     });
 })();
 
+/* ═══ 🆕 v2.39 — تحلیل درخواست‌های خدمات (چهار نمودار جدید) ═══ */
+
+/* 🔧 ① دستگاه‌های پردرخواست — میله‌های افقی گرادیانی */
+(function () {
+    const canvas = document.getElementById('reqdevices-chart');
+    if (!canvas) return;
+    const data = AD[AD.length - 4] || [];
+    if (!data.length) { canvas.parentElement.innerHTML = '<div class="empty-state" style="padding:12px"><div class="icon">🔧</div><p>داده‌ای موجود نیست.</p></div>'; return; }
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth, h = canvas.offsetHeight || data.length * 40;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    ctx.scale(dpr, dpr);
+    const faN = new Intl.NumberFormat('fa-IR');
+    const max = Math.max(...data.map(d => d.value), 1);
+    const rowH = Math.min(44, (h - 10) / data.length);
+    data.forEach((d, i) => {
+        const y = 8 + i * rowH;
+        /* برچسب راست */
+        ctx.textAlign = 'right'; ctx.fillStyle = '#1e293b'; ctx.font = '12.5px Tahoma';
+        ctx.fillText(String(d.label).slice(0, 22), w - 8, y + rowH / 2 + 4);
+        /* میله از راست به چپ */
+        const barRight = w - 150, barW = (barRight - 10) * (d.value / max);
+        const grad = ctx.createLinearGradient(barRight, 0, barRight - barW, 0);
+        grad.addColorStop(0, '#7c3aed'); grad.addColorStop(1, '#a78bfa');
+        ctx.fillStyle = grad;
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(barRight - barW, y + rowH / 2 - 9, barW, 18, 8); ctx.fill(); }
+        else { ctx.fillRect(barRight - barW, y + rowH / 2 - 9, barW, 18); }
+        /* عدد */
+        ctx.textAlign = 'left'; ctx.fillStyle = '#6d28d9'; ctx.font = 'bold 12.5px Tahoma';
+        ctx.fillText(faN.format(d.value), 8, y + rowH / 2 + 4);
+    });
+})();
+
+/* 📊 ② توزیع وضعیت درخواست‌ها — دونات */
+(function () {
+    const canvas = document.getElementById('reqstatus-chart');
+    if (!canvas) return;
+    const map = AD[AD.length - 3] || {};
+    const data = Object.keys(map).map(k => ({ label: k, value: map[k] })).filter(d => d.value > 0);
+    if (!data.length) { canvas.parentElement.innerHTML = '<div class="empty-state" style="padding:12px"><div class="icon">📊</div><p>داده‌ای موجود نیست.</p></div>'; return; }
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth;
+    canvas.width = w * dpr; canvas.height = 230 * dpr;
+    ctx.scale(dpr, dpr);
+    const faN = new Intl.NumberFormat('fa-IR');
+    const colors = ['#dc2626', '#f59e0b', '#0891b2', '#16a34a', '#94a3b8', '#7c3aed'];
+    const total = data.reduce((s, d) => s + d.value, 0);
+    const cx = w * 0.30, cy = 115, r = 76;
+    let angle = -Math.PI / 2;
+    data.forEach((d, i) => {
+        const slice = (d.value / total) * Math.PI * 2;
+        ctx.beginPath(); ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, angle, angle + slice); ctx.closePath();
+        ctx.fillStyle = colors[i % colors.length]; ctx.fill();
+        angle += slice;
+    });
+    ctx.beginPath(); ctx.arc(cx, cy, r * 0.58, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.fillStyle = '#1e293b'; ctx.font = 'bold 16px Tahoma'; ctx.textAlign = 'center';
+    ctx.fillText(faN.format(total), cx, cy + 6);
+    ctx.font = '10.5px Tahoma'; ctx.fillStyle = '#64748b';
+    ctx.fillText('کل درخواست‌ها', cx, cy + 24);
+    ctx.textAlign = 'right'; ctx.font = '12px Tahoma';
+    data.forEach((d, i) => {
+        const y = 34 + i * 26;
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fillRect(w * 0.60, y - 9, 13, 13);
+        ctx.fillStyle = '#1e293b';
+        ctx.fillText(d.label + ' — ' + faN.format(d.value) + ' (' + faN.format(Math.round(d.value / total * 100)) + '٪)', w - 8, y + 2);
+    });
+})();
+
+/* 📈 ③ روند هفتگی درخواست‌ها — ستون‌های بنفش */
+(function () {
+    const canvas = document.getElementById('reqtrend-chart');
+    if (!canvas) return;
+    const data = AD[AD.length - 2] || [];
+    if (!data.length) { canvas.parentElement.innerHTML = '<div class="empty-state" style="padding:12px"><div class="icon">📈</div><p>داده‌ای موجود نیست.</p></div>'; return; }
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth, h = 180;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    ctx.scale(dpr, dpr);
+    const faN = new Intl.NumberFormat('fa-IR');
+    const max = Math.max(...data.map(d => d.value), 1);
+    const bw = Math.min(52, (w - 20) / data.length - 8);
+    data.forEach((d, i) => {
+        const cx = 10 + (i + 0.5) * ((w - 20) / data.length);
+        const bh = Math.max(4, (h - 52) * (d.value / max));
+        const grad = ctx.createLinearGradient(0, h - 30 - bh, 0, h - 30);
+        grad.addColorStop(0, '#8b5cf6'); grad.addColorStop(1, '#4c1d95');
+        ctx.fillStyle = grad;
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cx - bw / 2, h - 30 - bh, bw, bh, 6); ctx.fill(); }
+        else { ctx.fillRect(cx - bw / 2, h - 30 - bh, bw, bh); }
+        if (d.value > 0) {
+            ctx.fillStyle = '#6d28d9'; ctx.font = 'bold 11px Tahoma'; ctx.textAlign = 'center';
+            ctx.fillText(faN.format(d.value), cx, h - 36 - bh);
+        }
+        if (data.length <= 12 || i % 2 === 0) {
+            ctx.fillStyle = '#64748b'; ctx.font = '10px Tahoma';
+            ctx.fillText(d.label, cx, h - 12);
+        }
+    });
+})();
+
+/* 🏆 ④ برندهای برتر بر اساس درخواست + نرخ تبدیل — فهرست HTML */
+(function () {
+    const box = document.getElementById('reqbrands-list');
+    if (!box) return;
+    const data = AD[AD.length - 1] || [];
+    if (!data.length) { box.innerHTML = '<div class="empty-state" style="padding:12px"><div class="icon">🏆</div><p>داده‌ای موجود نیست.</p></div>'; return; }
+    const faN = new Intl.NumberFormat('fa-IR');
+    const maxReq = Math.max(...data.map(d => d.value), 1);
+    box.innerHTML = data.map(d => {
+        const pct = Math.max(6, Math.round(d.value / maxReq * 100));
+        const convColor = d.conv >= 3 ? '#16a34a' : (d.conv >= 1 ? '#d97706' : '#94a3b8');
+        return '<div style="display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:11px;transition:.14s" onmouseover="this.style.background=\'rgba(124,58,237,.05)\'" onmouseout="this.style.background=\'\'">'
+            + (d.logo ? '<img src="' + String(d.logo).replace(/"/g, '&quot;') + '" alt="" style="width:34px;height:34px;border-radius:9px;object-fit:cover;border:1px solid #e2e8f0;flex:none">' : '<span style="width:34px;height:34px;border-radius:9px;background:#f1f5f9;display:inline-flex;align-items:center;justify-content:center;flex:none">🏷️</span>')
+            + '<div style="flex:1;min-width:0">'
+            + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + String(d.label).replace(/</g, '&lt;') + '</b>'
+            + '<span style="font-size:11.5px;font-weight:800;color:#6d28d9;flex:none">' + faN.format(d.value) + ' درخواست</span></div>'
+            + '<div style="display:flex;align-items:center;gap:9px;margin-top:5px">'
+            + '<div style="height:7px;border-radius:6px;background:#ede9fe;flex:1;overflow:hidden"><div style="height:100%;width:' + pct + '%;border-radius:6px;background:linear-gradient(90deg,#7c3aed,#a78bfa)"></div></div>'
+            + '<span style="font-size:10.5px;color:' + convColor + ';font-weight:800;flex:none">🎯 ' + faN.format(d.conv) + '٪ تبدیل (' + faN.format(d.visits) + ' بازدید)</span>'
+            + '</div></div></div>';
+    }).join('');
+})();
+
 } /* پایان sahandDrawCharts */
 
 /* ▶ اجرای اولیه + بازترسیم با تأخیر هنگام تغییر اندازه */
