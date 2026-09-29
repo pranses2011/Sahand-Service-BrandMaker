@@ -45,6 +45,29 @@ $pageTitle = $pageData['data']['seo']['title'] ?? (BRAND_NAME_FA . ' | تعمی�
 $pageDesc = $pageData['data']['seo']['description'] ?? '';
 $pageKey = $pageData['data']['seo']['keywords'] ?? '';
 
+/* 🧪 v2.37 — P3: تست A/B هیرو (تقسیم پایدار ۵۰/۵۰)
+   ① آزمایش running برند از API (کش کوتاه ۶۰ ثانیه — شروع/توقف سریع دیده شود)
+   ② کوکی بی‌نام بازدیدکننده (md5 تصادفی — قابل برگشت به شخص نیست)
+   ③ parity بیت آخر md5(visitor + test_id) → A یا B (پایدار در کل بازدیدها)
+   ④ متن واریانت جایگزین متن پیش‌فرض هیرو می‌شود + بیکِن view/click */
+$abTest = fetchFromAPI('brand/' . BRAND_ID . '/ab-active', 60)['data'] ?? null;
+$abVariant = null;
+if (is_array($abTest) && !empty($abTest['test_id'])) {
+    $abVisitor = (string)($_COOKIE['ab_visitor'] ?? '');
+    if (!preg_match('/^[a-f0-9]{32}$/', $abVisitor)) {
+        try {
+            $abVisitor = bin2hex(random_bytes(16));
+        } catch (Throwable $re) {
+            $abVisitor = md5(uniqid('', true));
+        }
+        /* ۳۶۵ روز — همان مسیر بعدی هم همان واریانت را می‌بیند */
+        @setcookie('ab_visitor', $abVisitor, ['expires' => time() + 31536000, 'path' => '/', 'samesite' => 'Lax']);
+    }
+    $abVariant = (hexdec(substr(md5($abVisitor . '|' . (int)$abTest['test_id']), -1)) % 2 === 0) ? 'A' : 'B';
+    $abTest['__variant'] = $abVariant;
+    $abTest['__visitor'] = $abVisitor;
+}
+
 /* 🎨 v2.27 — چیدمان تم/قالب سایت ساز (ریشه «تغییر تم روی سایت برند اعمال
    نمی‌شود»): اگر برای این صفحه تم/قالب/چیدمانی تعیین شده باشد، همان
    بلوک‌ها رندر می‌شوند؛ در غیر این صورت ساختار ثابت پیش‌فرض زیر می‌آید. */
@@ -61,13 +84,27 @@ require __DIR__ . '/includes/header.php';
 <?= $layoutHtml ?>
 <?php else: ?>
 
+<?php
+/* 🧪 v2.37 — متن واریانت A/B هیرو (فقط چیدمان پیش‌فرض؛ چیدمان تم توسط
+   قالب‌ساز می‌آید و آزمایش A/B روی متن ثابت هیروی پیش‌فرض اعمال می‌شود) */
+$heroTitle = 'تعمیرات تخصصی ' . BRAND_NAME_FA;
+$heroCta = '📝 ثبت درخواست خدمات آنلاین';
+if ($abVariant !== null && is_array($abTest)) {
+    if (($abTest['element'] ?? '') === 'hero_title') {
+        $heroTitle = (string)($abVariant === 'B' ? ($abTest['variant_b'] ?? '') : ($abTest['variant_a'] ?? '')) ?: $heroTitle;
+    } elseif (($abTest['element'] ?? '') === 'hero_cta') {
+        $heroCta = (string)($abVariant === 'B' ? ($abTest['variant_b'] ?? '') : ($abTest['variant_a'] ?? '')) ?: $heroCta;
+    }
+}
+?>
+
 <!-- 🦸 بخش هیرو -->
 <section class="hero-section">
     <div class="container hero-inner">
-        <h1 class="hero-title">تعمیرات تخصصی <?= e(BRAND_NAME_FA) ?></h1>
+        <h1 class="hero-title"<?= $abVariant !== null && ($abTest['element'] ?? '') === 'hero_title' ? ' id="abHeroTitle" data-ab-variant="' . e($abVariant) . '"' : '' ?>><?= e($heroTitle) ?></h1>
         <p class="hero-desc">نمایندگی رسمی خدمات پس از فروش — با قطعات اصلی، تکنسین‌های متخصص و ضمانت کتبی</p>
         <div class="hero-actions">
-            <a href="/request" class="btn btn-primary btn-lg">📝 ثبت درخواست خدمات آنلاین</a>
+            <a href="/request" class="btn btn-primary btn-lg"<?= $abVariant !== null && ($abTest['element'] ?? '') === 'hero_cta' ? ' id="abHeroCta" data-ab-variant="' . e($abVariant) . '"' : '' ?>><?= e($heroCta) ?></a>
             <a href="/services" class="btn btn-outline-light btn-lg">🔧 مشاهده خدمات</a>
         </div>
         <div class="hero-badges">
@@ -171,6 +208,45 @@ require __DIR__ . '/includes/header.php';
 </section>
 <?php endif; ?>
 
+<?php endif; ?>
+
+<?php if ($abVariant !== null && is_array($abTest)): ?>
+<script>
+/* 🧪 v2.37 — بیکِن A/B: ثبت view یکتا + کلیک روی عنصر آزمایشی
+   الگوی tracker.js — POST JSON بی‌انتظار (fire-and-forget) */
+(function () {
+    var cfg = <?= json_encode([
+        'url'     => rtrim(BRANDMAKER_API, '/') . '/brand/' . BRAND_ID . '/ab-event',
+        'api_key' => BRAND_API_KEY,
+        'test_id' => (int)$abTest['test_id'],
+        'element' => (string)($abTest['element'] ?? ''),
+        'variant' => $abVariant,
+        'visitor' => (string)$abTest['__visitor'],
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    var sent = { view: false, click: false };
+    var beacon = function (ev) {
+        if (sent[ev]) { return; }
+        sent[ev] = true;
+        try {
+            navigator.sendBeacon && navigator.sendBeacon(cfg.url, new Blob(
+                [JSON.stringify({ api_key: cfg.api_key, test_id: cfg.test_id, variant: cfg.variant, event: ev, visitor: cfg.visitor })],
+                { type: 'application/json' }
+            ));
+        } catch (e) { /* fallback fetch */
+            try {
+                fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+                    body: JSON.stringify({ api_key: cfg.api_key, test_id: cfg.test_id, variant: cfg.variant, event: ev, visitor: cfg.visitor }) }).catch(function () {});
+            } catch (e2) { /* بی‌صدا */ }
+        }
+    };
+    beacon('view');
+    /* کلیک روی عنصر آزمایشی — عنوان هیرو یا دکمه CTA */
+    var el = document.getElementById(cfg.element === 'hero_cta' ? 'abHeroCta' : 'abHeroTitle');
+    if (el) {
+        el.addEventListener('click', function () { beacon('click'); });
+    }
+})();
+</script>
 <?php endif; ?>
 
 <?php
