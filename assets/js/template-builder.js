@@ -116,7 +116,13 @@ const PAGE_DEFAULTS = {
     titleSize: 'md',         /* اندازه پیش‌فرض عنوان‌ها: sm | md | lg | xl */
     scrollProgress: 0,       /* نوار پیشرفت اسکرول بالای صفحه */
     backToTop: 0,            /* دکمه بازگشت به بالا (پیش‌فرض خاموش) */
-    smoothScroll: 0          /* اسکرول نرم لینک‌های داخلی */
+    smoothScroll: 0,         /* اسکرول نرم لینک‌های داخلی */
+    /* 🆕 v2.43 (S08) — استایل چیدمان صفحه: تمام‌عرض/جعبه/وسط/درصد دلخواه */
+    pageLayout: 'normal',    /* normal | full | boxed | center | percent */
+    customWidthPct: '80',    /* عرض دلخواه وقتی pageLayout=percent (٪) */
+    boxedBg: '#eef2f7',      /* زمینه بیرون جعبه وقتی pageLayout=boxed */
+    boxedPad: '26',          /* فاصله محتوا از قاب جعبه (px) */
+    boxedRadius: '18'        /* گردی گوشه جعبه (px) */
 };
 function pageProp(k) {
     return (pageProps && pageProps[k] !== undefined && pageProps[k] !== '') ? pageProps[k] : (PAGE_DEFAULTS[k] !== undefined ? PAGE_DEFAULTS[k] : '');
@@ -307,13 +313,24 @@ function applyPageSettings() {
     const lhVar = lineH ? ';--pg-lh:' + lineH : '';
     const tsz = { sm: '15px', md: '', lg: '21px', xl: '26px' }[pageProp('titleSize')];
     const tsVar = tsz ? ';--pg-title-size:' + tsz : '';
+    /* 🆕 v2.43 (S08) — استایل چیدمان صفحه روی بوم: full/boxed/center/percent */
+    stage.classList.remove('pv-layout-full', 'pv-layout-boxed', 'pv-layout-center', 'pv-layout-percent');
+    const pLayout = String(pageProp('pageLayout') || 'normal');
+    if (pLayout !== 'normal') { stage.classList.add('pv-layout-' + pLayout); }
+    const pctW = Math.max(40, Math.min(100, parseInt(pageProp('customWidthPct'), 10) || 80));
+    const bPad = Math.max(0, Math.min(80, parseInt(pageProp('boxedPad'), 10) || 26));
+    const bRad = Math.max(0, Math.min(40, parseInt(pageProp('boxedRadius'), 10) || 18));
+    const bBg = /^#[0-9a-fA-F]{3,8}$/.test(String(pageProp('boxedBg'))) ? pageProp('boxedBg') : '#eef2f7';
+    let layoutCss = '';
+    if (pLayout === 'percent') { layoutCss = ';--pg-layout-w:' + pctW + '%'; }
+    if (pLayout === 'boxed') { layoutCss = ';--pg-box-pad:' + bPad + 'px;--pg-box-rad:' + bRad + 'px;--pg-box-bg:' + bBg; }
     stage.style.cssText = '--pg-accent:' + accent + ';--pg-hw:' + hWeight + ';--pg-ls:' + lSpace +
         (fontFam ? ';--pg-font:' + fontFam : '') + (patCls ? ';--pg-pat:' + patColor : '') +
         ';--pg-section-pad:' + spacing + ';--pg-gap:' + gap + ';--pg-width:' + width +
         ';--pg-radius:' + radius + ';--pg-text:' + tsize + ';--pg-shadow:' + shadow +
         ';--pg-title:' + (tc !== '' ? tc : 'inherit') + bodyC + linkC + lhVar + tsVar +
         (mT ? ';--pg-mt:' + mT : '') + (mB ? ';--pg-mb:' + mB : '') + (mR ? ';--pg-mr:' + mR : '') + (mL ? ';--pg-ml:' + mL : '') +
-        ';max-width:100%' + padCss +
+        ';max-width:100%' + padCss + layoutCss +
         (bgCss !== '' ? ';background:' + bgCss + ';border-radius:12px' : '');
 }
 /* پنل تنظیمات صفحه — در ستون ویژگی‌ها */
@@ -331,6 +348,14 @@ function renderPageProps() {
         '<div class="form-group"><label>↕️ فاصله داخلی بخش‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'sectionSpacing\',this.value)">' + opt('sectionSpacing', [['compact', 'فشرده (۳۰px)'], ['default', 'پیش‌فرض (۵۴px)'], ['roomy', 'جادار (۷۴px)'], ['airy', 'خیلی باز (۹۶px)']]) + '</select></div>' +
         '<div class="form-group"><label>📏 فاصله بین بخش‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'sectionGap\',this.value)">' + opt('sectionGap', [['tight', 'نزدیک (۱۴px)'], ['default', 'پیش‌فرض (۲۶px)'], ['roomy', 'باز (۴۴px)']]) + '</select></div>' +
         '<div class="form-group"><label>📐 عرض محتوای صفحه</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'containerWidth\',this.value)">' + opt('containerWidth', [['narrow', 'باریک (۸۶۰px)'], ['default', 'پیش‌فرض (۱۰۸۰px)'], ['wide', 'عریض (۱۲۴۰px)'], ['full', 'تمام‌عرض']]) + '</select></div>' +
+        /* 🆕 v2.43 (S08) — استایل چیدمان صفحه: تمام‌عرض/جعبه/وسط/درصد دلخواه */
+        '<hr style="border:none;border-top:1px dashed var(--border);margin:12px 0">' +
+        '<div style="font-size:11px;font-weight:800;color:var(--primary);margin:0 0 7px">🏗 استایل چیدمان صفحه (🆕)</div>' +
+        '<div class="form-group"><label>🏠 حالت چیدمان کل صفحه</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'pageLayout\',this.value);renderPageProps()">' + opt('pageLayout', [['normal', 'عادی (تمام‌صفحه)'], ['full', 'تمام‌عرض لبه‌به‌لبه'], ['boxed', 'جعبه‌ای (کارت با سایه)'], ['center', 'وسط‌چین با حاشیه'], ['percent', 'درصد دلخواه از عرض']]) + '</select><div class="hint" style="margin-top:4px">جعبه‌ای = محتوا در کارت شناور با سایه و زمینه اطراف؛ وسط‌چین = حاشیه متقارن؛ درصد = عرض نسبی دلخواه.</div></div>' +
+        '<div class="form-group" id="pg-pct-box" style="' + (pageProp('pageLayout') === 'percent' ? '' : 'display:none') + '"><label>📏 درصد عرض صفحه</label><div style="display:flex;gap:8px;align-items:center"><input type="range" min="40" max="100" step="5" value="' + pageProp('customWidthPct') + '" oninput="setPageProp(\'customWidthPct\',this.value)" style="flex:1"><code style="font-size:11px;min-width:44px">' + pageProp('customWidthPct') + '٪</code></div></div>' +
+        '<div id="pg-boxed-opts" style="' + (pageProp('pageLayout') === 'boxed' ? '' : 'display:none') + '"><div class="form-group"><label>🎨 زمینه بیرون جعبه</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="' + pageProp('boxedBg') + '" oninput="setPageProp(\'boxedBg\',this.value)"><code style="font-size:10.5px;direction:ltr">' + pageProp('boxedBg') + '</code></div></div>' +
+        '<div class="form-group"><label>↔️ فاصله محتوا از قاب (px)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="80" value="' + pageProp('boxedPad') + '" onchange="setPageProp(\'boxedPad\',this.value)"></div>' +
+        '<div class="form-group"><label>⬜ گردی گوشه جعبه (px)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="40" value="' + pageProp('boxedRadius') + '" onchange="setPageProp(\'boxedRadius\',this.value)"></div></div>' +
         '<div class="form-group"><label>⬜ گردی گوشه‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'radius\',this.value)">' + opt('radius', [['sharp', 'تیز (۲px)'], ['default', 'پیش‌فرض (۱۴px)'], ['round', 'گرد (۲۲px)'], ['pill', 'خیلی گرد (۳۴px)']]) + '</select></div>' +
         '<div class="form-group"><label>🎨 رنگ پیش‌فرض عنوان‌ها</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="' + (pageProp('titleColor') || '#1e40af') + '" oninput="setPageProp(\'titleColor\',this.value)"><button type="button" class="btn btn-outline btn-sm" onclick="setPageProp(\'titleColor\',\'\');renderPageProps()" title="حذف رنگ">✕ پیش‌فرض</button></div></div>' +
         '<div class="form-group"><label>🔤 اندازه متن</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'textSize\',this.value)">' + opt('textSize', [['sm', 'کوچک'], ['default', 'پیش‌فرض'], ['lg', 'بزرگ']]) + '</select></div>' +
@@ -1482,7 +1507,7 @@ const BLOCK_FIELDS = {
     'articles-grid': ['T', 'S', 'C'], 'features': ['T', 'S', 'C', 'IT'], 'team': ['T', 'S', 'C', 'IT'],
     'pricing-table': ['T', 'S', 'IT'], 'brands-links': ['T', 'S', 'C', 'IT'], 'certificates': ['T', 'S', 'C', 'IT'],
     'review-grid': ['T', 'S', 'C', 'IT'], 'contact-cards': ['T', 'S', 'IT'], 'price-cards': ['T', 'S', 'IT'],
-    'location-cards': ['T', 'S', 'C', 'IT'], 'expert-cards': ['T', 'S', 'C', 'IT'], 'logo-cloud': ['T', 'S', 'C', 'IT'],
+    'location-cards': ['T', 'S', 'C', 'IT', 'DYN'], 'expert-cards': ['T', 'S', 'C', 'IT'], 'logo-cloud': ['T', 'S', 'C', 'IT'],
     'brand-intro-card': ['T', 'S'], 'price-highlight': ['T', 'S', '$', 'G', 'B', 'BTN'], 'price-compare': ['T', 'S', 'C', 'IT', 'BTN'],
     'service-price-cards': ['T', 'S', 'C', 'IT'], 'feature-icons-grid': ['T', 'S', 'C', 'IT'],
     /* فرم — 🆕 v2.32: LNK بی‌اثر حذف شد (دکمه فرم عملکردی است و لینک نمی‌شود) */
@@ -1542,6 +1567,8 @@ const CODE_MAP = {
     'LNK': 'btnLink', 'FRM': '__formFields', 'DST': '__formDest', 'GT': 'gaugeText',
     /* 🆕 v2.32 — ویرایشگر دکمه‌های عنصر (متن + لینک جداگانه هر دکمه) */
     'BTN': '__buttons',
+    /* 🆕 v2.43 (S04) — کلید داده پویا از سایت‌ساز (خواندن خودکار تلفن/آدرس/مقالات/...) */
+    'DYN': '__dynamic',
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1644,6 +1671,10 @@ function renderProps() {
         } else if (code === 'placeholder') {
             html += `<div class="form-group"><label>${esc(label)}</label>
                 <input type="text" class="form-control" style="font-size:12px" value="${esc(props.placeholder || '')}" oninput="setProp('${selected}','placeholder',this.value)" placeholder="جستجوی کد خطا، مقاله یا دستگاه..."></div>`;
+        } else if (code === 'DYN') {
+            /* 🆕 v2.43 (S04) — داده پویا از سایت‌ساز: وقتی روشن باشد عنصر
+               اطلاعات (آدرس/تلفن/مقالات/...) را از سایت ساز می‌گیرد */
+            html += `<label class="form-check" style="font-size:12px"><input type="checkbox" ${(props.dynamic === undefined || props.dynamic === '1' || props.dynamic === 1) ? 'checked' : ''} onchange="setProp('${selected}','dynamic',this.checked ? 1 : 0)"> 🔄 داده پویا از سایت‌ساز<small style="display:block;color:#94a3b8;font-size:10.5px;margin-top:3px">روشن = خودکار از تنظیمات سایت‌ساز (آدرس شعبه‌ها/تماس/مقالات همین برند)؛ خاموش = آیتم‌های دستی بالا</small></label>`;
         } else if (code === 'CD') {
             /* ⏱ v2.15: زمان پایان شمارش معکوس — روی بوم زنده تیک می‌زند */
             html += `<div class="form-group"><label>${esc(label)}</label>

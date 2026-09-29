@@ -67,6 +67,12 @@ if (!function_exists('bb_layout_html')) {
             array_shift($layout);
         }
         $pageStyle = pv_page_css_vars($pageProps);
+        /* 🆕 v2.43 (S08) — کلاس حالت چیدمان روی قاب صفحه (full/boxed/center/percent) */
+        $pageLayoutCls = '';
+        $plMode = (string)($pageProps['pageLayout'] ?? 'normal');
+        if (in_array($plMode, ['full', 'boxed', 'center', 'percent'], true)) {
+            $pageLayoutCls = ' bb-layout-' . $plMode;
+        }
         $inner = pv_render_layout($layout);
         if (trim($inner) === '') {
             return '';
@@ -116,6 +122,6 @@ if (!function_exists('bb_layout_html')) {
             $customCss = preg_replace(["#</?[[:space:]]*script#i", "#</?[[:space:]]*style#i", "#expression[[:space:]]*\\(#i", "#url[[:space:]]*\\([[:space:]]*[\"']?javascript:#i"], '', $customCss);
             $customTag = '<style data-page-custom>' . $customCss . '</style>';
         }
-        return '<div class="bb-wrap' . $patternCls . '"' . ($pageStyle !== '' || $bgImageStyle !== '' ? ' style="' . e($pageStyle . $bgImageStyle) . '"' : '') . '>' . $inner . '</div>' . $effectsHtml . $customTag;
+        return '<div class="bb-wrap' . $patternCls . $pageLayoutCls . '"' . ($pageStyle !== '' || $bgImageStyle !== '' ? ' style="' . e($pageStyle . $bgImageStyle) . '"' : '') . '>' . $inner . '</div>' . $effectsHtml . $customTag;
     }
 }

@@ -452,3 +452,21 @@
 .bb-wrap .blk[style*="--blk-btn"] .hero-btn { background: var(--blk-btn) !important; color: #fff !important; }
 .bb-wrap .blk[style*="--blk-btn"] .fake-cta { background: var(--blk-btn) !important; color: #fff !important; }
 .bb-wrap .blk[style*="--blk-btn"] .cta-btn { background: var(--blk-btn) !important; color: #fff !important; }
+
+/* ═══ 🆕 v2.43 (S08) — استایل چیدمان صفحه: تمام‌عرض / جعبه / وسط / درصد دلخواه ═══
+   کلاس روی .bb-wrap (سایت) و #canvas-blocks (بوم قالب‌ساز — با پیشوند pv-) */
+/* ① تمام‌عرض لبه‌به‌لبه: بخش‌ها کل عرض را می‌گیرند (عرض محتوا را هم full می‌کند) */
+.bb-wrap.bb-layout-full, #canvas-blocks.pv-layout-full { --pg-width: 100%; }
+.bb-wrap.bb-layout-full .blk, #canvas-blocks.pv-layout-full .blk { border-radius: 0; }
+/* ② جعبه‌ای: کل محتوا در کارت شناور با سایه + زمینه اطراف */
+.bb-wrap.bb-layout-boxed { background: var(--pg-box-bg, #eef2f7); padding: calc(var(--pg-box-pad, 26px) + 8px) 10px; }
+.bb-wrap.bb-layout-boxed > .blk, .bb-wrap.bb-layout-boxed > .bb-inner { background: #fff; }
+.bb-wrap.bb-layout-boxed .blk { border-radius: var(--pg-box-rad, 18px); box-shadow: 0 10px 34px rgba(2,8,23,.10); margin-inline: auto; }
+#canvas-blocks.pv-layout-boxed { background: var(--pg-box-bg, #eef2f7) !important; padding: calc(var(--pg-box-pad, 26px) + 8px) 10px; border-radius: 12px; }
+#canvas-blocks.pv-layout-boxed .tb-block { border-radius: var(--pg-box-rad, 18px); box-shadow: 0 10px 34px rgba(2,8,23,.10); }
+/* ③ وسط‌چین: حاشیه متقارن خودکار با سقف عرض */
+.bb-wrap.bb-layout-center { max-width: min(1240px, 92%); margin-inline: auto; }
+#canvas-blocks.pv-layout-center { max-width: min(1240px, 92%); margin-inline: auto; }
+/* ④ درصد دلخواه از عرض صفحه */
+.bb-wrap.bb-layout-percent { width: var(--pg-layout-w, 80%); max-width: none; margin-inline: auto; }
+#canvas-blocks.pv-layout-percent { width: var(--pg-layout-w, 80%); max-width: none; margin-inline: auto; }
