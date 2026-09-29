@@ -1455,7 +1455,7 @@
 - [x] دکمهٔ ارتقای کرون‌ها با فرمان دوگانه (رفع قطعی ایمیل 403)
 - [x] بخش تحلیل درخواست‌های خدمات در آمار (۴ نمودار کسب‌وکاری)
 - [x] به‌روزرسانی راهنمای API خارجی (ردیف 2.39)
-- [x] رلیز v2.39.0 (install.zip + update.zip + راهنماها + SHA256SUMS)
+- [x] رلیز v2.39.0 (install.zip + update.zip + راهنماها + SHA256SUMS) — https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/tag/v2.39.0
 
 ---
 
