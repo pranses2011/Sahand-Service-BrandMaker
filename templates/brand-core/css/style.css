@@ -714,3 +714,27 @@ a { color: var(--color-primary); text-decoration: none; transition: var(--transi
     .comment-form-row { flex-direction: column; gap: 0; }
     .comment-reply { margin-right: 6px; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   🌍 v2.37 — P3: سوییچر زبان (هدر سایت برند)
+   ═══════════════════════════════════════════════════════════ */
+.lang-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-text, #111827);
+    background: color-mix(in srgb, var(--color-primary, #1e40af) 7%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-primary, #1e40af) 22%, transparent);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background .15s, transform .15s;
+}
+.lang-switch:hover {
+    background: color-mix(in srgb, var(--color-primary, #1e40af) 14%, transparent);
+    transform: translateY(-1px);
+}
+html[dir="ltr"] .lang-switch { direction: ltr; }

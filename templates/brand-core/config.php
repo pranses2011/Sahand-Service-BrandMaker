@@ -405,3 +405,10 @@ if (is_file(__DIR__ . '/includes/seo.php')) {
 if (is_file(__DIR__ . '/includes/blocks.php')) {
     require_once __DIR__ . '/includes/blocks.php';
 }
+
+/* 🌍 v2.37 — P3: پایه چندزبانگی — تشخیص locale + واژه‌نامه UI + توابع hreflang
+   باید «قبل از» رندر هر صفحه بارگذاری شود (ثابت‌های BRAND_LANG/BRAND_DIR
+   در header.php استفاده می‌شوند) */
+if (is_file(__DIR__ . '/includes/i18n.php')) {
+    require_once __DIR__ . '/includes/i18n.php';
+}

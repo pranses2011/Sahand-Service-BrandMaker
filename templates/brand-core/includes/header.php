@@ -32,7 +32,8 @@ $pageKey = $pageKey ?? ($brand['seo']['keywords'] ?? '');
 $ogImage = $ogImage ?? ($brand['logo'] ?? '');
 ?>
 <!doctype html>
-<html lang="fa" dir="rtl">
+<!-- 🌍 v2.37 — P3: زبان/جهت پویا از لایه i18n (fa=rtl / en=ltr) -->
+<html lang="<?= e(BRAND_HTML_LANG) ?>" dir="<?= e(BRAND_DIR) ?>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -41,6 +42,8 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
     <?php if ($pageKey): ?><meta name="keywords" content="<?= e($pageKey) ?>"><?php endif; ?>
     <meta name="robots" content="<?= !empty($pageNoIndex) ? 'noindex,follow' : 'index,follow' ?>">
     <link rel="canonical" href="https://<?= e(BRAND_DOMAIN) ?><?= e($_SERVER['REQUEST_URI'] ?? '/') ?>">
+    <!-- 🌍 v2.37 — P3: hreflang — نسخه فارسی/انگلیسی/x-default همین صفحه -->
+    <?php if (function_exists('i18n_hreflang_tags')) { echo i18n_hreflang_tags(); } ?>
     <!-- ⚡ v2.33 — preconnect دامنه سایت‌ساز: fonts.css و تصاویر آپلودی از
          دامنه دیگر می‌آیند؛ DNS+TLS از قبل باز می‌شود (گزارش تحلیل ۵.۲) -->
     <link rel="preconnect" href="<?= e(BRANDMAKER_URL) ?>" crossorigin>
@@ -257,9 +260,15 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
             </ul>
         </nav>
         <!-- 🔍 v2.34 — دکمه جستجوی سایت برند -->
-        <a href="/search" class="header-search-btn" aria-label="جستجو در سایت" title="جستجو در سایت">
+        <a href="<?= e(function_exists('localized_path') ? localized_path('/search') : '/search') ?>" class="header-search-btn" aria-label="<?= e(__t('search_title')) ?>" title="<?= e(__t('search_title')) ?>">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </a>
+        <!-- 🌍 v2.37 — P3: سوییچر زبان — همان صفحه در زبان دیگر (hreflang پشتیبان) -->
+        <?php if (function_exists('lang_url') && BRAND_LANG !== 'en'): ?>
+        <a href="<?= e(lang_url('en')) ?>" class="lang-switch" hreflang="en" title="<?= e(__t('language_switch')) ?>" aria-label="<?= e(__t('language_switch')) ?>">🌐 <?= e(__t('switch_label')) ?></a>
+        <?php elseif (function_exists('lang_url')): ?>
+        <a href="<?= e(lang_url('fa')) ?>" class="lang-switch" hreflang="fa" title="<?= e(__t('language_switch')) ?>" aria-label="<?= e(__t('language_switch')) ?>">🌐 <?= e(__t('switch_label')) ?></a>
+        <?php endif; ?>
         <button class="theme-toggle" onclick="toggleTheme()" title="تغییر تم روشن/تاریک">🌙</button>
     </div>
 </header>

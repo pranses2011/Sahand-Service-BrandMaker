@@ -104,8 +104,8 @@ if ($abVariant !== null && is_array($abTest)) {
         <h1 class="hero-title"<?= $abVariant !== null && ($abTest['element'] ?? '') === 'hero_title' ? ' id="abHeroTitle" data-ab-variant="' . e($abVariant) . '"' : '' ?>><?= e($heroTitle) ?></h1>
         <p class="hero-desc">نمایندگی رسمی خدمات پس از فروش — با قطعات اصلی، تکنسین‌های متخصص و ضمانت کتبی</p>
         <div class="hero-actions">
-            <a href="/request" class="btn btn-primary btn-lg"<?= $abVariant !== null && ($abTest['element'] ?? '') === 'hero_cta' ? ' id="abHeroCta" data-ab-variant="' . e($abVariant) . '"' : '' ?>><?= e($heroCta) ?></a>
-            <a href="/services" class="btn btn-outline-light btn-lg">🔧 مشاهده خدمات</a>
+            <a href="<?= e(localized_path('/request')) ?>" class="btn btn-primary btn-lg"<?= $abVariant !== null && ($abTest['element'] ?? '') === 'hero_cta' ? ' id="abHeroCta" data-ab-variant="' . e($abVariant) . '"' : '' ?>><?= e($heroCta) ?></a>
+            <a href="<?= e(localized_path('/services')) ?>" class="btn btn-outline-light btn-lg"><?= e(__t('hero_services')) ?></a>
         </div>
         <div class="hero-badges">
             <span class="badge-item">✅ ضمانت کتبی</span>
