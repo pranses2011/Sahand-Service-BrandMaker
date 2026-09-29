@@ -269,8 +269,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             /* 🪜 v2.38 — بودجه‌ی «راند» در حالت AJAX: هر درخواست فقط ~۶۵ ثانیه
              * جستجو می‌کند (زیرِ مهلتِ کشنده‌ی هاست اشتراکی)؛ فرانت در صورت
              * مرگِ درخواست، «راند بعدی» را خودکار می‌سازد — جستجوهای قبلی از
-             * کش ۳۰ دقیقه‌ای سریع برمی‌گردند و درج‌ها idempotent هستند. */
-            $result = $engine->generateForDevice($brandId, $deviceKey, $useWeb, $overwrite, $searchDepth, $isAjax ? ['step_budget' => 65.0] : []);
+             * کش ۳۰ دقیقه‌ای سریع برمی‌گردند و درج‌ها idempotent هستند.
+             * 🪜 🆕 v2.39 — بودجهٔ «تطبیقی»: فرانت بودجهٔ هر راند را می‌فرستد؛
+             * اگر هاست درخواست را کشت، راند بعدی کوتاه‌تر می‌شود (۶۵→۳۹→۲۳→۱۸)
+             * تا بالاخره راند «تمیز» تمام شود و پیام تایم‌اوت قطع شود. */
+            $roundBudget = 65.0;
+            if ($isAjax) {
+                $roundBudget = min(90.0, max(15.0, (float)post('step_budget', '65')));
+            }
+            $result = $engine->generateForDevice($brandId, $deviceKey, $useWeb, $overwrite, $searchDepth, $isAjax ? ['step_budget' => $roundBudget] : []);
             if ($isAjax) {
                 @unlink($progressFile);
                 json_response([
@@ -990,9 +997,14 @@ try {
          * است؛ اگر درخواست بمیرد یا موتور بگوید «more» (برنامه‌ی جستجو کامل
          * نشده)، راند بعدی خودکار ساخته می‌شود — جستجوهای قبلی از کش ۳۰ دقیقه‌ای
          * سریع برمی‌گردند و کدهای تکراری رد می‌شوند (idempotent).
-         * ⚠️ «جایگزینی کدها» فقط در راند ۱ اعمال می‌شود. */
-        var MAX_ROUNDS = 6;
+         * ⚠️ «جایگزینی کدها» فقط در راند ۱ اعمال می‌شود.
+         * 🪜 🆕 v2.39 — بودجهٔ تطبیقی: اگر هاست درخواستِ راند را کشت، بودجهٔ
+         * راند بعدی ۴۰٪ کوتاه‌تر می‌شود (۶۵→۳۹→۲۳→۱۸→ کف ۱۵) تا راندها
+         * بالاخره «تمیز» تمام شوند و پیام قطعی حذف شود + سقف راند ۱۰. */
+        var MAX_ROUNDS = 10;
         var round = 0;
+        var roundBudget = 65; /* ثانیه — بودجهٔ تطبیقی */
+        var lastMore = false; /* آخرین راند هنوز برنامه‌ای داشت؟ */
         var totalInserted = 0;
         var totalSkipped = 0;
         var allSources = [];
@@ -1003,21 +1015,26 @@ try {
         lastStepKey = '';
         setProgress({ pct: 0, title: 'آماده‌سازی...', detail: 'در حال ارسال درخواست به موتور خطایاب...' });
 
-        /* 🔄 polling روند پیشرفت از فایل کش */
-        var pollTimer = setInterval(function () {
-            var pb = new URLSearchParams();
-            pb.append('action', 'errorgen_progress');
-            pb.append('progress_key', progressKey);
-            pb.append('csrf_token', csrfVal);
-            fetch('error-codes.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfVal, 'X-Requested-With': 'XMLHttpRequest' },
-                body: pb.toString(),
-                credentials: 'same-origin'
-            }).then(function (r) { return r.json(); }).then(function (res) {
-                if (res.success && res.progress) { setProgress(res.progress); }
-            }).catch(function () {});
-        }, 800);
+        /* 🔄 polling روند پیشرفت از فایل کش (تابع — برای «ادامه جستجو» دوباره قابل‌راه‌اندازی) */
+        var pollTimer = null;
+        function startPolling() {
+            if (pollTimer) { clearInterval(pollTimer); }
+            pollTimer = setInterval(function () {
+                var pb = new URLSearchParams();
+                pb.append('action', 'errorgen_progress');
+                pb.append('progress_key', progressKey);
+                pb.append('csrf_token', csrfVal);
+                fetch('error-codes.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfVal, 'X-Requested-With': 'XMLHttpRequest' },
+                    body: pb.toString(),
+                    credentials: 'same-origin'
+                }).then(function (r) { return r.json(); }).then(function (res) {
+                    if (res.success && res.progress) { setProgress(res.progress); }
+                }).catch(function () {});
+            }, 800);
+        }
+        startPolling();
 
         function addLogRow(txt) {
             var row = document.createElement('div');
@@ -1035,12 +1052,43 @@ try {
             var title = totalInserted > 0
                 ? '🚨 ' + faDigits(totalInserted) + ' کد خطای واقعی ثبت شد' + (isMulti ? ' — در ' + faDigits(round) + ' راند پیوسته' : '')
                 : 'نتیجه خطایاب';
-            var msg = isMulti
-                ? ('جستجوی چندراندی کامل شد — مجموع ' + faDigits(totalInserted) + ' کد جدید ثبت و ' + faDigits(totalSkipped) + ' کد تکراری رد شد.'
-                    + (lastReport ? '\n\n📄 گزارش آخرین راند: ' + lastReport : ''))
-                : (lastReport || 'پاسخی از سرور دریافت نشد.');
+            var msg;
+            if (isMulti) {
+                msg = 'جستجوی چندراندی کامل شد — مجموع ' + faDigits(totalInserted) + ' کد جدید ثبت و ' + faDigits(totalSkipped) + ' کد تکراری رد شد.';
+            } else {
+                msg = lastReport || 'پاسخی از سرور دریافت نشد.';
+            }
+            /* 🪜 🆕 v2.39 — اگر برنامه‌ی جستجو هنوز کامل نشده، «خطا» نیست:
+             * پیام دوستانه + دکمهٔ «ادامه جستجو» (کش ۳۰ دقیقه‌ای فعال است) */
+            var canContinue = lastMore && !rateLimitedEver && totalInserted >= 0;
+            if (canContinue) {
+                msg += '\n\n💡 برنامه‌ی جستجو هنوز کامل نشده — «ادامه جستجو» را بزنید: نتایج قبلی از کش فوری برمی‌گردند و فقط بخش‌های باقی‌مانده جستجو می‌شوند.';
+            }
             if (allSources.length) {
                 msg += '\n\n🔗 منابع:\n' + allSources.slice(0, 3).join('\n');
+            }
+            if (canContinue) {
+                /* دو دکمه: ادامه جستجو (تأیید) / مشاهده کدها (انصراف) */
+                sahandConfirm({
+                    title: title,
+                    message: msg,
+                    type: totalInserted > 0 ? 'success' : 'question',
+                    icon: totalInserted > 0 ? '🚨' : '🔍',
+                    confirmText: '🔄 ادامه جستجو',
+                    cancelText: totalInserted > 0 ? 'مشاهده کدها' : 'بستن'
+                }).then(function (confirmed) {
+                    if (confirmed) {
+                        /* 🔄 ادامه: شمارنده راند ریست — جستجو از کش ادامه می‌یابد */
+                        round = 0;
+                        running = true;
+                        backdrop.style.display = 'flex';
+                        startPolling();
+                        runRound();
+                        return;
+                    }
+                    window.location.href = 'error-codes.php?brand=' + encodeURIComponent(brandIdVal) + '&device=' + encodeURIComponent(deviceKeyVal);
+                });
+                return;
             }
             sahandAlert({
                 title: title,
@@ -1053,6 +1101,7 @@ try {
             });
         }
 
+        var rateLimitedEver = false;
         function runRound() {
             round++;
             var body = new URLSearchParams();
@@ -1060,6 +1109,7 @@ try {
             body.append('brand_id', brandIdVal);
             body.append('device_key', deviceKeyVal);
             body.append('use_web', useWebVal);
+            body.append('step_budget', String(roundBudget));
             if (round === 1) {
                 body.append('overwrite', overwriteVal); /* ⚠️ فقط راند ۱ — راندهای بعدی نباید کدهای قبلی را پاک کنند */
             }
@@ -1093,12 +1143,17 @@ try {
                 totalSkipped += parseInt(res.skipped || 0, 10) || 0;
                 (res.sources || []).forEach(function (s) { if (allSources.indexOf(s) < 0) { allSources.push(s); } });
                 lastReport = res.report || lastReport;
+                lastMore = !!(res.more);
+                if (res.rate_limited) { rateLimitedEver = true; }
                 /* 🪜 راند بعدی؟ ① موتور گفت برنامه‌ی جستجو کامل نشد (more)
-                 * ② یا درخواست کشته شد (timeout) — هر دو با شرط سقف راند. */
+                 * ② یا درخواست کشته شد (timeout) — هر دو با شرط سقف راند.
+                 * 🆕 v2.39 — بودجهٔ تطبیقی: بعد از هر کشته‌شدگی، راند بعدی
+                 * کوتاه‌تر می‌شود تا بالاخره زیرِ مهلت هاست تمام شود. */
                 var wantMore = (res.more || res.timeout) && !res.rate_limited && round < MAX_ROUNDS;
                 if (wantMore) {
                     if (res.timeout) {
-                        addLogRow('⏱️ زمان راند ' + faDigits(round) + ' تمام شد — کدهای تأییدشده ذخیره شدند؛ راند بعدی خودکار ادامه می‌دهد...');
+                        roundBudget = Math.max(15, Math.round(roundBudget * 0.6));
+                        addLogRow('⏱️ زمان راند ' + faDigits(round) + ' تمام شد — کدهای تأییدشده ذخیره شدند؛ راند بعدی با بودجهٔ کوتاه‌تر (' + faDigits(roundBudget) + ' ثانیه) ادامه می‌دهد...');
                     }
                     setTimeout(runRound, 900);
                     return;
@@ -1107,7 +1162,8 @@ try {
             }).catch(function (err) {
                 /* 🪜 v2.38 — مرگِ شبکه/درخواست هم «ادامه» است نه خطا (تا سقف راند) */
                 if (round < MAX_ROUNDS) {
-                    addLogRow('⚠️ پاسخ راند ' + faDigits(round) + ' قطع شد — ادامه از کش در راند بعدی...');
+                    roundBudget = Math.max(15, Math.round(roundBudget * 0.6));
+                    addLogRow('⚠️ پاسخ راند ' + faDigits(round) + ' قطع شد — ادامه از کش در راند بعدی با بودجهٔ ' + faDigits(roundBudget) + ' ثانیه...');
                     setTimeout(runRound, 1500);
                     return;
                 }

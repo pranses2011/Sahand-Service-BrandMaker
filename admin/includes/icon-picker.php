@@ -246,14 +246,26 @@ var IconPicker = (function () {
             var catHtml = '<option value="">همه دسته‌ها</option>';
             Object.keys(cats).forEach(function (k) { catHtml += '<option value="' + k + '"' + (k === state.cat ? ' selected' : '') + '>' + k + ' (' + faDig(cats[k]) + ')</option>'; });
             catSel.innerHTML = catHtml;
-            /* صفحه‌بندی */
+            /* صفحه‌بندی — 🆕 v2.39: جهش مستقیم به صفحه (پک‌های بزرگ تا ۴۸ صفحه) */
             var pg = el('sip-pack-pager');
+            var totalPages = Math.max(1, parseInt(res.total_pages, 10) || 1);
             pg.innerHTML = '<button type="button" id="sip-pg-prev" ' + (res.page <= 1 ? 'disabled' : '') + '>→ قبلی</button>'
-                + '<span>صفحه ' + faDig(res.page) + ' از ' + faDig(res.total_pages) + ' — ' + faDig(res.total) + ' آیکون</span>'
-                + '<button type="button" id="sip-pg-next" ' + (res.page >= res.total_pages ? 'disabled' : '') + '>بعدی ←</button>';
+                + '<span>صفحه ' + faDig(res.page) + ' از ' + faDig(totalPages) + ' — ' + faDig(res.total) + ' آیکون</span>'
+                + '<button type="button" id="sip-pg-next" ' + (res.page >= totalPages ? 'disabled' : '') + '>بعدی ←</button>'
+                + '<input type="number" id="sip-pg-jump" min="1" max="' + totalPages + '" value="' + res.page + '" style="width:58px;border:1px solid var(--border);border-radius:8px;padding:4px 6px;font-family:inherit;text-align:center">'
+                + '<button type="button" id="sip-pg-go" class="btn btn-outline btn-sm">برو</button>';
             var prev = el('sip-pg-prev'), next = el('sip-pg-next');
             if (prev) { prev.addEventListener('click', function () { state.page = Math.max(1, state.page - 1); loadBrowse(); }); }
-            if (next) { next.addEventListener('click', function () { state.page = Math.min(res.total_pages, state.page + 1); loadBrowse(); }); }
+            if (next) { next.addEventListener('click', function () { state.page = Math.min(totalPages, state.page + 1); loadBrowse(); }); }
+            var go = el('sip-pg-go'), jump = el('sip-pg-jump');
+            if (go && jump) {
+                var doJump = function () {
+                    var p = parseInt(jump.value, 10);
+                    if (p >= 1 && p <= totalPages && p !== state.page) { state.page = p; loadBrowse(); }
+                };
+                go.addEventListener('click', doJump);
+                jump.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); doJump(); } });
+            }
         }).catch(function () {
             grid.innerHTML = '<span class="sip-loading">❌ خطای ارتباط با سرور.</span>';
         });
