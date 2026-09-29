@@ -11,6 +11,13 @@ DirectoryIndex index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # 🌍 v2.37 — P3: چندزبانگی — پیشوند /en/ → همان صفحات با BRAND_LANG=en
+    #    (فقط ریشه و صفحات اصلی؛ فایل‌های فنی مستثنا هستند)
+    RewriteCond %{REQUEST_URI} !^/(sw\.js|manifest\.json|offline\.html|sitemap\.php|feed\.php|robots\.txt|api/|cache/|includes/|css/|js/)
+    RewriteRule ^(en)/(services|service-area|warranty|blog|search|about-agency|about-brand|contact|request|other-brands|error-codes|faq|sitemap-page|terms|privacy)/?$ pages/$2.php?lang=en [L,QSA]
+    RewriteRule ^en/?$ index.php?lang=en [L,QSA]
+    RewriteRule ^en/blog/([a-zA-Z0-9\-\_%]+)/?$ pages/article.php?slug=$1&lang=en [L,QSA]
+
     # خدمات
     RewriteRule ^services/?$ pages/services.php [L]
     # محدوده خدمات
@@ -73,4 +80,18 @@ ErrorDocument 404 /404.php
     ExpiresByType text/css "access plus 1 month"
     ExpiresByType application/javascript "access plus 1 month"
     ExpiresByType image/svg+xml "access plus 1 year"
+    # 📱 v2.37 — P3: Service Worker و مانیفست PWA هرگز کش سروری نمی‌شوند
+    #    (مرورگر باید نسخه تازه SW را بگیرد تا به‌روزرسانی فوری شود)
+    <FilesMatch "^(sw\.js|manifest\.json)$">
+        ExpiresDefault "access plus 0 seconds"
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
+</IfModule>
+
+# 📱 v2.37 — P3: نوع MIME درست برای مانیفست (برخی هاست‌ها text/plain می‌فرستند و نصب PWA خراب می‌شود)
+<IfModule mod_mime.c>
+    AddType application/manifest+json .webmanifest
+    <Files "manifest.json">
+        ForceType application/json
+    </Files>
 </IfModule>

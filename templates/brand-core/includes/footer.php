@@ -110,5 +110,16 @@ if ($trackerTarget === '' || !preg_match('#/track$#', $trackerTarget)) {
 <script src="/js/app.js"></script>
 <!-- 📋 v2.31 — فرم‌های واقعی قالب‌ساز (sahand-form) -->
 <script src="/js/form.js<?= defined('VERSION') ? '?v=' . rawurlencode(VERSION) : '' ?>"></script>
+<!-- 📱 v2.37 — P3: ثبت Service Worker (فقط محیط امن — SW بدون https فعال نمی‌شود) -->
+<script>
+    if ('serviceWorker' in navigator && location.protocol === 'https:') {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('/sw.js').catch(function (e) {
+                /* ثبت ناموفق (مثلاً حالت ناشناس سافاری) — سایت بدون PWA هم کامل کار می‌کند */
+                if (window.console && console.debug) { console.debug('SW register skipped:', e); }
+            });
+        });
+    }
+</script>
 </body>
 </html>

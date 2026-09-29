@@ -1,15 +1,35 @@
 {
-  "name": "{{BRAND_NAME_FA}}",
+  "name": "{{BRAND_NAME_FA}} — خدمات تعمیرات تخصصی",
   "short_name": "{{BRAND_NAME_EN}}",
-  "description": "خدمات تعمیرات {{BRAND_NAME_FA}}",
-  "start_url": "/",
+  "description": "خدمات تعمیرات {{BRAND_NAME_FA}} — ثبت درخواست آنلاین، مقالات و راهنمایی",
+  "id": "/",
+  "start_url": "/?utm_source=pwa",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
   "dir": "rtl",
   "lang": "fa",
   "background_color": "#ffffff",
   "theme_color": "{{THEME_COLOR}}",
+  "categories": ["business", "productivity", "utilities"],
   "icons": [
-    { "src": "{{BRAND_LOGO}}", "sizes": "192x192", "type": "image/png" },
-    { "src": "{{BRAND_LOGO}}", "sizes": "512x512", "type": "image/png" }
+    { "src": "{{BRAND_LOGO}}", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "{{BRAND_LOGO}}", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "{{BRAND_LOGO}}", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "ثبت درخواست تعمیر",
+      "short_name": "درخواست",
+      "description": "فرم ثبت درخواست خدمات آنلاین",
+      "url": "/request?utm_source=pwa"
+    },
+    {
+      "name": "مقالات و راهنما",
+      "short_name": "مقالات",
+      "description": "آخرین مقالات و راهنماهای تعمیرات",
+      "url": "/blog?utm_source=pwa"
+    }
   ]
 }

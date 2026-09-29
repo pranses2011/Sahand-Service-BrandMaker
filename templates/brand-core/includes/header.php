@@ -59,6 +59,10 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
     <?php $faviconUrl = trim((string)($brand['favicon'] ?? '')) ?: trim((string)($brand['logo'] ?? '')); ?>
     <link rel="icon" href="<?= e($faviconUrl ?: cdn_asset('images/placeholders/favicon.png')) ?>">
     <link rel="apple-touch-icon" href="<?= e($faviconUrl ?: cdn_asset('images/placeholders/favicon.png')) ?>">
+    <!-- 📱 v2.37 — P3: مانیفست PWA واقعی (نصب روی موبایل/دسکتاپ + shortcuts) -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="<?= e(trim((string)($palette['light']['--color-primary'] ?? '')) ?: '#1e40af') ?>" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="<?= e(trim((string)($palette['dark']['--color-primary'] ?? '')) ?: '#0f172a') ?>" media="(prefers-color-scheme: dark)">
     <!-- 📡 v2.34 — کشف خودکار فید RSS/Atom توسط مرورگرها و خواننده‌ها -->
     <link rel="alternate" type="application/rss+xml" title="<?= e($brand['name_fa'] ?? BRAND_NAME_FA) ?>" href="/feed">
     <!-- 🔤 فونت: v2.34 — نسخه محلی سبک (فقط فونت فعال این برند، داخل خود سایت) اگر
