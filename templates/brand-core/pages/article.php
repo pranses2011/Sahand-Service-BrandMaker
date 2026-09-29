@@ -47,7 +47,7 @@ render_article_seo($article, 'https://' . BRAND_DOMAIN . '/blog/' . urlencode($s
             <?php endforeach; ?>
         </div>
         <?php if (!empty($article['featured_image'])): ?>
-            <?= article_image($article['featured_image'], $article['title']) ?>
+            <?= article_image($article['featured_image'], $article['title'], true) ?>
         <?php endif; ?>
         <div class="article-content"><?= $article['content'] ?></div>
         <?php if (!empty($article['sources'])): ?>

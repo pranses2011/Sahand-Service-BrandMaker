@@ -37,7 +37,7 @@ if (!function_exists('article_image')) {
      * برند» می‌خواست در حالی که فایل روی سرور «سایت ساز» است → 404 همیشگی.
      * ✅ اکنون مسیرهای نسبی با cdn_asset به دامنه سایت ساز تبدیل می‌شوند.
      */
-    function article_image(?string $image, string $alt): string
+    function article_image(?string $image, string $alt, bool $single = false): string
     {
         $src = $image ? cdn_asset($image) : cdn_asset('images/placeholders/article.svg');
         /* 📐 v2.33 — ابعاد صریح برای رفع CLS (گزارش تحلیل بخش ۸): مرورگر
@@ -61,7 +61,14 @@ if (!function_exists('article_image')) {
                     . ' sizes="(max-width: 480px) 100vw, (max-width: 900px) 45vw, 360px"';
             }
         }
-        return '<img src="' . e($src) . '" alt="' . e($alt) . '" width="800" height="450" loading="lazy"' . $srcset . ' class="article-image">';
+        /* 📐 v2.42 — درخواست کاربر «تصاویر مقالات فشرده شدن، ارتفاعشان خیلی کم شده»:
+           ابعاد صریح ۸۰۰×۴۵۰ نسبت ۱۶:۹ را به مرورگر تحمیل می‌کند؛ تصویر
+           شاخص مربعی/عمودی (مثل خروجی رایج مولد تصویر) در جعبه ۱۶:۹ با
+           object-fit:contain له و کوچک دیده می‌شد. در حالت صفحه تکی
+           ابعاد صریح حذف می‌شود تا نسبت طبیعی خود تصویر حاکم باشد؛
+           در کارت‌های فهرست (برش cover) همان ۱۶:۹ می‌ماند. */
+        $dim = $single ? '' : ' width="800" height="450"';
+        return '<img src="' . e($src) . '" alt="' . e($alt) . '"' . $dim . ' loading="lazy"' . $srcset . ' class="article-image">';
     }
 }
 

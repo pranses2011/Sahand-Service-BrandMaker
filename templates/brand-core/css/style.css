@@ -244,10 +244,14 @@ a { color: var(--color-primary); text-decoration: none; transition: var(--transi
 .article-image { width: 100%; height: 172px; object-fit: cover; }
 /* ✅ v2.12: در صفحه تکی مقاله، تصویر شاخص با نسبت اصلی و بدون برش/کشیدگی —
    قبلاً همان قالب کارت لیست (ارتفاع ثابت ۱۷۲px + برش cover) اعمال می‌شد و
-   تصویر بزرگ داخل مقاله له/کشیده و بد دیده می‌شد. */
+   تصویر بزرگ داخل مقاله له/کشیده و بد دیده می‌شد.
+   📐 v2.42 — نسبت طبیعی و اندازه واقعی (درخواست کاربر «ارتفاعشان خیلی کم شده»):
+   سقف max-height حذف شد؛ در حالت تکی ابعاد صریح ۱۶:۹ هم از HTML گرفته
+   نمی‌شود (article_image $single) تا تصویر مربعی/عمودی در جعبه پهن
+   فشرده و کوچک دیده نشود — عرض کامل + ارتفاع طبیعی خود تصویر. */
 .article-single .article-image {
     height: auto;
-    max-height: 520px;
+    max-height: none;
     object-fit: contain;
     border-radius: 12px;
     box-shadow: var(--shadow);

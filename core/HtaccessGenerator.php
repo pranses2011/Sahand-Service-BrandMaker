@@ -185,6 +185,13 @@ HTACCESS;
      * 📄 ساخت قوانین بازنویسی صفحات
      * از لیست صفحات فعال برند؛ در نبود، مجموعه استاندارد هسته
      *
+     * 🚨 v2.42 — ریشه‌یابی «کلیک روی مقالات خطای 404 می‌دهد»:
+     *   htaccess.template (بسته ZIP) قانون URL تمیز مقالات را داشت اما
+     *   این مولد (استقرار cPanel/FTP) نه! → /blog/{slug} روی هیچ قانونی
+     *   نمی‌نشست → Apache 404. اکنون تمام قوانین قالب اینجا هم هستند:
+     *   ① blog/{slug} تمیز (مهم‌ترین) ② search ③ feed/rss ④ sitemap.xml
+     *   ⑤ قواعد چندزبانه /en/
+     *
      * @param array $pageTypes لیست page_type های فعال
      * @return string قوانین RewriteRule با تورفتگی
      */
@@ -214,17 +221,44 @@ HTACCESS;
             : $standard;
 
         $rules = '';
+
+        /* 🌍 v2.42 — چندزبانگی: پیشوند /en/ → همان صفحات با BRAND_LANG=en
+           (مطابق htaccess.template؛ فایل‌های فنی مستثنا هستند) */
+        $pageSlugs = implode('|', array_keys($pages));
+        $rules .= "    # 🌍 چندزبانگی — پیشوند /en/ → همان صفحات با BRAND_LANG=en\n";
+        $rules .= "    RewriteCond %{REQUEST_URI} !^/(sw\\.js|manifest\\.json|offline\\.html|sitemap\\.php|feed\\.php|robots\\.txt|api/|cache/|includes/|css/|js/)\n";
+        $rules .= "    RewriteRule ^(en)/({$pageSlugs})/?$ pages/$2.php?lang=en [L,QSA]\n";
+        $rules .= "    RewriteRule ^en/?$ index.php?lang=en [L,QSA]\n";
+        if (isset($pages['blog'])) {
+            $rules .= "    RewriteRule ^en/blog/([a-zA-Z0-9\\-\\_%]+)/?$ pages/article.php?slug=$1&lang=en [L,QSA]\n";
+        }
+        $rules .= "\n";
+
         foreach ($pages as $slug => $label) {
             if ($slug === 'blog') {
                 // مقاله تکی هم اضافه شود
                 $rules .= "    # {$label}\n";
                 $rules .= "    RewriteRule ^blog/?$ pages/blog.php [L]\n";
-                $rules .= "    RewriteRule ^blog/article/?$ pages/article.php [L]\n";
+                // 🔗 v2.34/v2.42 — URL تمیز مقالات: /blog/{slug} (قانون جاافتاده!
+                //    آدرس قدیمی /blog/article?slug= در PHP با ۳۰۱ هدایت می‌شود)
+                $rules .= "    RewriteRule ^blog/([a-zA-Z0-9\\-\\_%]+)/?$ pages/article.php?slug=$1 [L,QSA]\n";
+                $rules .= "    RewriteRule ^blog/article/?$ pages/article.php [L,QSA]\n";
             } else {
                 $rules .= "    # {$label}\n";
                 $rules .= "    RewriteRule ^{$slug}/?$ pages/{$slug}.php [L]\n";
             }
         }
+
+        /* 🔍 v2.42 — جستجوی سایت برند + فید RSS/Atom + sitemap.xml پویا
+           (مطابق htaccess.template — همیشه فعال، مستقل از صفحات) */
+        $rules .= "    # 🔍 جستجوی سایت برند\n";
+        $rules .= "    RewriteRule ^search/?$ pages/search.php [L,QSA]\n";
+        $rules .= "    # 📡 فید RSS/Atom\n";
+        $rules .= "    RewriteRule ^feed/?$ feed.php [L,QSA]\n";
+        $rules .= "    RewriteRule ^rss/?$ feed.php [L,QSA]\n";
+        $rules .= "    # 🗺️ sitemap.xml پویا (مقاله جدید بدون استقرار مجدد وارد می‌شود)\n";
+        $rules .= "    RewriteRule ^sitemap\\.xml$ sitemap.php [L]\n";
+
         return rtrim($rules);
     }
 }
