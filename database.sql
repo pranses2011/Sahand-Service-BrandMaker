@@ -964,6 +964,109 @@ INSERT IGNORE INTO `settings` (`setting_key`, `setting_value`) VALUES
 ('telegram_bot_settings', '{"enabled": false, "bot_token": "", "allowed_chat_ids": "", "webhook_secret": "", "notify_new_request": true, "welcome_text": "سلام! من دستیار هوشمند سهند سرویس هستم. هر سؤال یا دستور فارسی بنویسید تا کمکتان کنم."}');
 
 -- ============================================================
+-- 📮 article_comments — دیدگاه مقالات سایت برند (P3 — v2.37)
+-- تأییدیه‌ای به‌صورت پیش‌فرض + پاسخ رسمی برند (is_brand_reply)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `article_comments` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `brand_id` INT UNSIGNED NOT NULL,
+  `article_id` INT UNSIGNED NOT NULL,
+  `parent_id` BIGINT UNSIGNED NULL COMMENT 'پاسخ به دیدگاه (سلسله‌مراتب تک‌سطح)',
+  `is_brand_reply` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'پاسخ رسمی برند (ثبت پنل)',
+  `author_name` VARCHAR(120) NOT NULL,
+  `author_email` VARCHAR(190) NULL,
+  `body` TEXT NOT NULL,
+  `status` ENUM('pending','approved','spam') NOT NULL DEFAULT 'pending',
+  `ip` VARCHAR(60) NULL,
+  `user_agent` VARCHAR(300) NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `approved_at` DATETIME NULL,
+  `approved_by` INT UNSIGNED NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_comment_article` (`article_id`, `status`, `created_at`),
+  KEY `idx_comment_brand` (`brand_id`, `status`),
+  KEY `idx_comment_status` (`status`, `created_at`),
+  CONSTRAINT `fk_comment_brand` FOREIGN KEY (`brand_id`) REFERENCES `brands`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='دیدگاه مقالات سایت برند (تأییدیه‌ای)';
+
+-- ============================================================
+-- 🪝 webhooks — وب‌هوک‌های خروجی سایت ساز (P3 — v2.37)
+-- brand_id NULL = گلوبال (همه برندها)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `webhooks` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `brand_id` INT UNSIGNED NULL COMMENT 'NULL = همه برندها (گلوبال)',
+  `label` VARCHAR(190) NOT NULL COMMENT 'نام قابل‌فهم برای پنل',
+  `url` VARCHAR(500) NOT NULL COMMENT 'مقصد POST (https ترجیحی)',
+  `events` VARCHAR(500) NOT NULL DEFAULT '' COMMENT 'رویدادها با کاما: article.published,request.created,...',
+  `secret` CHAR(64) NOT NULL COMMENT 'رمز امضای HMAC-SHA256',
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_by` INT UNSIGNED NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_webhook_brand` (`brand_id`, `is_active`),
+  KEY `idx_webhook_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='وب‌هوک‌های خروجی سایت ساز';
+
+-- ============================================================
+-- 📤 webhook_deliveries — لاگ/صف تحویل با تلاش مجدد نمایی (P3 — v2.37)
+-- cron هر ۵ دقیقه ردیف‌های pendingِ سررسیده را دوباره می‌فرستد
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `webhook_deliveries` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `webhook_id` INT UNSIGNED NOT NULL,
+  `event` VARCHAR(60) NOT NULL,
+  `payload` LONGTEXT NOT NULL,
+  `status` ENUM('pending','delivered','failed') NOT NULL DEFAULT 'pending',
+  `response_code` SMALLINT UNSIGNED NULL,
+  `attempts` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  `next_retry_at` DATETIME NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `delivered_at` DATETIME NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_wd_retry` (`status`, `next_retry_at`),
+  KEY `idx_wd_hook` (`webhook_id`, `created_at`),
+  CONSTRAINT `fk_wd_hook` FOREIGN KEY (`webhook_id`) REFERENCES `webhooks`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='لاگ/صف تحویل وب‌هوک با تلاش مجدد';
+
+-- ============================================================
+-- 🧪 ab_tests — تست A/B عنوان هیرو / دکمه CTA (P3 — v2.37)
+-- تقسیم بازدیدکننده با هش پایدار کوکی — ۵۰/۵۰
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `ab_tests` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `brand_id` INT UNSIGNED NOT NULL,
+  `name` VARCHAR(190) NOT NULL COMMENT 'نام آزمایش برای پنل',
+  `element` ENUM('hero_title','hero_cta') NOT NULL DEFAULT 'hero_title',
+  `variant_a` VARCHAR(500) NOT NULL COMMENT 'متن واریانت A (پایه)',
+  `variant_b` VARCHAR(500) NOT NULL COMMENT 'متن واریانت B',
+  `status` ENUM('running','paused','finished') NOT NULL DEFAULT 'running',
+  `started_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `ended_at` DATETIME NULL,
+  `winner` CHAR(1) NULL COMMENT 'A/B بعد از اتمام (NULL = نامشخص)',
+  `created_by` INT UNSIGNED NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_ab_brand` (`brand_id`, `status`),
+  CONSTRAINT `fk_ab_brand` FOREIGN KEY (`brand_id`) REFERENCES `brands`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='تست A/B عنوان هیرو / دکمه CTA';
+
+-- ============================================================
+-- 🧪 ab_events — رویدادهای view/click هر واریانت (P3 — v2.37)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `ab_events` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `test_id` INT UNSIGNED NOT NULL,
+  `variant` CHAR(1) NOT NULL COMMENT 'A یا B',
+  `visitor_hash` CHAR(32) NOT NULL COMMENT 'هش پایدار بازدیدکننده (کوکی)',
+  `event` ENUM('view','click') NOT NULL DEFAULT 'view',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_abev_test` (`test_id`, `event`),
+  KEY `idx_abev_visitor` (`test_id`, `visitor_hash`, `event`),
+  CONSTRAINT `fk_abev_test` FOREIGN KEY (`test_id`) REFERENCES `ab_tests`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='رویدادهای view/click تست A/B';
+
+-- ============================================================
 -- 🗃️ schema_migrations — منبع حقیقت واحد مهاجرت‌های دیتابیس (P2-26)
 -- جایگزین نشانگرهای فایل cache/.schema_vXXX — در اولین اجرای
 -- config.php نشانگرهای قدیمی به‌صورت خودکار به این جدول وارد می‌شوند.
