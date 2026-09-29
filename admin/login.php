@@ -20,7 +20,7 @@ $auth = new Auth();
 
 // ✅ اگر قبلاً وارد شده، به داشبورد هدایت شود
 if ($auth->isLoggedIn()) {
-    redirect('index.php');
+    redirect('/admin/index.php');
 }
 
 $error = '';
@@ -33,7 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = $auth->login(post('username'), (string)($_POST['password'] ?? ''), (string)($_POST['captcha'] ?? ''));
         if ($result['success']) {
             // 🔐 v2.34 — ورود دومرحله‌ای: مرحله رمز درست بوده، حالا کد TOTP لازم است
-            redirect(!empty($result['twofa']) ? 'verify-2fa.php' : 'index.php');
+            // 🩺 v2.39 — مسیر مطلق: سرو از ریشه (DirectoryIndex) دیگر ۴۰۴ نمی‌دهد
+            redirect(!empty($result['twofa']) ? '/admin/verify-2fa.php' : '/admin/index.php');
         }
         $error = $result['message'];
     }

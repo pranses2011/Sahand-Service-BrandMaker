@@ -14,7 +14,7 @@ require_once dirname(__DIR__) . '/config.php';
 $auth = new Auth();
 
 if ($auth->isLoggedIn()) {
-    redirect('index.php');
+    redirect('/admin/index.php');
 }
 
 $token = (string)($_GET['token'] ?? '');

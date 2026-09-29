@@ -17,12 +17,12 @@ $auth = new Auth();
 
 // ✅ اگر از قبل کامل وارد شده — نیازي به این صفحه نیست
 if ($auth->isLoggedIn()) {
-    redirect('index.php');
+    redirect('/admin/index.php');
 }
 
 // 🔑 اگر مرحله دومرحله‌ای معلقی در کار نیست → برگرد به لاگین
 if ($auth->pendingTwoFactorId() < 1) {
-    redirect('login.php');
+    redirect('/admin/login.php');
 }
 
 $error = '';
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($result['used_recovery'])) {
                 Logger::activity((int)$result['user']['id'], 'ورود با کد بازیابی', 'کد بازیابی 2FA مصرف شد');
             }
-            redirect('index.php');
+            redirect('/admin/index.php');
         }
         $error = $result['message'];
     }
