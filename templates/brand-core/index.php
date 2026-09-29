@@ -16,8 +16,12 @@ require_once __DIR__ . '/config.php';
    «۸ اندپوینت متمایز / ۹ فراخوانی سریال مسدودکننده در هر بازدید»)
    اندپوینت‌های دارای کش از کش خوانده می‌شوند؛ در حالت miss همه با
    curl_multi یک موج موازی می‌شوند (به‌جای ۹ موج سریال) — header و
-   footer هم بعداً از همین کش تازه می‌خوانند (حافظه درون-درخواستی + فایل). */
-fetchFromAPIMulti([
+   footer هم بعداً از همین کش تازه می‌خوانند (حافظه درون-درخواستی + فایل).
+   🛡 v2.38 — گارد function_exists: config.php قدیمیِ حفظ‌شده در برخی
+   بروزرسانی‌ها ممکن است fetchFromAPIMulti را نداشته باشد (ریشه‌ی HTTP 500
+   «thrown in index.php on line 20») — با گارد، همان سایت با گرم‌کردنِ
+   سریالی ادامه می‌دهد نه فاتل. */
+$__warmEndpoints = [
     'brand/' . BRAND_ID,
     'brand/' . BRAND_ID . '/menu/header',
     'brand/' . BRAND_ID . '/page/home',
@@ -26,7 +30,15 @@ fetchFromAPIMulti([
     'settings',
     'brand/' . BRAND_ID . '/template/home',
     'brands',
-], 120);
+];
+if (function_exists('fetchFromAPIMulti')) {
+    fetchFromAPIMulti($__warmEndpoints, 120);
+} else {
+    foreach ($__warmEndpoints as $__ep) {
+        fetchFromAPI($__ep, 120);
+    }
+}
+unset($__warmEndpoints, $__ep);
 
 // 📥 داده‌های مورد نیاز صفحه اصلی
 $pageData = fetchFromAPI('brand/' . BRAND_ID . '/page/home');

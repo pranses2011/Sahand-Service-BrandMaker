@@ -1482,6 +1482,31 @@ SSBHELPER;
                     }
                 }
             }
+
+            /* 🔧 v2.38 — خوددرمانیِ لایه‌ی دوم: بازنویسی config.php
+             * ریشه‌یابی «تست نهایی: HTTP 500 — thrown in index.php on line 20»:
+             * config.php قدیمیِ (حفظ‌شده یا ناقص) ممکن است توابع موردنیازِ
+             * index.php جدید (مثل fetchFromAPIMulti) را نداشته باشد → فاتال.
+             * بازنویسی config با نسخه‌ی کاملِ تولیدی (حفظ CACHE تنظیمات فعلی)
+             * و تست مجدد — قبل از اعلام شکست نهایی و رول‌بک. */
+            if ($brand) {
+                $this->logger->step($deploymentId, 'final_test',
+                    'تست هنوز ناموفق — بازنویسی config.php (لایه‌ی دوم خوددرمانی) و تلاش مجدد...');
+                $oldContent = (string)$this->api->readFile($serverPath . '/config.php');
+                $previous = $oldContent !== '' ? ConfigGenerator::extractPreservable($oldContent) : [];
+                $freshConfig = ConfigGenerator::generate($brand, $domain, BASE_URL, $previous);
+                if ($this->api->writeFile($serverPath . '/config.php', $freshConfig)) {
+                    $this->api->setPermissions($serverPath . '/config.php', '0644');
+                    $test = $this->runFinalTest($domain, false);
+                    if ($test['ok']) {
+                        $test['message'] .= ' — config.php بازنویسی و ترمیم شد (کانفیگ قبلی توابع موردنیاز صفحه اصلی را نداشت)';
+                        $this->logger->step($deploymentId, 'final_test',
+                            'خوددرمانی موفق: config.php ناقص بازنویسی شد و سایت پاسخ سالم داد');
+                        return $test;
+                    }
+                }
+            }
+
             // ❌ همه سطوح ناموفق → پیوست دیاگنوستیک برای تشخیص ریشه واقعی
             $diag = $this->collectHttpDiagnostics($domain, $serverPath);
             if ($diag !== '') {

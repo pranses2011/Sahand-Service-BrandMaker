@@ -168,6 +168,91 @@ function fetchFromAPI(string \$endpoint, int \$cacheTtl = CACHE_TTL): ?array
 }
 
 /**
+ * 🚀 v2.38 — دریافت موازی چند اندپوینت با curl_multi
+ * 🚨 ریشه‌یابی «تست نهایی استقرار: HTTP 500 — thrown in index.php on line 20»:
+ * index.php از v2.33 این تابع را صدا می‌زند اما config.php تولیدیِ این کلاس آن را
+ * تعریف نمی‌کرد (همان کلاسِ باگِ v2.22 برای fetchFromAPI — این‌بار برای تابع جدید
+ * تکرار شده بود). اکنون ۱:۱ هم‌ارزِ قالب (templates/brand-core/config.php) اینجا هم
+ * تعریف می‌شود تا استقرار جدید و بروزرسانی، هر دو بدون فاتل کار کنند.
+ *
+ * @param string[] \$endpoints فهرست اندپوینت‌ها
+ * @param int      \$cacheTtl  مدت کش نوشته‌شده
+ * @return array<string, array|null> اندپوینت => داده (یا null)
+ */
+function fetchFromAPIMulti(array \$endpoints, int \$cacheTtl = CACHE_TTL): array
+{
+    \$out = [];
+    \$need = [];
+    foreach (array_unique(\$endpoints) as \$ep) {
+        \$cached = fetchFromAPI(\$ep, \$cacheTtl);
+        if (\$cached !== null) {
+            \$out[\$ep] = \$cached;
+        } else {
+            \$need[] = \$ep;
+        }
+    }
+    if (!\$need) {
+        return \$out;
+    }
+
+    /* حالت بدون curl_multi (fallback سریال) */
+    if (!function_exists('curl_multi_init')) {
+        foreach (\$need as \$ep) {
+            \$out[\$ep] = fetchFromAPILive(\$ep);
+        }
+        return \$out;
+    }
+
+    \$mh = curl_multi_init();
+    \$handles = [];
+    foreach (\$need as \$ep) {
+        \$ch = curl_init(BRANDMAKER_API . '/' . \$ep);
+        curl_setopt_array(\$ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_CONNECTTIMEOUT => 6,
+            CURLOPT_HTTPHEADER     => ['X-API-Key: ' . BRAND_API_KEY],
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_USERAGENT      => 'SahandBrandSite/' . VERSION,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 2,
+        ]);
+        curl_multi_add_handle(\$mh, \$ch);
+        \$handles[\$ep] = \$ch;
+    }
+
+    do {
+        \$status = curl_multi_exec(\$mh, \$active);
+        if (\$active) {
+            curl_multi_select(\$mh, 0.2);
+        }
+    } while (\$active && \$status === CURLM_OK);
+
+    foreach (\$handles as \$ep => \$ch) {
+        \$body = (string)curl_multi_getcontent(\$ch);
+        \$code = (int)curl_getinfo(\$ch, CURLINFO_HTTP_CODE);
+        curl_multi_remove_handle(\$mh, \$ch);
+        curl_close(\$ch);
+        \$decoded = (\$code === 200 && \$body !== '') ? json_decode(\$body, true) : null;
+        \$data = (is_array(\$decoded) && !empty(\$decoded['success'])) ? \$decoded : null;
+        if (\$data === null) {
+            // پاسخ موازی ناموفق → fallback تک‌تک (با منطق کهنه‌ی سخت‌گیرانه)
+            \$data = fetchFromAPILive(\$ep);
+        }
+        if (\$data !== null && CACHE_ENABLED) {
+            if (!is_dir(CACHE_DIR)) {
+                @mkdir(CACHE_DIR, 0755, true);
+            }
+            @file_put_contents(CACHE_DIR . '/' . sha1(\$ep) . '.json', json_encode(\$data, JSON_UNESCAPED_UNICODE), LOCK_EX);
+        }
+        \$out[\$ep] = \$data;
+    }
+    curl_multi_close(\$mh);
+    return \$out;
+}
+
+/**
  * ⚡ دریافت مستقیم (بدون کش) — قلب شبکه‌ای سایت برند
  * file_get_contents با مهلت + fallback cURL — هرگز استثنا پرتاب نمی‌کند.
  */
