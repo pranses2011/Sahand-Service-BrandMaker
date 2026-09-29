@@ -1426,7 +1426,7 @@ if (!function_exists('pv_real_form')) {
         }
         /* زمان ترجیحی */
         if ($on('preferredTime', false)) {
-            $fields .= '<div class="form-group"><label>زمان مراجعه ترجیحی</label><div style="display:flex;gap:8px"><input type="date" name="preferred_date" class="sahand-fi" style="flex:1"><select name="preferred_time" class="sahand-fi" style="flex:1"><option value="">بازه ساعتی...</option><option>۹ تا ۱۲</option><option>۱۲ تا ۱۵</option><option>۱۵ تا ۱۸</option><option>۱۸ تا ۲۱</option></select></div></div>';
+            $fields .= '<div class="form-group"><label>زمان مراجعه ترجیحی</label><div style="display:flex;gap:8px"><input type="text" name="preferred_date" data-jalali-picker class="sahand-fi" style="flex:1.2" placeholder="انتخاب تاریخ (شمسی)" inputmode="none"><select name="preferred_time" class="sahand-fi" style="flex:1"><option value="">بازه ساعتی...</option><option>۹ تا ۱۲</option><option>۱۲ تا ۱۵</option><option>۱۵ تا ۱۸</option><option>۱۸ تا ۲۱</option></select></div></div>';
         }
         /* آدرس */
         if ($on('address', false)) {

@@ -108,6 +108,8 @@ if ($trackerTarget === '' || !preg_match('#/track$#', $trackerTarget)) {
 <script src="/js/tracker.js<?= defined('VERSION') ? '?v=' . rawurlencode(VERSION) : '' ?>"></script>
 <!-- ⚡ اسکریپت اصلی -->
 <script src="/js/app.js"></script>
+<!-- 🗓️ v2.41 — تقویم انتخاب تاریخ شمسی (فرم درخواست و بلوک‌های قالب‌ساز) -->
+<script src="/js/jalali-picker.js<?= defined('VERSION') ? '?v=' . rawurlencode(VERSION) : '' ?>"></script>
 <!-- 📋 v2.31 — فرم‌های واقعی قالب‌ساز (sahand-form) -->
 <script src="/js/form.js<?= defined('VERSION') ? '?v=' . rawurlencode(VERSION) : '' ?>"></script>
 <!-- 📱 v2.37 — P3: ثبت Service Worker (فقط محیط امن — SW بدون https فعال نمی‌شود) -->

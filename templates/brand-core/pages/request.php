@@ -61,7 +61,8 @@ require __DIR__ . '/_page_base.php';
                 <div class="form-group">
                     <label>زمان مراجعه ترجیحی (اختیاری)</label>
                     <div style="display:flex;gap:8px">
-                        <input type="date" name="preferred_date" style="flex:1">
+                        <?php /* 🗓️ v2.41 — دیت‌پیکر شمسی زیبا: نمایش ۱۴۰۵/۰۷/۱۵، مقدار میلادی در hidden هم‌نام */ ?>
+                        <input type="text" name="preferred_date" data-jalali-picker style="flex:1.2" placeholder="انتخاب تاریخ (شمسی)" inputmode="none">
                         <select name="preferred_time" style="flex:1">
                             <option value="">بازه ساعتی...</option>
                             <option>۹ تا ۱۲</option><option>۱۲ تا ۱۵</option>
