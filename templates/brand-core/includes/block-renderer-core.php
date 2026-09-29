@@ -746,20 +746,66 @@ if (!function_exists('pv_render_block_inner')) {
                 $its = pvItems($props, [['🔧', 'تعمیر لباسشویی', 'با قطعات فابریک'], ['🧊', 'تعمیر یخچال', 'همان روز'], ['⚡', 'تعمیر ماکروویو', 'ضمانت‌دار'], ['🎓', 'سرویس دوره‌ای', 'در محل شما']]);
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: ($block === 'features' ? 'چرا ما را انتخاب کنید؟' : 'خدمات ما')) . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => pvA($it, '<div class="fake-card"><div class="card-ico">' . pv_icon($it['icon'] ?: '🔧') . '</div><div class="card-t">' . e($it['text']) . '</div>' . ($it['desc'] !== '' ? '<div class="feat-d">' . e($it['desc']) . '</div>' : '') . '</div>'), $its)) . '</div></div>';
             case 'devices-grid':
-                $devs = ['🌀 لباسشویی', '🧊 یخچال', '🍽️ ظرفشویی', '❄️ کولر', '📺 تلویزیون', '♨️ پکیج', '📻 مایکروویو', '🔥 فر و اجاق'];
+                /* 🔄 v2.41 — پویا: دستگاه‌های واقعی همین برند از API
+                   (درخواست کاربر: «همه عناصر قالب ساز رو پویا بکن»)؛
+                   پیش‌نمایش قالب‌ساز همچنان نمونه نشان می‌دهد */
+                $devs = [];
+                if (!$pvPreview && defined('BRAND_ID') && function_exists('fetchFromAPI')) {
+                    try {
+                        $devs = (array)(fetchFromAPI('brand/' . BRAND_ID . '/devices', 300)['data'] ?? []);
+                    } catch (Throwable $dynE) { $devs = []; }
+                }
                 $cards = '';
-                foreach ($devs as $d) {
-                    [$ico, $name] = array_pad(explode(' ', $d, 2), 2, '');
-                    $cards .= '<div class="fake-card"><div class="card-ico">' . $ico . '</div><div class="card-t">' . $name . '</div></div>';
+                if ($devs) {
+                    foreach ($devs as $dev) {
+                        $ico = trim((string)($dev['icon'] ?? '')) ?: '🔧';
+                        $name = trim((string)($dev['name_fa'] ?? ''));
+                        if ($name === '') { continue; }
+                        $link = function_exists('localized_path') ? localized_path('/services') : '/services';
+                        $desc = trim((string)($dev['description'] ?? ''));
+                        $cards .= '<a href="' . e($link) . '" style="text-decoration:none;color:inherit"><div class="fake-card"><div class="card-ico">' . pv_icon($ico) . '</div><div class="card-t">' . e($name) . '</div>' . ($desc !== '' ? '<div class="feat-d">' . e(mb_substr($desc, 0, 60)) . '</div>' : '') . '</div></a>';
+                    }
+                } else {
+                    foreach (['🌀 لباسشویی', '🧊 یخچال', '🍽️ ظرفشویی', '❄️ کولر', '📺 تلویزیون', '♨️ پکیج', '📻 مایکروویو', '🔥 فر و اجاق'] as $d) {
+                        [$ico, $name] = array_pad(explode(' ', $d, 2), 2, '');
+                        $cards .= '<div class="fake-card"><div class="card-ico">' . $ico . '</div><div class="card-t">' . $name . '</div></div>';
+                    }
                 }
                 /* 🆕 v2.40 — ستون‌ها از props (قبلاً c4 ثابت — فیلد پنل بی‌اثر بود) */
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'دستگاه‌های تحت پوشش') . '</div><div class="cols c' . pvCols($props, 4) . '">' . $cards . '</div></div>';
             case 'articles-recent':
             case 'articles-grid':
-                /* 🎭 P2-21 — پیش‌نمایش: محتوای نمونه (رفتار قدیمی) */
+                /* 🎭 P2-21 — پیش‌نمایش: محتوای نمونه (رفتار قدیمی)
+                   🔄 v2.41 — پویا در سایت برند: «مقالات اخیرِ همین برند»
+                   از API با تصویر شاخص و لینک واقعی (درخواست کاربر) */
                 /* 🆕 v2.40 — ستون‌ها از props (قبلاً c3 ثابت — فیلد پنل بی‌اثر بود) */
                 if ($pvPreview) {
                     return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'مقالات اخیر') . '</div><div class="cols c' . pvCols($props, 3) . '">' . str_repeat('<div class="fake-card"><div class="fake-img small">📰</div><div class="card-t">عنوان مقاله نمونه</div><div class="fl w100"></div></div>', 3) . '</div></div>';
+                }
+                $arts = [];
+                if (defined('BRAND_ID') && function_exists('fetchFromAPI')) {
+                    try {
+                        $n = max(3, (int)pvCols($props, 3) * 2);
+                        $arts = (array)(fetchFromAPI('brand/' . BRAND_ID . '/articles?per_page=' . $n, 300)['data'] ?? []);
+                    } catch (Throwable $dynE) { $arts = []; }
+                }
+                if ($arts) {
+                    $cards = '';
+                    foreach ($arts as $a) {
+                        $aTitle = trim((string)($a['title'] ?? ''));
+                        if ($aTitle === '') { continue; }
+                        $slug = rawurlencode((string)($a['slug'] ?? ''));
+                        $link = '/blog/' . $slug;
+                        $img = trim((string)($a['featured_image'] ?? ''));
+                        $imgHtml = $img !== '' && preg_match('#^(https?://|uploads/|/)#i', $img)
+                            ? '<div class="fake-img small"><img src="' . e(preg_match('#^uploads/#i', $img) && function_exists('pv_asset') ? pv_asset($img) : $img) . '" alt="' . e($aTitle) . '" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>'
+                            : '<div class="fake-img small">📰</div>';
+                        $excerpt = trim((string)preg_replace('#<[^>]+>#', ' ', (string)($a['excerpt'] ?? '')));
+                        $cards .= '<a href="' . e($link) . '" style="text-decoration:none;color:inherit"><div class="fake-card">' . $imgHtml . '<div class="card-t">' . e($aTitle) . '</div>' . ($excerpt !== '' ? '<div class="feat-d">' . e(mb_substr($excerpt, 0, 90)) . '…</div>' : '') . '</div></a>';
+                    }
+                    if ($cards !== '') {
+                        return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'مقالات اخیر') . '</div><div class="cols c' . pvCols($props, 3) . '">' . $cards . '</div></div>';
+                    }
                 }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'مقالات اخیر') . '</div><div class="cols c' . pvCols($props, 3) . '">' . str_repeat('<div class="fake-card"><div class="fake-img small">📰</div><div class="card-t">عنوان مقاله نمونه</div></div>', 3) . '</div></div>';
             case 'team':
@@ -769,6 +815,32 @@ if (!function_exists('pv_render_block_inner')) {
                 $its = pvItems($props, [['', 'دریافت و عیب‌یابی تخصصی', 'رایگان'], ['', 'سرویس دوره‌ای لباسشویی', 'از ۴۵۰ هزار تومان'], ['', 'شارژ گاز کولر گازی', 'از ۹۰۰ هزار تومان']]);
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'تعرفه خدمات') . '</div><div class="price-table">' . implode('', array_map(static fn($it) => '<div class="price-row"><span>' . e($it['text']) . '</span><b>' . e($it['desc']) . '</b></div>', $its)) . '</div></div>';
             case 'brands-links':
+                /* 🔄 v2.41 — پویا: برندهای واقعی نمایندگی از API با لینک سایت
+                   هر برند؛ آیتم‌های دستی props فقط در پیش‌نمایش/فال‌بک */
+                $brs = [];
+                if (function_exists('fetchFromAPI')) {
+                    try {
+                        $brs = (array)(fetchFromAPI('brands', 300)['data'] ?? []);
+                    } catch (Throwable $dynE) { $brs = []; }
+                }
+                if ($brs) {
+                    $cards = '';
+                    foreach ($brs as $b) {
+                        $name = trim((string)($b['name_fa'] ?? ''));
+                        if ($name === '') { continue; }
+                        if (defined('BRAND_ID') && (int)($b['id'] ?? 0) === (int)BRAND_ID) { continue; } /* خود برند نه */
+                        $domain = trim((string)($b['domain'] ?? ''));
+                        $href = $domain !== '' ? 'https://' . $domain : (function_exists('localized_path') ? localized_path('/other-brands') : '/other-brands');
+                        $logo = trim((string)($b['logo'] ?? ''));
+                        $inner = $logo !== '' && preg_match('#^(https?://|uploads/|/)#i', $logo)
+                            ? '<img src="' . e(preg_match('#^uploads/#i', $logo) && function_exists('pv_asset') ? pv_asset($logo) : $logo) . '" alt="' . e($name) . '" style="max-width:100%;max-height:100%;object-fit:contain" loading="lazy">'
+                            : '🏷️';
+                        $cards .= '<a href="' . e($href) . '" class="fake-logo-s" title="' . e($name) . '"' . ($domain !== '' ? ' target="_blank" rel="nofollow"' : '') . '>' . $inner . '</a>';
+                    }
+                    if ($cards !== '') {
+                        return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'برندهای مورد خدمت') . '</div><div class="cols c' . max(3, pvCols($props, 6)) . '">' . $cards . '</div></div>';
+                    }
+                }
                 $its = pvItems($props, [['🏷️', 'ال‌جی'], ['🏷️', 'سامسونگ'], ['🏷️', 'بوش'], ['🏷️', 'سونی'], ['🏷️', 'اسنوا'], ['🏷️', 'پاکس']]);
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'برندهای مورد خدمت') . '</div><div class="cols c' . max(3, pvCols($props, 6)) . '">' . implode('', array_map(static fn($it) => '<div class="fake-logo-s" title="' . e($it['text']) . '">' . pv_icon($it['icon'] ?: '🏷️') . '</div>', $its)) . '</div></div>';
             case 'hero-form':
@@ -818,12 +890,43 @@ if (!function_exists('pv_render_block_inner')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . $out . '</div>';
             case 'testimonials': {
                 $its = pvItems($props, [['علی محمدی', 'سرویس سریع و منظم بود؛ راضی بودم.'], ['مریم احمدی', 'قیمت شفاف و ضمانت واقعی.']]);
-                $q = $its[0] ?? ['icon' => '', 'text' => ''];
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'نظرات مشتریان') . '</div><div class="quote">«' . e($q['text']) . '»</div>' . ($q['icon'] !== '' ? '<div class="feat-d" style="text-align:center;font-weight:800">— ' . e($q['icon']) . '</div>' : '') . '<div class="slider-dots">● ○ ○</div></div>';
+                /* 🔄 v2.41 — همه نظرات با اسلایدر dots (قبلاً فقط اولین نظر
+                   نمایش داده می‌شد و بقیه آیتم‌ها بی‌اثر بودند) */
+                $cards = '';
+                foreach ($its as $i => $q) {
+                    $cards .= '<div class="ss-tst"' . ($i === 0 ? '' : ' style="display:none"') . '><div class="quote">«' . e($q['text']) . '»</div>' . ($q['icon'] !== '' ? '<div class="feat-d" style="text-align:center;font-weight:800">— ' . e($q['icon']) . '</div>' : '') . '</div>';
+                }
+                $dots = count($its) > 1 ? '<div class="slider-dots" data-tst-dots="1">' . implode(' ', array_map(static fn($i) => '<span style="cursor:pointer">' . ($i === 0 ? '●' : '○') . '</span>', array_keys($its))) . '</div>' : '';
+                $js = count($its) > 1 ? '<script>document.addEventListener("DOMContentLoaded",function(){var ws=document.querySelectorAll(".ss-tst"),ds=document.querySelectorAll("[data-tst-dots] span"),ci=0;ds.forEach(function(d,i){d.addEventListener("click",function(){ws[ci]&&(ws[ci].style.display="none");ds[ci]&&(ds[ci].textContent="○");ci=i;ws[ci]&&(ws[ci].style.display="");ds[ci]&&(ds[ci].textContent="●")})});setInterval(function(){if(ws.length&&ds.length>1){ds[(ci+1)%ws.length].click()}},6000)});</script>' : '';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'نظرات مشتریان') . '</div>' . $cards . $dots . '</div>' . $js;
             }
             case 'faq-accordion':
-                $its = pvItems($props, [['', 'هزینه عیب‌یابی چقدر است؟', 'در صورت تعمیر نزد ما رایگان است.'], ['', 'چقدر طول می‌کشد؟', 'اکثر تعمیرها همان روز انجام می‌شود.'], ['', 'ضمانت دارید؟', 'بله — ۶ ماه ضمانت کتبی.']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'سوالات متداول') . '</div>' . implode('', array_map(static fn($it) => pvA($it, '<div class="acc">' . e($it['text']) . ' <b>＋</b></div>'), $its)) . '</div>';
+                /* 🔄 v2.41 — پویا در سایت برند: سوالات متداول واقعی همین برند
+                   از API؛ آیتم‌های دستی props در پیش‌نمایش/فال‌بک */
+                $faqs = [];
+                if (!$pvPreview && defined('BRAND_ID') && function_exists('fetchFromAPI')) {
+                    try {
+                        $faqs = (array)(fetchFromAPI('brand/' . BRAND_ID . '/faqs', 600)['data'] ?? []);
+                    } catch (Throwable $dynE) { $faqs = []; }
+                }
+                $its = [];
+                foreach ($faqs as $f) {
+                    $qText = trim((string)($f['question'] ?? ''));
+                    $aText = trim((string)($f['answer'] ?? ''));
+                    if ($qText !== '' && $aText !== '') {
+                        $its[] = ['icon' => '', 'text' => $qText, 'desc' => $aText, 'link' => '', 'color' => ''];
+                    }
+                }
+                if (!$its) {
+                    $its = pvItems($props, [['', 'هزینه عیب‌یابی چقدر است؟', 'در صورت تعمیر نزد ما رایگان است.'], ['', 'چقدر طول می‌کشد؟', 'اکثر تعمیرها همان روز انجام می‌شود.'], ['', 'ضمانت دارید؟', 'بله — ۶ ماه ضمانت کتبی.']]);
+                }
+                /* 🆕 v2.41 — آکاردئون واقعی کلیک‌شونده (قبلاً دکمه + بی‌عمل) */
+                $items = '';
+                foreach ($its as $i => $it) {
+                    $items .= '<div class="acc-w"><div class="acc" data-acc="' . $i . '">' . e($it['text']) . ' <b>＋</b></div><div class="acc-body" style="display:none;padding:4px 10px 12px;font-size:12.5px;color:var(--color-text-light)">' . e($it['desc']) . '</div></div>';
+                }
+                $js = '<script>document.addEventListener("DOMContentLoaded",function(){document.querySelectorAll("[data-acc]").forEach(function(h){h.addEventListener("click",function(){var b=h.nextElementSibling;var open=b.style.display!=="none";b.style.display=open?"none":"";h.querySelector("b").textContent=open?"＋":"−";h.style.fontWeight=open?"700":"800"})})});</script>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'سوالات متداول') . '</div>' . $items . '</div>' . $js;
             case 'tabs': {
                 $its = pvItems($props, [['', 'تعمیر'], ['', 'سرویس'], ['', 'نصب']]);
                 $tabs = '';
