@@ -11,6 +11,30 @@ if (!defined('BRAND_INIT')) {
     exit;
 }
 
+/* 🛡️ v2.40 — لایه دفاعی چندزبانگی (ضد فاتال ۵۰۰ در استقرار/بروزرسانی)
+   🚨 ریشه‌یابی «تست نهایی استقرار: HTTP 500 — thrown in header.php on
+   line 36»: اگر config.php سایت (حفظ‌شده از نصب قدیمی یا تولیدیِ نسخه‌های
+   قبلی Deployer) فایل includes/i18n.php را require نکرده باشد، ثابت‌های
+   BRAND_HTML_LANG/BRAND_LANG تعریف‌نشده می‌مانند و PHP 8 روی خط تگ <html>
+   «Undefined constant» پرتاب می‌کند → کل سایت ۵۰۰. این بلوک تضمین می‌کند:
+   ① اگر i18n.php موجود ولی بارگذارنشده باشد همین‌جا بارگذاری شود؛
+   ② اگر نبود، ثابت‌ها و __t() جایگزین مینیمم تعریف شوند تا صفحه هرگز نشکند. */
+if (!defined('BRAND_LANG')) {
+    if (is_file(__DIR__ . '/i18n.php')) {
+        require_once __DIR__ . '/i18n.php';
+    } else {
+        define('BRAND_LANG', 'fa');
+        define('BRAND_DIR', 'rtl');
+        define('BRAND_HTML_LANG', 'fa');
+        if (!function_exists('__t')) {
+            function __t(string $key): string
+            {
+                return $key;
+            }
+        }
+    }
+}
+
 // 📥 داده‌های برند و تنظیمات (با کش)
 /* ⏱️ v2.25: TTL اطلاعات برند ۱۲۰ ثانیه (قبلاً ۳۰۰) — تغییر پالت/لوگو در
    پنل حداکثر تا ۲ دقیقه بعد روی سایت برند دیده می‌شود (رفع بخشی از

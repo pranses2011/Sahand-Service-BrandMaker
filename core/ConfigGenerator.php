@@ -415,6 +415,16 @@ if (is_file(__DIR__ . '/includes/seo.php')) {
 if (is_file(__DIR__ . '/includes/blocks.php')) {
     require_once __DIR__ . '/includes/blocks.php';
 }
+/* 🌍 v2.40 — لایه چندزبانگی (BRAND_LANG/BRAND_DIR/BRAND_HTML_LANG/__t).
+   🚨 ریشه‌یابی «تست نهایی استقرار: HTTP 500 — thrown in includes/header.php
+   on line 36»: قالب از v2.37 ثابت‌های BRAND_HTML_LANG/BRAND_DIR و تابع __t()
+   را در هدر استفاده می‌کند اما این کلاس (نقطه بازنویسی config.php در استقرار)
+   require فایل i18n.php را نداشت → ثابت تعریف‌نشده → Error در PHP 8 → ۵۰۰.
+   اکنون ۱:۱ هم‌ارزِ قالب (templates/brand-core/config.php) اینجا هم
+   بارگذاری می‌شود تا استقرار جدید و بروزرسانی، هر دو بدون فاتل کار کنند. */
+if (is_file(__DIR__ . '/includes/i18n.php')) {
+    require_once __DIR__ . '/includes/i18n.php';
+}
 
 PHP;
     }
