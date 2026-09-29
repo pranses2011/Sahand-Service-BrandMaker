@@ -48,13 +48,29 @@ if (!is_array($data)) {
 
 /* 🧼 فقط فیلدهای مجاز فرم عبور می‌کنند (ضد تزریق فیلد)
    🖼️ v2.30 — فیلد images (آرایه URLهای آپلودشده) هم عبور می‌کند؛
-   قبلاً این فیلد در لیست سفید نبود → تصاویر هرگز به API نمی‌رسیدند! */
+   قبلاً این فیلد در لیست سفید نبود → تصاویر هرگز به API نمی‌رسیدند!
+   🚨 v2.43 — ریشه قطعی «اطلاعات فرم‌ها ارسال نمیشه و خطای ارتباط با
+   سرور میده»: فرم‌های عمومی قالب‌ساز (تماس/خبرنامه/نظرسنجی/...) فقط
+   data.fields را می‌فرستند و هیچ فیلد سطح‌بالا ندارند → $payload خالی
+   → «فیلدی برای ثبت ارسال نشده است» با کد 400 → مرورگر (که 400 را در
+   زنجیره مجاز 422/429 ندارد) آن را catch می‌کرد → «خطای ارتباط با سرور»!
+   اکنون: ① فیلدهای استاندارد از data.fields هم برداشته می‌شوند
+   ② بررسی خالی بودن «پس از» ادغام دو منبع انجام می‌شود. */
 $allowed = ['full_name', 'phone', 'phone2', 'address', 'device_type', 'device_other',
             'device_model', 'description', 'preferred_date', 'preferred_time', 'images'];
 $payload = [];
 foreach ($allowed as $field) {
     if (array_key_exists($field, $data)) {
         $payload[$field] = is_string($data[$field]) ? mb_substr(trim($data[$field]), 0, 2000) : $data[$field];
+    }
+}
+/* 🩹 v2.43 — فیلدهای استانداردِ داخل data.fields هم به سطح بالا بیایند
+   (فرم‌های عمومی قالب‌ساز همه چیز را داخل fields می‌فرستند) */
+if (is_array($data['fields'] ?? null)) {
+    foreach ($allowed as $field) {
+        if (!array_key_exists($field, $payload) && isset($data['fields'][$field]) && is_string($data['fields'][$field])) {
+            $payload[$field] = mb_substr(trim((string)$data['fields'][$field]), 0, 2000);
+        }
     }
 }
 /* 🖼️ اعتبارسنجی آرایه تصاویر: فقط رشته‌های URL ساده (حداکثر ۳ مورد) */
@@ -73,7 +89,12 @@ if (isset($payload['images'])) {
         unset($payload['images']);
     }
 }
-if (empty($payload)) {
+/* 🚨 v2.43 — بررسی «خالی» فقط برای فرم درخواست کامل است؛ فرم‌های عمومی
+   (form_block) ممکن است فقط فیلدهای آزاد مثل email داشته باشند و قبل
+   از این رد می‌شدند (ریشه «خطای ارتباط با سرور» فرم‌ها). */
+$hasFormBlock = !empty($data['form_block']) && is_string($data['form_block']);
+$hasFields = is_array($data['fields'] ?? null) && !empty(array_filter(array_map('strval', (array)$data['fields'])));
+if (empty($payload) && !($hasFormBlock && $hasFields)) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'فیلدی برای ثبت ارسال نشده است'], JSON_UNESCAPED_UNICODE);
     exit;
@@ -82,7 +103,7 @@ if (empty($payload)) {
 /* ═══ 🆕 v2.31 — فرم‌های عمومی قالب‌ساز (sahand-form) ═══
    اگر form_block ارسال شده باشد، درخواست از مسیر فرم‌ها می‌رود؛
    در غیر این صورت رفتار قبلی (فرم درخواست کامل صفحه /request) حفظ می‌شود. */
-if (!empty($data['form_block']) && is_string($data['form_block'])) {
+if ($hasFormBlock) {
     $formBlock = preg_replace('/[^a-z0-9_\-]/', '', (string)$data['form_block']);
     if ($formBlock === '') { $formBlock = 'custom'; }
     $formPayload = ['form_block' => $formBlock, 'fields' => []];

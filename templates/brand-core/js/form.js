@@ -102,12 +102,14 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             }).then(function (r) {
-                if (!r.ok && r.status !== 422 && r.status !== 429) { throw new Error('http-' + r.status); }
-                return r.text();
-            }).then(function (t) {
-                var res = {};
-                try { res = JSON.parse(t); } catch (err) { throw new Error('bad-json'); }
-                return res;
+                /* 🩹 v2.43 — هر پاسخ JSON را می‌پذیریم (حتی 4xx) تا پیام خطای
+                   واقعی سرور به کاربر برسد؛ فقط پاسخ غیر JSON (5xx/HTML)
+                   به catch می‌رود. ریشه «خطای ارتباط با سرور»ی بی‌اطلاعاتی. */
+                return r.text().then(function (t) {
+                    var res = {};
+                    try { res = JSON.parse(t); } catch (err) { throw new Error('bad-json'); }
+                    return res;
+                });
             });
         }).then(function (res) {
             if (btn) { btn.disabled = false; btn.textContent = btn.dataset.oldText || 'ارسال'; }
