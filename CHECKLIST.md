@@ -44,7 +44,7 @@
 | S15 | ☑️ تست مرورگر واقعی | Playwright — ۲۲ چک (فرم/دیت‌پیکر/مقاله/شمارش/چیدمان/پنل/AI) + router-emulator شبیه‌ساز htaccess + پاکسازی تست | ✅ |
 | S16 | ☑️ زنجیره فال‌بک AI | انتخابی ← بدون‌کلید ← بقیه دارای کلید ← موتور داخلی — گزارش ارائه‌دهنده برنده + قابل خاموش‌کردن | ✅ |
 | S+ | ☑️ راهنمای API خارجی | AI-API-GUIDE: بخش مدل‌های زبانی رایگان + زنجیره فال‌بک + ۴ سرویس عکس جدید | ✅ |
-| S+ | ☑️ رلیز v2.43.0 | install.zip + update.zip + فایل‌های راهنما + SHA256SUMS | ✅ |
+| S+ | ☑️ رلیز v2.43.0 | [لینک رلیز](https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/tag/v2.43.0) — install.zip (۲۱٬۱۵۸ فایل) + update.zip (۳۹ فایل) + INSTALL/UPGRADE فارسی + SHA256SUMS | ✅ |
 
 ---
 
