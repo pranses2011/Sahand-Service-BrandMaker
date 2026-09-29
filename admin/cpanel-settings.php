@@ -124,6 +124,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'remov
     json_response(['success' => $r['success'], 'message' => $r['message']]);
 }
 
+/* 🔄 🆕 v2.39 — ارتقای همهٔ کرون‌های قدیمی به فرمان دوگانه (رفع قطعی ایمیل‌های 403)
+ * ریشه: کرون‌های نصب‌شده قبل از v2.38 فقط «php CLI» بودند؛ هاستی که php در cron
+ * را مسدود کند، هر ۵ دقیقه ایمیل 403/Access-denied می‌فرستد. این اکشن:
+ *   ① فهرست کرون‌های cPanel را می‌خواند
+ *   ② هر فرمانِ مرتبط با همین نصب (php قدیمی یا curl قدیمی) را حذف می‌کند
+ *   ③ هر ۴ وظیفه را با «فرمان دوگانه» نصب می‌کند: php CLI و در صورت شکستش،
+ *      ادامه با curl + توکن در همان خط فرمان — یعنی هیچ‌وقت 403 ایمیل نمی‌شود.
+ */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'upgrade_crons') {
+    Auth::enforceCsrf();
+    $mode = post('mode') === 'curl' ? 'curl' : 'cli';
+    $cronBaseReal = rtrim(str_replace('\\', '/', dirname(__DIR__)), '/');
+    $cronToken = (string)Config::get('cron_secret_token', '');
+    if ($cronToken === '') {
+        $cronToken = bin2hex(random_bytes(16));
+        Config::set('cron_secret_token', $cronToken);
+    }
+    $cronUrlBase = rtrim(BASE_URL, '/') . '/cron/';
+    $jobs = [
+        'main'         => ['file' => 'cron.php',        'minute' => '*/5',  'hour' => '*',  'day' => '*', 'month' => '*', 'weekday' => '*'],
+        'health-check' => ['file' => 'health-check.php', 'minute' => '*/15', 'hour' => '*',  'day' => '*', 'month' => '*', 'weekday' => '*'],
+        'ssl-check'    => ['file' => 'ssl-check.php',    'minute' => '0',    'hour' => '3',  'day' => '*', 'month' => '*', 'weekday' => '*'],
+        'backup'       => ['file' => 'backup.php',       'minute' => '0',    'hour' => '2',  'day' => '*', 'month' => '*', 'weekday' => '6'],
+    ];
+    $buildCommand = static function (array $spec) use ($mode, $cronBaseReal, $cronUrlBase, $cronToken): string {
+        $curlCmd = 'curl -s -o /dev/null "' . $cronUrlBase . $spec['file'] . '?token=' . $cronToken . '"';
+        if ($mode === 'curl') {
+            return $curlCmd;
+        }
+        /* 🛡 فرمان دوگانه: اول PHP CLI؛ اگر هاست بلاک کرد (خروجی 403/Access denied)،
+           curl همان وظیفه را با توکن اجرا می‌کند — ایمیل خطا دیگر ارسال نمی‌شود */
+        return 'OUT=$(php ' . $cronBaseReal . '/cron/' . $spec['file'] . ' 2>&1) || '
+            . 'case "$OUT" in *403*|*"Access denied"*|*"Access Denied"*) ' . $curlCmd . ';; esac';
+    };
+    $api = new CpanelAPI();
+
+    /* ① حذف کرون‌های قدیمیِ همین نصب (php قدیمی / curl قدیمی / فرمان دوگانه قبلی) */
+    $rows = $api->listCronJobs();
+    $removed = 0;
+    $removeErrors = [];
+    foreach ($rows as $row) {
+        $cmd = (string)($row['command'] ?? '');
+        if ($cmd === '') { continue; }
+        $related = (strpos($cmd, $cronBaseReal . '/cron/') !== false) || (strpos($cmd, $cronUrlBase) !== false);
+        if (!$related) { continue; }
+        $lineRef = (string)($row['linekey'] ?? ($row['line'] ?? ''));
+        if ($lineRef === '') { continue; }
+        $r = $api->removeCronJob($lineRef);
+        if ($r['success']) { $removed++; } else { $removeErrors[] = $r['message']; }
+    }
+
+    /* ② نصب تازه هر ۴ وظیفه */
+    $results = [];
+    $okCount = 0;
+    foreach ($jobs as $key => $spec) {
+        $cmd = $buildCommand($spec);
+        $r = $api->addCronJob($cmd, $spec['minute'], $spec['hour'], $spec['day'], $spec['month'], $spec['weekday']);
+        $results[] = ($r['success'] ? '✅' : '❌') . ' ' . $key . ' — ' . $r['message'];
+        if ($r['success']) { $okCount++; }
+    }
+    $msg = '🔄 ' . en_to_fa_digits((string)$removed) . ' کرون قدیمی حذف و ' . en_to_fa_digits((string)$okCount) . ' از ' . en_to_fa_digits('4') . ' وظیفه با فرمان '
+        . ($mode === 'curl' ? 'curl/HTTP' : 'دوگانه (PHP + fallback خودکار به curl)') . " نصب شد:\n" . implode("\n", $results);
+    if ($removeErrors) {
+        $msg .= "\n\n⚠️ حذف برخی کرون‌های قدیمی ناموفق بود (دستی در cPanel ▸ Cron Jobs حذف کنید):\n" . implode("\n", array_slice($removeErrors, 0, 5));
+    }
+    json_response(['success' => $okCount > 0, 'message' => $msg]);
+}
+
 /* 🔍 اعتبارسنجی الگو (AJAX) */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'validate_pattern') {
     Auth::enforceCsrf();
@@ -417,6 +485,7 @@ $cronBase = rtrim(str_replace('\\', '/', dirname(__DIR__)), '/');
             <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:2;color:#92400e;margin-bottom:14px">
                 ⚠️ <b>ایمیل «Access denied / 403» از هاست می‌گیرید؟</b> برخی هاست‌ها اجرای مستقیم <code dir="ltr">php</code> در Cron را مسدود می‌کنند.
                 در این صورت حالت <b>«🌐 curl / HTTP»</b> را انتخاب کنید — وظایف از طریق آدرس وب با توکن امن اجرا می‌شوند و هیچ مسدودیتی ندارند.
+                <br>🔄 <b>سریع‌ترین راه:</b> دکمهٔ <b>«ارتقای همهٔ کرون‌ها»</b> را پایین همین کارت بزنید — کرون‌های قدیمی حذف و با فرمان دوگانه (PHP + fallback خودکار به curl) دوباره نصب می‌شوند و ایمیل 403 قطع می‌شود.
             </div>
 
             <!-- 🎚️ انتخاب حالت فرمان -->
@@ -434,8 +503,10 @@ $cronBase = rtrim(str_replace('\\', '/', dirname(__DIR__)), '/');
             </div>
 
             <p class="hint">هر وظیفه را با یک کلیک به cPanel اضافه کنید — یا هر چهار وظیفه را یکجا:</p>
-            <div style="margin-bottom:12px">
+            <div style="margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap">
                 <button type="button" class="btn btn-primary" onclick="addCronToCpanel('all', this)">⚡ افزودن همه به cPanel</button>
+                <!-- 🆕 v2.39 — ارتقای کرون‌های قدیمی (رفع قطعی ایمیل 403) -->
+                <button type="button" class="btn btn-warning" style="background:#d97706;border-color:#d97706;color:#fff" onclick="upgradeCrons(this)">🔄 ارتقای همهٔ کرون‌ها (حذف قدیمی‌ها + فرمان دوگانه)</button>
             </div>
             <div class="cron-job-list" id="cron-job-list">
                 <div class="cron-job-row">
@@ -688,6 +759,48 @@ function removeCronLine(linekey, btn) {
 }
 
 /* ⏰ افزودن خودکار دستور cron به cPanel */
+/* 🔄 🆕 v2.39 — ارتقای همهٔ کرون‌های قدیمی به فرمان دوگانه (رفع ایمیل 403) */
+function upgradeCrons(btn) {
+    const resultEl = document.getElementById('cron-add-result');
+    const original = btn.innerHTML;
+    sahandConfirm({
+        title: '🔄 ارتقای کرون‌ها',
+        message: 'همهٔ کرون‌های قدیمیِ همین نصب از cPanel حذف و هر ۴ وظیفه با فرمان جدید نصب می‌شوند.' + (cronMode === 'cli' ? '\n\n🛡 حالت PHP انتخاب شده: فرمان «دوگانه» نصب می‌شود — اگر هاست php را بلاک کند، همان لحظه به‌صورت خودکار با curl ادامه می‌دهد و ایمیل 403 قطع می‌شود.' : '\n\n🌐 حالت curl انتخاب شده: وظایف مستقیم با آدرس وب و توکن امن اجرا می‌شوند.'),
+        type: 'question',
+        icon: '🔄',
+        confirmText: 'بله، ارتقا بده',
+        cancelText: 'انصراف'
+    }).then(ok => {
+        if (!ok) { return; }
+        btn.disabled = true;
+        btn.innerHTML = '⏳ در حال ارتقا...';
+        resultEl.textContent = '';
+        const form = new FormData();
+        form.append('action', 'upgrade_crons');
+        form.append('mode', cronMode);
+        form.append('csrf_token', '<?= e($_SESSION['csrf_token'] ?? '') ?>');
+        fetch('cpanel-settings.php', {method: 'POST', body: form})
+            .then(r => r.json())
+            .then(data => {
+                resultEl.textContent = (data.success ? '' : '❌ ') + (data.message || '');
+                resultEl.style.color = data.success ? '#16a34a' : '#dc2626';
+                btn.innerHTML = data.success ? '✅ ارتقا یافت' : original;
+                if (data.success) { setTimeout(() => { btn.innerHTML = original; }, 3000); loadInstalledCrons(); }
+                sahandAlert({
+                    title: data.success ? '🔄 کرون‌ها ارتقا یافتند' : 'ارتقای کرون‌ها ناموفق',
+                    message: data.message || '',
+                    type: data.success ? 'success' : 'danger',
+                    icon: data.success ? '🔄' : '⚠️'
+                });
+            })
+            .catch(err => {
+                btn.innerHTML = original;
+                sahandAlert({title: 'خطای شبکه', message: String(err), type: 'danger', icon: '⚠️'});
+            })
+            .finally(() => { btn.disabled = false; });
+    });
+}
+
 function addCronToCpanel(job, btn) {
     const resultEl = document.getElementById('cron-add-result');
     const original = btn.innerHTML;
