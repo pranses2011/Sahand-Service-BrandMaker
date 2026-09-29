@@ -27,7 +27,7 @@ $isLimitedRole = $auth->isBrandManager();
    محافظت مرکزی: حتی با تایپ مستقیم URL هم ۴۰۳ می‌گیرد */
 if ($isLimitedRole) {
     $_systemOnlyPages = [
-        'settings.php', 'api-keys.php', 'webmaster.php', 'cpanel-settings.php',
+        'settings.php', 'api-keys.php', 'webmaster.php', 'cpanel-settings.php', 'migrate.php',
         'fonts.php', 'icons.php', 'themes.php', 'ai-learning.php',
         'telegram.php', 'bale.php', 'health-dashboard.php', 'deployment-logs.php',
         'users.php',
@@ -226,6 +226,9 @@ try {
                 </a>
                 <a class="nav-link <?= $activeMenu === 'cpanel-settings' ? 'active' : '' ?>" href="cpanel-settings.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
                     <span class="icon">⚙️</span> اتصال cPanel
+                </a>
+                <a class="nav-link <?= $activeMenu === 'migrate' ? 'active' : '' ?>" href="migrate.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
+                    <span class="icon">🗃️</span> مهاجرت دیتابیس
                 </a>
             </div>
 

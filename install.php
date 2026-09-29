@@ -127,10 +127,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$lockExists) {
                 );
 
                 // 📄 اجرای اسکیمای دیتابیس — با تجزیزگر امن (کامنت‌ها حذف، رشته‌ها محفوظ)
-                $sql = (string)file_get_contents(__DIR__ . '/database.sql');
+                // 🧩 v2.43 (S12): مکان جدید database/schema.sql — ریشه database.sql
+                //    فقط فال‌بک سازگاری است (بروزرسانی ناقص بدون پوشه database/)
+                $schemaFile = is_file(__DIR__ . '/database/schema.sql')
+                    ? __DIR__ . '/database/schema.sql'
+                    : __DIR__ . '/database.sql';
+                $sql = (string)file_get_contents($schemaFile);
                 $statements = splitSqlStatements($sql);
                 if (count($statements) < 20) {
-                    throw new RuntimeException('فایل database.sql خوانده نشد یا محتوای کافی ندارد (' . count($statements) . ' دستور).');
+                    throw new RuntimeException('فایل ' . basename($schemaFile) . ' خوانده نشد یا محتوای کافی ندارد (' . count($statements) . ' دستور).');
                 }
                 $executed = 0;
                 foreach ($statements as $statement) {
@@ -149,6 +154,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$lockExists) {
                 }
                 if ($missing) {
                     throw new RuntimeException('ایجاد جداول ناموفق بود — جداول مفقود: ' . implode('، ', $missing));
+                }
+
+                // 🗃️ v2.43 (S14): نصب تازه = کامل‌ترین اسکیما؛ همه مهاجرت‌ها
+                //    «اجرا شده» علامت می‌خورند تا MigrationRunner در اولین درخواست
+                //    زنجیره ۱۷ مهاجرت را بیهوده (و خطاخیزِ ADD COLUMN تکراری)
+                //    اجرا نکند — منبع حقیقت با واقعیت هم‌گام می‌شود.
+                $migDir = __DIR__ . '/database/migrations';
+                if (is_dir($migDir)) {
+                    $migNames = [];
+                    foreach (glob($migDir . '/*.php') ?: [] as $migFile) {
+                        $mig = include $migFile;
+                        if (is_array($mig) && !empty($mig['name'])) {
+                            $migNames[] = $pdo->quote((string)$mig['name']);
+                        }
+                    }
+                    if ($migNames) {
+                        $pdo->exec(
+                            'INSERT IGNORE INTO schema_migrations (name, applied_at) VALUES ' .
+                            implode(', ', array_map(static fn($n) => "($n, NOW())", $migNames))
+                        );
+                    }
                 }
 
                 // 👤 ایجاد/به‌روزرسانی کاربر مدیر (نصب مجدد → کاربر تکراری نساز)
