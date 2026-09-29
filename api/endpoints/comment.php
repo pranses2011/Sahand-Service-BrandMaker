@@ -187,3 +187,39 @@ function api_brand_article_comments(int $brandId, string $slug): void
 
     json_response(['success' => true, 'data' => $out]);
 }
+
+/**
+ * 💬 آخرین دیدگاه‌های تأییدشده برند (کل مقالات) — GET brand/{brandId}/latest-comments
+ * 🆕 v2.42 — پویاسازی بلوک‌های نظرات قالب‌ساز (درخواست کاربر: «همه عناصر
+ * قالب ساز رو پویا بکن»): بلوک‌های testimonials / quote-slider / review-grid /
+ * reviews-carousel در سایت برند، دیدگاه‌های واقعی مشتریان را نشان می‌دهند.
+ * فقط دیدگاه‌های ریشه (پاسخ‌ها نه) + فقط داده عمومی.
+ */
+function api_brand_latest_comments(int $brandId, int $limit = 12): void
+{
+    $db = Database::getInstance();
+    $limit = max(1, min(24, $limit));
+    $rows = $db->fetchAll(
+        "SELECT c.id, c.author_name, c.body, c.created_at, a.title AS article_title, a.slug AS article_slug
+         FROM article_comments c
+         JOIN brand_articles a ON a.id = c.article_id
+         WHERE c.brand_id = ? AND c.status = 'approved'
+           AND c.parent_id IS NULL AND c.is_brand_reply = 0
+           AND a.status = 'published'
+         ORDER BY c.created_at DESC
+         LIMIT {$limit}",
+        [$brandId]
+    );
+
+    $out = array_map(static function (array $r): array {
+        return [
+            'id'          => (int)$r['id'],
+            'author'      => (string)$r['author_name'],
+            'body'        => (string)$r['body'],
+            'created_at'  => (string)$r['created_at'],
+            'article'     => ['title' => (string)$r['article_title'], 'slug' => (string)$r['article_slug']],
+        ];
+    }, $rows);
+
+    json_response(['success' => true, 'data' => $out]);
+}

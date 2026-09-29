@@ -60,6 +60,7 @@ $router->use(function (array $params) {
         || preg_match('#^brand/[^/]+/upload-request-image$#', $path) || preg_match('#^upload-request-image$#', $path)
         || preg_match('#^brand/[^/]+/form-entry$#', $path) || preg_match('#^form-entry$#', $path)
         || preg_match('#^brand/[^/]+/comment$#', $path) || preg_match('#^comment$#', $path)
+        || preg_match('#^brand/[^/]+/latest-comments$#', $path)
         || preg_match('#^brand/[^/]+/ab-event$#', $path) || preg_match('#^ab-event$#', $path)
         || preg_match('#^track$#', $path)
         || preg_match('#^icon/#', $path)
@@ -191,6 +192,11 @@ $router->add('POST', 'comment', function () {
 $router->add('GET', 'brand/{brandId}/article-comments/{slug}', function ($p) {
     require __DIR__ . '/endpoints/comment.php';
     api_brand_article_comments((int)$p['brandId'], (string)$p['slug']);
+});
+/* 💬 v2.42 — آخرین دیدگاه‌های تأییدشده برند (بلوک‌های نظرات قالب‌ساز) */
+$router->add('GET', 'brand/{brandId}/latest-comments', function ($p) {
+    require __DIR__ . '/endpoints/comment.php';
+    api_brand_latest_comments((int)$p['brandId'], (int)($_GET['limit'] ?? 12));
 });
 
 /* 🧪 v2.37 — P3: بیکِن رویدادهای تست A/B (view/click) */

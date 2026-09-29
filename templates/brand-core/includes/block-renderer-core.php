@@ -346,6 +346,111 @@ if (!function_exists('pv_safe_link')) {
     }
 }
 
+/* ═══════════════════════════════════════════════════════════
+ * 🔄 v2.42 — داده‌های پویای مشترک برای بلوک‌های قالب‌ساز
+ * (درخواست کاربر: «همه عناصر قالب ساز رو پویا بکن»)
+ * هر تابع یک‌بار در هر رندر کش ایستا می‌کند؛ در پیش‌نمایش
+ * قالب‌ساز همیشه [] برمی‌گردند تا نمونه دستی نشان داده شود.
+ * ═══════════════════════════════════════════════════════════ */
+if (!function_exists('pv_dyn_comments')) {
+    /** 💬 آخرین دیدگاه‌های تأییدشده مشتریان همین برند */
+    function pv_dyn_comments(int $limit = 9): array
+    {
+        static $cache = null;
+        if ($cache !== null) { return array_slice($cache, 0, $limit); }
+        if (pv_renderer_is_preview() || !defined('BRAND_ID') || !function_exists('fetchFromAPI')) { return []; }
+        try {
+            $cache = (array)(fetchFromAPI('brand/' . BRAND_ID . '/latest-comments?limit=' . max(3, $limit), 600)['data'] ?? []);
+        } catch (Throwable $e) { $cache = []; }
+        return array_slice($cache, 0, $limit);
+    }
+}
+if (!function_exists('pv_dyn_faqs')) {
+    /** ❓ سوالات متداول واقعی همین برند */
+    function pv_dyn_faqs(int $limit = 12): array
+    {
+        static $cache = null;
+        if ($cache !== null) { return array_slice($cache, 0, $limit); }
+        if (pv_renderer_is_preview() || !defined('BRAND_ID') || !function_exists('fetchFromAPI')) { return []; }
+        try {
+            $cache = (array)(fetchFromAPI('brand/' . BRAND_ID . '/faqs', 600)['data'] ?? []);
+        } catch (Throwable $e) { $cache = []; }
+        return array_slice($cache, 0, $limit);
+    }
+}
+if (!function_exists('pv_dyn_articles')) {
+    /** 📰 مقالات منتشرشده همین برند (جدیدترین) */
+    function pv_dyn_articles(int $limit = 6): array
+    {
+        static $cache = null;
+        if ($cache !== null) { return array_slice($cache, 0, $limit); }
+        if (pv_renderer_is_preview() || !defined('BRAND_ID') || !function_exists('fetchFromAPI')) { return []; }
+        try {
+            $cache = (array)(fetchFromAPI('brand/' . BRAND_ID . '/articles?per_page=' . max(3, $limit), 300)['data'] ?? []);
+        } catch (Throwable $e) { $cache = []; }
+        return array_slice($cache, 0, $limit);
+    }
+}
+if (!function_exists('pv_dyn_brands')) {
+    /** 🏷 برندهای فعال نمایندگی (به‌جز خود برند) */
+    function pv_dyn_brands(int $limit = 12): array
+    {
+        static $cache = null;
+        if ($cache !== null) { return array_slice($cache, 0, $limit); }
+        if (pv_renderer_is_preview() || !function_exists('fetchFromAPI')) { return []; }
+        try {
+            $all = (array)(fetchFromAPI('brands', 300)['data'] ?? []);
+            $cache = array_values(array_filter($all, static fn($b) => !defined('BRAND_ID') || (int)($b['id'] ?? 0) !== (int)BRAND_ID));
+        } catch (Throwable $e) { $cache = []; }
+        return array_slice($cache, 0, $limit);
+    }
+}
+if (!function_exists('pv_dyn_error_codes')) {
+    /** 🔢 کدهای خطای فعال برند (پرتکرار برای چیپ‌های جستجو) */
+    function pv_dyn_error_codes(int $limit = 6): array
+    {
+        static $cache = null;
+        if ($cache !== null) { return array_slice($cache, 0, $limit); }
+        if (pv_renderer_is_preview() || !defined('BRAND_ID') || !function_exists('fetchFromAPI')) { return []; }
+        try {
+            $rows = (array)(fetchFromAPI('brand/' . BRAND_ID . '/error-codes', 600)['data'] ?? []);
+            $out = [];
+            foreach ($rows as $r) {
+                $code = trim((string)($r['code'] ?? ''));
+                $title = trim((string)($r['title'] ?? ''));
+                if ($code !== '' && $title !== '') {
+                    $out[] = ['code' => $code, 'title' => $title];
+                }
+                if (count($out) >= $limit) { break; }
+            }
+            $cache = $out;
+        } catch (Throwable $e) { $cache = []; }
+        return array_slice($cache, 0, $limit);
+    }
+}
+if (!function_exists('pv_dyn_article_tags')) {
+    /** #️⃣ برچسب‌های واقعی مقالات همین برند (برای ابر برچسب) */
+    function pv_dyn_article_tags(int $limit = 10): array
+    {
+        static $cache = null;
+        if ($cache !== null) { return array_slice($cache, 0, $limit); }
+        if (pv_renderer_is_preview() || !defined('BRAND_ID') || !function_exists('fetchFromAPI')) { return []; }
+        try {
+            $arts = (array)(fetchFromAPI('brand/' . BRAND_ID . '/articles?per_page=30', 600)['data'] ?? []);
+            $tags = [];
+            foreach ($arts as $a) {
+                foreach ((array)($a['tags'] ?? []) as $t) {
+                    $t = trim((string)$t);
+                    if ($t !== '' && mb_strlen($t) <= 30) { $tags[$t] = ($tags[$t] ?? 0) + 1; }
+                }
+            }
+            arsort($tags);
+            $cache = array_keys(array_slice($tags, 0, $limit, true));
+        } catch (Throwable $e) { $cache = []; }
+        return array_slice($cache, 0, $limit);
+    }
+}
+
 if (!function_exists('pvA')) {
     function pvA(array $it, string $inner): string
     {
@@ -889,7 +994,18 @@ if (!function_exists('pv_render_block_inner')) {
                 }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . $out . '</div>';
             case 'testimonials': {
-                $its = pvItems($props, [['علی محمدی', 'سرویس سریع و منظم بود؛ راضی بودم.'], ['مریم احمدی', 'قیمت شفاف و ضمانت واقعی.']]);
+                /* 🔄 v2.42 — پویا: دیدگاه‌های واقعی مشتریان همین برند از API
+                   (فال‌بک: آیتم‌های دستی props) */
+                $its = [];
+                foreach (pv_dyn_comments(6) as $c) {
+                    $body = trim((string)($c['body'] ?? ''));
+                    if ($body !== '') {
+                        $its[] = ['icon' => (string)($c['author'] ?? ''), 'text' => $body, 'desc' => '', 'link' => '', 'color' => ''];
+                    }
+                }
+                if (!$its) {
+                    $its = pvItems($props, [['علی محمدی', 'سرویس سریع و منظم بود؛ راضی بودم.'], ['مریم احمدی', 'قیمت شفاف و ضمانت واقعی.']]);
+                }
                 /* 🔄 v2.41 — همه نظرات با اسلایدر dots (قبلاً فقط اولین نظر
                    نمایش داده می‌شد و بقیه آیتم‌ها بی‌اثر بودند) */
                 $cards = '';
@@ -1050,7 +1166,17 @@ if (!function_exists('pv_render_block_inner')) {
                 $its = pvItems($props, [['🎖️', 'نمایندگی رسمی', 'از سال ۱۳۸۵'], ['🏆', 'برند برتر خدمات', 'رأی مشتریان ۱۴۰۲'], ['📋', 'مجوز اتحادیه', 'کد ۱۲۳۴۵']]);
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'گواهینامه‌ها و افتخارات') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="card-ico">' . pv_icon($it['icon'] ?: '🎖️') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
             case 'review-grid':
-                $its = pvItems($props, [['علی محمدی', 'سرویس سریع و منظم بود؛ راضی بودم.'], ['مریم احمدی', 'قیمت شفاف و ضمانت واقعی.'], ['رضا کریمی', 'تکنسین دقیق و حرفه‌ای اعزام شد.']]);
+                /* 🔄 v2.42 — پویا: دیدگاه‌های واقعی مشتریان همین برند */
+                $its = [];
+                foreach (pv_dyn_comments(6) as $c) {
+                    $body = trim((string)($c['body'] ?? ''));
+                    if ($body !== '') {
+                        $its[] = ['icon' => (string)($c['author'] ?? ''), 'text' => $body, 'desc' => '', 'link' => '', 'color' => ''];
+                    }
+                }
+                if (!$its) {
+                    $its = pvItems($props, [['علی محمدی', 'سرویس سریع و منظم بود؛ راضی بودم.'], ['مریم احمدی', 'قیمت شفاف و ضمانت واقعی.'], ['رضا کریمی', 'تکنسین دقیق و حرفه‌ای اعزام شد.']]);
+                }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'مشتریان ما چه می‌گویند') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => pvA($it, '<div class="fake-card"><div class="feat-d" style="direction:ltr;text-align:left">⭐⭐⭐⭐⭐</div><div class="feat-d">«' . e($it['text']) . '»</div><b class="feat-d">' . pv_icon($it['icon']) . '</b></div>'), $its)) . '</div></div>';
             case 'contact-cards':
                 /* 🆕 v2.29 — خالی = از تنظیمات سایت‌ساز (تلفن/آدرس) + آیتم‌ها لینک‌دار */
@@ -1166,6 +1292,18 @@ if (!function_exists('pv_render_block_inner')) {
                 $its = pvItems($props, [['🔧', 'ایرادیابی', 'بررسی کامل دستگاه برای یافتن عیب'], ['🧲', 'مگنترون', 'قطعه تولید امواج مایکروویو']]);
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($it) => '<div class="feat-row"><span class="feat-ico">' . pv_icon($it['icon'] ?: '📖') . '</span><div><b>' . e($it['text']) . '</b><div class="feat-d">' . e($it['desc']) . '</div></div></div>', $its)) . '</div></div>';
             case 'article-highlight':
+                /* 🔄 v2.42 — پویا: جدیدترین مقاله واقعی برند (تصویر + لینک) */
+                $latest = pv_dyn_articles(1)[0] ?? null;
+                if ($latest && trim((string)($latest['title'] ?? '')) !== '') {
+                    $aSlug = rawurlencode((string)($latest['slug'] ?? ''));
+                    $aTitle = (string)$latest['title'];
+                    $aEx = trim((string)preg_replace('#<[^>]+>#', ' ', (string)($latest['excerpt'] ?? '')));
+                    $aImg = trim((string)($latest['featured_image'] ?? ''));
+                    $imgBox = $aImg !== '' && preg_match('#^(https?://|uploads/|/)#i', $aImg)
+                        ? '<img src="' . e(preg_match('#^uploads/#i', $aImg) && function_exists('pv_asset') ? pv_asset($aImg) : $aImg) . '" alt="' . e($aTitle) . '" style="width:130px;height:110px;flex:0 0 130px;object-fit:cover;border-radius:12px" loading="lazy">'
+                        : pvImg($props, '🌟', 'width:130px;height:110px;flex:0 0 130px');
+                    return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><a href="/blog/' . e($aSlug) . '" style="text-decoration:none;color:inherit"><div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #fdba74;border-radius:15px;padding:19px 21px">' . $imgBox . '<div style="flex:1;min-width:200px"><div class="card-t" style="font-size:15px">' . e($title ?: $aTitle) . '</div><div class="feat-d" style="font-weight:700;color:#9a3412">📰 مقاله جدید سایت</div>' . ($aEx !== '' ? '<div class="feat-d">' . e(mb_substr($aEx, 0, 110)) . '…</div>' : '') . '<div class="feat-d" style="margin-top:5px;font-weight:800">مطالعه مقاله ←</div></div></div></a></div>';
+                }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #fdba74;border-radius:15px;padding:19px 21px">' . pvImg($props, '🌟', 'width:130px;height:110px;flex:0 0 130px') . '<div style="flex:1;min-width:200px"><div class="card-t" style="font-size:15px">' . e($title ?: 'محتوای ویژه') . '</div>' . (!empty($props['subtitle']) ? '<div class="feat-d" style="font-weight:700;color:#9a3412">' . e($props['subtitle']) . '</div>' : '') . '<div class="feat-d">' . e($props['text'] ?? 'خلاصه‌ای از مزیت ویژه این بخش.') . '</div></div></div></div>';
             case 'page-header':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div style="text-align:center;padding:18px 10px 8px"><div class="hero-title" style="font-size:24px">' . e($title ?: 'عنوان صفحه') . '</div>' . (!empty($props['subtitle']) ? '<div class="feat-d">' . e($props['subtitle']) . '</div>' : '') . '<div class="feat-d" style="margin-top:8px;opacity:.65">خانه / ' . e($title ?: 'صفحه') . '</div></div></div>';
@@ -1195,23 +1333,71 @@ if (!function_exists('pv_render_block_inner')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'ویدیوهای آموزشی') . '</div><div class="cols c' . $gcols . '">' . $gimgs . '</div></div>';
             }
             case 'logo-marquee': {
-                $its = pvItems($props, [['🏷️', 'ال‌جی', ''], ['🏷️', 'سامسونگ', ''], ['🏷️', 'بوش', ''], ['🏷️', 'سونی', ''], ['🏷️', 'پاکس', ''], ['🏷️', 'اسنوا', '']]);
+                /* 🔄 v2.42 — پویا: برندهای واقعی نمایندگی با لوگو/نام + لینک سایت */
+                $its = array_values(array_filter(pvItems($props, []), static fn($i) => trim((string)$i['text']) !== ''));
+                $dynBrands = pv_dyn_brands(10);
+                if (!$its || $dynBrands) {
+                    $mapped = [];
+                    foreach ($dynBrands as $b) {
+                        $name = trim((string)($b['name_fa'] ?? ''));
+                        if ($name === '') { continue; }
+                        $domain = trim((string)($b['domain'] ?? ''));
+                        $logo = trim((string)($b['logo'] ?? ''));
+                        $mapped[] = ['icon' => $logo !== '' && preg_match('#^(https?://|uploads/|/)#i', $logo) ? $logo : '🏷️', 'text' => $name, 'desc' => '', 'link' => $domain !== '' ? 'https://' . $domain : '', 'color' => ''];
+                    }
+                    if ($mapped) { $its = $mapped; }
+                }
+                if (!$its) {
+                    $its = [['icon' => '🏷️', 'text' => 'ال‌جی', 'desc' => '', 'link' => '', 'color' => ''], ['icon' => '🏷️', 'text' => 'سامسونگ', 'desc' => '', 'link' => '', 'color' => ''], ['icon' => '🏷️', 'text' => 'بوش', 'desc' => '', 'link' => '', 'color' => ''], ['icon' => '🏷️', 'text' => 'سونی', 'desc' => '', 'link' => '', 'color' => ''], ['icon' => '🏷️', 'text' => 'پاکس', 'desc' => '', 'link' => '', 'color' => ''], ['icon' => '🏷️', 'text' => 'اسنوا', 'desc' => '', 'link' => '', 'color' => '']];
+                }
                 $chips = '';
-                foreach (array_merge($its, $its) as $it) { $chips .= '<span class="chip" style="margin-inline-end:9px">' . pv_icon($it['icon'] ?: '🏷️') . ' ' . e($it['text']) . '</span>'; }
+                foreach (array_merge($its, $its) as $it) {
+                    $isImg = preg_match('#^(https?://|uploads/|/)#i', (string)$it['icon']) && !preg_match('/^[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]/u', (string)$it['icon']);
+                    $inner = $isImg
+                        ? '<img src="' . e(preg_match('#^uploads/#i', (string)$it['icon']) && function_exists('pv_asset') ? pv_asset((string)$it['icon']) : (string)$it['icon']) . '" alt="' . e($it['text']) . '" style="height:22px;max-width:86px;object-fit:contain;vertical-align:middle" loading="lazy">'
+                        : pv_icon($it['icon'] !== '' ? $it['icon'] : '🏷️') . ' ' . e($it['text']);
+                    $href = pv_safe_link((string)$it['link']);
+                    $chip = $href !== '' ? '<a href="' . e($href) . '" class="chip" style="margin-inline-end:9px;text-decoration:none" target="_blank" rel="nofollow">' . $inner . '</a>' : '<span class="chip" style="margin-inline-end:9px">' . $inner . '</span>';
+                    $chips .= $chip;
+                }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'برندهای مورد خدمت') . '</div><div style="overflow:hidden;border-radius:12px;padding:11px 0"><div class="chip-row" style="animation:tickMove 18s linear infinite;white-space:nowrap;width:max-content">' . $chips . '</div></div></div>';
             }
             case 'tag-cloud': {
-                $its = pvItems($props, [['', 'تعمیر ماشین لباس', ''], ['', 'کد خطا SE', ''], ['', 'شارژ گاز کولر', ''], ['', 'بک‌لایت تلویزیون', '']]);
+                /* 🔄 v2.42 — پویا: برچسب‌های واقعی مقالات همین برند + لینک جستجو */
+                $manual = array_values(array_filter(pvItems($props, []), static fn($i) => trim((string)$i['text']) !== ''));
+                $dynTags = pv_dyn_article_tags(10);
+                $texts = $dynTags ?: array_column($manual, 'text');
+                if (!$texts) { $texts = ['تعمیر ماشین لباس', 'کد خطا SE', 'شارژ گاز کولر', 'بک‌لایت تلویزیون']; }
+                $searchLink = function_exists('localized_path') ? localized_path('/search') : '/search';
                 $sizes = ['12px', '14px', '13px', '15px', '12.5px', '14.5px'];
                 $out = '';
-                foreach ($its as $i => $it) { $out .= '<span class="chip" style="font-size:' . $sizes[$i % count($sizes)] . ';font-weight:' . ($i % 3 === 0 ? 800 : 600) . ';opacity:' . (0.72 + ($i % 3) * 0.09) . '">' . e($it['text']) . '</span>'; }
+                foreach ($texts as $i => $t) {
+                    $t = trim((string)$t);
+                    if ($t === '') { continue; }
+                    $out .= '<a href="' . e($searchLink . '?q=' . urlencode($t)) . '" class="chip" style="font-size:' . $sizes[$i % count($sizes)] . ';font-weight:' . ($i % 3 === 0 ? 800 : 600) . ';opacity:' . (0.72 + ($i % 3) * 0.09) . ';text-decoration:none">' . e($t) . '</a>';
+                }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="chip-row" style="justify-content:center;gap:8px">' . $out . '</div></div>';
             }
             case 'quote-slider': {
-                $its = pvItems($props, [['علی محمدی', 'سرویس سریع و منظم بود؛ راضی بودم.', ''], ['مریم احمدی', 'قیمت شفاف و ضمانت واقعی.', ''], ['رضا کریمی', 'تکنسین دقیق و حرفه‌ای اعزام شد.', '']]);
-                $q = $its[0] ?? ['icon' => '', 'text' => ''];
-                $dots = implode(' ', array_map(static fn($i) => '○', $its));
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'مشتریان چه می‌گویند') . '</div><div class="quote" style="text-align:center;font-size:15px">«' . e($q['text']) . '»</div><div class="feat-d" style="text-align:center;font-weight:800;margin-top:6px">— ' . e($q['icon']) . '</div><div class="slider-dots" style="margin-top:8px">● ' . $dots . '</div></div>';
+                /* 🔄 v2.42 — پویا: دیدگاه‌های واقعی مشتریان همین برند + اسلایدر واقعی */
+                $its = [];
+                foreach (pv_dyn_comments(5) as $c) {
+                    $body = trim((string)($c['body'] ?? ''));
+                    if ($body !== '') {
+                        $its[] = ['icon' => (string)($c['author'] ?? ''), 'text' => $body, 'desc' => '', 'link' => '', 'color' => ''];
+                    }
+                }
+                if (!$its) {
+                    $its = pvItems($props, [['علی محمدی', 'سرویس سریع و منظم بود؛ راضی بودم.', ''], ['مریم احمدی', 'قیمت شفاف و ضمانت واقعی.', ''], ['رضا کریمی', 'تکنسین دقیق و حرفه‌ای اعزام شد.', '']]);
+                }
+                /* اسلایدر واقعی (همان الگوی testimonials) */
+                $cards = '';
+                foreach ($its as $i => $q) {
+                    $cards .= '<div class="ss-tst"' . ($i === 0 ? '' : ' style="display:none"') . '><div class="quote" style="text-align:center;font-size:15px">«' . e($q['text']) . '»</div>' . ($q['icon'] !== '' ? '<div class="feat-d" style="text-align:center;font-weight:800;margin-top:6px">— ' . e($q['icon']) . '</div>' : '') . '</div>';
+                }
+                $dots = count($its) > 1 ? '<div class="slider-dots" data-tst-dots="1" style="margin-top:8px">' . implode(' ', array_map(static fn($i) => '<span style="cursor:pointer">' . ($i === 0 ? '●' : '○') . '</span>', array_keys($its))) . '</div>' : '';
+                $js = count($its) > 1 ? '<script>document.addEventListener("DOMContentLoaded",function(){var ws=document.querySelectorAll(".ss-tst"),ds=document.querySelectorAll("[data-tst-dots] span"),ci=0;ds.forEach(function(d,i){d.addEventListener("click",function(){ws[ci]&&(ws[ci].style.display="none");ds[ci]&&(ds[ci].textContent="○");ci=i;ws[ci]&&(ws[ci].style.display="");ds[ci]&&(ds[ci].textContent="●")})});setInterval(function(){if(ws.length&&ds.length>1){ds[(ci+1)%ws.length].click()}},6000)});</script>' : '';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'مشتریان چه می‌گویند') . '</div>' . $cards . $dots . '</div>' . $js;
             }
             case 'stats-circles': {
                 $its = pvItems($props, [['۹۲٪', 'تعمیر در روز اول', ''], ['۸۷٪', 'رضایت کامل', ''], ['۹۶٪', 'حل قطعی ایراد', '']]);
@@ -1266,8 +1452,23 @@ if (!function_exists('pv_render_block_inner')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'مقایسه پلن‌های سرویس') . '</div><div class="feature-table-demo"><div class="ft-row ft-head"><span>ویژگی</span><b>اقتصادی</b><b>استاندارد</b><b class="ft-hl">ویژه</b></div>' . $rows . '</div></div>';
             }
             case 'related-links':
-                $its = pvItems($props, [['', 'کد خطای LE لباسشویی ال‌جی — معنی و رفع'], ['', '۱۰ علامت خرابی کمپرسور یخچال'], ['', 'راهنمای نگهداری ماکروویو']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($it) => '<div class="feat-row"><span class="feat-ico">🔗</span><div>' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
+                /* 🔄 v2.42 — پویا: مقالات واقعی همین برند با لینک مستقیم */
+                $its = array_values(array_filter(pvItems($props, []), static fn($i) => trim((string)$i['text']) !== ''));
+                $dynArts = pv_dyn_articles(5);
+                if ($dynArts) {
+                    $its = [];
+                    foreach ($dynArts as $a) {
+                        $aTitle = trim((string)($a['title'] ?? ''));
+                        $aSlug = trim((string)($a['slug'] ?? ''));
+                        if ($aTitle !== '' && $aSlug !== '') {
+                            $its[] = ['icon' => '', 'text' => $aTitle, 'desc' => '', 'link' => '/blog/' . rawurlencode($aSlug), 'color' => ''];
+                        }
+                    }
+                }
+                if (!$its) {
+                    $its = [['icon' => '', 'text' => 'کد خطای LE لباسشویی ال‌جی — معنی و رفع', 'desc' => '', 'link' => '', 'color' => ''], ['icon' => '', 'text' => '۱۰ علامت خرابی کمپرسور یخچال', 'desc' => '', 'link' => '', 'color' => ''], ['icon' => '', 'text' => 'راهنمای نگهداری ماکروویو', 'desc' => '', 'link' => '', 'color' => '']];
+                }
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($it) => pvA($it, '<div class="feat-row"><span class="feat-ico">🔗</span><div>' . e($it['text']) . '</div></div>'), $its)) . '</div></div>';
             case 'warranty-steps': {
                 $its = pvItems($props, [['', 'ثبت سریال دستگاه'], ['', 'صدور برگه ضمانت'], ['', 'پشتیبانی ۶ ماهه']]);
                 $out = '';
@@ -1307,8 +1508,19 @@ if (!function_exists('pv_render_block_inner')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="blk-title">' . ($title ?: 'استعلام گارانتی') . '</div><div class="quick-form-demo"><div class="fake-input" style="flex:1;direction:ltr">SN-XXXX-1234</div><span class="hero-btn">' . e($props['btnText'] ?? 'استعلام') . '</span></div></div>';
             case 'price-estimate':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="blk-title">' . ($title ?: 'برآورد هزینه تعمیر') . '</div><div class="form-grid"><div class="fake-input">🌀 نوع دستگاه (لباسشویی، یخچال...)</div><div class="fake-input">🔧 نوع ایراد (نمایش کد، صدا، نشتی...)</div><div class="fake-input">📍 منطقه</div><div class="hero-btn full">🧮 محاسبه فوری برآورد</div></div></div>';
-            case 'device-error-lookup':
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="blk-title">' . ($title ?: 'جستجوی کد خطای دستگاه') . '</div><div class="search-wrap"><span class="search-ico">🔢</span><div class="fake-input" style="flex:1;border:none;direction:ltr">E4 / LE / CH-05 ...</div><span class="hero-btn">جستجو</span></div><div class="feat-d" style="text-align:center;margin-top:7px">کد روی نمایشگر دستگاه را وارد کنید — علت، راه‌حل فوری و هزینه تعمیر را ببینید</div></div>';
+            case 'device-error-lookup': {
+                /* 🔄 v2.42 — پویا: کدهای خطای واقعی برند به‌صورت چیپ‌های لینک‌دار
+                   به صفحه کدهای خطا + فرم جستجوی واقعی */
+                $ecLink = function_exists('localized_path') ? localized_path('/error-codes') : '/error-codes';
+                $chips = '';
+                foreach (pv_dyn_error_codes(5) as $ec) {
+                    $chips .= '<a href="' . e($ecLink . '?q=' . urlencode($ec['code'])) . '" class="chip" style="text-decoration:none" title="' . e($ec['title']) . '">🔢 ' . e($ec['code']) . '</a>';
+                }
+                $chipsHtml = $chips !== ''
+                    ? '<div class="chip-row" style="margin-top:10px;justify-content:center">' . $chips . '</div>'
+                    : '<div class="feat-d" style="text-align:center;margin-top:7px">کد روی نمایشگر دستگاه را وارد کنید — علت، راه‌حل فوری و هزینه تعمیر را ببینید</div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="blk-title">' . ($title ?: 'جستجوی کد خطای دستگاه') . '</div><form action="' . e($ecLink) . '" method="get" style="display:contents"><div class="search-wrap"><span class="search-ico">🔢</span><input type="text" name="q" class="sahand-fi" style="flex:1;border:none" placeholder="E4 / LE / CH-05 ..." dir="ltr"><button type="submit" class="hero-btn" style="border:none;cursor:pointer;font-family:inherit">جستجو</button></div></form>' . $chipsHtml . '</div>';
+            }
             case 'live-queue':
                 $its = pvItems($props, [['🟢', 'دریافت و عیب‌یابی', 'در حال انجام — ۲ دستگاه'], ['🟡', 'تعمیر برد', 'در صف — ۱ دستگاه'], ['🔴', 'آماده تحویل', '۳ دستگاه']]);
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'وضعیت صف تعمیرات — زنده') . '</div><div class="queue-demo">' . implode('', array_map(static fn($it) => '<div class="queue-row"><span>' . pv_icon($it['icon'] ?: '🟢') . ' ' . e($it['text']) . '</span><b>' . e($it['desc']) . '</b></div>', $its)) . '</div></div>';
@@ -1319,14 +1531,39 @@ if (!function_exists('pv_render_block_inner')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'ظرفیت سرویس امروز') . '</div><div class="cap-demo">' . $out . '</div></div>';
             }
             case 'faq-search':
-                /* 🎭 P2-21 — پیش‌نمایش: محتوای نمونه (رفتار قدیمی) */
+                /* 🔄 v2.42 — پویا: سوالات واقعی برند به‌صورت چیپ + فرم جستجوی واقعی
+                   (پیش‌نمایش قالب‌ساز: نمونه دستی) */
                 if ($pvPreview) {
                     return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="blk-title">' . ($title ?: 'جستجو در سوالات متداول') . '</div><div class="search-wrap"><span class="search-ico">🔎</span><div class="fake-input" style="flex:1;border:none">' . e($props['placeholder'] ?? 'سوال خود را بنویسید...') . '</div><span class="hero-btn">پرسیدن</span></div><div class="chip-row" style="margin-top:10px;justify-content:center">' . implode('', array_map(static fn($q) => '<span class="chip">❓ ' . $q . '</span>', ['لباسشویی آب تخلیه نمی‌کند', 'یخچال برق دارد ولی خنک نمی‌کند', 'کد E4 یعنی چه؟'])) . '</div></div>';
                 }
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="blk-title">' . ($title ?: 'جستجو در سوالات متداول') . '</div><div class="search-wrap"><span class="search-ico">🔎</span><div class="fake-input" style="flex:1;border:none">' . e($props['placeholder'] ?? 'سوال خود را بنویسید...') . '</div><span class="hero-btn">پرسیدن</span></div></div>';
+                $faqLink = function_exists('localized_path') ? localized_path('/faq') : '/faq';
+                $fqChips = '';
+                foreach (array_slice(pv_dyn_faqs(12), 0, 4) as $f) {
+                    $qq = trim((string)($f['question'] ?? ''));
+                    if ($qq !== '') { $fqChips .= '<a href="' . e($faqLink) . '" class="chip" style="text-decoration:none">❓ ' . e(mb_substr($qq, 0, 40)) . (mb_strlen($qq) > 40 ? '…' : '') . '</a>'; }
+                }
+                $fqChipsHtml = $fqChips !== '' ? '<div class="chip-row" style="margin-top:10px;justify-content:center">' . $fqChips . '</div>' : '';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="blk-title">' . ($title ?: 'جستجو در سوالات متداول') . '</div><form action="' . e($faqLink) . '" method="get" style="display:contents"><div class="search-wrap"><span class="search-ico">🔎</span><input type="text" name="q" class="sahand-fi" style="flex:1;border:none" placeholder="' . e($props['placeholder'] ?? 'سوال خود را بنویسید...') . '"><button type="submit" class="hero-btn" style="border:none;cursor:pointer;font-family:inherit">پرسیدن</button></div></form>' . $fqChipsHtml . '</div>';
             case 'faq-category':
-                $its = pvItems($props, [['🌀', 'لباسشویی و ظرفشویی', '۱۲ سوال'], ['❄️', 'یخچال و فریزر', '۹ سوال'], ['📺', 'تلویزیون', '۷ سوال']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'سوالات متداول بر اساس موضوع') . '</div><div class="cols c3">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="card-ico">' . pv_icon($it['icon'] ?: '❓') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
+                /* 🔄 v2.42 — پویا: اگر آیتم دستی نبود، دستگاه‌های واقعی برند به‌عنوان
+                   موضوع سوالات (لینک به صفحه سوالات متداول) */
+                $its = array_values(array_filter(pvItems($props, []), static fn($i) => trim((string)$i['text']) !== ''));
+                if (!$its && !pv_renderer_is_preview() && defined('BRAND_ID') && function_exists('fetchFromAPI')) {
+                    try {
+                        $devs = (array)(fetchFromAPI('brand/' . BRAND_ID . '/devices', 300)['data'] ?? []);
+                        foreach (array_slice($devs, 0, 6) as $dev) {
+                            $name = trim((string)($dev['name_fa'] ?? ''));
+                            if ($name !== '') {
+                                $its[] = ['icon' => trim((string)($dev['icon'] ?? '')) ?: '❓', 'text' => $name, 'desc' => 'سوالات ' . $name, 'link' => '', 'color' => ''];
+                            }
+                        }
+                    } catch (Throwable $dynE) { /* فال‌بک زیر */ }
+                }
+                if (!$its) {
+                    $its = [['icon' => '🌀', 'text' => 'لباسشویی و ظرفشویی', 'desc' => 'سوالات رایج', 'link' => '', 'color' => ''], ['icon' => '❄️', 'text' => 'یخچال و فریزر', 'desc' => 'سوالات رایج', 'link' => '', 'color' => ''], ['icon' => '📺', 'text' => 'تلویزیون', 'desc' => 'سوالات رایج', 'link' => '', 'color' => '']];
+                }
+                $faqLink2 = function_exists('localized_path') ? localized_path('/faq') : '/faq';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'سوالات متداول بر اساس موضوع') . '</div><div class="cols c3">' . implode('', array_map(static fn($it) => '<a href="' . e($faqLink2) . '" style="text-decoration:none;color:inherit"><div class="fake-card"><div class="card-ico">' . pv_icon($it['icon'] ?: '❓') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div></a>', $its)) . '</div></div>';
             case 'before-after-slider': {
                 $imgUrl = trim((string)($props['imageUrl'] ?? ''));
                 if (preg_match('#^uploads/#i', $imgUrl)) { $imgUrl = pv_asset($imgUrl); }
@@ -1409,7 +1646,14 @@ if (!function_exists('pv_render_block_inner')) {
             case 'faq-mini':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="faq-mini-demo"><div class="sc-row"><span class="sc-num">؟</span><b style="font-size:13.5px">' . ($title ?: 'سوال متداول') . '</b></div><div class="feat-d" style="margin-top:7px;font-size:12.5px">' . e($props['text'] ?? 'پاسخ کارشناسان ما به سوال متداول...') . '</div></div></div>';
             case 'reviews-carousel':
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($r) => '<div class="fake-card"><div class="stars">⭐⭐⭐⭐⭐</div><div class="feat-d">«' . $r . '»</div></div>', ['عالی بود، همان روز آمدند', 'قیمت منصفانه و کار تمیز', 'دستگاه ۵ ساله‌ام مثل نو شد'])) . '</div><div class="slider-dots" style="margin-top:8px">● ○ ○</div></div>';
+                /* 🔄 v2.42 — پویا: دیدگاه‌های واقعی مشتریان همین برند */
+                $rcIts = [];
+                foreach (pv_dyn_comments(6) as $c) {
+                    $body = trim((string)($c['body'] ?? ''));
+                    if ($body !== '') { $rcIts[] = $body; }
+                }
+                if (!$rcIts) { $rcIts = ['عالی بود، همان روز آمدند', 'قیمت منصفانه و کار تمیز', 'دستگاه ۵ ساله‌ام مثل نو شد']; }
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($r) => '<div class="fake-card"><div class="stars">⭐⭐⭐⭐⭐</div><div class="feat-d">«' . e($r) . '»</div></div>', $rcIts)) . '</div><div class="slider-dots" style="margin-top:8px">● ○ ○</div></div>';
             case 'contact-map-split':
                 /* 🆕 v2.29 — مقادیر پویا از تنظیمات سایت‌ساز + نقشه لینک‌دار */
                 $cmPh = trim((string)($props['phone'] ?? '')) ?: pv_brand_phone() ?: '۰۲۱-۱۲۳۴۵۶۷۸';
