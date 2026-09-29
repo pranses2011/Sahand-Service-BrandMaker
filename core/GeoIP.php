@@ -363,6 +363,10 @@ class GeoIP
      * 🏠 لایه ۳ — دیتابیس ملی (فقط کشور؛ بدون حدس شهر/استان)
      * 🚨 v2.32 — برچسب‌های شهری حذف شدند: استخرهای TCI/موبایل/سراسری
      * ملی‌اند و برچسب‌زدن شهر = حدس غلط (ریشه شکایت کاربر).
+     * 🚨 v2.43 (S07) — IP خارج از رنج‌های ملی دیگر «ایران» برچسب نمی‌خورد:
+     * قبلاً fallback این لایه برای هر IP ناشناخته ایران برمی‌گرداند و در
+     * قطعی سرویس‌های خارجی، بازدیدکننده خارجی هم «ایران» ثبت می‌شد (نقشه
+     * جهانی را غلط می‌کرد). اکنون: داخل رنج = IR، خارج = '' (نامشخص).
      */
     private static function fromLocal(string $ip): array
     {
@@ -376,7 +380,8 @@ class GeoIP
                 }
             }
         }
-        return ['country' => 'IR', 'country_fa' => 'ایران', 'city' => '', 'province' => '', 'source' => 'local'];
+        /* 🌍 خارج از رنج‌های ملی — کشور نامشخص (نه ایران!) */
+        return ['country' => '', 'country_fa' => '', 'city' => '', 'province' => '', 'source' => 'local'];
     }
 
     /**
@@ -486,6 +491,32 @@ class GeoIP
             }
         }
         return $map;
+    }
+
+    /**
+     * 🌍 v2.43 (S07) — نقشه جهانی نقطه‌ای (dot-grid)
+     * @return array ['cells' => [[col,row],...], 'boxes' => ['IR' => [lon1,lon2,lat1,lat2], ...]]
+     */
+    public static function worldMap(): array
+    {
+        static $w = null;
+        if ($w === null) {
+            $w = ['cells' => [], 'boxes' => []];
+            $file = dirname(__DIR__) . '/geoip/world-map.php';
+            if (file_exists($file)) {
+                $loaded = include $file;
+                if (is_array($loaded)) { $w = $loaded; }
+            }
+        }
+        return $w;
+    }
+
+    /**
+     * 🏷️ v2.43 (S07) — نام فارسی کشور از کد دو حرفی
+     */
+    public static function countryNameFa(string $cc): string
+    {
+        return self::countryFaName(strtoupper(trim($cc)));
     }
 
     /**

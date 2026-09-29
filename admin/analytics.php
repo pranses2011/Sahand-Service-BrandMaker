@@ -218,10 +218,12 @@ $exitPages = $safeQuery(
  * و آمار همراه با نمودارهای زیبا»)
  * ═══════════════════════════════════════════════════════════════ */
 
-/* 🌍 پراکندگی کشورها */
+/* 🌍 پراکندگی کشورها — 🚨 v2.43 (S07): کشور خالی دیگر به زور «ایران»
+   نمی‌شود (ریشه غلط نشان دادن پراکندگی) — صادقانه «نامشخص» است */
 $byCountry = $safeQuery(
-    "SELECT COALESCE(NULLIF(v.country, ''), 'IR') AS cc, COUNT(DISTINCT v.session_hash) AS c
-     FROM visits v WHERE {$where} GROUP BY cc ORDER BY c DESC LIMIT 8",
+    "SELECT COALESCE(NULLIF(v.country, ''), '') AS cc, COUNT(DISTINCT v.session_hash) AS c
+     FROM visits v WHERE {$where} AND v.country IS NOT NULL AND v.country != ''
+     GROUP BY cc ORDER BY c DESC LIMIT 12",
     $params
 );
 $countryFa = [
@@ -229,6 +231,8 @@ $countryFa = [
     'US' => '🇺🇸 آمریکا', 'NL' => '🇳🇱 هلند', 'GB' => '🇬🇧 انگلیس', 'CA' => '🇨🇦 کانادا',
     'AF' => '🇦🇫 افغانستان', 'IQ' => '🇮🇶 عراق', 'RU' => '🇷🇺 روسیه', 'FR' => '🇫🇷 فرانسه',
     'SE' => '🇸🇪 سوئد', 'AU' => '🇦🇺 استرالیا', 'IN' => '🇮🇳 هند', 'CN' => '🇨🇳 چین',
+    'AZ' => '🇦🇿 آذربایجان', 'PK' => '🇵🇰 پاکستان', 'SA' => '🇸🇦 عربستان', 'JP' => '🇯🇵 ژاپن',
+    'QA' => '🇶🇦 قطر',
 ];
 
 /* 🔥 نقشه حرارتی ساعت × روز هفته (۷×۲۴) — نگاشت درست روز هفته v2.31 */
@@ -764,6 +768,88 @@ if (get_param('export') === 'csv') {
                         <?php endforeach; ?>
                     <?php endif; ?>
                     <div class="hint" style="margin-top:10px">🛡️ تشخیص جغرافیای دقیق با سرویس GeoIP + کش ۴۵ روزه — رنج‌های موبایل سراسری‌اند و شهر دقیق هر کاربر قابل قطعیت نیست؛ استان از سرویس معتبر جغرافیایی خوانده می‌شود.</div>
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- 🌍 v2.43 (S07) — پراکندگی کشوری با نقشه جهانی نقطه‌ای -->
+<div class="card" style="margin-bottom:18px">
+    <div class="card-header">
+        <h3>🌍 پراکندگی کشوری بازدیدکنندگان — نقشه جهانی</h3>
+        <?php if (!empty($byCountry)): ?>
+            <span class="badge badge-info" style="font-size:11px">🌐 <?= e(en_to_fa_digits((string)count($byCountry)) ) ?> کشور</span>
+        <?php endif; ?>
+    </div>
+    <div class="card-body">
+        <?php if (empty($byCountry)): ?>
+            <div class="empty-state"><div class="icon">🌍</div><p>داده کشوری ثبت نشده است.<br><small>پس از بازدید کاربران، نقشه جهانی اینجا نمایش داده می‌شود.</small></p></div>
+        <?php else: ?>
+            <?php
+            /* 🎨 نقشه جهانی نقطه‌ای: هر نقطه = ۵°×۵° خشکی؛ کشورهای دارای بازدید رنگ می‌گیرند */
+            $worldMap = GeoIP::worldMap();
+            $ccCounts = [];
+            foreach ($byCountry as $cr) {
+                $cc = strtoupper(trim((string)$cr['cc']));
+                if ($cc !== '') { $ccCounts[$cc] = (int)$cr['c']; }
+            }
+            $maxCC = max($ccCounts ?: [1]) ?: 1;
+            /* نقاط خشکی کشورهای دارای بازدید — برای رنگ‌آمیزی */
+            $ccCells = [];
+            foreach ($worldMap['boxes'] ?? [] as $cc => $box) {
+                if (!isset($ccCounts[$cc])) { continue; }
+                [$lo1, $lo2, $la1, $la2] = [(int)$box[0], (int)$box[1], (int)$box[2], (int)$box[3]];
+                $ccCells[$cc] = [];
+                foreach ($worldMap['cells'] ?? [] as $cell) {
+                    $lon = -180 + ((int)$cell[0]) * 5 + 2.5;
+                    $lat = 90 - ((int)$cell[1]) * 5 - 2.5;
+                    if ($lon >= $lo1 && $lon <= $lo2 && $lat >= $la1 && $lat <= $la2) {
+                        $ccCells[$cc][] = $cell;
+                    }
+                }
+            }
+            $dotsHtml = '';
+            $cellKey = static fn($c) => ((int)$c[0]) . ',' . ((int)$c[1]);
+            $colored = [];
+            foreach ($ccCells as $cc => $cells2) {
+                foreach ($cells2 as $cell) { $colored[$cellKey($cell)] = $cc; }
+            }
+            foreach (($worldMap['cells'] ?? []) as $cell) {
+                $x = ((int)$cell[0]) * 10 + 5;
+                $y = ((int)$cell[1]) * 10 + 5;
+                $key = $cellKey($cell);
+                if (isset($colored[$key])) {
+                    $cc = $colored[$key];
+                    $t = pow($ccCounts[$cc] / $maxCC, 0.55);
+                    $r = (int)round(219 + (30 - 219) * $t);
+                    $g = (int)round(234 + (64 - 234) * $t);
+                    $b = (int)round(254 + (175 - 254) * $t);
+                    $dotsHtml .= '<circle cx="' . $x . '" cy="' . $y . '" r="3.6" fill="rgb(' . $r . ',' . $g . ',' . $b . ')"><title>' . e($countryFa[$cc] ?? $cc) . ' — ' . en_to_fa_digits((string)$ccCounts[$cc]) . ' بازدیدکننده</title></circle>';
+                } else {
+                    $dotsHtml .= '<circle cx="' . $x . '" cy="' . $y . '" r="3.1" fill="#dbe4ef"></circle>';
+                }
+            }
+            ?>
+            <div style="display:grid;grid-template-columns:1fr 250px;gap:18px;align-items:start">
+                <div style="direction:ltr;background:linear-gradient(160deg,#f8fbff,#eef5fc);border-radius:14px;padding:8px;border:1px solid #dbeafe">
+                    <svg viewBox="0 0 720 360" style="width:100%;height:auto;display:block" role="img" aria-label="نقشه جهانی پراکندگی بازدیدکنندگان">
+                        <?= $dotsHtml ?>
+                    </svg>
+                    <div style="text-align:center;font-size:10px;color:#64748b;padding:4px 0 2px">نقشه جهانی نقطه‌ای — کشورهای دارای بازدید رنگ گرفته‌اند (موس روی هر نقطه = جزئیات)</div>
+                </div>
+                <div>
+                    <div style="font-size:12px;font-weight:800;margin-bottom:9px;color:#334155">🏆 رتبه‌بندی کشورها</div>
+                    <?php $totalCC = array_sum($ccCounts) ?: 1; $ci = 0; ?>
+                    <?php foreach (array_slice($ccCounts, 0, 10, true) as $cc => $cnt): $ci++; ?>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+                            <span style="flex:none;width:21px;height:21px;border-radius:7px;background:<?= $ci === 1 ? '#1e40af' : ($ci === 2 ? '#3b82f6' : ($ci === 3 ? '#93c5fd' : '#e2e8f0')) ?>;color:<?= $ci <= 3 ? '#fff' : '#475569' ?>;font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center"><?= e(en_to_fa_digits((string)$ci)) ?></span>
+                            <span style="flex:1;font-size:12.5px"><?= e($countryFa[$cc] ?? GeoIP::countryNameFa($cc)) ?></span>
+                            <b style="font-size:12.5px"><?= e(en_to_fa_digits((string)$cnt)) ?></b>
+                            <span style="font-size:10px;color:#94a3b8;flex:none;width:38px;text-align:left"><?= e(en_to_fa_digits((string)round($cnt / $totalCC * 100))) ?>٪</span>
+                        </div>
+                    <?php endforeach; ?>
+                    <div class="hint" style="margin-top:10px">🌍 کشور از سرویس جغرافیایی معتبر خوانده می‌شود؛ رنج‌های موبایل/VPN ممکن است کشور واقعی کاربر نباشند.</div>
                 </div>
             </div>
         <?php endif; ?>
