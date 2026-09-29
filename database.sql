@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `password_hash` VARCHAR(255) NOT NULL COMMENT 'رمزنگاری BCRYPT',
   `full_name` VARCHAR(191) NOT NULL,
   `email` VARCHAR(191) NULL,
+  `avatar` VARCHAR(255) NULL COMMENT '🆕 v2.39 — مسیر تصویر آواتار کاربر',
   `role` ENUM('admin','editor','brand_manager') NOT NULL DEFAULT 'editor' COMMENT 'نقش کاربر (brand_manager = فقط برندهای تخصیص‌یافته)',
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
   `last_login` DATETIME NULL,

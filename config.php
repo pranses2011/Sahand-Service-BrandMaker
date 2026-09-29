@@ -1105,6 +1105,26 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
 }
 
 /* --------------------------------------------------
+ * 🧩 مهاجرت افزونه آواتار کاربران (v2.39)
+ * ستون users.avatar — مسیر تصویر آواتار (uploads/avatars/…).
+ * فقط یک بار (schema_migrations: schema_v239).
+ * -------------------------------------------------- */
+if (!defined('SAHAND_NO_DB_MIGRATE')) {
+    try {
+        if (!SchemaMigrations::applied('schema_v239')) {
+            $pdo = Database::getInstance()->pdo();
+            $avCol = $pdo->query("SHOW COLUMNS FROM `users` LIKE 'avatar'")->fetchAll();
+            if (empty($avCol)) {
+                $pdo->exec("ALTER TABLE `users` ADD COLUMN `avatar` VARCHAR(255) NULL COMMENT '🆕 v2.39 — مسیر تصویر آواتار کاربر' AFTER `email`");
+            }
+            SchemaMigrations::mark('schema_v239');
+        }
+    } catch (Throwable $v239SchemaE) {
+        // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
+    }
+}
+
+/* --------------------------------------------------
  * 🕐 شروع امن نشست (Session)
  * -------------------------------------------------- */
 if (session_status() === PHP_SESSION_NONE && !defined('SAHAND_NO_SESSION')) {

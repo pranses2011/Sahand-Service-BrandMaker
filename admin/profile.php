@@ -32,6 +32,64 @@ $recoveryCount = count(array_filter((array)json_decode((string)($me['totp_recove
 
 /* ════════════ اکشن‌ها ════════════ */
 
+/* 🖼 آواتار کاربر (v2.39) — آپلود/به‌روزرسانی */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'avatar_upload') {
+    Auth::enforceCsrf();
+    if (empty($_FILES['avatar_file']['tmp_name']) || !is_uploaded_file((string)$_FILES['avatar_file']['tmp_name'])) {
+        flash('danger', 'فایلی انتخاب نشده است.');
+        redirect('profile.php');
+    }
+    $f = $_FILES['avatar_file'];
+    if ((int)$f['error'] !== UPLOAD_ERR_OK) {
+        flash('danger', 'خطای آپلود فایل (کد ' . (int)$f['error'] . ') — دوباره تلاش کنید.');
+        redirect('profile.php');
+    }
+    if ((int)$f['size'] > 3 * 1024 * 1024) {
+        flash('danger', 'حجم تصویر آواتار باید کمتر از ۳ مگابایت باشد.');
+        redirect('profile.php');
+    }
+    $info = @getimagesize((string)$f['tmp_name']);
+    $okTypes = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_WEBP => 'webp'];
+    if (!$info || !isset($okTypes[$info[2]])) {
+        flash('danger', 'فرمت تصویر پشتیبانی نمی‌شود — فقط JPG، PNG یا WebP.');
+        redirect('profile.php');
+    }
+    /* 📁 پوشه اختصاصی با htaccess ضد اجرای اسکریپت */
+    $dir = UPLOADS_PATH . '/avatars';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+        @file_put_contents($dir . '/.htaccess', "<FilesMatch \"\\.(?i:php|phtml|phar|cgi|pl|py|sh)$\">\nRequire all denied\n</FilesMatch>\nOptions -Indexes -ExecCGI\n");
+    }
+    /* 🧹 حذف آواتار قبلی همین کاربر */
+    if (!empty($me['avatar']) && strpos((string)$me['avatar'], 'uploads/avatars/') === 0) {
+        $oldAbs = ROOT_PATH . '/' . (string)$me['avatar'];
+        if (is_file($oldAbs)) { @unlink($oldAbs); }
+    }
+    $rel = 'uploads/avatars/u' . $uid . '_' . date('YmdHis') . '.jpg';
+    $proc = new ImageProcessor();
+    if (!$proc->squareThumb((string)$f['tmp_name'], ROOT_PATH . '/' . $rel, 320, 86)) {
+        flash('danger', 'پردازش تصویر ناموفق بود — تصویر دیگری امتحان کنید.');
+        redirect('profile.php');
+    }
+    $db->update('users', ['avatar' => $rel], 'id = ?', [$uid]);
+    Logger::activity($uid, 'تغییر آواتار', 'تصویر پروفایل به‌روزرسانی شد');
+    flash('success', '✅ تصویر آواتار ذخیره شد.');
+    redirect('profile.php');
+}
+
+/* 🗑 حذف آواتار */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'avatar_remove') {
+    Auth::enforceCsrf();
+    if (!empty($me['avatar']) && strpos((string)$me['avatar'], 'uploads/avatars/') === 0) {
+        $oldAbs = ROOT_PATH . '/' . (string)$me['avatar'];
+        if (is_file($oldAbs)) { @unlink($oldAbs); }
+    }
+    $db->update('users', ['avatar' => null], 'id = ?', [$uid]);
+    Logger::activity($uid, 'حذف آواتار', 'تصویر پروفایل حذف شد');
+    flash('success', 'آواتار حذف شد — حرف اول نام شما نمایش داده می‌شود.');
+    redirect('profile.php');
+}
+
 /* 🔑 تغییر رمز عبور خود */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'change_password') {
     Auth::enforceCsrf();
@@ -191,10 +249,34 @@ require __DIR__ . '/includes/header.php';
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px;align-items:start">
 
-    <!-- ═══════════ بخش ۱: اطلاعات حساب ═══════════ -->
+    <!-- ═══════════ بخش ۱: اطلاعات حساب + آواتار ═══════════ -->
     <div class="card">
         <div style="padding:20px">
             <h3 style="margin:0 0 16px">📇 اطلاعات حساب</h3>
+
+            <!-- 🖼 آواتار (v2.39) -->
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:14px;margin-bottom:16px">
+                <?php $avatarRel = (string)($me['avatar'] ?? ''); ?>
+                <?php if ($avatarRel !== '' && is_file(ROOT_PATH . '/' . $avatarRel)): ?>
+                    <img src="<?= e(asset_ver($avatarRel)) ?>" alt="آواتار" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 3px 12px rgba(0,0,0,.14)">
+                <?php else: ?>
+                    <span style="width:72px;height:72px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#fff;background:linear-gradient(135deg,#2563eb,#7c3aed);flex:0 0 auto"><?= e(mb_substr($me['full_name'] !== '' ? $me['full_name'] : 'م', 0, 1)) ?></span>
+                <?php endif; ?>
+                <div style="flex:1;min-width:200px">
+                    <div style="font-weight:800;font-size:13.5px;margin-bottom:2px">🖼 تصویر آواتار</div>
+                    <div style="font-size:11.5px;color:#94a3b8;line-height:1.9">JPG / PNG / WebP تا ۳ مگابایت — مربعی برش داده می‌شود (۳۲۰×۳۲۰)</div>
+                    <form method="post" enctype="multipart/form-data" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">
+                        <?= Auth::csrfField() ?>
+                        <input type="hidden" name="action" value="avatar_upload">
+                        <input type="file" name="avatar_file" accept="image/jpeg,image/png,image/webp" required style="font-size:12px;max-width:230px" class="form-control">
+                        <button type="submit" class="btn btn-primary" style="padding:7px 16px;font-size:12.5px">💾 ذخیره تصویر</button>
+                        <?php if ($avatarRel !== ''): ?>
+                            <button type="submit" name="action" value="avatar_remove" formnovalidate class="btn btn-outline" style="padding:7px 16px;font-size:12.5px;color:#dc2626;border-color:#fecaca">🗑 حذف</button>
+                        <?php endif; ?>
+                    </form>
+                </div>
+            </div>
+
             <form method="post" autocomplete="off">
                 <?= Auth::csrfField() ?>
                 <input type="hidden" name="action" value="update_profile">

@@ -269,9 +269,19 @@ try {
                     🔔
                     <?php if ($newRequests > 0): ?><span class="dot"></span><?php endif; ?>
                 </a>
-                <a href="profile.php" title="حساب کاربری من — رمز و ورود دومرحله‌ای" style="text-decoration:none">
+                <a href="profile.php" title="حساب کاربری من — رمز، آواتار و ورود دومرحله‌ای" style="text-decoration:none">
                     <div class="user-chip" style="cursor:pointer">
-                        <span class="avatar"><?= e(mb_substr($_SESSION['full_name'] ?? 'م', 0, 1)) ?></span>
+                        <?php
+                        /* 🖼 آواتار کاربر (v2.39) — از DB؛ در نبود آن حرف اول نام */
+                        $topAvatar = '';
+                        try {
+                            $topAvatar = (string)(Database::getInstance()->fetchValue('SELECT avatar FROM users WHERE id = ? LIMIT 1', [(int)($_SESSION['user_id'] ?? 0)]) ?: '');
+                        } catch (Throwable $avE) { $topAvatar = ''; }
+                        if ($topAvatar !== '' && is_file(ROOT_PATH . '/' . $topAvatar)): ?>
+                            <img class="avatar" src="<?= e(asset_ver($topAvatar)) ?>" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover;display:block">
+                        <?php else: ?>
+                            <span class="avatar"><?= e(mb_substr($_SESSION['full_name'] ?? 'م', 0, 1)) ?></span>
+                        <?php endif; ?>
                         <span><?= e($_SESSION['full_name'] ?? '') ?></span>
                     </div>
                 </a>

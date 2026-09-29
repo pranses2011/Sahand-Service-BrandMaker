@@ -30,3 +30,7 @@ cache/.schema_v211
 uploads/requests/*
 !uploads/requests/.htaccess
 !uploads/requests/.gitkeep
+
+# 🖼 v2.39 — آواتار کاربران (محتوای کاربر)
+uploads/avatars/*
+!uploads/avatars/.gitkeep

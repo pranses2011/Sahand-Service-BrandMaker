@@ -268,12 +268,17 @@ $avatarFor = static function (string $name, int $id) use ($gradPool): array {
 
 <?php if ($editUser): ?>
     <?php [$avIni, $avGrad] = $avatarFor((string)$editUser['full_name'], (int)$editUser['id']); ?>
+    <?php $edAvatar = (string)($editUser['avatar'] ?? ''); ?>
     <!-- ✏️ پنل ویرایش کاربر (v2.38 — سربرگ پروفایل + چهار کارت سازمان‌یافته) -->
     <div class="card" style="margin-bottom:20px;border-inline-start:4px solid #3b82f6">
         <div style="padding:20px">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border)">
                 <div style="display:flex;align-items:center;gap:14px;min-width:0">
-                    <span class="usr-avatar lg" style="background:<?= $avGrad ?>"><?= e($avIni) ?></span>
+                    <?php if ($edAvatar !== '' && is_file(ROOT_PATH . '/' . $edAvatar)): ?>
+                        <img class="usr-avatar lg" src="<?= e(asset_ver($edAvatar)) ?>" alt="" style="object-fit:cover;background:none;box-shadow:0 3px 8px rgba(0,0,0,.18)">
+                    <?php else: ?>
+                        <span class="usr-avatar lg" style="background:<?= $avGrad ?>"><?= e($avIni) ?></span>
+                    <?php endif; ?>
                     <div style="min-width:0">
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                             <h3 style="margin:0">✏️ ویرایش: <span dir="ltr"><?= e($editUser['username']) ?></span></h3>
@@ -482,10 +487,15 @@ $avatarFor = static function (string $name, int $id) use ($gradPool): array {
                 <tbody>
                     <?php foreach ($users as $u): ?>
                         <?php [$ini, $grad] = $avatarFor((string)$u['full_name'], (int)$u['id']); ?>
+                        <?php $uAvatar = (string)($u['avatar'] ?? ''); ?>
                         <tr>
                             <td>
                                 <div style="display:flex;align-items:center;gap:10px;min-width:150px">
-                                    <span class="usr-avatar" style="background:<?= $grad ?>"><?= e($ini) ?></span>
+                                    <?php if ($uAvatar !== '' && is_file(ROOT_PATH . '/' . $uAvatar)): ?>
+                                        <img class="usr-avatar" src="<?= e(asset_ver($uAvatar)) ?>" alt="" style="object-fit:cover;background:none;box-shadow:0 3px 8px rgba(0,0,0,.18)">
+                                    <?php else: ?>
+                                        <span class="usr-avatar" style="background:<?= $grad ?>"><?= e($ini) ?></span>
+                                    <?php endif; ?>
                                     <div style="min-width:0">
                                         <div dir="ltr" style="font-weight:700;text-align:right"><?= e($u['username']) ?><?= (int)$u['id'] === $meId ? ' <span style="color:#3b82f6;font-size:11px">(شما)</span>' : '' ?></div>
                                         <div style="font-size:11.5px;color:var(--text-light)"><?= e($u['full_name']) ?></div>
