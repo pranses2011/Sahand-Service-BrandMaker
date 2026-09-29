@@ -101,6 +101,22 @@ a { color: var(--color-primary); text-decoration: none; transition: var(--transi
     font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 5px;
 }
 .main-nav a:hover { background: color-mix(in srgb, var(--color-primary) 12%, transparent); color: var(--color-primary); }
+/* 🎨 v2.41 — هماهنگی رنگ گزینه‌ها و آیکون‌ها (درخواست کاربر):
+   ① آیکون SVG با CSS mask = همیشه هم‌رنگ متن (عادی متن، hover اصلی برند)
+   ② آیکون ایموجی: عادی محوتر (۰.۸۸) و hover کامل + کمی بزرگ‌تر
+   ③ فاصله و تراز یکسان هر دو نوع آیکون */
+.main-nav .menu-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.main-nav .menu-icon-svg {
+    width: 15px; height: 15px;
+    background-color: currentColor;
+    -webkit-mask: var(--jdp-icon) center / contain no-repeat;
+    mask: var(--jdp-icon) center / contain no-repeat;
+    opacity: .82;
+    transition: opacity .15s, transform .15s;
+}
+.main-nav a:hover .menu-icon-svg { opacity: 1; transform: scale(1.08); }
+.main-nav .menu-icon:not(.menu-icon-svg) { font-size: 14px; opacity: .88; transition: opacity .15s, transform .15s; }
+.main-nav a:hover .menu-icon:not(.menu-icon-svg) { opacity: 1; transform: scale(1.1); }
 .main-nav li { position: relative; }
 .submenu {
     position: absolute; top: 100%; inset-inline-start: 0; min-width: 185px;

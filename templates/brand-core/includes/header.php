@@ -99,8 +99,8 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
     <?php else: ?>
     <link rel="stylesheet" href="<?= e(BRANDMAKER_ASSETS) ?>/css/fonts.css">
     <?php endif; ?>
-    <!-- 🎨 استایل‌ها -->
-    <link rel="stylesheet" href="/css/style.css">
+    <!-- 🎨 استایل‌ها (🆕 v2.41 — کش‌باست نسخه: تغییرات CSS همگانی فوراً اعمال می‌شود) -->
+    <link rel="stylesheet" href="/css/style.css<?= defined('VERSION') ? '?v=' . rawurlencode(VERSION) : '' ?>">
     <link rel="stylesheet" href="/css/theme-light.css" id="theme-stylesheet">
     <?php /* 🧱 v2.27 — استایل بلوک‌های قالب‌ساز؛ فقط وقتی صفحه چیدمان تم دارد */ ?>
     <?php if (!empty($loadBlocksCss)): ?>
@@ -270,7 +270,10 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
                         <a href="<?= e($href) ?>" <?= !empty($item['nofollow']) ? 'rel="nofollow"' : '' ?>>
                             <?php if (!empty($item['icon'])): ?>
                                 <?php if (strpos((string)$item['icon'], 'svg:') === 0): /* 🆕 v2.38 — آیکون SVG از پک آیکون‌ها */ ?>
-                                    <img class="menu-icon menu-icon-svg" src="<?= e(cdn_asset('icons/' . ltrim(substr((string)$item['icon'], 4), '/'))) ?>" alt="" loading="lazy" style="width:15px;height:15px;object-fit:contain;vertical-align:-2px;display:inline-block">
+                                    <?php /* 🎨 v2.41 — هماهنگی رنگ (درخواست کاربر): آیکون SVG با CSS mask
+                                           همیشه هم‌رنگ متن منو است — عادی رنگ متن، hover رنگ اصلی برند؛
+                                           دیگر آیکون با رنگ ثابتِ فایل از متن جلو نمی‌زند */ ?>
+                                    <span class="menu-icon menu-icon-svg" style="--jdp-icon:url('<?= e(cdn_asset('icons/' . ltrim(substr((string)$item['icon'], 4), '/'))) ?>')" aria-hidden="true"></span>
                                 <?php else: ?>
                                     <span class="menu-icon"><?= e($item['icon']) ?></span>
                                 <?php endif; ?>

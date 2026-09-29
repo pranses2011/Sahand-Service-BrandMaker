@@ -297,7 +297,10 @@ $meIni = mb_substr($meName !== '' ? $meName : 'م', 0, 1);
             <?php else: ?>
                 <?php foreach (array_slice($topBrands, 0, 7) as $tb): ?>
                     <a class="top-brand" href="brands.php?brand=<?= (int)$tb['id'] ?>" style="text-decoration:none">
-                        <?php if (!empty($tb['logo'])): ?><img src="<?= asset_url((string)$tb['logo']) ?>" alt="" style="width:36px;height:36px;border-radius:9px;object-fit:cover;border:1px solid var(--border)"><?php endif; ?>
+                        <?php if (!empty($tb['logo'])): ?>
+                            <?php /* 🆕 v2.41 — contain + padding: لوگو کامل داخل کادر دیده می‌شود (قبلاً cover می‌بُرید) */ ?>
+                            <img src="<?= asset_url((string)$tb['logo']) ?>" alt="" style="width:40px;height:40px;flex:none;border-radius:10px;object-fit:contain;background:#f8fafc;border:1px solid var(--border);padding:4px">
+                        <?php endif; ?>
                         <div style="flex:1;min-width:0">
                             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
                                 <b style="font-size:13px;color:var(--text,#0f172a);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><?= e($tb['name_fa']) ?></b>
