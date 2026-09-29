@@ -59,17 +59,19 @@ require __DIR__ . '/_page_base.php';
                     <input type="text" name="device_model" placeholder="مثلاً WS12T440">
                 </div>
                 <div class="form-group">
-                    <label>زمان مراجعه ترجیحی (اختیاری)</label>
-                    <div style="display:flex;gap:8px">
-                        <?php /* 🗓️ v2.41 — دیت‌پیکر شمسی زیبا: نمایش ۱۴۰۵/۰۷/۱۵، مقدار میلادی در hidden هم‌نام */ ?>
-                        <input type="text" name="preferred_date" data-jalali-picker style="flex:1.2" placeholder="انتخاب تاریخ (شمسی)" inputmode="none">
-                        <select name="preferred_time" style="flex:1">
-                            <option value="">بازه ساعتی...</option>
-                            <option>۹ تا ۱۲</option><option>۱۲ تا ۱۵</option>
-                            <option>۱۵ تا ۱۸</option><option>۱۸ تا ۲۱</option>
-                        </select>
-                    </div>
+                    <label>تاریخ مراجعه ترجیحی — شمسی (اختیاری)</label>
+                    <?php /* 🗓️ v2.42 — دیت‌پیکر شمسی در سطر مستقل (درخواست کاربر:
+                       «زمان ترجیحی و بازه زمانی چون در یک سطر هستند باهم قاطی میشن») */ ?>
+                    <input type="text" name="preferred_date" data-jalali-picker placeholder="انتخاب تاریخ (شمسی)" inputmode="none">
                 </div>
+            </div>
+            <div class="form-group">
+                <label>بازه ساعتی مراجعه (اختیاری)</label>
+                <select name="preferred_time">
+                    <option value="">انتخاب بازه ساعتی...</option>
+                    <option>۹ تا ۱۲</option><option>۱۲ تا ۱۵</option>
+                    <option>۱۵ تا ۱۸</option><option>۱۸ تا ۲۱</option>
+                </select>
             </div>
             <div class="form-group">
                 <label>آدرس <span class="req">*</span></label>

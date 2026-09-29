@@ -1527,9 +1527,11 @@ if (!function_exists('pv_real_form')) {
         if ($on('deviceModel', false) && $block === 'request-form') {
             $fields .= '<div class="form-group"><label>مدل دستگاه</label><input type="text" name="device_model" class="sahand-fi" placeholder="مثلاً WS12T440"></div>';
         }
-        /* زمان ترجیحی */
+        /* زمان ترجیحی — v2.42: تاریخ و بازه ساعتی در دو سطر جدا (درخواست کاربر:
+           «زمان ترجیحی و بازه زمانی چون در یک سطر هستند باهم قاطی میشن») */
         if ($on('preferredTime', false)) {
-            $fields .= '<div class="form-group"><label>زمان مراجعه ترجیحی</label><div style="display:flex;gap:8px"><input type="text" name="preferred_date" data-jalali-picker class="sahand-fi" style="flex:1.2" placeholder="انتخاب تاریخ (شمسی)" inputmode="none"><select name="preferred_time" class="sahand-fi" style="flex:1"><option value="">بازه ساعتی...</option><option>۹ تا ۱۲</option><option>۱۲ تا ۱۵</option><option>۱۵ تا ۱۸</option><option>۱۸ تا ۲۱</option></select></div></div>';
+            $fields .= '<div class="form-group"><label>تاریخ مراجعه ترجیحی (شمسی)</label><input type="text" name="preferred_date" data-jalali-picker class="sahand-fi" placeholder="انتخاب تاریخ (شمسی)" inputmode="none"></div>'
+                . '<div class="form-group"><label>بازه ساعتی مراجعه</label><select name="preferred_time" class="sahand-fi"><option value="">انتخاب بازه ساعتی...</option><option>۹ تا ۱۲</option><option>۱۲ تا ۱۵</option><option>۱۵ تا ۱۸</option><option>۱۸ تا ۲۱</option></select></div>';
         }
         /* آدرس */
         if ($on('address', false)) {

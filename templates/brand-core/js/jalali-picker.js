@@ -1,5 +1,5 @@
 /* ============================================================
- * 🗓️ تقویم انتخاب تاریخ شمسی (جلالی) — v2.41
+ * 🗓️ تقویم انتخاب تاریخ شمسی (جلالی) — v2.42
  * ============================================================
  * کامپوننت مستقل بدون هیچ وابستگی خارجی (CDN/کتابخانه) — مناسب
  * هاست اشتراکی ایرانی. الگوریتم تبدیل = jalaali استاندارد (سازگار
@@ -12,6 +12,16 @@
  *   ② یک hidden input هم‌نام، مقدار میلادی YYYY-MM-DD را نگه می‌دارد
  *      (سازگار با ذخیره‌سازی و نمایش jdate پنل)
  *   ③ تقویم گرافیکی زیبا با ناوبری ماه/سال، دکمه امروز و پاک کردن
+ *
+ * 🆕 v2.42 — رفع دو باگ ریشه‌ای (بازتولیدشده با تست Playwright):
+ *   ① «دوبار کلیک برای باز شدن»: رویداد focus تقویم را باز می‌کرد و
+ *      clickِ همان تپ، بلافاصله toggle آن را می‌بست → گارد زمانی ۴۰۰ms
+ *   ② «کلیک روی تغییر ماه تقویم را می‌بندد»: هنگام رندر مجدد، دکمه
+ *      کلیک‌شده از DOM جدا می‌شود و wrap.contains(target) در هندلر
+ *      clickِ سند false می‌شد → تشخیص بیرون‌کلیک به pointerdown منتقل
+ *      شد (قبل از هر رندر مجدد اجرا می‌شود؛ عنصر هنوز متصل است)
+ *   ③ بزرگ‌سازی کامل (عرض ۳۴۸px، فونت روز ۱۴.۵px، تیتر ۱۵px) —
+ *      «اعداد و نوشته‌ها خوب دیده نمی‌شدند»
  *
  * @package SahandBrandSite
  */
@@ -96,43 +106,43 @@
     function toFa(n) { return String(n).replace(/[0-9]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[+d]; }); }
     function pad2(n) { return n < 10 ? '0' + n : '' + n; }
 
-    /* ---------- 🎨 استایل (یکبار تزریق) ---------- */
+    /* ---------- 🎨 استایل (یکبار تزریق) — v2.42: بزرگ‌تر و خواناتر ---------- */
     var CSS = [
         '.jdp-input-wrap{position:relative;display:inline-flex;align-items:center;flex:1;min-width:0}',
-        '.jdp-input-wrap .jdp-text{width:100%;padding-inline-end:38px;cursor:pointer;background:#fff}',
-        '.jdp-input-wrap .jdp-cal-ico{position:absolute;inset-inline-end:10px;pointer-events:none;font-size:16px;opacity:.75}',
-        '.jdp-pop{position:absolute;z-index:9999;top:calc(100% + 7px);inset-inline-start:0;background:#fff;border:1px solid #e2e8f0;border-radius:15px;box-shadow:0 14px 44px rgba(2,8,23,.17),0 2px 8px rgba(2,8,23,.07);width:296px;padding:13px 13px 10px;display:none;direction:rtl;font-family:inherit;animation:jdpIn .16s ease}',
+        '.jdp-input-wrap .jdp-text{width:100%;padding-inline-end:42px;cursor:pointer;background:#fff}',
+        '.jdp-input-wrap .jdp-cal-ico{position:absolute;inset-inline-end:11px;pointer-events:none;font-size:19px;opacity:.8}',
+        '.jdp-pop{position:absolute;z-index:9999;top:calc(100% + 8px);inset-inline-start:0;background:#fff;border:1px solid #e2e8f0;border-radius:17px;box-shadow:0 18px 54px rgba(2,8,23,.2),0 3px 10px rgba(2,8,23,.08);width:352px;padding:16px 16px 12px;display:none;direction:rtl;font-family:inherit;animation:jdpIn .16s ease}',
         '.jdp-pop.open{display:block}',
-        '@keyframes jdpIn{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}',
-        '.jdp-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:9px}',
-        '.jdp-title{flex:1;text-align:center;font-size:13.5px;font-weight:800;color:#0f172a;cursor:pointer;padding:5px 6px;border-radius:8px;transition:background .14s}',
+        '@keyframes jdpIn{from{opacity:0;transform:translateY(-7px) scale(.985)}to{opacity:1;transform:none}}',
+        '.jdp-head{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:11px}',
+        '.jdp-title{flex:1;text-align:center;font-size:15.5px;font-weight:800;color:#0f172a;cursor:pointer;padding:6px 6px;border-radius:9px;transition:background .14s}',
         '.jdp-title:hover{background:#f1f5f9}',
-        '.jdp-nav{width:30px;height:30px;border:1px solid #e2e8f0;background:#fff;border-radius:9px;cursor:pointer;font-size:15px;color:#334155;display:inline-flex;align-items:center;justify-content:center;transition:all .14s;flex:none;line-height:1}',
+        '.jdp-nav{width:36px;height:36px;border:1px solid #e2e8f0;background:#fff;border-radius:10px;cursor:pointer;font-size:18px;color:#334155;display:inline-flex;align-items:center;justify-content:center;transition:all .14s;flex:none;line-height:1}',
         '.jdp-nav:hover{border-color:#93c5fd;background:#eff6ff;color:#1e40af}',
-        '.jdp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}',
-        '.jdp-wd{text-align:center;font-size:10.5px;font-weight:800;color:#94a3b8;padding:4px 0}',
+        '.jdp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}',
+        '.jdp-wd{text-align:center;font-size:12.5px;font-weight:800;color:#94a3b8;padding:5px 0}',
         '.jdp-wd.jdp-fr{color:#f87171}',
-        '.jdp-day{aspect-ratio:1;border:none;background:transparent;border-radius:9px;font-family:inherit;font-size:12px;font-weight:600;color:#0f172a;cursor:pointer;transition:all .12s;padding:0}',
-        '.jdp-day:hover:not(:disabled){background:#eff6ff;color:#1e40af;transform:scale(1.07)}',
+        '.jdp-day{aspect-ratio:1;border:none;background:transparent;border-radius:10px;font-family:inherit;font-size:14.5px;font-weight:600;color:#0f172a;cursor:pointer;transition:all .12s;padding:0}',
+        '.jdp-day:hover:not(:disabled){background:#eff6ff;color:#1e40af;transform:scale(1.08)}',
         '.jdp-day:disabled{color:#cbd5e1;cursor:default}',
         '.jdp-day.other{visibility:hidden}',
-        '.jdp-day.today{color:#1e40af;font-weight:900;box-shadow:inset 0 0 0 1.6px #93c5fd}',
+        '.jdp-day.today{color:#1e40af;font-weight:900;box-shadow:inset 0 0 0 1.8px #93c5fd}',
         '.jdp-day.fri{color:#ef4444}',
-        '.jdp-day.sel{background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;font-weight:800;box-shadow:0 3px 10px rgba(30,64,175,.32)}',
-        '.jdp-foot{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:9px;padding-top:9px;border-top:1px dashed #e2e8f0}',
-        '.jdp-today-btn{border:none;background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;font-family:inherit;font-size:11px;font-weight:700;border-radius:9px;padding:6px 11px;cursor:pointer;transition:all .13s}',
+        '.jdp-day.sel{background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;font-weight:800;box-shadow:0 3px 11px rgba(30,64,175,.34)}',
+        '.jdp-foot{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-top:11px;padding-top:11px;border-top:1px dashed #e2e8f0}',
+        '.jdp-today-btn{border:1px solid #bbf7d0;background:#f0fdf4;color:#15803d;font-family:inherit;font-size:12.5px;font-weight:700;border-radius:10px;padding:8px 14px;cursor:pointer;transition:all .13s}',
         '.jdp-today-btn:hover{background:#dcfce7}',
-        '.jdp-clear-btn{border:none;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;font-family:inherit;font-size:11px;font-weight:700;border-radius:9px;padding:6px 11px;cursor:pointer;transition:all .13s}',
+        '.jdp-clear-btn{border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;font-family:inherit;font-size:12.5px;font-weight:700;border-radius:10px;padding:8px 14px;cursor:pointer;transition:all .13s}',
         '.jdp-clear-btn:hover{background:#fee2e2}',
-        '.jdp-yp{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px}',
-        '.jdp-yp button{border:1px solid #e2e8f0;background:#fff;border-radius:8px;font-family:inherit;font-size:11.5px;font-weight:700;color:#0f172a;padding:7px 2px;cursor:pointer;transition:all .12s}',
+        '.jdp-yp{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}',
+        '.jdp-yp button{border:1px solid #e2e8f0;background:#fff;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;color:#0f172a;padding:10px 2px;cursor:pointer;transition:all .12s}',
         '.jdp-yp button:hover{border-color:#93c5fd;background:#eff6ff;color:#1e40af}',
         '.jdp-yp button.cur{background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;border-color:transparent}',
-        '.jdp-mp{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}',
-        '.jdp-mp button{border:1px solid #e2e8f0;background:#fff;border-radius:8px;font-family:inherit;font-size:11.5px;font-weight:700;color:#0f172a;padding:8px 2px;cursor:pointer;transition:all .12s}',
+        '.jdp-mp{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}',
+        '.jdp-mp button{border:1px solid #e2e8f0;background:#fff;border-radius:10px;font-family:inherit;font-size:13.5px;font-weight:700;color:#0f172a;padding:11px 2px;cursor:pointer;transition:all .12s}',
         '.jdp-mp button:hover{border-color:#93c5fd;background:#eff6ff;color:#1e40af}',
         '.jdp-mp button.cur{background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;border-color:transparent}',
-        '@media (max-width:480px){.jdp-pop{width:min(296px,calc(100vw - 34px))}}'
+        '@media (max-width:480px){.jdp-pop{width:min(352px,calc(100vw - 26px))}}'
     ].join('');
     if (!document.getElementById('jdp-style')) {
         var st = document.createElement('style');
@@ -196,6 +206,7 @@
             return d2j(g2d(t.getFullYear(), t.getMonth() + 1, t.getDate()));
         }
 
+        var openedAt = 0; /* ⏱️ v2.42 — زمان آخرین باز شدن (گارد مسابقه focus/click) */
         function close() { pop.classList.remove('open'); openPicker = null; }
 
         function selectDate(jy, jm, jd) {
@@ -251,7 +262,7 @@
                 + '</div><div class="jdp-mp">';
             for (var m = 1; m <= 12; m++) {
                 var cur = (selected && selected.jy === state.jy && selected.jm === m) ? ' cur' : '';
-                html += '<button type="button" class="jdp-mp-btn' + cur + '" style="border:1px solid #e2e8f0;background:#fff;border-radius:8px;font-family:inherit;font-size:11.5px;font-weight:700;color:#0f172a;padding:8px 2px;cursor:pointer" data-m="' + m + '">' + MONTHS[m - 1] + '</button>';
+                html += '<button type="button" class="jdp-mp-btn' + cur + '" data-m="' + m + '">' + MONTHS[m - 1] + '</button>';
             }
             html += '</div>';
             pop.innerHTML = html;
@@ -293,20 +304,52 @@
             else if (btn.dataset.y) { state.jy = +btn.dataset.y; renderMonths(); }
         });
 
+        /* 🖐️ v2.42 — جلوگیری از دزدیده‌شدن فوکوس توسط دکمه‌های تقویم:
+           بدون این، کلیک ناوبری ماه، فوکوس input را می‌گیرد و در موبایل
+           باعث پرش/اسکرول ناخواسته می‌شود (روی click اثری ندارد). */
+        pop.addEventListener('mousedown', function (ev) {
+            if (ev.target.closest('button')) { ev.preventDefault(); }
+        });
+
         function open() {
             if (openPicker && openPicker !== close) { openPicker(); }
             renderDays();
             pop.classList.add('open');
             openPicker = close;
+            openedAt = Date.now(); /* ⏱️ گارد مسابقه focus/click */
         }
-        input.addEventListener('click', function () {
-            if (pop.classList.contains('open')) { close(); } else { open(); }
-        });
+
+        /* ⌨️ دسترسی صفحه‌کلید: باز شدن با Tab (focus) — بدون toggle-close
+           تداخلی؛ کلیکِ همان تپ بلافاصله بعد از focus نادیده گرفته می‌شود. */
         input.addEventListener('focus', open);
 
-        /* بستن با کلیک بیرون */
-        document.addEventListener('click', function (ev) {
+        input.addEventListener('click', function () {
+            if (pop.classList.contains('open')) {
+                /* فقط اگر تقویم از قبل (بیش از ۴۰۰ms) باز بوده ببند —
+                   کلیکِ بلافاصله بعد از focus-open را نادیده بگیر */
+                if (Date.now() - openedAt > 400) { close(); }
+            } else {
+                open();
+            }
+        });
+
+        /* 🚪 v2.42 — بستن با کلیک بیرون روی pointerdown (نه click!):
+           ریشه «کلیک روی تغییر ماه تقویم را می‌بندد»: هندلر click سند
+           بعد از رندر مجدد اجرا می‌شد؛ دکمه کلیک‌شده از DOM جدا شده بود
+           و wrap.contains(target) → false → بسته شدن بی‌دلیل!
+           pointerdown همیشه قبل از رندر مجدد اجرا می‌شود؛ عنصر هنوز
+           متصل است و تشخیص داخل/بیرون دقیق است. */
+        var outsideEvt = ('onpointerdown' in window) ? 'pointerdown' : 'mousedown';
+        document.addEventListener(outsideEvt, function (ev) {
             if (pop.classList.contains('open') && !wrap.contains(ev.target)) { close(); }
+        });
+
+        /* ⌨️ بستن با Escape */
+        input.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Escape' && pop.classList.contains('open')) {
+                ev.stopPropagation();
+                close();
+            }
         });
     }
 
