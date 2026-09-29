@@ -107,7 +107,7 @@ if ($trackerTarget === '' || !preg_match('#/track$#', $trackerTarget)) {
 </script>
 <script src="/js/tracker.js<?= defined('VERSION') ? '?v=' . rawurlencode(VERSION) : '' ?>"></script>
 <!-- ⚡ اسکریپت اصلی -->
-<script src="/js/app.js"></script>
+<script src="/js/app.js<?= defined('VERSION') ? '?v=' . rawurlencode(VERSION) : '' ?>"></script>
 <!-- 🗓️ v2.41 — تقویم انتخاب تاریخ شمسی (فرم درخواست و بلوک‌های قالب‌ساز) -->
 <script src="/js/jalali-picker.js<?= defined('VERSION') ? '?v=' . rawurlencode(VERSION) : '' ?>"></script>
 <!-- 📋 v2.31 — فرم‌های واقعی قالب‌ساز (sahand-form) -->

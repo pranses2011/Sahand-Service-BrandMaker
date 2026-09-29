@@ -9,6 +9,66 @@
 /* 🔗 آدرس API ردیاب (تزریق در header) */
 var TRACKER_URL = (typeof BRANDMAKER_API !== 'undefined' ? BRANDMAKER_API : '') + '/track';
 
+/* ⏱️ v2.43 — شمارش معکوس زنده (درخواست کاربر: «تا وقتی صفحه رو رفرش نکردیم
+   بروز نمیشوند»): هر عنصر .count-row[data-ts] هر ثانیه بازمحاسبه می‌شود.
+   - ارقام فارسی + صفرِ پیشرو
+   - پایان: ۰۰ ثانیه می‌ماند (بدون عدد منفی)
+   - عدم همگامی ساعت سرور/کلاینت: مبنای محاسبه اختلافِ سرور (data-diff)
+     در زمان رندر است، نه ساعت محلی — یعنی حتی با ساعت اشتباه کاربر،
+     شمارش درست ادامه می‌یابد. */
+(function () {
+    function faDigits(n) {
+        n = String(n);
+        var fa = '';
+        for (var i = 0; i < n.length; i++) {
+            fa += '۰۱۲۳۴۵۶۷۸۹'[+n[i]] !== undefined ? '۰۱۲۳۴۵۶۷۸۹'[+n[i]] : n[i];
+        }
+        return fa;
+    }
+    function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
+    function tickCountdowns() {
+        var rows = document.querySelectorAll('.count-row[data-ts]');
+        if (!rows.length) { return; }
+        var clientNow = Math.floor(Date.now() / 1000);
+        rows.forEach(function (row) {
+            var ts = parseInt(row.getAttribute('data-ts'), 10);
+            if (!ts) { return; }
+            /* 🕐 خنثی‌سازی انحراف ساعت کلاینت: انحراف = clientNow - data-now
+               «یک‌بار» در اولین تیک کپسوله می‌شود (data-skew) — اگر هر تیک
+               با clientNow لحظه‌ای بازمحاسبه شود، گذر زمان از هر دو طرف
+               کم می‌شود و اختلاف هرگز تغییر نمی‌کند (شمارش فریز می‌شود). */
+            var skewAttr = row.getAttribute('data-skew');
+            if (skewAttr === null || skewAttr === '') {
+                var srvRender = parseInt(row.getAttribute('data-now'), 10) || 0;
+                skewAttr = String(srvRender > 0 ? (clientNow - srvRender) : 0);
+                row.setAttribute('data-skew', skewAttr);
+            }
+            var skew = parseInt(skewAttr, 10) || 0;
+            /* سرورِ «الان» ≈ ساعت کلاینت منهای انحراف → باقی‌مانده واقعی */
+            var diff = ts - (clientNow - skew);
+            if (diff < 0) { diff = 0; }
+            var d = Math.floor(diff / 86400),
+                h = Math.floor((diff % 86400) / 3600),
+                m = Math.floor((diff % 3600) / 60),
+                s = diff % 60;
+            var bd = row.querySelector('.cd-d'), bh = row.querySelector('.cd-h'),
+                bm = row.querySelector('.cd-m'), bs = row.querySelector('.cd-s');
+            if (bd) { bd.textContent = faDigits(d); }
+            if (bh) { bh.textContent = faDigits(pad2(h)); }
+            if (bm) { bm.textContent = faDigits(pad2(m)); }
+            if (bs) { bs.textContent = faDigits(pad2(s)); }
+        });
+    }
+
+    tickCountdowns();
+    setInterval(tickCountdowns, 1000);
+    /* بروزرسانی فوری پس از سوئیچ تب (setInterval در تب پس‌زمینه معلق می‌شود) */
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) { tickCountdowns(); }
+    });
+})();
+
 document.addEventListener('DOMContentLoaded', function () {
 
     /* 🔢 شمارنده‌های آماری (در بلوک counter-stats) */

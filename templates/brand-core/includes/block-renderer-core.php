@@ -142,18 +142,28 @@ if (!function_exists('pvCountdown')) {
     {
         $target = trim((string)($props['countdownTo'] ?? ''));
         $days = '۰۲'; $hrs = '۱۴'; $min = '۳۰'; $sec = '۰۰';
+        $ts = 0;
         if ($target !== '') {
             $ts = strtotime($target);
-            if ($ts !== false && $ts > time()) {
-                $diff = $ts - time();
-                $fa = static fn($n) => strtr(str_pad((string)$n, 2, '0', STR_PAD_LEFT), ['0' => '۰', '1' => '۱', '2' => '۲', '3' => '۳', '4' => '۴', '5' => '۵', '6' => '۶', '7' => '۷', '8' => '۸', '9' => '۹']);
-                $days = $fa(floor($diff / 86400));
-                $hrs = $fa(floor(($diff % 86400) / 3600));
-                $min = $fa(floor(($diff % 3600) / 60));
-                $sec = $fa($diff % 60);
-            }
         }
-        return '<div class="count-row"><span class="count-box"><b>' . $days . '</b>روز</span><span class="count-box"><b>' . $hrs . '</b>ساعت</span><span class="count-box"><b>' . $min . '</b>دقیقه</span><span class="count-box"><b>' . $sec . '</b>ثانیه</span></div>';
+        if ($ts !== false && $ts > time()) {
+            $diff = $ts - time();
+            $fa = static fn($n) => strtr(str_pad((string)$n, 2, '0', STR_PAD_LEFT), ['0' => '۰', '1' => '۱', '2' => '۲', '3' => '۳', '4' => '۴', '5' => '۵', '6' => '۶', '7' => '۷', '8' => '۸', '9' => '۹']);
+            $days = $fa(floor($diff / 86400));
+            $hrs = $fa(floor(($diff % 86400) / 3600));
+            $min = $fa(floor(($diff % 3600) / 60));
+            $sec = $fa($diff % 60);
+        } elseif ($ts !== false && $ts > 0 && $ts <= time()) {
+            /* ⏱️ v2.43 — هدف گذشته: صفرِ صادقانه به‌جای اعداد پیش‌فرض گمراه‌کننده */
+            $days = $hrs = $min = $sec = '۰۰';
+        }
+        /* ⏱️ v2.43 — شمارش معکوس زنده (درخواست کاربر «تا رفرش بروز نمیشه»):
+           data-ts = مهر زمانی هدف + data-now = مهر زمانی رندر سرور؛
+           js/app.js هر ثانیه اعداد را بازمحاسبه می‌کند و اختلاف ساعت
+           محلیِ غلط کاربر را با data-now خنثی می‌کند. در نبود JS،
+           اعداد سرور رندرشده می‌مانند. */
+        $tsAttr = ($ts !== false && $ts > 0) ? ' data-ts="' . (int)$ts . '" data-now="' . time() . '"' : '';
+        return '<div class="count-row"' . $tsAttr . '><span class="count-box"><b class="cd-d">' . $days . '</b>روز</span><span class="count-box"><b class="cd-h">' . $hrs . '</b>ساعت</span><span class="count-box"><b class="cd-m">' . $min . '</b>دقیقه</span><span class="count-box"><b class="cd-s">' . $sec . '</b>ثانیه</span></div>';
     }
 }
 
@@ -1242,8 +1252,29 @@ if (!function_exists('pv_render_block_inner')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'پلن‌های سرویس') . '</div><div class="cols c3">' . $out . '</div></div>';
             }
             case 'location-cards':
+                /* 🆕 v2.43 (S04) — شعبه‌ها از آدرس‌های واقعی سایت‌ساز (درخواست
+                   کاربر: «همه عناصر از سایت ساز اطلاعاتشان را بگیرند»)؛
+                   در نبود آدرس، آیتم‌های دستی کاربر می‌مانند */
                 $its = pvItems($props, [['🏬', 'شعبه مرکزی', 'تهران، ولیعصر'], ['🏬', 'شعبه غرب', 'تهران، سعادت‌آباد']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'شعب ما') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="card-ico">' . pv_icon($it['icon'] ?: '🏬') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
+                $dynOn = !in_array((string)($props['dynamic'] ?? '1'), ['0', 'off', 'false'], true); /* 🆕 S04: هم رشته هم عدد */
+                if ($dynOn) {
+                    $dynAddr = (array)(pv_brand_settings()['addresses'] ?? []);
+                    $dynIts = [];
+                    foreach ($dynAddr as $da) {
+                        if (!is_array($da)) { continue; }
+                        $txt = trim((string)($da['address'] ?? ''));
+                        if ($txt === '') { continue; }
+                        $city = trim((string)($da['city'] ?? ''));
+                        $mu = trim((string)($da['map_url'] ?? ''));
+                        if ($mu === '' && (string)($da['lat'] ?? '') !== '' && (string)($da['lng'] ?? '') !== '') {
+                            $mu = 'https://maps.google.com/?q=' . rawurlencode($da['lat'] . ',' . $da['lng']);
+                        }
+                        $dynIts[] = ['icon' => '🏬', 'text' => ($city !== '' ? $city : 'شعبه'), 'desc' => $txt, 'link' => $mu, 'color' => ''];
+                        if (count($dynIts) >= 6) { break; }
+                    }
+                    if ($dynIts) { $its = $dynIts; }
+                }
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'شعب ما') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card"' . (!empty($it['link']) ? ' onclick="location.href=\'' . e(pv_safe_link((string)$it['link'])) . '\'" style="cursor:pointer"' : '') . '><div class="card-ico">' . pv_icon($it['icon'] ?: '🏬') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
             case 'expert-cards':
                 $its = pvItems($props, [['🔧', 'مهندس کریمی', 'برد و الکترونیک'], ['❄️', 'مهندس رضایی', 'سیستم سرمایش']]);
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'متخصصین ما') . '</div><div class="cols c' . pvCols($props, 4) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card"><div class="fake-ava">' . pv_icon($it['icon'] ?: '👨‍🔧') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
@@ -1911,6 +1942,21 @@ if (!function_exists('pv_page_css_vars')) {
         $ls = (string)($p['letterSpacing'] ?? 'default');
         if ($ls === 'tight') { $v['--pg-ls'] = '-.5px'; }
         elseif ($ls === 'wide') { $v['--pg-ls'] = '1.2px'; }
+        /* 🆕 v2.43 (S08) — استایل چیدمان صفحه: تمام‌عرض/جعبه/وسط/درصد دلخواه */
+        $layout = (string)($p['pageLayout'] ?? 'normal');
+        if (in_array($layout, ['full', 'boxed', 'center', 'percent'], true)) {
+            $v['--pg-layout'] = $layout;
+        }
+        if ($layout === 'percent') {
+            $v['--pg-layout-w'] = max(40, min(100, (int)($p['customWidthPct'] ?? 80))) . '%';
+        }
+        if ($layout === 'boxed') {
+            $v['--pg-box-pad'] = max(0, min(80, (int)($p['boxedPad'] ?? 26))) . 'px';
+            $v['--pg-box-rad'] = max(0, min(40, (int)($p['boxedRadius'] ?? 18))) . 'px';
+            if (preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($p['boxedBg'] ?? ''))) {
+                $v['--pg-box-bg'] = (string)$p['boxedBg'];
+            }
+        }
         /* 🆕 v2.32 — تایپوگرافی: رنگ متن بدنه + رنگ لینک + ارتفاع خط + اندازه عنوان */
         if (!empty($p['bodyColor']) && preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)$p['bodyColor'])) { $v['--pg-body'] = (string)$p['bodyColor']; }
         if (!empty($p['linkColor']) && preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)$p['linkColor'])) { $v['--pg-link'] = (string)$p['linkColor']; }
