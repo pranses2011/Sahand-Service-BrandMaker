@@ -145,6 +145,7 @@ CREATE TABLE IF NOT EXISTS `brands` (
   `ssl_expiry` DATE NULL COMMENT 'تاریخ انقضای SSL',
   `last_health_check` DATETIME NULL COMMENT 'آخرین بررسی سلامت',
   `health_status` ENUM('online','offline','error') NULL COMMENT 'وضعیت سلامت سایت',
+  `deployed_version` VARCHAR(32) NULL COMMENT 'نسخه هسته سایتِ استقرارشده (متای generator) — تشخیص استقرار کهنه',
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
   `backup_keep_count` INT UNSIGNED NULL COMMENT '🆕 v2.29 — تعداد بکاپ نگهداری‌شده این برند (NULL = از تنظیمات عمومی)',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

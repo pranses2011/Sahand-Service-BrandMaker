@@ -119,6 +119,15 @@ $statusMap = [
                         <?php if (!empty($brand['is_deployed'])): ?>
                             <span class="badge <?= ($brand['health_status'] ?? '') === 'online' ? 'badge-success' : (($brand['health_status'] ?? '') === 'offline' ? 'badge-danger' : 'badge-success') ?>">🟢 <?= $brand['full_domain'] ? 'مستقر' : 'مستقر' ?></span>
                             <?= ($brand['ssl_status'] ?? 'none') === 'active' ? '<span class="badge badge-success" title="SSL فعال">🔒</span>' : '' ?>
+                            <?php /* 🔖 v2.43 — هشدار استقرار کهنه: نسخه سایتِ برند با نسخه قالب فعلی نمی‌خواند
+                                   (ریشه «رفع‌ها اعمال نمیشود» = فراموشی بروزرسانی استقرار) */ ?>
+                            <?php $tplVer = ''; $tplCfg = ROOT_PATH . '/templates/brand-core/config.php';
+                            if (is_file($tplCfg) && preg_match("#define\\('VERSION',\\s*'([^']+)'#", (string)file_get_contents($tplCfg), $vm)) { $tplVer = $vm[1]; } ?>
+                            <?php if ($tplVer !== '' && trim((string)($brand['deployed_version'] ?? '')) !== '' && $brand['deployed_version'] !== $tplVer): ?>
+                                <a href="deploy.php?brand_id=<?= (int)$brand['id'] ?>" title="نسخه سایت برند (<?= e($brand['deployed_version']) ?>) با نسخه قالب (<?= e($tplVer) ?>) نمی‌خواند — بروزرسانی استقرار لازم است">
+                                    <span class="badge badge-warning">⚠️ استقرار کهنه</span>
+                                </a>
+                            <?php endif; ?>
                         <?php elseif ($brand['status'] !== 'draft'): ?>
                             <a href="deploy.php?brand_id=<?= (int)$brand['id'] ?>" class="btn btn-outline btn-sm" title="استقرار خودکار">🚀 استقرار</a>
                         <?php else: ?>

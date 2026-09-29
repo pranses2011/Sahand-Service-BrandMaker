@@ -1305,6 +1305,11 @@ SSBHELPER;
             }
 
             // 💾 ثبت در دیتابیس برند (deployed = true + تاریخ + مسیر + روش)
+            /* 🔖 v2.43 — نسخه استقرار: از متای generator صفحه اصلی خوانده
+               می‌شود تا پنل بتواند «استقرار کهنه» را تشخیص دهد و هشدار دهد
+               (ریشه «رفع‌ها بعد از آپدیت پنل روی سایت برند اعمال نمیشود» =
+               فراموشی «بروزرسانی استقرار»). */
+            $deployedVersion = $this->probeDeployedVersion($domain);
             $this->db->update('brands', [
                 'is_deployed'   => 1,
                 'deployed_at'   => date('Y-m-d H:i:s'),
@@ -1312,7 +1317,18 @@ SSBHELPER;
                 'server_path'   => $serverPath,
                 'full_domain'   => $domain,
                 'status'        => 'published',
+                'deployed_version' => $deployedVersion,
             ], 'id = ?', [(int)$deployment['brand_id']]);
+
+            /* 🚨 هشدار استقرار کهنه — نسخه سایتِ بالا با نسخه قالب فعلی
+               نمی‌خواند (مثلاً استخراج ZIP ناقص یا CDN میانی) */
+            $staleNote = '';
+            $expected = $this->expectedSiteVersion();
+            if ($deployedVersion !== '' && $expected !== '' && $deployedVersion !== $expected) {
+                $staleNote = " ⚠️ نسخه استقرار ({$deployedVersion}) با نسخه قالب ({$expected}) نمی‌خواند — «بروزرسانی استقرار» را دوباره اجرا کنید.";
+                $this->logger->step((int)$deployment['id'], 'version_check',
+                    'هشدار نسخه: سایت روی ' . $deployedVersion . ' است ولی قالب ' . $expected . ' است');
+            }
 
             // 📨 اعلان پس از استقرار (پنل + ایمیل + تلگرام)
             if (!empty($this->settings['notify_after_deploy']) && $brand) {
@@ -1325,7 +1341,7 @@ SSBHELPER;
             }
 
             $actionLabel = $deployment['action'] === 'update' ? 'بروزرسانی' : 'استقرار';
-            return ['ok' => true, 'message' => "{$actionLabel} کامل شد — https://{$domain} آنلاین است 🎉"];
+            return ['ok' => true, 'message' => "{$actionLabel} کامل شد — https://{$domain} آنلاین است 🎉" . $staleNote];
         }
 
         // 🏁 حذف: پاک‌سازی دیتابیس برند
@@ -1594,6 +1610,35 @@ SSBHELPER;
     protected function wait(int $seconds): void
     {
         sleep($seconds);
+    }
+
+    /**
+     * 🔖 v2.43 — نسخه سایتِ استقرارشده را از متای generator صفحه اصلی بخوان
+     * (برای تشخیص «استقرار کهنه» — ریشه اعمال‌نشدن رفع‌ها روی سایت برند)
+     */
+    private function probeDeployedVersion(string $domain): string
+    {
+        foreach (['https', 'http'] as $scheme) {
+            $res = $this->httpFetch($scheme . '://' . $domain);
+            if ($res['errno'] === 0 && $res['code'] >= 200 && $res['code'] < 400 && $res['body'] !== '') {
+                if (preg_match('#<meta\s+name="generator"\s+content="SahandBrandSite\s+([^"]+)"#i', (string)$res['body'], $m)) {
+                    return trim($m[1]);
+                }
+            }
+        }
+        return '';
+    }
+
+    /**
+     * 📦 v2.43 — نسخه مورد انتظار هسته سایت برند (از config.php قالب)
+     */
+    private function expectedSiteVersion(): string
+    {
+        $tpl = ROOT_PATH . '/templates/brand-core/config.php';
+        if (is_file($tpl) && preg_match("#define\\('VERSION',\\s*'([^']+)'#", (string)file_get_contents($tpl), $m)) {
+            return $m[1];
+        }
+        return '';
     }
 
     /**

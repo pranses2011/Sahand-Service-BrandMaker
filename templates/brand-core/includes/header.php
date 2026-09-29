@@ -61,6 +61,10 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <?php /* 🔖 v2.43 — شناسنامه نسخه استقرار: پنل با خواندن این متا تشخیص
+           می‌دهد سایت برند روی نسخه قدیمی است و هشدار «بروزرسانی استقرار»
+           می‌دهد (ریشه «رفع‌ها اعمال نمیشود» = استقرار کهنه فراموش‌شده) */ ?>
+    <meta name="generator" content="SahandBrandSite <?= defined('VERSION') ? e(VERSION) : '1.0' ?>">
     <title><?= e($pageTitle) ?></title>
     <meta name="description" content="<?= e($pageDesc) ?>">
     <?php if ($pageKey): ?><meta name="keywords" content="<?= e($pageKey) ?>"><?php endif; ?>
