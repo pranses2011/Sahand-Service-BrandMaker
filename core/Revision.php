@@ -228,6 +228,7 @@ class Revision
                     $this->save('page', (int)$rev['entity_id'], (int)$rev['brand_id'], 'قبل از بازگردانی — ' . ($rev['title'] ?? ''), $this->snapshotPage((int)$rev['entity_id']));
                     $this->db->update('brand_pages', [
                         'layout_json'     => $data['layout_json'],
+                        'layout_custom'   => 1, /* v2.41 — بازگردانی دستی = انتخاب کاربر؛ بر تم مقدم */
                         'seo_title'       => $data['seo_title'] ?? null,
                         'seo_description' => $data['seo_description'] ?? null,
                         'is_active'       => (int)($data['is_active'] ?? 1),

@@ -1125,6 +1125,33 @@ if (!defined('SAHAND_NO_DB_MIGRATE')) {
 }
 
 /* --------------------------------------------------
+ * 🧩 مهاجرت زنجیره تم (v2.41)
+ * ستون brand_pages.layout_custom — تمایز «چیدمان ویرایش‌شده دستی در
+ * قالب‌ساز» (1) از «چیدمان خودکار تولیدی ساخت برند» (0).
+ * 🚨 ریشه «تغییر تم در سایت‌ساز، تم سایت‌های برند را تغییر نمی‌دهد (نه
+ * عمومی نه اختصاصی)»: مرحله ساخت برند برای همه صفحات layout_json
+ * تولید و ذخیره می‌کرد و زنجیره حل قالب اولویت ① را به همین چیدمان
+ * خودکار می‌داد → زنجیره تم (اولویت ③) هرگز اجرا نمی‌شد. اکنون چیدمان
+ * خودکار به انتهای زنجیره می‌رود و تم برند (اختصاصی یا پیش‌فرض) روی
+ * آن اولویت دارد؛ فقط ویرایش دستی کاربر در قالب‌ساز بر تم مقدم است.
+ * فقط یک بار (schema_migrations: schema_v241).
+ * -------------------------------------------------- */
+if (!defined('SAHAND_NO_DB_MIGRATE')) {
+    try {
+        if (!SchemaMigrations::applied('schema_v241')) {
+            $pdo = Database::getInstance()->pdo();
+            $lcCol = $pdo->query("SHOW COLUMNS FROM `brand_pages` LIKE 'layout_custom'")->fetchAll();
+            if (empty($lcCol)) {
+                $pdo->exec("ALTER TABLE `brand_pages` ADD COLUMN `layout_custom` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = چیدمان ویرایش‌شده دستی در قالب‌ساز (بر تم مقدم) | 0 = چیدمان خودکار تولیدی' AFTER `layout_json`");
+            }
+            SchemaMigrations::mark('schema_v241');
+        }
+    } catch (Throwable $v241SchemaE) {
+        // نصب تازه یا دسترسی محدود — بی‌صدا رد می‌شود
+    }
+}
+
+/* --------------------------------------------------
  * 🕐 شروع امن نشست (Session)
  * -------------------------------------------------- */
 if (session_status() === PHP_SESSION_NONE && !defined('SAHAND_NO_SESSION')) {

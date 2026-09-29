@@ -168,6 +168,7 @@ CREATE TABLE IF NOT EXISTS `brand_pages` (
   `content` LONGTEXT NULL COMMENT 'محتوای ساختاریافته JSON',
   `template_id` INT UNSIGNED NULL COMMENT 'قالب انتخابی صفحه',
   `layout_json` LONGTEXT NULL COMMENT 'چیدمان درگ‌اند‌دراپ (JSON)',
+  `layout_custom` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = چیدمان ویرایش‌شده دستی در قالب‌ساز (بر تم مقدم) — v2.41',
   `is_active` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'فعال/غیرفعال',
   `sort_order` INT NOT NULL DEFAULT 0,
   `seo_title` VARCHAR(255) NULL,

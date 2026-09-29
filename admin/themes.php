@@ -37,9 +37,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = $db->insert('themes', $data);
         }
         /* 🎨 v2.27 — پاک‌سازی کش API سایت‌های برند (ریشه «تغییر تم اعمال
-           نمی‌شود»): چیدمان تم از کش ۱۲۰ ثانیه‌ای خوانده می‌شد. */
+           نمی‌شود»): چیدمان تم از کش ۱۲۰ ثانیه‌ای خوانده می‌شد.
+           🆕 v2.41 — کش همه برندهای این تم پاک شود (نه فقط پیش‌فرض) +
+           زنجیره جدید: تم بر چیدمان خودکار ساخت برند مقدم است. */
         (new Cache())->flush('api_brand_');
-        flash('success', '✅ تم ذخیره شد — روی سایت‌های برندِ این تم پس از چند لحظه اعمال می‌شود.');
+        flash('success', '✅ تم ذخیره شد — روی سایت‌های برندِ این تم (برندهایی که صفحه‌ای را دستی در قالب‌ساز ویرایش نکرده‌اند) پس از حداکثر ۲ دقیقه اعمال می‌شود.');
         redirect('themes.php');
     }
 
@@ -60,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db->update('themes', ['is_default' => 0], '1=1');
         $db->update('themes', ['is_default' => 1], 'id = ?', [$id]);
         (new Cache())->flush('api_brand_');
-        flash('success', '✅ تم پیش‌فرض برندهای جدید شد.');
+        flash('success', '✅ تم پیش‌فرض شد — همه برندهای بدون تم اختصاصی از این تم پیروی می‌کنند (پس از حداکثر ۲ دقیقه روی سایت‌ها).');
         redirect('themes.php');
     }
 
@@ -70,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db->update('brands', ['theme_id' => $themeId ?: null], 'id = ?', [$brandId]);
         /* 🎨 v2.27 — کش همان برند پاک شود تا تم جدید بلافاصله دیده شود */
         (new Cache())->flush('api_brand_' . $brandId);
-        flash('success', '✅ تم به برند اختصاص یافت — سایت برند پس از چند لحظه تم جدید را نشان می‌دهد.');
+        flash('success', '✅ تم به برند اختصاص یافت — سایت برند پس از حداکثر ۲ دقیقه تم جدید را نشان می‌دهد (صفحات ویرایش‌شده دستی در قالب‌ساز، ویرایش خودشان را نگه می‌دارند).');
         redirect('themes.php');
     }
 }
@@ -146,9 +148,15 @@ if (($editId = (int)get_param('edit')) > 0) {
                 </div>
                 <div class="card-body" style="font-size:12.5px">
                     <p style="color:var(--text-light);margin-bottom:10px"><?= e($theme['description'] ?? '') ?></p>
+                    <!-- 🆕 v2.41 — چیپس‌های صفحه تم کلیک‌پذیر: همان قالب در قالب‌ساز باز می‌شود -->
                     <div style="display:flex;gap:6px;flex-wrap:wrap">
                         <?php foreach (['home' => 'خانه', 'services' => 'خدمات', 'blog' => 'مقالات', 'contact' => 'تماس', 'about' => 'درباره'] as $pt => $label): ?>
-                            <span class="badge badge-primary"><?= $label ?>: <?= e($tplMap[$pt][(int)($config[$pt] ?? 0)] ?? 'پیش‌فرض') ?></span>
+                            <?php $tplId = (int)($config[$pt] ?? 0); ?>
+                            <?php if ($tplId > 0 && isset($tplMap[$pt][$tplId])): ?>
+                                <a href="template-builder.php?id=<?= $tplId ?>" class="badge badge-primary" style="text-decoration:none" title="باز کردن این قالب در قالب‌ساز برای ویرایش"><?= $label ?>: <?= e($tplMap[$pt][$tplId]) ?> 🎭</a>
+                            <?php else: ?>
+                                <span class="badge badge-secondary" title="قالبی انتخاب نشده — پیش‌فرض نوع صفحه استفاده می‌شود"><?= $label ?>: پیش‌فرض</span>
+                            <?php endif; ?>
                         <?php endforeach; ?>
                     </div>
                     <?php $assigned = array_filter($brands, fn($b) => (int)$b['theme_id'] === (int)$theme['id']); ?>
@@ -158,6 +166,7 @@ if (($editId = (int)get_param('edit')) > 0) {
                 </div>
             </div>
         <?php endforeach; ?>
+        <div class="alert alert-info" style="font-size:12px">💡 <b>زنجیره اعمال قالب هر صفحه سایت برند</b> (v2.41): ① ویرایش دستی همان صفحه در قالب‌ساز ← ② قالب اختصاصی صفحه ← ③ <b>قالب تم برند (اینجا)</b> ← ④ قالب پیش‌فرض نوع صفحه ← ⑤ چیدمان خودکار ساخت برند. یعنی تغییر تم روی همه صفحات (جز صفحاتی که شما دستی ویرایش کرده‌اید) اعمال می‌شود — اعمال روی سایت برند پس از انقضای کش آن (حداکثر ۲ دقیقه) یا «بروزرسانی استقرار» انجام می‌شود.</div>
     </div>
 
     <div>
@@ -180,7 +189,7 @@ if (($editId = (int)get_param('edit')) > 0) {
                     </div>
                     <?php foreach (['home' => 'صفحه اصلی', 'services' => 'خدمات', 'blog' => 'مقالات', 'contact' => 'تماس', 'about' => 'درباره'] as $pt => $label): ?>
                         <div class="form-group">
-                            <label>قالب <?= $label ?></label>
+                            <label>قالب <?= $label ?> <a href="#" data-tpl-link="tpl_<?= $pt ?>" style="font-size:11px;font-weight:400">🎭 ویرایش در قالب‌ساز</a></label>
                             <select name="tpl_<?= $pt ?>" class="form-control">
                                 <?php foreach (($tplMap[$pt] ?? []) as $tid => $tname): ?>
                                     <option value="<?= $tid ?>" <?= (int)($editConfig[$pt] ?? 0) === $tid ? 'selected' : '' ?>><?= e($tname) ?></option>
@@ -188,6 +197,16 @@ if (($editId = (int)get_param('edit')) > 0) {
                             </select>
                         </div>
                     <?php endforeach; ?>
+                    <script>
+                    /* 🆕 v2.41 — دکمه «ویرایش در قالب‌ساز»: قالب انتخاب‌شده هر صفحه تم را در قالب‌ساز باز می‌کند */
+                    document.querySelectorAll('[data-tpl-link]').forEach(function (a) {
+                        a.addEventListener('click', function (ev) {
+                            ev.preventDefault();
+                            var sel = document.querySelector('select[name="' + a.getAttribute('data-tpl-link') + '"]');
+                            if (sel && sel.value) { window.open('template-builder.php?id=' + sel.value, '_blank'); }
+                        });
+                    });
+                    </script>
                     <button type="submit" class="btn btn-primary btn-block">💾 ذخیره تم</button>
                     <?php if ($editTheme): ?><a href="themes.php" class="btn btn-outline btn-block" style="margin-top:8px">انصراف از ویرایش</a><?php endif; ?>
                 </form>

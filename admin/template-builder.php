@@ -45,7 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'save_template')
                 $rev = new Revision();
                 $rev->save('page', $brandPageId, (int)$bp['brand_id'], 'چیدمان ' . ($bp['page_type'] ?? ''), $rev->snapshotPage($brandPageId));
             } catch (Throwable $revE) { /* تاریخچه نباید جریان اصلی را بشکند */ }
-            $db->update('brand_pages', ['layout_json' => $layoutJson], 'id = ?', [$brandPageId]);
+            /* 🆕 v2.41 — layout_custom=1: ویرایش دستی کاربر بر تم مقدم است
+               (زنجیره حل قالب: ① ویرایش دستی → ② قالب صفحه → ③ تم برند) */
+            $db->update('brand_pages', ['layout_json' => $layoutJson, 'layout_custom' => 1], 'id = ?', [$brandPageId]);
             /* 🎨 v2.27 — کش چیدمان همان برند پاک شود تا تغییر بلافاصله روی
                سایت برند دیده شود (چیدمان از کش ۱۲۰ث خوانده می‌شد). */
             (new Cache())->flush('api_brand_' . (int)$bp['brand_id']);

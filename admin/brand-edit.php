@@ -54,6 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'uiux_design_pag
         ]);
         $db->update('brand_pages', [
             'layout_json' => json_encode($design['layout'], JSON_UNESCAPED_UNICODE),
+            /* 🆕 v2.41 — طراحی صریح با دکمه UI/UX Pro = انتخاب کاربر؛ بر تم مقدم */
+            'layout_custom' => 1,
         ], 'id = ?', [$pageId]);
         (new Cache())->delete('brand_' . $brandId . '_pages');
         Logger::activity((int)$_SESSION['user_id'], 'طراحی UI/UX Pro صفحه برند', ($page['page_type'] ?? '') . ' — امتیاز ' . $design['ux_score']);

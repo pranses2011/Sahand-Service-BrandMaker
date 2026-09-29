@@ -185,6 +185,9 @@ try {
                         'page_type' => $pageType,
                         'content'   => json_encode([], JSON_UNESCAPED_UNICODE),
                         'layout_json' => json_encode($design['layout'], JSON_UNESCAPED_UNICODE),
+                        /* 🆕 v2.41 — چیدمان تولیدی خودکار: تم برند بر آن مقدم است؛
+                           فقط با ویرایش دستی در قالب‌ساز layout_custom=1 می‌شود */
+                        'layout_custom' => 0,
                         'is_active' => 1,
                     ]);
                 }

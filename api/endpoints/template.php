@@ -27,12 +27,28 @@ function api_brand_template(int $brandId, string $pageType): void
         $layout = null;
         $source = '';
 
-        /* ① چیدمان سفارشی خود صفحه (ویرایش مستقیم در قالب‌ساز) */
+        /* 🔍 ستون layout_custom (v2.41) — نصب‌های در حال ارتقا هنوز
+           ندارند؛ با تشخیص پویا محیط خطا نمی‌دهد */
+        $hasCustomFlag = false;
+        try {
+            $hasCustomFlag = !empty($db->fetchValue(
+                'SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+                ['brand_pages', 'layout_custom']
+            ));
+        } catch (Throwable $flagE) {
+            $hasCustomFlag = false;
+        }
+
+        /* ① چیدمان ویرایش‌شده دستی در قالب‌ساز (layout_custom=1) — بر تم مقدم
+           🆕 v2.41 — ریشه «تغییر تم اعمال نمی‌شود»: قبلاً «هر» layout_json
+           (حتی خودکار تولیدی ساخت برند) اولویت اول بود و زنجیره تم هرگز
+           اجرا نمی‌شد؛ اکنون فقط ویرایش دستی کاربر این اولویت را دارد. */
         $page = $db->fetch(
-            'SELECT template_id, layout_json FROM brand_pages WHERE brand_id = ? AND page_type = ? AND is_active = 1',
+            'SELECT template_id, layout_json' . ($hasCustomFlag ? ', layout_custom' : '') . ' FROM brand_pages WHERE brand_id = ? AND page_type = ? AND is_active = 1',
             [$brandId, $pageType]
         );
-        if ($page && trim((string)($page['layout_json'] ?? '')) !== '' && $page['layout_json'] !== '[]') {
+        if ($page && $hasCustomFlag && (int)($page['layout_custom'] ?? 0) === 1
+            && trim((string)($page['layout_json'] ?? '')) !== '' && $page['layout_json'] !== '[]') {
             $decoded = json_decode((string)$page['layout_json'], true);
             if (is_array($decoded) && !empty($decoded)) {
                 $layout = $decoded;
@@ -55,7 +71,8 @@ function api_brand_template(int $brandId, string $pageType): void
         /* ③ قالب از تم برند — برای صفحه‌های درباره، تم عمومی «about» هم امتحان می‌شود
            🆕 v2.28: برندهای بدون تم اختصاصی (theme_id خالی) به «تم پیش‌فرض»
            (is_default=1) برمی‌گردند — ریشه حالت «عمومی» در شکایت «تغییر تم
-           تکی/عمومی اعمال نمی‌شود»: make_default فقط برندهای جدید را پوشش می‌داد. */
+           تکی/عمومی اعمال نمی‌شود»: make_default فقط برندهای جدید را پوشش می‌داد.
+           🆕 v2.41: تم اکنون بر چیدمان «خودکار» ساخت برند مقدم است (فال‌بک⑤). */
         if ($layout === null) {
             $themeRow = $db->fetch('SELECT theme_id FROM brands WHERE id = ?', [$brandId]);
             $themeId = $themeRow ? (int)($themeRow['theme_id'] ?: 0) : 0;
@@ -96,6 +113,17 @@ function api_brand_template(int $brandId, string $pageType): void
                         $source = 'default';
                     }
                 }
+            }
+        }
+
+        /* ⑤ فال‌بک نهایی — چیدمان خودکار تولیدشده هنگام ساخت برند
+           (layout_custom=0). فقط زمانی مصرف می‌شود که تم/پیش‌فرض قالبی برای
+           این نوع صفحه نداشته باشند (v2.41). */
+        if ($layout === null && $page && trim((string)($page['layout_json'] ?? '')) !== '' && $page['layout_json'] !== '[]') {
+            $decoded = json_decode((string)$page['layout_json'], true);
+            if (is_array($decoded) && !empty($decoded)) {
+                $layout = $decoded;
+                $source = 'auto';
             }
         }
 
