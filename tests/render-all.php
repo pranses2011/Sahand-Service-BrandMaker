@@ -46,7 +46,12 @@ if ($mode === 'preview') {
     require dirname(__DIR__) . '/admin/template-preview.php';
     ob_end_clean();
     foreach ($blocks as $b) {
-        $out[$b] = @renderPreviewBlockInner($b, $stdProps);
+        /* 🆕 v2.40 — رندرگر «کامل» (pv_render_block با پس‌پردازش) نه نسخه خام
+           (pv_render_block_inner): سایت از bb_render_block کامل رندر می‌شود؛
+           مقایسه خام‌با‌کامل بعد از v2.39 (تزریق زیرعنوان/کلاس‌ها در
+           پس‌پردازش) انحراف کاذب ۱۰ بلوک می‌ساخت. حالا هر دو طرف کامل‌اند
+           و تفاوت فقط از شاخه‌های واقعی حالت site/preview می‌آید. */
+        $out[$b] = @renderPreviewBlock($b, $stdProps);
     }
 } else {
     define('BRAND_INIT', true);

@@ -1458,9 +1458,10 @@ const BLOCK_FIELDS = {
     'top-bar': ['P', 'W'],
     'notification-bar': ['X', 'notifC'],
     /* هیرو — 🆕 v2.29: اسلایدر تصویری چندمقداری + 🆕 v2.32: BTN = ویرایشگر
-       متن + لینک جداگانه هر دکمه (درخواست «چند دکمه با لینک جداگانه») */
-    'hero': ['T', 'S', 'BTN'], 'hero-slider': ['T', 'A', 'SLT', 'IT'], 'hero-split': ['T', 'S', 'IMG', 'BTN'],
-    'hero-video': ['T', 'IMG'], 'hero-countdown': ['T', 'CD'], 'hero-form': ['T', 'S', 'B', 'FRM', 'DST'],
+       متن + لینک جداگانه هر دکمه (درخواست «چند دکمه با لینک جداگانه»)
+       🆕 v2.40: S/BTN به هیروهای تصویری/شمارش + CTA ها (زیرعنوان و دکمه فعال شدند) */
+    'hero': ['T', 'S', 'BTN'], 'hero-slider': ['T', 'S', 'A', 'SLT', 'IT'], 'hero-split': ['T', 'S', 'IMG', 'BTN'],
+    'hero-video': ['T', 'S', 'IMG', 'BTN'], 'hero-countdown': ['T', 'S', 'CD', 'BTN'], 'hero-form': ['T', 'S', 'B', 'FRM', 'DST'],
     'hero-marquee': ['X'], 'announcement-pill': ['T'],
     'hero-minimal': ['T', 'S', 'B', 'BTN'], 'hero-glass': ['T', 'S', 'BTN'], 'logo-strip': ['T', 'S'],
     /* 🆕 v2.29 — اسلایدر همه‌کاره: هر تعداد و هر نوع (تصویر/متن/کارت/مقاله/برند) */
@@ -1472,7 +1473,7 @@ const BLOCK_FIELDS = {
     'heading-center': ['T', 'S'], 'numbered-list': ['T', 'S', 'IT'], 'info-box': ['T', 'S', 'I', 'X'],
     'benefits-list': ['T', 'S', 'IT'], 'author-box': ['T', 'S', 'I', 'X'],
     'text-columns': ['T', 'S', 'X'], 'brand-values': ['T', 'S', 'IT'], 'tech-tips': ['T', 'S', 'IT'],
-    'pros-cons': ['T', 'S', 'IT'], 'text-accent-box': ['T', 'X'], 'definition-list': ['T', 'S', 'IT'],
+    'pros-cons': ['T', 'S', 'IT'], 'text-accent-box': ['T', 'S', 'X'], 'definition-list': ['T', 'S', 'IT'],
     'article-highlight': ['T', 'S', 'X', 'IMG'], 'page-header': ['T', 'S'], 'steps-vertical': ['T', 'S', 'IT'],
     /* ستون‌بندی */
     'section-columns': ['T', 'S', 'SC'], 'section-split': ['T', 'S'], 'feature-list': ['T', 'S', 'IT'],
@@ -1482,7 +1483,7 @@ const BLOCK_FIELDS = {
     'pricing-table': ['T', 'S', 'IT'], 'brands-links': ['T', 'S', 'C', 'IT'], 'certificates': ['T', 'S', 'C', 'IT'],
     'review-grid': ['T', 'S', 'C', 'IT'], 'contact-cards': ['T', 'S', 'IT'], 'price-cards': ['T', 'S', 'IT'],
     'location-cards': ['T', 'S', 'C', 'IT'], 'expert-cards': ['T', 'S', 'C', 'IT'], 'logo-cloud': ['T', 'S', 'C', 'IT'],
-    'brand-intro-card': ['T', 'S'], 'price-highlight': ['T', 'S', '$', 'G', 'B', 'BTN'], 'price-compare': ['T', 'S', 'C', 'BTN'],
+    'brand-intro-card': ['T', 'S'], 'price-highlight': ['T', 'S', '$', 'G', 'B', 'BTN'], 'price-compare': ['T', 'S', 'C', 'IT', 'BTN'],
     'service-price-cards': ['T', 'S', 'C', 'IT'], 'feature-icons-grid': ['T', 'S', 'C', 'IT'],
     /* فرم — 🆕 v2.32: LNK بی‌اثر حذف شد (دکمه فرم عملکردی است و لینک نمی‌شود) */
     'contact-form': ['T', 'B', 'FRM', 'DST'], 'request-form': ['T', 'B', 'FRM', 'DST'], 'newsletter-form': ['T', 'B', 'FRM', 'DST'],
@@ -1490,14 +1491,14 @@ const BLOCK_FIELDS = {
     'booking-calendar': ['T', 'S', 'BTN'], 'warranty-check': ['T', 'S', 'B', 'BTN'], 'price-estimate': ['T', 'S', 'BTN'],
     'device-error-lookup': ['T', 'S', 'BTN'], 'appointment-compact': ['T', 'B', 'FRM', 'DST'],
     'callback-form': ['T', 'B', 'FRM', 'DST'], 'survey-form': ['T', 'IT', 'FRM', 'DST'],
-    /* آمار — 🆕 v2.29: رنگ نوارهای پیشرفت (رفع «نوارهای پیشرفت رنگشون عوض نمیشه») */
-    'counter-stats': ['T', 'IT'], 'progress-bars': ['T', 'CLR', 'IT'], 'skill-bars': ['T', 'S', 'CLR', 'IT'],
-    'stats-grid': ['T', 'S', 'C', 'IT'], 'stats-strip': ['T', 'IT'],
+    /* آمار — 🆕 v2.29: رنگ نوارهای پیشرفت + 🆕 v2.40: S زیرعنوان همه آماری‌ها + T شمارنده بزرگ */
+    'counter-stats': ['T', 'S', 'IT'], 'progress-bars': ['T', 'S', 'CLR', 'IT'], 'skill-bars': ['T', 'S', 'CLR', 'IT'],
+    'stats-grid': ['T', 'S', 'C', 'IT'], 'stats-strip': ['T', 'S', 'IT'],
     'live-queue': ['T', 'S', 'IT'], 'hourly-capacity': ['T', 'S', 'IT'], 'stats-inline': ['T', 'S', 'IT'],
-    'stats-circles': ['T', 'S', 'CLR', 'IT'], 'counter-big': ['T', 'IT'], 'brand-stats-bar': ['T', 'S', 'IT'],
+    'stats-circles': ['T', 'S', 'CLR', 'IT'], 'counter-big': ['T', 'S', 'IT'], 'brand-stats-bar': ['T', 'S', 'IT'],
     /* تعامل */
     'testimonials': ['T', 'S', 'A', 'IT'], 'faq-accordion': ['T', 'S', 'IT'], 'tabs': ['T', 'S', 'IT'], 'timeline': ['T', 'S', 'IT'],
-    'steps-process': ['T', 'S', 'IT'], 'before-after': ['T', 'S', 'X', 'X2'], 'social-proof': ['X'],
+    'steps-process': ['T', 'S', 'IT'], 'before-after': ['T', 'S', 'X', 'X2'],
     'warranty-steps': ['T', 'S', 'IT'], 'feature-table': ['T', 'S', 'IT'],
     'faq-search': ['T', 'S', 'placeholder'], 'faq-category': ['T', 'S', 'IT'],
     'faq-mini': ['T', 'X'], 'steps-compact': ['T', 'S', 'IT'],
@@ -1506,23 +1507,23 @@ const BLOCK_FIELDS = {
     'gallery': ['T', 'S', 'C', 'IMG', 'IT'], 'image-carousel': ['T', 'S', 'A', 'IMG', 'IT'], 'video-embed': ['T', 'S', 'IMG', 'V'], 'map': ['T', 'S', 'X', 'MU'],
     'before-after-slider': ['T', 'S', 'IMG'], 'social-wall': ['T', 'S', 'IT'], 'reviews-carousel': ['T', 'S', 'A', 'IT'],
     'video-grid': ['T', 'S', 'C', 'IMG'], 'logo-marquee': ['T', 'S', 'IT'], 'tag-cloud': ['T', 'S', 'IT'],
-    /* فراخوان — 🆕 v2.32: BTN = ویرایشگر متن + لینک هر دکمه */
-    'cta-phone': ['T', 'P'], 'cta-request': ['T', 'B', 'BTN'], 'cta-banner': ['T', 'B', 'BTN'],
-    'sticky-mobile-cta': ['P', 'B', 'BTN'], 'cta-whatsapp': ['T', 'S', 'X', 'BTN'], 'warranty-banner': ['T', 'X', 'BTN'],
+    /* فراخوان — 🆕 v2.32: BTN = ویرایشگر متن + لینک هر دکمه + 🆕 v2.40: S زیرعنوان CTA ها */
+    'cta-phone': ['T', 'S', 'P'], 'cta-request': ['T', 'S', 'B', 'BTN'], 'cta-banner': ['T', 'S', 'B', 'BTN'],
+    'sticky-mobile-cta': ['P', 'B', 'BTN'], 'cta-whatsapp': ['T', 'S', 'X', 'P', 'BTN'], 'warranty-banner': ['T', 'X', 'BTN'],
     'link-buttons': ['T', 'S', 'IT'], 'promo-card': ['T', 'S', 'BTN'], 'download-card': ['T', 'S', 'B', 'BTN'],
-    'guarantee-card': ['T', 'S', 'B', 'BTN'], 'cta-timer': ['T', 'S', 'CD', 'BTN'], 'urgent-repair': ['T', 'P', 'B', 'BTN'],
+    'guarantee-card': ['T', 'S', 'B', 'BTN'], 'cta-timer': ['T', 'S', 'CD', 'B', 'BTN'], 'urgent-repair': ['T', 'P', 'B', 'BTN'],
     'newsletter-popup': ['T', 'S', 'B', 'BTN'],
     'emergency-strip': ['X', 'P'],
-    /* ساختار */
+    /* ساختار — 🆕 v2.40: S به جعبه‌ها + T/S به اثبات اجتماعی */
     'breadcrumb': ['IT'], 'alert-notice': ['X', 'alertT'], 'button-group': ['B', 'IT'],
     'icon-list': ['T', 'S', 'IT'], 'separator': [], 'divider-icon': ['I'], 'spacer': ['H'],
     'working-hours': ['T', 'S', 'IT'], 'social-follow': ['T', 'S', 'IT'], 'trust-badges': ['T', 'S', 'IT'],
-    'contact-info-bar': ['P', 'W'], 'contact-map-split': ['T', 'S', 'P'], 'warning-box': ['T', 'I', 'X'],
+    'contact-info-bar': ['P', 'W'], 'contact-map-split': ['T', 'S', 'P'], 'warning-box': ['T', 'S', 'I', 'X'],
     'related-links': ['T', 'S', 'IT'], 'schedule-table': ['T', 'S', 'IT'],
-    'ticker-bar': ['X'], 'credit-trust': ['T', 'IT'], 'brand-badges-row': ['T', 'S', 'IT'],
-    'chat-widget': ['T', 'BTN'],
-    /* فوتر */
-    'footer-simple': ['P', 'IT'], 'footer-contact': ['P', 'W'], 'footer-links': ['T', 'S', 'IT'],
+    'ticker-bar': ['X'], 'credit-trust': ['T', 'S', 'IT'], 'brand-badges-row': ['T', 'S', 'IT'],
+    'chat-widget': ['T', 'BTN'], 'social-proof': ['T', 'S', 'X'],
+    /* فوتر — 🆕 v2.40: X فوتر تماس = آدرس دلخواه */
+    'footer-simple': ['P', 'IT'], 'footer-contact': ['P', 'W', 'X'], 'footer-links': ['T', 'S', 'IT'],
     'payment-methods': ['T', 'S', 'IT'], 'copyright': ['X'],
 };
 
@@ -1555,6 +1556,8 @@ const BTN_INFO = {
     'hero-split':        [['۱ — دکمه اصلی', 'شروع کنید']],
     'hero-form':         [['۱ — تماس فوری', '📞 تماس فوری'], ['۲ — دکمه فرم', 'ثبت درخواست']],
     'hero-minimal':      [['۱ — دکمه اصلی', 'شروع کنید']],
+    'hero-video':        [['۱ — دکمه اصلی', 'مشاهده خدمات'], ['۲ — تماس فوری', 'تماس فوری']],
+    'hero-countdown':    [['۱ — دکمه رزرو', 'همین حالا رزرو کنید']],
     'cta-request':       [['۱ — دکمه اصلی', '📝 ثبت درخواست']],
     'cta-banner':        [['۱ — دکمه اصلی', '📝 ثبت درخواست']],
     'sticky-mobile-cta': [['۱ — دکمه درخواست', 'ثبت درخواست']],

@@ -1,5 +1,5 @@
 {
-    "generated_at": "2026-09-28 22:58:59",
+    "generated_at": "2026-09-29 14:08:19",
     "blocks": {
         "alert-notice": 1,
         "announcement-pill": 1,
@@ -13,7 +13,7 @@
         "before-after": 1,
         "before-after-slider": 1,
         "benefits-list": 1,
-        "booking-calendar": 0.6082,
+        "booking-calendar": 0.6311,
         "brand-badges-row": 1,
         "brand-intro-card": 1,
         "brand-stats-bar": 1,
@@ -49,7 +49,7 @@
         "faq-accordion": 1,
         "faq-category": 1,
         "faq-mini": 1,
-        "faq-search": 0.3563,
+        "faq-search": 0.3978,
         "feature-icons-grid": 1,
         "feature-list": 1,
         "feature-table": 1,
@@ -97,7 +97,7 @@
         "pricing-table": 1,
         "progress-bars": 1,
         "promo-card": 1,
-        "pros-cons": 0.6271,
+        "pros-cons": 0.6615,
         "quick-contact-form": 1,
         "quote": 1,
         "quote-slider": 1,
@@ -135,7 +135,7 @@
         "testimonials": 1,
         "text": 1,
         "text-accent-box": 1,
-        "text-columns": 0.34,
+        "text-columns": 0.4107,
         "text-image": 1,
         "three-col": 1,
         "ticker-bar": 1,
@@ -150,7 +150,7 @@
         "vote-poll": 1,
         "warning-box": 1,
         "warranty-banner": 1,
-        "warranty-check": 0.2791,
+        "warranty-check": 0.3261,
         "warranty-steps": 1,
         "working-hours": 1
     }
