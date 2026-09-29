@@ -180,7 +180,8 @@ $meIni = mb_substr($meName !== '' ? $meName : 'م', 0, 1);
             $heroAvatar = (string)($db->fetchValue('SELECT avatar FROM users WHERE id = ? LIMIT 1', [(int)($_SESSION['user_id'] ?? 0)]) ?: '');
         } catch (Throwable $hE) { $heroAvatar = ''; }
         if ($heroAvatar !== '' && is_file(ROOT_PATH . '/' . $heroAvatar)): ?>
-            <img class="dh-av" src="<?= e(asset_ver($heroAvatar)) ?>" alt="">
+            <!-- 🖼 v2.40 — کلیک = نمایش بزرگ -->
+            <img class="dh-av avatar-zoom" data-name="<?= e($meName) ?>" title="نمایش بزرگ آواتار" src="<?= e(asset_ver($heroAvatar)) ?>" alt="" style="cursor:zoom-in">
         <?php else: ?>
             <span class="dh-av"><?= e($meIni) ?></span>
         <?php endif; ?>

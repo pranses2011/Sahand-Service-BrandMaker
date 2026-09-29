@@ -258,7 +258,8 @@ require __DIR__ . '/includes/header.php';
             <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:14px;margin-bottom:16px">
                 <?php $avatarRel = (string)($me['avatar'] ?? ''); ?>
                 <?php if ($avatarRel !== '' && is_file(ROOT_PATH . '/' . $avatarRel)): ?>
-                    <img src="<?= e(asset_ver($avatarRel)) ?>" alt="آواتار" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 3px 12px rgba(0,0,0,.14)">
+                    <!-- 🖼 v2.40 — کلیک = نمایش بزرگ (لایت‌باکس مشترک admin.js) -->
+                    <img class="avatar-zoom" data-name="<?= e($me['full_name']) ?>" title="نمایش بزرگ آواتار <?= e($me['full_name']) ?>" src="<?= e(asset_ver($avatarRel)) ?>" alt="آواتار" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 3px 12px rgba(0,0,0,.14);cursor:zoom-in">
                 <?php else: ?>
                     <span style="width:72px;height:72px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#fff;background:linear-gradient(135deg,#2563eb,#7c3aed);flex:0 0 auto"><?= e(mb_substr($me['full_name'] !== '' ? $me['full_name'] : 'م', 0, 1)) ?></span>
                 <?php endif; ?>

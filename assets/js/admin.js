@@ -246,3 +246,54 @@ window.sahandLabelTables = sahandLabelTables;
 document.addEventListener('DOMContentLoaded', function () { sahandLabelTables(); });
 
 
+
+/* ═══════════════════════════════════════════════════════════════
+ * 🖼️ v2.40 — لایت‌باکس آواتار: کلیک روی آواتار = نمایش تصویر بزرگ
+ * (درخواست کاربر: «برای پروفایل‌ها، با کلیک روی آواتار تصویر
+ *  بزرگش را نشان بده») — مشترک بین پروفایل/کاربران/داشبورد.
+ * استفاده: <img class="avatar-zoom" data-name="نام کاربر" src="...">
+ * یا فراخوانی مستقیم: openAvatarLightbox(src, name)
+ * ═══════════════════════════════════════════════════════════════ */
+function openAvatarLightbox(src, name) {
+    if (!src) { return; }
+    var old = document.getElementById('avatarLightbox');
+    if (old) { old.remove(); }
+    var box = document.createElement('div');
+    box.id = 'avatarLightbox';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-label', 'نمایش بزرگ آواتار');
+    box.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:rgba(15,23,42,.88);backdrop-filter:blur(6px);cursor:zoom-out;padding:24px';
+    var img = document.createElement('img');
+    img.src = src;
+    img.alt = name ? ('آواتار ' + name) : 'آواتار';
+    img.style.cssText = 'max-width:min(560px,92vw);max-height:70vh;border-radius:24px;object-fit:contain;box-shadow:0 24px 70px rgba(0,0,0,.55);border:4px solid rgba(255,255,255,.92);animation:avatarZoomIn .28s cubic-bezier(.2,.9,.3,1.2)';
+    var cap = document.createElement('div');
+    cap.textContent = name || '';
+    cap.style.cssText = (name ? '' : 'display:none;') + 'color:#f1f5f9;font-weight:800;font-size:15px;text-shadow:0 2px 8px rgba(0,0,0,.5);background:rgba(255,255,255,.12);padding:7px 20px;border-radius:99px;backdrop-filter:blur(4px)';
+    var hint = document.createElement('div');
+    hint.textContent = '🔓 برای بستن کلیک کنید یا Escape را بزنید';
+    hint.style.cssText = 'color:#cbd5e1;font-size:11.5px;opacity:.85';
+    box.appendChild(img);
+    box.appendChild(cap);
+    box.appendChild(hint);
+    var style = document.createElement('style');
+    style.textContent = '@keyframes avatarZoomIn{from{transform:scale(.55);opacity:0}to{transform:scale(1);opacity:1}}';
+    box.appendChild(style);
+    function close() { box.remove(); document.removeEventListener('keydown', onKey); }
+    function onKey(e) { if (e.key === 'Escape') { close(); } }
+    box.addEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(box);
+}
+window.openAvatarLightbox = openAvatarLightbox;
+
+/* 🖼️ هر IMG با کلاس avatar-zoom → کلیک = لایت‌باکس (title هم نام کاربر) */
+document.addEventListener('click', function (e) {
+    var av = e.target.closest ? e.target.closest('img.avatar-zoom') : null;
+    if (av && av.src) {
+        e.preventDefault();
+        e.stopPropagation();
+        openAvatarLightbox(av.src, av.getAttribute('data-name') || av.getAttribute('title') || '');
+    }
+});

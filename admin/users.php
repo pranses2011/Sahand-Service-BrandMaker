@@ -275,7 +275,8 @@ $avatarFor = static function (string $name, int $id) use ($gradPool): array {
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border)">
                 <div style="display:flex;align-items:center;gap:14px;min-width:0">
                     <?php if ($edAvatar !== '' && is_file(ROOT_PATH . '/' . $edAvatar)): ?>
-                        <img class="usr-avatar lg" src="<?= e(asset_ver($edAvatar)) ?>" alt="" style="object-fit:cover;background:none;box-shadow:0 3px 8px rgba(0,0,0,.18)">
+                        <!-- 🖼 v2.40 — کلیک = نمایش بزرگ -->
+                        <img class="usr-avatar lg avatar-zoom" data-name="<?= e($editUser['full_name']) ?>" title="نمایش بزرگ آواتار" src="<?= e(asset_ver($edAvatar)) ?>" alt="" style="object-fit:cover;background:none;box-shadow:0 3px 8px rgba(0,0,0,.18);cursor:zoom-in">
                     <?php else: ?>
                         <span class="usr-avatar lg" style="background:<?= $avGrad ?>"><?= e($avIni) ?></span>
                     <?php endif; ?>
@@ -492,7 +493,8 @@ $avatarFor = static function (string $name, int $id) use ($gradPool): array {
                             <td>
                                 <div style="display:flex;align-items:center;gap:10px;min-width:150px">
                                     <?php if ($uAvatar !== '' && is_file(ROOT_PATH . '/' . $uAvatar)): ?>
-                                        <img class="usr-avatar" src="<?= e(asset_ver($uAvatar)) ?>" alt="" style="object-fit:cover;background:none;box-shadow:0 3px 8px rgba(0,0,0,.18)">
+                                        <!-- 🖼 v2.40 — کلیک = نمایش بزرگ -->
+                                        <img class="usr-avatar avatar-zoom" data-name="<?= e($u['full_name']) ?>" title="نمایش بزرگ آواتار <?= e($u['full_name']) ?>" src="<?= e(asset_ver($uAvatar)) ?>" alt="" style="object-fit:cover;background:none;box-shadow:0 3px 8px rgba(0,0,0,.18);cursor:zoom-in">
                                     <?php else: ?>
                                         <span class="usr-avatar" style="background:<?= $grad ?>"><?= e($ini) ?></span>
                                     <?php endif; ?>
