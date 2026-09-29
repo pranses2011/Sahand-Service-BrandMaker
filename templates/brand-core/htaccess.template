@@ -16,7 +16,7 @@ DirectoryIndex index.php
     RewriteCond %{REQUEST_URI} !^/(sw\.js|manifest\.json|offline\.html|sitemap\.php|feed\.php|robots\.txt|api/|cache/|includes/|css/|js/)
     RewriteRule ^(en)/(services|service-area|warranty|blog|search|about-agency|about-brand|contact|request|other-brands|error-codes|faq|sitemap-page|terms|privacy)/?$ pages/$2.php?lang=en [L,QSA]
     RewriteRule ^en/?$ index.php?lang=en [L,QSA]
-    RewriteRule ^en/blog/([a-zA-Z0-9\-\_%]+)/?$ pages/article.php?slug=$1&lang=en [L,QSA]
+    RewriteRule ^en/blog/([^/]+)/?$ pages/article.php?slug=$1&lang=en [L,QSA]
 
     # خدمات
     RewriteRule ^services/?$ pages/services.php [L]
@@ -27,7 +27,7 @@ DirectoryIndex index.php
     # مقالات
     RewriteRule ^blog/?$ pages/blog.php [L]
     # 🔗 v2.34 — URL تمیز مقالات: /blog/{slug} (آدرس قدیمی در PHP با ۳۰۱ هدایت می‌شود)
-    RewriteRule ^blog/([a-zA-Z0-9\-\_%]+)/?$ pages/article.php?slug=$1 [L,QSA]
+    RewriteRule ^blog/([^/]+)/?$ pages/article.php?slug=$1 [L,QSA]
     RewriteRule ^blog/article/?$ pages/article.php [L,QSA]
     # 🔍 v2.34 — جستجوی سایت برند
     RewriteRule ^search/?$ pages/search.php [L,QSA]

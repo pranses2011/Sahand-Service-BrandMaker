@@ -230,7 +230,7 @@ HTACCESS;
         $rules .= "    RewriteRule ^(en)/({$pageSlugs})/?$ pages/$2.php?lang=en [L,QSA]\n";
         $rules .= "    RewriteRule ^en/?$ index.php?lang=en [L,QSA]\n";
         if (isset($pages['blog'])) {
-            $rules .= "    RewriteRule ^en/blog/([a-zA-Z0-9\\-\\_%]+)/?$ pages/article.php?slug=$1&lang=en [L,QSA]\n";
+            $rules .= "    RewriteRule ^en/blog/([^/]+)/?$ pages/article.php?slug=$1&lang=en [L,QSA]\n";
         }
         $rules .= "\n";
 
@@ -241,7 +241,7 @@ HTACCESS;
                 $rules .= "    RewriteRule ^blog/?$ pages/blog.php [L]\n";
                 // 🔗 v2.34/v2.42 — URL تمیز مقالات: /blog/{slug} (قانون جاافتاده!
                 //    آدرس قدیمی /blog/article?slug= در PHP با ۳۰۱ هدایت می‌شود)
-                $rules .= "    RewriteRule ^blog/([a-zA-Z0-9\\-\\_%]+)/?$ pages/article.php?slug=$1 [L,QSA]\n";
+                $rules .= "    RewriteRule ^blog/([^/]+)/?$ pages/article.php?slug=$1 [L,QSA]\n";
                 $rules .= "    RewriteRule ^blog/article/?$ pages/article.php [L,QSA]\n";
             } else {
                 $rules .= "    # {$label}\n";
