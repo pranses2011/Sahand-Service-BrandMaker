@@ -1702,3 +1702,5 @@
 | 62.11 | ☑️ برچسب (داینامیک) در پنل | ۱۱ بلوک در قالب‌ساز مشخص شدند | ✅ |
 | 62.12 | ☑️ مستندات v2.42.0 | CHANGELOG + UPGRADE + AI-API-GUIDE + README + WORKLOG + نسخه | ✅ |
 | 62.13 | ☑️ رلیز v2.42.0 | install.zip + update.zip + راهنماها + SHA256SUMS | ✅ |
+
+> 🔗 **رلیز v2.44.0**: https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/tag/v2.44.0 — ۶ پیوست: install.zip (۱۷MB) + update.zip (۱.۷MB / ۱۰۶ فایل) + راهنمای نصب و بروزرسانی فارسی + UPGRADE + AI-API-GUIDE + SHA256SUMS
