@@ -301,9 +301,10 @@ $ogImage = $ogImage ?? ($brand['logo'] ?? '');
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </a>
         <!-- 🌍 v2.37 — P3: سوییچر زبان — همان صفحه در زبان دیگر (hreflang پشتیبان) -->
-        <?php if (function_exists('lang_url') && BRAND_LANG !== 'en'): ?>
+        <?php /* 🌍 v2.44 (S11) — سوییچر زبان فقط وقتی چندزبانه در تنظیمات فعال باشد */ ?>
+        <?php if (I18N_ENABLED && function_exists('lang_url') && BRAND_LANG !== 'en'): ?>
         <a href="<?= e(lang_url('en')) ?>" class="lang-switch" hreflang="en" title="<?= e(__t('language_switch')) ?>" aria-label="<?= e(__t('language_switch')) ?>">🌐 <?= e(__t('switch_label')) ?></a>
-        <?php elseif (function_exists('lang_url')): ?>
+        <?php elseif (I18N_ENABLED && function_exists('lang_url')): ?>
         <a href="<?= e(lang_url('fa')) ?>" class="lang-switch" hreflang="fa" title="<?= e(__t('language_switch')) ?>" aria-label="<?= e(__t('language_switch')) ?>">🌐 <?= e(__t('switch_label')) ?></a>
         <?php endif; ?>
         <button class="theme-toggle" onclick="toggleTheme()" title="تغییر تم روشن/تاریک">🌙</button>

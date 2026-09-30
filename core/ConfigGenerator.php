@@ -57,6 +57,9 @@ class ConfigGenerator
 
         // 📅 تاریخ تولید برای سربرگ فایل (شمسی)
         $generationDate = ShamsiDate::forDisplay();
+        /* 🌍 v2.44 (S11) — سوییچ چندزبانه از تنظیمات سایت‌ساز در کانفیگ استقرار پخت می‌شود */
+        $i18nEnabled = !empty((array)(\Config::get('i18n_settings') ?: [])['enabled'] ?? false)
+            ? 'true' : 'false';
         // تبدیل boolean به رشته PHP
         $cacheEnabledStr = $cacheEnabled ? 'true' : 'false';
         $debugModeStr = $debugMode ? 'true' : 'false';
@@ -114,6 +117,7 @@ define('CACHE_TTL', {$cacheTtl});                          // مدت اعتبا�
  * 🌍 تنظیمات عمومی
  * -------------------------------------------------- */
 define('DEBUG_MODE', {$debugModeStr});                          // حالت دیباگ (در محیط اجرا: خاموش)
+define('I18N_ENABLED', {$i18nEnabled});                     // 🌍 v2.44 (S11) — چندزبانه فعال/غیرفعال (تنظیمات سایت‌ساز)
 define('VERSION', '1.4.1');                                // نسخه هسته سایت برند (🆕 v2.42 — رفع دو باگ دیت‌پیکر (تک‌کلیک + تغییر ماه) + بزرگ‌سازی؛ شکستن کش JS/CSS)
 date_default_timezone_set('Asia/Tehran');                  // ⏰ منطقه زمانی ایران
 mb_internal_encoding('UTF-8');                              // 🔤 انکودینگ UTF-8

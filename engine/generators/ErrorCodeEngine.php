@@ -138,6 +138,18 @@ class ErrorCodeEngine
             throw new RuntimeException('برند یافت نشد.');
         }
 
+        /* 🎛 v2.44 (S01) — متد واحد از تنظیمات بر موتور خطایاب حاکم است:
+           llm      → مسیر مدل زبانی (فال‌بک: وب → دانش داخلی)
+           research → جستجوی اینترنت اجباری (فال‌بک: دانش داخلی)
+           internal → فقط پایگاه دانش داخلی (بدون وب و بدون LLM)
+           چک‌باکس جستجوی وبِ صفحه فقط در حالت llm معنا دارد (فال‌بک). */
+        $textSettingsM = class_exists('AiTextService') ? AiTextService::settings() : ['method' => 'internal'];
+        if ($textSettingsM['method'] === 'research') {
+            $useWeb = true;
+        } elseif ($textSettingsM['method'] === 'internal') {
+            $useWeb = false;
+        }
+
         $brandKey = $this->matchBrandKey($brand['name_fa'], $brand['name_en']);
         $kb = TextProcessor::loadKnowledge('error-codes-brands');
         $brandKb = $kb['brands'][$brandKey] ?? null;

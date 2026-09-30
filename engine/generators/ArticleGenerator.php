@@ -288,8 +288,21 @@ class ArticleGenerator
 
         /* 🔎 v2.35 — تحقیق وب «یک‌بار» برای همه‌ی واریانت‌ها
          * قبلاً هر واریانت جداگانه جستجو می‌کرد (N برابر هزینه و زمان)؛ حالا
-         * یک تحقیق انجام و به‌عنوان research_context به همه پاس داده می‌شود. */
+         * یک تحقیق انجام و به‌عنوان research_context به همه پاس داده می‌شود.
+         * 🎛 v2.44 (S01) — متد واحد از تنظیمات:
+         *   llm      = مدل زبانی (تحقیق فقط اگر خود کاربر بخواهد)
+         *   research = جستجوی اینترنت — تحقیق وب «اجباری» می‌شود و نگارش با
+         *              موتور داخلیِ تغذیه‌شده از نتایج وب انجام می‌شود
+         *   internal = دانش داخلی — هیچ تحقیق وب و هیچ LLM */
+        $textSettingsEarly = class_exists('AiTextService') ? AiTextService::settings() : ['method' => 'internal'];
         $depth = (string)($options['depth'] ?? 'balanced');
+        $forceResearch = $textSettingsEarly['method'] === 'research';
+        if ($forceResearch) {
+            $options['research'] = true; /* متد جستجوی اینترنت — تحقیق همیشه روشن */
+        } elseif ($textSettingsEarly['method'] === 'internal') {
+            $options['research'] = false; /* دانش داخلی — بدون وب */
+            unset($options['research_context']);
+        }
         if (empty($options['research_context']) && !empty($options['research'])) {
             try {
                 $meta = $this->deviceMetaFor($brand, $deviceKey, $customTitle);

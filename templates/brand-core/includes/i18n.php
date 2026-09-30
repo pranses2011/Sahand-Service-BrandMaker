@@ -70,12 +70,20 @@ $GLOBALS['BRAND_I18N'] = [
 ];
 
 /* ════════════ تشخیص locale (یک‌بار در هر صفحه) ════════════ */
+/* 🌍 v2.44 (S11) — سوییچ چندزبانه از تنظیمات سایت‌ساز:
+   I18N_ENABLED در config.php استقرار پخت می‌شود (ConfigGenerator).
+   خاموش = همیشه فارسی؛ /en/، ?lang=، سوییچر و hreflang همه غیرفعال. */
+if (!defined('I18N_ENABLED')) {
+    define('I18N_ENABLED', true); /* بسته‌های قدیمی: رفتار قبلی (فعال) */
+}
 if (!defined('BRAND_LANG')) {
     $brandLang = 'fa';
     /* ① پارامتر ?lang=en — از مسیرهای htaccessِ /en/ می‌آید یا انتخاب دستی */
-    $langParam = strtolower(trim((string)($_GET['lang'] ?? '')));
-    if (isset($GLOBALS['BRAND_I18N'][$langParam])) {
-        $brandLang = $langParam;
+    if (I18N_ENABLED) {
+        $langParam = strtolower(trim((string)($_GET['lang'] ?? '')));
+        if (isset($GLOBALS['BRAND_I18N'][$langParam])) {
+            $brandLang = $langParam;
+        }
     }
     define('BRAND_LANG', $brandLang);
 }
@@ -144,9 +152,13 @@ function localized_path(string $path): string
 /**
  * 🏷 تگ‌های hreflang — جلوگیری از محتوای تکراری بین‌زبانی در سئو
  * خروجی: <link rel="alternate" hreflang="fa" href="…"> + en + x-default
+ * 🌍 v2.44 (S11): چندزبانه خاموش = بدون تگ
  */
 function i18n_hreflang_tags(): string
 {
+    if (!I18N_ENABLED) {
+        return '';
+    }
     $uri = (string)($_SERVER['REQUEST_URI'] ?? '/');
     $out = '';
     foreach (['fa', 'en'] as $l) {

@@ -463,6 +463,52 @@ class AiPhotoService
         return $images;
     }
 
+    /**
+     * 🎨 v2.44 (S10) — تولید مستقیم تصویر از پرامپت آزاد (چت تصویرساز پنل)
+     *
+     * برخلاف generateForArticle (که پرامپتش از دستگاه/موضوع مقاله ساخته می‌شود)،
+     * این متد پرامپت خام کاربر را به زنجیره سرویس‌های تنظیمات می‌دهد.
+     * سرویس استوکی (loremflickr/wikimedia) برای پرامپت آزاد معنا ندارد →
+     * فقط سرویس‌های مولد AI در زنجیره می‌مانند.
+     *
+     * @return array ['path','url','service'] | []
+     */
+    public function generateFromPrompt(string $prompt): array
+    {
+        $prompt = trim($prompt);
+        if ($prompt === '') {
+            return [];
+        }
+        $cfg = self::settings();
+        /* سرویس‌های استوکِ کلیدواژه‌ای برای پرامپت آزاد مناسب نیستند */
+        $stockish = ['loremflickr', 'wikimedia', 'openverse', 'pexels', 'unsplash'];
+        $chain = array_values(array_filter($this->serviceChain(), static fn(string $s): bool => !in_array($s, $stockish, true)));
+        if (!$chain) {
+            $chain = ['pollinations_flux'];
+        }
+        $dir = ROOT_PATH . '/uploads/articles/ai';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+        foreach ($chain as $service) {
+            $rel = 'uploads/articles/ai/chat_' . uniqid() . '.jpg';
+            $abs = ROOT_PATH . '/' . $rel;
+            $seed = random_int(1, 2147483000);
+            try {
+                if ($this->downloadViaService($service, $prompt, $seed, $abs, null)) {
+                    return [
+                        'path'    => $rel,
+                        'url'     => rtrim(BASE_URL, '/') . '/' . $rel,
+                        'service' => $service,
+                    ];
+                }
+            } catch (Throwable $e) {
+                /* سرویس بعدی */
+            }
+        }
+        return [];
+    }
+
     /* ==================================================
      * 🌐 درایورهای سرویس‌ها (v3.1 — ۱۸ سرویس؛ ۷ رایگان بدون کلید)
      * ================================================== */

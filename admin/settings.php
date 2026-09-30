@@ -219,9 +219,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         'timeout' => max(20, min(120, (int)clean_input($_POST['photo_timeout'] ?? 45))),
     ]);
 
-    /* 🤖 v2.43 (S09+S16) — سرویس مدل زبانی رایگان (تولید مقاله + خطایاب) */
+    /* 🤖 v2.43 (S09+S16) → v2.44 (S01) — سرویس مدل زبانی رایگان
+       متد واحد سه‌گانه + ترتیب دلخواه فال‌بک + راهنمای کلید */
     $textMethod = clean_input($_POST['ai_text_method'] ?? 'internal');
-    if (!in_array($textMethod, ['internal', 'llm'], true)) { $textMethod = 'internal'; }
+    if (!in_array($textMethod, ['internal', 'llm', 'research'], true)) { $textMethod = 'internal'; }
     $textProvider = clean_input($_POST['ai_text_provider'] ?? 'pollinations');
     if (!array_key_exists($textProvider, AiTextService::PROVIDERS)) { $textProvider = 'pollinations'; }
     $textKeys = [];
@@ -229,19 +230,119 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         $savedKey = trim((string)($_POST['ai_text_key_' . $pKey] ?? ''));
         if ($savedKey !== '') { $textKeys[$pKey] = $savedKey; }
     }
+    /* 🎛 ترتیب دلخواه فال‌بک — رشته JSON از ویرایشگر ترتیب */
+    $fallbackOrder = [];
+    $foRaw = (string)($_POST['ai_fallback_order'] ?? '[]');
+    $foDecoded = json_decode($foRaw, true);
+    if (is_array($foDecoded)) {
+        foreach ($foDecoded as $foP) {
+            $foP = clean_input((string)$foP);
+            if (array_key_exists($foP, AiTextService::PROVIDERS)) { $fallbackOrder[] = $foP; }
+        }
+    }
     Config::set('article_text_settings', [
         'method'   => $textMethod,
         'provider' => $textProvider,
         'model'    => clean_input($_POST['ai_text_model'] ?? ''),
         'keys'     => $textKeys,
         'fallback' => !empty($_POST['ai_text_fallback']),
+        'fallback_order' => $fallbackOrder,
+        'fallback_to_internal' => !empty($_POST['ai_fallback_internal']),
         'timeout'  => max(15, min(180, (int)clean_input($_POST['ai_text_timeout'] ?? 45))),
         'cloudflare_account_id' => clean_input($_POST['ai_cf_account_id'] ?? ''),
     ]);
 
     Logger::activity((int)$_SESSION['user_id'], 'بروزرسانی تنظیمات', 'تنظیمات عمومی سایت ساز ذخیره شد');
+
+    /* 🌍 v2.44 (S11) — سوییچ چندزبانه */
+    Config::set('i18n_settings', [
+        'enabled' => !empty($_POST['i18n_enabled']),
+    ]);
+
     flash('success', '✅ تنظیمات با موفقیت ذخیره شد.');
     redirect('settings.php');
+}
+
+/* 💬 v2.44 (S10) — چت مستقیم با مدل زبانی (AJAX — زنجیره فال‌بک تنظیمات) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'ai_chat') {
+    Auth::enforceCsrf();
+    header('Content-Type: application/json; charset=utf-8');
+    try {
+        $message = trim((string)($_POST['message'] ?? ''));
+        if (mb_strlen($message) < 2) {
+            json_response(['success' => false, 'error' => 'پیام خیلی کوتاه است.'], 400);
+        }
+        $history = [];
+        $hRaw = (string)($_POST['history'] ?? '[]');
+        $hDec = json_decode($hRaw, true);
+        if (is_array($hDec)) {
+            foreach (array_slice($hDec, -6) as $h) { /* فقط ۶ پیام آخر برای زمینه */
+                $role = ($h['role'] ?? '') === 'user' ? 'user' : 'assistant';
+                $txt = mb_substr(trim((string)($h['content'] ?? '')), 0, 2000);
+                if ($txt !== '') { $history[] = ['role' => $role, 'text' => $txt]; }
+            }
+        }
+        if (function_exists('set_time_limit')) { @set_time_limit(150); }
+        $svc = new AiTextService();
+        $system = 'تو دستیار هوشمند مدیر «سایت ساز برند سهند سرویس» هستی — سایت‌ساز نمایندگی‌های تعمیرات لوازم خانگی. '
+            . 'فارسی روان و کاربردی جواب بده؛ اگر مقاله/متن خواستی ساختار حرفه‌ای بده؛ از علائم و پاراگراف‌بندی تمیز استفاده کن.';
+        /* زمینه گفتگو در پرامپت ادغام می‌شود (سرویس‌ها stateless اند) */
+        $ctx = '';
+        foreach ($history as $i => $h) {
+            $ctx .= ($h['role'] === 'user' ? 'کاربر: ' : 'دستیار: ') . $h['text'] . "\n";
+        }
+        $prompt = ($ctx !== '' ? "گفتگوی قبلی:\n" . $ctx . "\n---\nپیام جدید کاربر: " . $message : $message);
+        $res = $svc->chatWithFallback($prompt, $system);
+        if ($res['text'] === '') {
+            $failedNote = $res['failed'] ? (' — تلاش‌ها: ' . implode('، ', array_keys($res['failed']))) : '';
+            json_response(['success' => false, 'error' => 'هیچ مدلی جواب نداد' . $failedNote . ' — کلید و اتصال را بررسی کنید یا متد داخلی را انتخاب کنید.'], 502);
+        }
+        json_response(['success' => true, 'data' => [
+            'text' => $res['text'],
+            'provider' => $res['provider'],
+            'provider_label' => AiTextService::PROVIDERS[$res['provider']][0] ?? $res['provider'],
+        ]]);
+    } catch (Throwable $e) {
+        json_response(['success' => false, 'error' => $e->getMessage()], 500);
+    }
+}
+
+/* 🎨 v2.44 (S10) — چت مستقیم تولید تصویر (AJAX — سرویس عکس تنظیمات) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'ai_image_chat') {
+    Auth::enforceCsrf();
+    header('Content-Type: application/json; charset=utf-8');
+    try {
+        $prompt = trim((string)($_POST['prompt'] ?? ''));
+        if (mb_strlen($prompt) < 3) {
+            json_response(['success' => false, 'error' => 'پرامپت خیلی کوتاه است.'], 400);
+        }
+        if (function_exists('set_time_limit')) { @set_time_limit(180); }
+        $photo = new AiPhotoService();
+        $promptEn = $prompt;
+        /* اگر فارسی بود، ترجمه ساده با مدل زبانی (سرویس‌های عکس انگلیسی بهتر می‌فهمند) */
+        if (preg_match('/[\x{0600}-\x{06FF}]/u', $prompt)) {
+            try {
+                $tr = (new AiTextService())->chatWithFallback(
+                    'Translate this image-generation prompt to concise English (only the translation, nothing else): ' . $prompt,
+                    'You are a translator. Output only the English translation.'
+                );
+                if (trim($tr['text']) !== '') {
+                    $promptEn = trim(strip_tags($tr['text']));
+                }
+            } catch (Throwable $tE) { /* ترجمه نشد — همان فارسی می‌رود */ }
+        }
+        $img = $photo->generateFromPrompt($promptEn);
+        if (empty($img)) {
+            json_response(['success' => false, 'error' => 'سرویس تصویر جواب نداد — کلید/سرویس را در تب «تولید تصویر» بررسی کنید.'], 502);
+        }
+        json_response(['success' => true, 'data' => [
+            'url' => $img['url'],
+            'service' => $img['service'] ?? '',
+            'service_label' => AiPhotoService::SERVICES[$img['service'] ?? ''][0] ?? '',
+        ]]);
+    } catch (Throwable $e) {
+        json_response(['success' => false, 'error' => $e->getMessage()], 500);
+    }
 }
 
 /* 🧪 v2.15 — تست سرویس تولید تصویر مقاله (AJAX — با مقدار فعلی فرم حتی قبل از ذخیره) */
@@ -324,10 +425,13 @@ foreach (($fontsManifest['fonts']['fa'] ?? []) as $uiF) {
 $photoSettings = AiPhotoService::settings();
 $photoServices = AiPhotoService::servicesList();
 
-/* 🤖 v2.43 (S09+S16): ارائه‌دهنده‌های مدل زبانی برای تب هوش مصنوعی */
+/* 🤖 v2.43 (S09+S16) → v2.44 (S01): ارائه‌دهنده‌های مدل زبانی + راهنمای کلید */
 $aiTextSettings = AiTextService::settings();
 $aiTextProviders = AiTextService::providersList();
 $aiTextChain = (new AiTextService())->fallbackChain();
+
+/* 🌍 v2.44 (S11): تنظیمات چندزبانه */
+$i18nSettings = (array)(Config::get('i18n_settings') ?: []);
 ?>
 
 <form method="post" enctype="multipart/form-data">
@@ -347,6 +451,8 @@ $aiTextChain = (new AiTextService())->fallbackChain();
             <button type="button" class="stab-btn" data-tab="uifonts">🔤 فونت محیط</button>
             <button type="button" class="stab-btn" data-tab="photosvc">🖼️ تولید تصویر</button>
             <button type="button" class="stab-btn" data-tab="aitext">🤖 هوش مصنوعی</button>
+            <button type="button" class="stab-btn" data-tab="aichat-img">🎨 چت تصویرساز</button>
+            <button type="button" class="stab-btn" data-tab="i18n">🌍 چندزبانه</button>
         </div>
         <div class="stab-actions">
             <button type="submit" class="btn btn-primary">💾 ذخیره همه تنظیمات</button>
@@ -813,7 +919,7 @@ $aiTextChain = (new AiTextService())->fallbackChain();
         </div>
     </div>
 
-    <!-- 🤖 v2.43 (S09+S16) — تب هوش مصنوعی: مدل زبانی رایگان با فال‌بک زنجیره‌ای -->
+    <!-- 🤖 v2.43 → v2.44 (S01+S10) — تب هوش مصنوعی: متد واحد + راهنمای کلید + ترتیب فال‌بک + چت مستقیم -->
     <div id="pane-aitext" class="stab-pane">
         <div class="card">
             <div class="card-header">
@@ -822,19 +928,22 @@ $aiTextChain = (new AiTextService())->fallbackChain();
             </div>
             <div class="card-body">
                 <div class="alert alert-info" style="font-size:12.5px">
-                    <b>دو روش تولید:</b> «موتور داخلی» (همیشه موجود، بدون اینترنت) یا «مدل زبانی رایگان» (کیفیت بالاتر).
-                    <b>🔄 فال‌بک زنجیره‌ای:</b> اگر مدل انتخابی جواب ندهد، به‌ترتیب بقیه مدل‌های بدون‌کلید و مدل‌های دارای کلید امتحان می‌شوند تا یکی جواب دهد؛ در نهایت موتور داخلی همیشه پشتیبان است — هیچ تولیدی هرگز بی‌نتیجه نمی‌ماند.
+                    <b>🎛 متد واحد (v2.44):</b> تولید مقاله و خطایاب هر دو از «یک» متد انتخابی شما پیروی می‌کنند —
+                    <b>🤖 مدل‌های زبانی</b> (کیفیت بالا، رایگان) یا <b>🌐 جستجوی اینترنت</b> (تحقیق وب + نگارش داخلی) یا <b>🔧 دانش داخلی</b> (بدون اینترنت، همیشه موجود).
+                    <b>🔄 فال‌بک زنجیره‌ای:</b> در شکست متد/مدل انتخابی، مدل‌های بعدی «به ترتیب دلخواه شما» امتحان می‌شوند و در انتها موتور داخلی پشتیبان است.
                 </div>
                 <div class="form-row-2">
                     <div class="form-group">
-                        <label>🚀 روش تولید مقاله و کدهای خطا</label>
-                        <select name="ai_text_method" id="ai-text-method" class="form-control">
-                            <option value="internal" <?= $aiTextSettings['method'] === 'internal' ? 'selected' : '' ?>>🔧 موتور داخلی (پیش‌فرض — بدون نیاز به اینترنت)</option>
-                            <option value="llm" <?= $aiTextSettings['method'] === 'llm' ? 'selected' : '' ?>>🤖 مدل زبانی خارجی + فال‌بک به موتور داخلی</option>
+                        <label>🚀 متد تولید مقاله و خطایاب (واحد)</label>
+                        <select name="ai_text_method" id="ai-text-method" class="form-control" onchange="aiMethodChanged()">
+                            <option value="internal" <?= $aiTextSettings['method'] === 'internal' ? 'selected' : '' ?>>🔧 دانش داخلی (پیش‌فرض — بدون نیاز به اینترنت)</option>
+                            <option value="llm" <?= $aiTextSettings['method'] === 'llm' ? 'selected' : '' ?>>🤖 مدل‌های زبانی (رایگان — کیفیت بالا)</option>
+                            <option value="research" <?= $aiTextSettings['method'] === 'research' ? 'selected' : '' ?>>🌐 جستجوی اینترنت (تحقیق وب + نگارش داخلی)</option>
                         </select>
+                        <div class="hint" style="margin-top:5px" id="ai-method-hint"></div>
                     </div>
-                    <div class="form-group">
-                        <label>🌐 ارائه‌دهنده مدل زبانی</label>
+                    <div class="form-group" id="ai-provider-box">
+                        <label>🌐 ارائه‌دهنده مدل زبانی (در متد 🤖)</label>
                         <select name="ai_text_provider" id="ai-text-provider" class="form-control" onchange="toggleAiKeyFields()">
                             <?php $pList = []; foreach ($aiTextProviders as $pr): $pList[$pr['key']] = $pr; endforeach; ?>
                             <?php foreach ($pList as $pk => $pr): ?>
@@ -846,7 +955,7 @@ $aiTextChain = (new AiTextService())->fallbackChain();
                     </div>
                 </div>
                 <div class="form-row-2">
-                    <div class="form-group">
+                    <div class="form-group" id="ai-model-box">
                         <label>🏷 نام مدل (اختیاری — خالی = پیش‌فرض ارائه‌دهنده)</label>
                         <input type="text" name="ai_text_model" class="form-control" style="direction:ltr;text-align:left" value="<?= e($aiTextSettings['model']) ?>" placeholder="مثلاً llama-3.3-70b-versatile">
                     </div>
@@ -856,20 +965,35 @@ $aiTextChain = (new AiTextService())->fallbackChain();
                     </div>
                 </div>
                 <label class="form-check" style="margin:10px 0">
-                    <input type="checkbox" name="ai_text_fallback" <?= !empty($aiTextSettings['fallback']) ? 'checked' : '' ?>>
+                    <input type="checkbox" name="ai_text_fallback" id="ai-fallback-chk" <?= !empty($aiTextSettings['fallback']) ? 'checked' : '' ?> onchange="aiMethodChanged()">
                     🔄 فال‌بک زنجیره‌ای — در شکست هر مدل، مدل‌های بعدی خودکار امتحان شوند
+                </label>
+                <label class="form-check" style="margin:4px 0 10px">
+                    <input type="checkbox" name="ai_fallback_internal" <?= !empty($aiTextSettings['fallback_to_internal']) ? 'checked' : '' ?>>
+                    🛡 در پایان زنجیره، موتور داخلی همیشه پاسخ تضمینی بدهد (توصیه‌شده)
                 </label>
 
                 <?php foreach ($pList as $pk => $pr): if (!$pr['needs_key']) { continue; } ?>
                     <div class="form-group ai-text-key-field" data-provider="<?= e($pk) ?>" style="display:none">
                         <label>🔑 کلید API «<?= e($pr['label']) ?>»</label>
-                        <input type="text" name="ai_text_key_<?= e($pk) ?>" class="form-control" style="direction:ltr;text-align:left" value="<?= e((string)($aiTextSettings['keys'][$pk] ?? '')) ?>" placeholder="<?= e($pr['hint']) ?>">
+                        <div style="display:flex;gap:8px;align-items:stretch">
+                            <input type="text" name="ai_text_key_<?= e($pk) ?>" class="form-control" style="direction:ltr;text-align:left;flex:1" value="<?= e((string)($aiTextSettings['keys'][$pk] ?? '')) ?>" placeholder="<?= e($pr['hint']) ?>">
+                            <button type="button" class="btn btn-outline" style="flex:none;font-size:11.5px" onclick="aiShowGuide('<?= e($pk) ?>')">📖 راهنمای دریافت کلید</button>
+                        </div>
                         <div class="hint" style="margin-top:6px"><?= e($pr['hint']) ?> — مدل پیش‌فرض: <code dir="ltr"><?= e($pr['model']) ?></code></div>
                     </div>
                 <?php endforeach; ?>
                 <div class="form-group ai-text-key-field" data-provider="cloudflare" style="display:none">
                     <label>🆔 Account ID کلادفلر (برای ارائه‌دهنده Cloudflare لازم است)</label>
                     <input type="text" name="ai_cf_account_id" class="form-control" style="direction:ltr;text-align:left" value="<?= e((string)($aiTextSettings['cloudflare_account_id'] ?? '')) ?>" placeholder="32 کاراکتر از داشبورد کلادفلر">
+                </div>
+
+                <!-- 🎛 v2.44 (S01) — ویرایشگر ترتیب فال‌بک (جابه‌جایی بالا/پایین) -->
+                <div id="ai-fallback-order-box" style="margin-top:12px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px">
+                    <b style="font-size:12.5px">🎚 ترتیب فال‌بک دلخواه شما <small style="font-weight:400;color:#64748b">(اولین مورد زودتر امتحان می‌شود — با دکمه‌های ⬆⬇ جابه‌جا کنید)</small></b>
+                    <input type="hidden" name="ai_fallback_order" id="ai-fallback-order" value="<?= e(json_encode(array_values($aiTextSettings['fallback_order'] ?: []), JSON_UNESCAPED_UNICODE)) ?>">
+                    <div id="ai-fallback-list" style="margin-top:8px;display:flex;flex-direction:column;gap:5px"></div>
+                    <div class="hint" style="margin-top:7px">خالی = ترتیب پیش‌فرض (انتخابی ← بدون‌کلید ← بقیه دارای کلید). فقط ارائه‌دهنده‌هایی که کلیدشان ثبت شده یا بدون کلیدند عملاً امتحان می‌شوند.</div>
                 </div>
 
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px">
@@ -885,11 +1009,107 @@ $aiTextChain = (new AiTextService())->fallbackChain();
                                 <?= (int)($ci + 1) ?>. <?= e($pList[$cp]['label'] ?? $cp) ?><?= $cp === $aiTextSettings['provider'] ? ' (انتخابی)' : '' ?>
                             </span>
                         <?php endforeach; ?>
-                        <span class="badge badge-info" style="font-size:11px">آخر: 🔧 موتور داخلی (تضمینی)</span>
+                        <?php if (!empty($aiTextSettings['fallback_to_internal'])): ?>
+                            <span class="badge badge-info" style="font-size:11px">آخر: 🔧 موتور داخلی (تضمینی)</span>
+                        <?php endif; ?>
                     </div>
                 </div>
+
+                <!-- 📖 v2.44 (S01) — راهنمای گام‌به‌گام دریافت کلید همه ارائه‌دهنده‌ها -->
+                <details style="margin-top:14px;border:1px solid #e2e8f0;border-radius:12px;padding:0;background:#fff">
+                    <summary style="padding:11px 14px;cursor:pointer;font-weight:800;font-size:13px">📖 راهنمای کامل دریافت کلید API — همه <?= en_to_fa_digits((string)count($aiTextProviders)) ?> ارائه‌دهنده (کلیک کنید)</summary>
+                    <div style="padding:4px 14px 14px">
+                        <?php foreach ($pList as $pk => $pr): $g = $pr['guide'] ?? null; if (!$g) { continue; } ?>
+                            <div style="border-right:3px solid <?= $pk === $aiTextSettings['provider'] ? '#16a34a' : '#cbd5e1' ?>;padding:9px 12px;margin-bottom:9px;background:#f8fafc;border-radius:0 10px 10px 0">
+                                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                                    <b style="font-size:13px"><?= e($pr['label']) ?></b>
+                                    <?php if (!empty($g['free'])): ?><span class="badge badge-success" style="font-size:10px">🆓 رایگان</span><?php else: ?><span class="badge badge-secondary" style="font-size:10px">💵 ارزان</span><?php endif; ?>
+                                    <?php if (!$pr['needs_key']): ?><span class="badge badge-info" style="font-size:10px">بدون کلید</span><?php endif; ?>
+                                    <a href="<?= e($g['url']) ?>" target="_blank" rel="noopener" style="font-size:11.5px;color:#1d4ed8" dir="ltr"><?= e($g['url']) ?> ↗</a>
+                                </div>
+                                <ol style="margin:7px 18px 4px 0;padding:0;font-size:12px;line-height:2">
+                                    <?php foreach ($g['steps'] as $st): ?><li><?= e($st) ?></li><?php endforeach; ?>
+                                </ol>
+                                <div style="font-size:11px;color:#64748b">📊 سقف مصرف: <?= e($g['limit']) ?></div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </details>
                 <div class="hint" style="margin-top:12px">
                     💡 پولینیشنز بدون کلید و همیشه در زنجیره حاضر است؛ Z.ai (GLM) با کلید رایگان console.z.ai بهترین کیفیت فارسی را دارد. کلید هر ارائه‌دهنده فقط وقتی خالی نباشد در زنجیره قرار می‌گیرد.
+                </div>
+            </div>
+        </div>
+
+        <!-- 💬 v2.44 (S10) — کادر چت مستقیم با مدل زبانی -->
+        <div class="card" style="margin-top:16px" id="ai-chat-card">
+            <div class="card-header">
+                <h3>💬 چت مستقیم با هوش مصنوعی متن</h3>
+                <span class="badge badge-secondary" style="font-size:11px">پرامپت بدهید — مقاله، متن، ایده بگیرید</span>
+            </div>
+            <div class="card-body">
+                <div id="ai-chat-log" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding:4px;border:1px solid #e2e8f0;border-radius:12px;background:#fafcff;min-height:120px">
+                    <div class="ai-chat-empty" style="text-align:center;color:#94a3b8;font-size:12px;padding:26px 10px">
+                        🤖 یک پرامپت بنویسید و Enter بزنید — مثلاً «برای سایت تعمیرات یخچال، ۵ ایده مقاله سئوشده پیشنهاد بده»<br>
+                        <small>پاسخ از زنجیره فال‌بک همین تنظیمات می‌آید؛ ارائه‌دهنده برنده زیر پیام اعلام می‌شود.</small>
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:10px">
+                    <input type="text" id="ai-chat-input" class="form-control" placeholder="پیام یا پرامپت شما..." maxlength="4000" style="flex:1" autocomplete="off">
+                    <button type="button" class="btn btn-primary" id="ai-chat-send">📨 ارسال</button>
+                    <button type="button" class="btn btn-outline" id="ai-chat-clear" title="پاک کردن گفتگو">🗑</button>
+                </div>
+                <div class="hint" style="margin-top:8px">🔒 این چت فقط برای مدیر است و در سایت برند نمایش داده نمی‌شود. تاریخچه در همین مرورگر می‌ماند (بدون ذخیره سرور).</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🖼 v2.44 (S10) — چت مستقیم تولید تصویر AI -->
+    <div id="pane-aichat-img" class="stab-pane">
+        <div class="card">
+            <div class="card-header">
+                <h3>🎨 چت مستقیم تولید تصویر با هوش مصنوعی</h3>
+                <span class="badge badge-secondary" style="font-size:11px">پرامپت بدهید — تصویر بسازید و دانلود کنید</span>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info" style="font-size:12.5px">
+                    تصویر با «سرویس تولید تصویر انتخابی همین تنظیمات» ساخته می‌شود (تب تصویر مقاله) — کلید همان‌جا ثبت می‌شود و اینجا استفاده می‌شود.
+                </div>
+                <div class="form-group">
+                    <label>✍️ پرامپت تصویر (فارسی یا انگلیسی)</label>
+                    <textarea id="ai-img-prompt" class="form-control" rows="3" maxlength="900" placeholder="مثلاً: تعمیرکار حرفه‌ای در حال بررسی موتور ماشین لباسشویی، نور طبیعی کارگاه، سبک عکس واقعی"></textarea>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px">
+                    <button type="button" class="btn btn-primary" id="ai-img-gen">🎨 تولید تصویر</button>
+                    <span id="ai-img-status" style="font-size:12.5px"></span>
+                </div>
+                <div id="ai-img-result" style="margin-top:14px;display:none;text-align:center">
+                    <img id="ai-img-out" alt="تصویر تولیدشده" style="max-width:100%;border-radius:14px;border:1px solid #e2e8f0">
+                    <div style="margin-top:9px"><a id="ai-img-dl" class="btn btn-outline btn-sm" download="ai-image.png" href="#">⬇️ دانلود تصویر</a></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌍 v2.44 (S11) — فعال/غیرفعال‌سازی چندزبانه -->
+    <div id="pane-i18n" class="stab-pane">
+        <div class="card">
+            <div class="card-header">
+                <h3>🌍 چندزبانه بودن سایت‌های برند</h3>
+                <span class="badge badge-secondary" style="font-size:11px">فارسی + English</span>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info" style="font-size:12.5px">
+                    <b>پایه چندزبانگی (v2.37):</b> رابط کاربری سایت برند (منو، دکمه‌ها، برچسب‌ها) به انگلیسی هم از مسیر <code dir="ltr">/en/</code> سرو می‌شود + تگ‌های hreflang برای سئو.
+                    با خاموش کردن این گزینه، مسیر <code dir="ltr">/en/</code>، سوییچر زبان و hreflang از همه سایت‌های برند حذف می‌شود — سایت تک‌زبانه فارسی می‌ماند.
+                </div>
+                <label class="form-check" style="margin:10px 0;font-size:13.5px">
+                    <input type="checkbox" name="i18n_enabled" <?= empty($i18nSettings['enabled']) ? '' : 'checked' ?>>
+                    🌐 فعال بودن چندزبانه (فارسی + انگلیسی) در سایت‌های برند
+                </label>
+                <div class="hint" style="margin-top:8px">
+                    ℹ️ پس از تغییر این گزینه و ذخیره، برای هر برند مستقرشده «بروزرسانی استقرار» را اجرا کنید تا htaccess و فایل‌های جدید زبان به سایت برند منتقل شوند.
+                    محتوای اصلی (مقالات و صفحات) فعلاً فارسی است و ترجمه محتوا به‌صورت تدریجی با کلیدهای ترجمه اضافه می‌شود.
                 </div>
             </div>
         </div>
@@ -899,6 +1119,17 @@ $aiTextChain = (new AiTextService())->fallbackChain();
         <button type="submit" class="btn btn-primary btn-lg">💾 ذخیره همه تنظیمات</button>
     </div>
 </form>
+
+<!-- 📖 مودال راهنمای کلید (S01) — از AiTextService::KEY_GUIDES -->
+<div id="ai-guide-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center;padding:18px" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:#fff;border-radius:16px;max-width:560px;width:100%;max-height:84vh;overflow-y:auto;padding:20px 22px;box-shadow:0 24px 70px rgba(0,0,0,.28)">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px">
+            <b id="ai-guide-title" style="font-size:15px"></b>
+            <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('ai-guide-modal').style.display='none'">✕ بستن</button>
+        </div>
+        <div id="ai-guide-body" style="font-size:13px;line-height:2.1"></div>
+    </div>
+</div>
 
 <script>
 /* 🔤 v2.12: پیش‌نمایش زنده فونت محیط پنل */
@@ -1104,5 +1335,242 @@ function sahandTestEmail(btn) {
                 out.style.color = '#dc2626';
             });
     });
+})();
+</script>
+<script>
+/* 🎛 v2.44 (S01) — متد واحد + ویرایشگر ترتیب فال‌بک + مودال راهنمای کلید + چت AI (S10) */
+(function () {
+    'use strict';
+
+    /* داده ارائه‌دهنده‌ها از سرور */
+    var AI_PROVIDERS = <?= json_encode($aiTextProviders, JSON_UNESCAPED_UNICODE) ?: '[]' ?>;
+    var AI_SEL = <?= json_encode((string)$aiTextSettings['provider']) ?>;
+    var pByKey = {};
+    AI_PROVIDERS.forEach(function (p) { pByKey[p.key] = p; });
+
+    /* ── ① نمایش/مخفی بر اساس متد ── */
+    function aiMethodChanged() {
+        var m = document.getElementById('ai-text-method');
+        var hint = document.getElementById('ai-method-hint');
+        var provBox = document.getElementById('ai-provider-box');
+        var modelBox = document.getElementById('ai-model-box');
+        var orderBox = document.getElementById('ai-fallback-order-box');
+        var fbChk = document.getElementById('ai-fallback-chk');
+        if (!m) { return; }
+        var isLlm = m.value === 'llm';
+        var hints = {
+            internal: '🔧 تولید فقط از پایگاه دانش داخلی خود سایت‌ساز — بدون اینترنت، بدون کلید، همیشه موجود. (سریع‌ترین حالت)',
+            llm: '🤖 مقاله و کد خطا با مدل زبانی رایگان نوشته می‌شود — کیفیت بالاتر. اگر مدل جواب ندهد، زنجیره فال‌بک فعال می‌شود.',
+            research: '🌐 ابتدا از اینترنت تحقیق می‌شود و سپس مقاله/خطا با موتور داخلیِ تغذیه‌شده از نتایج واقعی وب نوشته می‌شود — دقیق‌ترین برای موضوعات تازه.'
+        };
+        if (hint) { hint.textContent = hints[m.value] || ''; }
+        if (provBox) { provBox.style.opacity = isLlm ? '1' : '.45'; }
+        if (modelBox) { modelBox.style.opacity = isLlm ? '1' : '.45'; }
+        if (orderBox) { orderBox.style.display = (isLlm && fbChk && fbChk.checked) ? '' : 'none'; }
+        if (fbChk) { fbChk.parentElement.style.opacity = isLlm ? '1' : '.5'; }
+    }
+    window.aiMethodChanged = aiMethodChanged;
+    aiMethodChanged();
+
+    /* ── ② ویرایشگر ترتیب فال‌بک ── */
+    var orderInput = document.getElementById('ai-fallback-order');
+    var orderList = document.getElementById('ai-fallback-list');
+    function orderGet() {
+        try { return JSON.parse(orderInput.value || '[]'); } catch (e) { return []; }
+    }
+    function orderSet(arr) {
+        orderInput.value = JSON.stringify(arr);
+        renderOrder();
+    }
+    function renderOrder() {
+        if (!orderList) { return; }
+        var arr = orderGet();
+        orderList.innerHTML = '';
+        if (!arr.length) {
+            orderList.innerHTML = '<div style="font-size:11.5px;color:#94a3b8;padding:4px 2px">ترتیب دلخواهی ثبت نشده — ترتیب پیش‌فرض استفاده می‌شود. برای شخصی‌سازی، دکمه «+ افزودن» را بزنید.</div>';
+            return;
+        }
+        arr.forEach(function (key, i) {
+            var p = pByKey[key] || { label: key };
+            var row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #e2e8f0;border-radius:9px;padding:6px 9px;font-size:12px';
+            row.innerHTML =
+                '<b style="min-width:18px;text-align:center;color:#64748b">' + (i + 1) + '.</b>' +
+                '<span style="flex:1">' + (p.label || key) + (key === AI_SEL ? ' <span class="badge badge-success" style="font-size:9.5px">انتخابی</span>' : '') + '</span>' +
+                '<button type="button" class="btn btn-outline" style="padding:2px 8px;font-size:11px" data-mv="up" title="بالا">⬆</button>' +
+                '<button type="button" class="btn btn-outline" style="padding:2px 8px;font-size:11px" data-mv="down" title="پایین">⬇</button>' +
+                '<button type="button" class="btn btn-outline" style="padding:2px 8px;font-size:11px;color:#dc2626" data-mv="del" title="حذف">✕</button>';
+            row.querySelectorAll('button').forEach(function (b) {
+                b.addEventListener('click', function () {
+                    var mv = b.getAttribute('data-mv');
+                    var a = orderGet();
+                    if (mv === 'up' && i > 0) { var t = a[i - 1]; a[i - 1] = a[i]; a[i] = t; }
+                    if (mv === 'down' && i < a.length - 1) { var t2 = a[i + 1]; a[i + 1] = a[i]; a[i] = t2; }
+                    if (mv === 'del') { a.splice(i, 1); }
+                    orderSet(a);
+                });
+            });
+            orderList.appendChild(row);
+        });
+    }
+    var addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn btn-outline';
+    addBtn.style.cssText = 'margin-top:7px;font-size:11.5px;padding:4px 12px';
+    addBtn.textContent = '+ افزودن ارائه‌دهنده به ترتیب';
+    addBtn.addEventListener('click', function () {
+        var opts = AI_PROVIDERS.filter(function (p) { return orderGet().indexOf(p.key) === -1; });
+        if (!opts.length) { return; }
+        var html = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">';
+        opts.forEach(function (p) {
+            html += '<button type="button" class="btn btn-outline" style="font-size:11px;padding:4px 10px" data-add="' + p.key + '">' + p.label + (p.needs_key ? ' 🔑' : ' 🆓') + '</button>';
+        });
+        html += '</div>';
+        var dv = document.createElement('div');
+        dv.innerHTML = html;
+        dv.querySelectorAll('button[data-add]').forEach(function (b) {
+            b.addEventListener('click', function () {
+                var a = orderGet();
+                a.push(b.getAttribute('data-add'));
+                orderSet(a);
+            });
+        });
+        orderList.appendChild(dv);
+    });
+    if (orderList) {
+        orderList.parentNode.appendChild(addBtn);
+        renderOrder();
+    }
+
+    /* ── ③ مودال راهنمای کلید ── */
+    window.aiShowGuide = function (key) {
+        var p = pByKey[key];
+        var g = p && p.guide;
+        var modal = document.getElementById('ai-guide-modal');
+        if (!g || !modal) { return; }
+        document.getElementById('ai-guide-title').innerHTML = '📖 کلید API ' + (p.label || key) +
+            (g.free ? ' <span class="badge badge-success" style="font-size:10px">🆓 رایگان</span>' : ' <span class="badge badge-secondary" style="font-size:10px">💵 ارزان</span>');
+        var steps = g.steps.map(function (s, i) { return '<div style="display:flex;gap:9px;margin-bottom:8px"><span style="flex:none;width:22px;height:22px;border-radius:7px;background:#1e40af;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">' + (i + 1) + '</span><span>' + s.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span></div>'; }).join('');
+        document.getElementById('ai-guide-body').innerHTML =
+            '<a href="' + g.url + '" target="_blank" rel="noopener" style="display:inline-block;direction:ltr;font-size:12.5px;color:#1d4ed8;margin-bottom:12px">' + g.url + ' ↗</a>' +
+            steps +
+            '<div style="margin-top:10px;padding:8px 12px;background:#f1f5f9;border-radius:9px;font-size:12px">📊 سقف مصرف: ' + g.limit + '</div>' +
+            '<div style="margin-top:9px;font-size:11.5px;color:#64748b">پس از ساخت کلید، آن را در فیلد همین صفحه بچسبانید و «ذخیره همه تنظیمات» را بزنید.</div>';
+        modal.style.display = 'flex';
+    };
+
+    /* ── ④ چت مستقیم AI متن (S10) ── */
+    var chatLog = document.getElementById('ai-chat-log');
+    var chatInput = document.getElementById('ai-chat-input');
+    var chatSend = document.getElementById('ai-chat-send');
+    var chatClear = document.getElementById('ai-chat-clear');
+    var chatHistory = [];
+    function chatBubble(role, html, small) {
+        var d = document.createElement('div');
+        var isUser = role === 'user';
+        d.style.cssText = 'max-width:86%;align-self:' + (isUser ? 'flex-start' : 'flex-end') + ';background:' + (isUser ? '#e0edff' : '#fff') + ';border:1px solid ' + (isUser ? '#bcd6ff' : '#e2e8f0') + ';border-radius:12px;padding:9px 13px;font-size:12.5px;line-height:1.9;white-space:pre-wrap;word-break:break-word';
+        d.textContent = html;
+        if (small) {
+            var s = document.createElement('div');
+            s.style.cssText = 'font-size:10px;color:#94a3b8;margin-top:5px';
+            s.textContent = small;
+            d.appendChild(s);
+        }
+        return d;
+    }
+    function chatSendMsg() {
+        var txt = chatInput.value.trim();
+        if (!txt || !chatSend) { return; }
+        var empty = chatLog.querySelector('.ai-chat-empty');
+        if (empty) { empty.remove(); }
+        chatLog.appendChild(chatBubble('user', txt));
+        chatInput.value = '';
+        chatSend.disabled = true;
+        var typing = chatBubble('assistant', '...');
+        typing.style.opacity = '.55';
+        chatLog.appendChild(typing);
+        chatLog.scrollTop = chatLog.scrollHeight;
+        var csrf = document.querySelector('input[name="csrf_token"]');
+        var fd = new FormData();
+        fd.append('action', 'ai_chat');
+        fd.append('message', txt);
+        fd.append('history', JSON.stringify(chatHistory.slice(-6)));
+        if (csrf) { fd.append('csrf_token', csrf.value); }
+        fetch('settings.php', { method: 'POST', body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                typing.remove();
+                chatSend.disabled = false;
+                if (j && j.success) {
+                    chatHistory.push({ role: 'user', content: txt });
+                    chatHistory.push({ role: 'assistant', content: j.data.text });
+                    chatLog.appendChild(chatBubble('assistant', j.data.text, '🤖 ' + (j.data.provider_label || j.data.provider)));
+                } else {
+                    chatLog.appendChild(chatBubble('assistant', '❌ ' + ((j && j.error) || 'خطای نامشخص')));
+                }
+                chatLog.scrollTop = chatLog.scrollHeight;
+            })
+            .catch(function () {
+                typing.remove();
+                chatSend.disabled = false;
+                chatLog.appendChild(chatBubble('assistant', '❌ خطای ارتباط با سرور'));
+                chatLog.scrollTop = chatLog.scrollHeight;
+            });
+    }
+    if (chatSend && chatInput) {
+        chatSend.addEventListener('click', chatSendMsg);
+        chatInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); chatSendMsg(); } });
+    }
+    if (chatClear && chatLog) {
+        chatClear.addEventListener('click', function () {
+            chatHistory = [];
+            chatLog.innerHTML = '<div class="ai-chat-empty" style="text-align:center;color:#94a3b8;font-size:12px;padding:26px 10px">🤖 گفتگو پاک شد — پرامپت جدیدی بنویسید.</div>';
+        });
+    }
+
+    /* ── ⑤ چت تصویرساز (S10) ── */
+    var imgGen = document.getElementById('ai-img-gen');
+    var imgPrompt = document.getElementById('ai-img-prompt');
+    var imgStatus = document.getElementById('ai-img-status');
+    var imgResult = document.getElementById('ai-img-result');
+    var imgOut = document.getElementById('ai-img-out');
+    var imgDl = document.getElementById('ai-img-dl');
+    if (imgGen) {
+        imgGen.addEventListener('click', function () {
+            var p = imgPrompt.value.trim();
+            if (p.length < 3) { imgStatus.textContent = 'پرامپت را کامل‌تر بنویسید.'; imgStatus.style.color = '#dc2626'; return; }
+            imgGen.disabled = true;
+            imgGen.textContent = '⏳ در حال ساخت...';
+            imgStatus.textContent = 'پرامپت به سرویس تصویر ارسال شد — رایگان‌ها ۲۰ تا ۴۵ ثانیه طول می‌کشند...';
+            imgStatus.style.color = 'var(--text-light)';
+            var csrf = document.querySelector('input[name="csrf_token"]');
+            var fd = new FormData();
+            fd.append('action', 'ai_image_chat');
+            fd.append('prompt', p);
+            if (csrf) { fd.append('csrf_token', csrf.value); }
+            fetch('settings.php', { method: 'POST', body: fd })
+                .then(function (r) { return r.json(); })
+                .then(function (j) {
+                    imgGen.disabled = false;
+                    imgGen.textContent = '🎨 تولید تصویر';
+                    if (j && j.success) {
+                        imgOut.src = j.data.url;
+                        imgDl.href = j.data.url;
+                        imgResult.style.display = 'block';
+                        imgStatus.textContent = '✅ ساخته شد با «' + (j.data.service_label || j.data.service) + '»';
+                        imgStatus.style.color = '#16a34a';
+                    } else {
+                        imgStatus.textContent = '❌ ' + ((j && j.error) || 'خطای نامشخص');
+                        imgStatus.style.color = '#dc2626';
+                    }
+                })
+                .catch(function () {
+                    imgGen.disabled = false;
+                    imgGen.textContent = '🎨 تولید تصویر';
+                    imgStatus.textContent = '❌ خطای ارتباط با سرور';
+                    imgStatus.style.color = '#dc2626';
+                });
+        });
+    }
 })();
 </script>

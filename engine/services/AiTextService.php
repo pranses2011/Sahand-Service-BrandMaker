@@ -32,7 +32,7 @@ class AiTextService
      */
     const PROVIDERS = [
         /* 🆓 بدون کلید */
-        'pollinations' => ['پولینیشنز — متن (رایگان)',            false, 'openai',          'بدون کلید — سازگار با OpenAI', 'https://text.pollinations.ai/openai'],
+        'pollinations' => ['پولینیشنز — متن (رایگان، بدون ثبات)',  false, 'openai',          'بدون کلید — سازگار با OpenAI', 'https://text.pollinations.ai/openai'],
         /* 🔑 رایگان با کلید */
         'zai'          => ['Z.ai — GLM-4.5-Flash (پیشنهادی)',     true,  'glm-4.5-flash',   'کلید رایگان از console.z.ai (بخش API Keys)', 'https://api.z.ai/api/paas/v4/chat/completions'],
         'groq'         => ['Groq — Llama 3.3 70B',                true,  'llama-3.3-70b-versatile', 'کلید رایگان از console.groq.com/keys', 'https://api.groq.com/openai/v1/chat/completions'],
@@ -44,6 +44,125 @@ class AiTextService
         'huggingface'  => ['Hugging Face — Inference API',        true,  'meta-llama/Llama-3.3-70B-Instruct', 'توکن رایگان از huggingface.co/settings/tokens', 'https://router.huggingface.co/v1/chat/completions'],
         'deepseek'     => ['DeepSeek — V3 (ارزان)',               true,  'deepseek-chat',   'کلید از platform.deepseek.com', 'https://api.deepseek.com/v1/chat/completions'],
         'cloudflare'   => ['Cloudflare Workers AI',               true,  '@cf/meta/llama-3.3-70b-instruct', 'Account ID + Token از dash.cloudflare.com', 'https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/v1/chat/completions'],
+    ];
+
+    /**
+     * 📖 v2.44 (S01) — راهنمای گام‌به‌گام دریافت کلید API هر ارائه‌دهنده
+     * هر مورد: [آدرس صفحه کلید, [گام‌ها...], پلن رایگان؟, سقف رایگان]
+     * محتوای راهنما هم در پنل (مودال «چطور کلید بگیرم؟») و هم در مستندات
+     * AI-API-GUIDE استفاده می‌شود — منبع واحد حقیقت.
+     */
+    const KEY_GUIDES = [
+        'pollinations' => [
+            'url' => 'https://pollinations.ai',
+            'steps' => [
+                'نیازی به ثبت‌نام و کلید نیست — این سرویس کاملاً باز و رایگان است.',
+                '⚠️ پایداری تضمینی ندارد: API متن قدیمی آن در حال منسوخ‌شدن است و گاهی برای درخواست‌های جدید خطای بودجه/سرور می‌دهد — برای کار جدی، کلید رایگان Z.ai یا Groq بگیرید.',
+                '(اختیاری) در صفحه pollinations.ai/token می‌توانید توکن رایگان بگیرید تا محدودیت نرخ کمتر شود — برای استفاده عادی لازم نیست.',
+            ],
+            'free' => true, 'limit' => 'بدون محدودیت رسمی — ناپایدار (کش‌محور)',
+        ],
+        'zai' => [
+            'url' => 'https://console.z.ai',
+            'steps' => [
+                'به console.z.ai بروید و با ایمیل ثبت‌نام/ورود کنید (کد تأیید ایمیل).',
+                'از منوی کنار، بخش «API Keys» را باز کنید.',
+                'دکمه «Create Key» را بزنید، نام دلخواه بدهید و کلید را کپی کنید (فقط یک‌بار نشان داده می‌شود).',
+                'کلید را در فیلد همین صفحه بچسبانید و «تست» بزنید — مدل GLM-4.5-Flash بهترین کیفیت فارسی را دارد.',
+            ],
+            'free' => true, 'limit' => 'پلن رایگان با سقف روزانه سخاوتمندانه',
+        ],
+        'groq' => [
+            'url' => 'https://console.groq.com/keys',
+            'steps' => [
+                'به console.groq.com بروید و با اکانت گوگل یا گیت‌هاب وارد شوید.',
+                'از منوی چپ «API Keys» → «Create API Key» را بزنید.',
+                'نام کلید را بنویسید و Submit کنید — کلید فوراً ساخته می‌شود.',
+                'کلید (شروع با gsk_) را کپی و اینجا ثبت کنید. سرعت Groq بسیار بالاست (سریع‌ترین گزینه).',
+            ],
+            'free' => true, 'limit' => '~۱۴٬۴۰۰ درخواست در روز (پلن Developer)',
+        ],
+        'gemini' => [
+            'url' => 'https://aistudio.google.com/apikey',
+            'steps' => [
+                'به aistudio.google.com/apikey بروید (نیاز به اکانت گوگل).',
+                'دکمه «Create API Key» را بزنید و یک پروژه انتخاب/سازید.',
+                'کلید ساخته‌شده (شروع با AIza) را کپی کنید.',
+                'کلید را اینجا ثبت کنید — پلن رایگان Gemini 2.0 Flash حدود ۱۵ درخواست در دقیقه دارد.',
+            ],
+            'free' => true, 'limit' => '~۱۵ درخواست/دقیقه — ۱۵۰۰ در روز',
+        ],
+        'openrouter' => [
+            'url' => 'https://openrouter.ai/keys',
+            'steps' => [
+                'به openrouter.ai بروید و ثبت‌نام کنید (گوگل/گیت‌هاب).',
+                'به صفحه Settings → Keys بروید یا مستقیم openrouter.ai/keys.',
+                '«Create Key» را بزنید، نام بدهید و کلید (شروع با sk-or-) را کپی کنید.',
+                'مدل‌هایی که در انتها «:free» دارند بدون هزینه‌اند — مدل پیش‌فرض همین حالت را دارد.',
+            ],
+            'free' => true, 'limit' => 'مدل‌های :free رایگان (۲۰ درخواست/دقیقه)',
+        ],
+        'mistral' => [
+            'url' => 'https://console.mistral.ai',
+            'steps' => [
+                'به console.mistral.ai بروید و ثبت‌نام کنید (تأیید ایمیل لازم است).',
+                'پلن «Experiment» رایگان را انتخاب کنید.',
+                'به بخش «API Keys» بروید و «Create new key» را بزنید.',
+                'کلید را کپی و اینجا ثبت کنید.',
+            ],
+            'free' => true, 'limit' => 'پلن Experiment: ۱ میلیارد توکن/هفته (سرعت پایین‌تر)',
+        ],
+        'together' => [
+            'url' => 'https://api.together.ai/settings/keys',
+            'steps' => [
+                'به api.together.ai بروید و ثبت‌نام کنید.',
+                'به Settings → API Keys بروید.',
+                '«Create new key» بزنید و کلید را کپی کنید.',
+                'مدل‌های با پسوند «Free» (مثل Llama 3.3 70B Free) رایگان‌اند — مدل پیش‌فرض همین است.',
+            ],
+            'free' => true, 'limit' => 'مدل‌های Free: ~۱۰۰ درخواست/دقیقه',
+        ],
+        'cerebras' => [
+            'url' => 'https://cloud.cerebras.ai',
+            'steps' => [
+                'به cloud.cerebras.ai بروید و با گوگل/گیت‌هاب وارد شوید.',
+                'پلن «Free» را انتخاب کنید.',
+                'به بخش «API Keys» بروید و کلید بسازید.',
+                'سرعت استنتاج Cerebras فوق‌العاده بالا است (صدها توکن بر ثانیه).',
+            ],
+            'free' => true, 'limit' => '~۱ میلیون توکن در روز',
+        ],
+        'huggingface' => [
+            'url' => 'https://huggingface.co/settings/tokens',
+            'steps' => [
+                'به huggingface.co بروید و ثبت‌نام کنید.',
+                'به Settings → Access Tokens بروید (یا huggingface.co/settings/tokens).',
+                '«New token» با نوع «Read» (یا Fine-grained با دسترسی inference) بسازید.',
+                'توکن (شروع با hf_) را کپی و اینجا ثبت کنید.',
+            ],
+            'free' => true, 'limit' => 'سقف ماهانه کم — برای آزمایش و فال‌بک',
+        ],
+        'deepseek' => [
+            'url' => 'https://platform.deepseek.com/api_keys',
+            'steps' => [
+                'به platform.deepseek.com بروید و ثبت‌نام کنید.',
+                'به بخش «API Keys» بروید و «Create new key» بزنید.',
+                'کلید (شروع با sk-) را کپی کنید.',
+                'DeepSeek کاملاً رایگان نیست اما بسیار ارزان است؛ برای اعتبار اولیه ممکن است نیاز به شارژ مبلغ کم باشد.',
+            ],
+            'free' => false, 'limit' => 'بسیار ارزان (شبه‌رایگان)',
+        ],
+        'cloudflare' => [
+            'url' => 'https://dash.cloudflare.com',
+            'steps' => [
+                'به dash.cloudflare.com بروید و وارد اکانت کلادفلر شوید (ثبت‌نام رایگان).',
+                'از صفحه اصلی، «Account ID» را از ستون سمت راست کپی کنید و در فیلد Account ID همین صفحه بچسبانید.',
+                'به «My Profile → API Tokens» بروید و «Create Token» را بزنید.',
+                'قالب «Workers AI» را انتخاب کنید (یا Custom با مجوز Account → Workers AI Read) و توکن را بسازید.',
+                'توکن را کپی و در فیلد کلید Cloudflare ثبت کنید.',
+            ],
+            'free' => true, 'limit' => '۱۰٬۰۰۰ نورون در روز (پلن رایگان Workers AI)',
+        ],
     ];
 
     /** @var array تنظیمات (article_text_settings از Config) */
@@ -64,24 +183,54 @@ class AiTextService
     public static function settings(): array
     {
         $cfg = (array)(Config::get('article_text_settings') ?: []);
+        /* 🆕 v2.44 (S01) — متد واحد سه‌گانه:
+           llm = مدل‌های زبانی | research = جستجوی اینترنت | internal = دانش داخلی */
+        $method = (string)($cfg['method'] ?? 'internal');
+        if (!in_array($method, ['internal', 'llm', 'research'], true)) {
+            $method = in_array($method, ['web', 'search'], true) ? 'research' : 'internal';
+        }
         return [
-            'method'   => (string)($cfg['method'] ?? 'internal'), /* internal | llm */
+            'method'   => $method, /* internal | llm | research */
             'provider' => (string)($cfg['provider'] ?? 'pollinations'),
             'model'    => (string)($cfg['model'] ?? ''),
             'keys'     => is_array($cfg['keys'] ?? null) ? $cfg['keys'] : [],
             'fallback' => !isset($cfg['fallback']) ? true : !empty($cfg['fallback']),
+            /* 🆕 ترتیب دلخواه فال‌بک — آرایه کلیدهای ارائه‌دهنده */
+            'fallback_order' => array_values(array_intersect(
+                (array)($cfg['fallback_order'] ?? []),
+                array_keys(self::PROVIDERS)
+            )),
+            'fallback_to_internal' => !isset($cfg['fallback_to_internal']) ? true : !empty($cfg['fallback_to_internal']),
             'timeout'  => max(15, min(180, (int)($cfg['timeout'] ?? AI_LLM_TIMEOUT))),
         ];
     }
 
-    /** 📋 فهرست ارائه‌دهنده‌ها برای پنل */
+    /** 📋 فهرست ارائه‌دهنده‌ها برای پنل — v2.44: راهنمای کلید هم */
     public static function providersList(): array
     {
         $out = [];
         foreach (self::PROVIDERS as $key => [$label, $needsKey, $model, $hint]) {
-            $out[] = ['key' => $key, 'label' => $label, 'needs_key' => $needsKey, 'model' => $model, 'hint' => $hint];
+            $g = self::KEY_GUIDES[$key] ?? null;
+            $out[] = [
+                'key' => $key, 'label' => $label, 'needs_key' => $needsKey, 'model' => $model, 'hint' => $hint,
+                'guide' => $g ? [
+                    'url' => $g['url'],
+                    'steps' => $g['steps'],
+                    'free' => (bool)$g['free'],
+                    'limit' => $g['limit'],
+                ] : null,
+            ];
         }
         return $out;
+    }
+
+    /** 📖 راهنمای یک ارائه‌دهنده (مودال پنل / مستندات) */
+    public static function keyGuide(string $provider): ?array
+    {
+        $g = self::KEY_GUIDES[$provider] ?? null;
+        if (!$g) { return null; }
+        $label = self::PROVIDERS[$provider][0] ?? $provider;
+        return ['provider' => $provider, 'label' => $label, 'url' => $g['url'], 'steps' => $g['steps'], 'free' => (bool)$g['free'], 'limit' => $g['limit']];
     }
 
     /** 🔑 کلید ارائه‌دهنده (از تنظیمات) */
@@ -93,8 +242,9 @@ class AiTextService
     /**
      * 🔄 S16 — زنجیره فال‌بک به‌ترتیب:
      *   ① ارائه‌دهنده انتخابی کاربر (با مدل/کلید خودش)
-     *   ② ارائه‌دهنده‌های بدون کلید (pollinations)
-     *   ③ بقیه ارائه‌دهنده‌هایی که کلیدشان ثبت شده — به ترتیب رجیستری
+     *   ② 🆕 v2.44 (S01): ترتیب دلخواه کاربر (fallback_order) — اولویت مطلق
+     *   ③ ارائه‌دهنده‌های بدون کلید (pollinations)
+     *   ④ بقیه ارائه‌دهنده‌هایی که کلیدشان ثبت شده — به ترتیب رجیستری
      * تنظیم fallback خاموش باشد → فقط ①.
      * @return string[]
      */
@@ -109,6 +259,15 @@ class AiTextService
             $chain[] = $sel;
         }
         if (!isset($s['fallback']) || !empty($s['fallback'])) {
+            /* 🎛 v2.44 — ترتیب دلخواه کاربر: اولویت بعد از انتخابی */
+            foreach ((array)($s['fallback_order'] ?? []) as $p) {
+                $p = (string)$p;
+                if (in_array($p, $chain, true)) { continue; }
+                $needsKey = self::PROVIDERS[$p][1] ?? true;
+                if (isset(self::PROVIDERS[$p]) && (!$needsKey || $this->serviceKey($p) !== '')) {
+                    $chain[] = $p;
+                }
+            }
             foreach (array_keys(self::PROVIDERS) as $p) {
                 if ($p === $sel) { continue; }
                 $needsKey = self::PROVIDERS[$p][1];
