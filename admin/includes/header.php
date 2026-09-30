@@ -165,6 +165,18 @@ try {
                         <span class="badge"><?= en_to_fa_digits((string)$todayForms) ?></span>
                     <?php endif; ?>
                 </a>
+                <?php /* 🧩 v2.44 (S12) — فرم‌ساز سفارشی */ ?>
+                <a class="nav-link <?= $activeMenu === 'form-builder' ? 'active' : '' ?>" href="form-builder.php">
+                    <span class="icon">🧩</span> فرم‌ساز
+                    <?php
+                    try {
+                        $activeForms = (int)Database::getInstance()->fetchValue('SELECT COUNT(*) FROM custom_forms WHERE is_active = 1');
+                    } catch (Throwable $afE) { $activeForms = 0; }
+                    if ($activeForms > 0):
+                        ?>
+                        <span class="badge" style="background:#818cf8"><?= en_to_fa_digits((string)$activeForms) ?></span>
+                    <?php endif; ?>
+                </a>
                 <a class="nav-link <?= $activeMenu === 'analytics' ? 'active' : '' ?>" href="analytics.php">
                     <span class="icon">📈</span> آمار و گزارش
                 </a>

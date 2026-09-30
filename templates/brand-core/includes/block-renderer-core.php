@@ -976,6 +976,11 @@ if (!function_exists('pv_render_block_inner')) {
             case 'survey-form':
                 /* 📋 v2.31 — همه فرم‌های دیگر هم واقعی شدند */
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '>' . pv_real_form($block, $props, $title) . '</div>';
+            case 'custom-form':
+                /* 🧩 v2.44 (S12) — فرم سفارشی از فرم‌ساز: تعریف از API سایت‌ساز
+                   خوانده می‌شود (فیلدها + دکمه + پیام موفقیت + مقصد ارسال) و
+                   با همان موتور ارسال .sahand-form کار می‌کند. */
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '>' . pv_custom_form($props, $title) . '</div>';
             case 'counter-stats':
             case 'stats':
                 /* 🆕 v2.40 — عنوان (T) + زیرعنوان (S) فعال شد (قبلاً نوار بدون تیتر) */
@@ -1733,6 +1738,125 @@ if (!function_exists('pv_render_block_inner')) {
                     ? '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">📦 ' . e($block) . '</div><div class="fake-lines"><div class="fl w90"></div><div class="fl w70"></div></div></div>'
                     : '';
         }
+    }
+}
+
+if (!function_exists('pv_custom_form')) {
+    /**
+     * 🧩 v2.44 (S12) — رندر فرم سفارشی ساخته‌شده در فرم‌ساز
+     *
+     * تعریف فرم (فیلدها + تنظیمات) با fetchFromAPI از سایت‌ساز خوانده
+     * می‌شود و با همان کلاس‌های .sahand-form رندر می‌شود — یعنی اعتبارسنجی
+     * سمت کلاینت، آپلود تصویر و ارسال AJAX همه رایگان موجود است.
+     * form.js مقدار data-form-slug را هم ارسال می‌کند.
+     */
+    function pv_custom_form(array $props, string $title = ''): string
+    {
+        $slug = preg_replace('/[^a-z0-9\-_]/', '', strtolower((string)($props['customFormSlug'] ?? '')) ?? '');
+        if ($slug === '') {
+            return ($title !== '' ? '<div class="blk-title">' . e($title) . '</div>' : '')
+                . '<div class="feat-d" style="text-align:center;padding:18px">🧩 فرم سفارشی انتخاب نشده — در قالب‌ساز، فرم موردنظر را از تنظیمات این عنصر انتخاب کنید.</div>';
+        }
+
+        /* 📡 تعریف فرم از سایت‌ساز (کش ۶۰ ثانیه) */
+        $form = null;
+        try {
+            $form = fetchFromAPI('brand/' . BRAND_ID . '/custom-form/' . rawurlencode($slug), 60)['data'] ?? null;
+        } catch (Throwable $cfE) {
+            $form = null;
+        }
+        if (!is_array($form) || empty($form['fields'])) {
+            return ($title !== '' ? '<div class="blk-title">' . e($title) . '</div>' : '')
+                . '<div class="feat-d" style="text-align:center;padding:18px">🧩 فرم «' . e($slug) . '» یافت نشد یا غیرفعال است.</div>';
+        }
+
+        $s = is_array($form['settings'] ?? null) ? $form['settings'] : [];
+        $btnText = (string)($s['btnText'] ?? 'ارسال');
+        $dest = !empty($s['dest']) && is_array($s['dest']) ? $s['dest'] : ['panel'];
+        $oneCol = ($s['layout'] ?? 'two') === 'one';
+
+        $html = '';
+        if ($title !== '') {
+            $html .= '<div class="blk-title">' . e($title) . '</div>';
+        }
+        if (!empty($form['description'])) {
+            $html .= '<p class="feat-d" style="margin-bottom:12px">' . e($form['description']) . '</p>';
+        }
+
+        $fieldsHtml = '';
+        foreach ((array)$form['fields'] as $f) {
+            $type = (string)($f['type'] ?? 'text');
+            $label = (string)($f['label'] ?? '');
+            $name = preg_replace('/[^a-zA-Z0-9_]/', '', (string)($f['name'] ?? '')) ?: 'field';
+            $req = !empty($f['required']);
+            $reqMark = $req ? ' <span class="req" style="color:#dc2626">*</span>' : '';
+            $reqAttr = $req ? ' required' : '';
+            $ph = e((string)($f['placeholder'] ?? ''));
+            $def = e((string)($f['default'] ?? ''));
+            $fullCls = (($f['width'] ?? 'full') === 'half' && !$oneCol) ? '' : ' full';
+            $help = !empty($f['help']) ? '<div style="font-size:10.5px;color:#94a3b8;margin-top:4px">' . e((string)$f['help']) . '</div>' : '';
+
+            /* انواع ساختاری */
+            if ($type === 'section') {
+                $fieldsHtml .= '<div class="form-group' . $fullCls . '" style="grid-column:1/-1"><label style="font-size:14px;font-weight:800;border-bottom:2px solid var(--color-border,#e2e8f0);padding-bottom:6px">' . e($label) . '</label></div>';
+                continue;
+            }
+            if ($type === 'html') {
+                $fieldsHtml .= '<div class="form-group" style="grid-column:1/-1"><p style="font-size:12.5px;color:#64748b;line-height:2">' . e((string)($f['text'] ?? '')) . '</p></div>';
+                continue;
+            }
+            if ($type === 'hidden') {
+                $fieldsHtml .= '<input type="hidden" name="' . e($name) . '" value="' . $def . '">';
+                continue;
+            }
+
+            $input = '';
+            if ($type === 'textarea') {
+                $input = '<textarea name="' . e($name) . '" rows="' . max(2, min(12, (int)($f['rows'] ?? 4))) . '" class="sahand-fi" placeholder="' . $ph . '"' . $reqAttr . '>' . $def . '</textarea>';
+            } elseif ($type === 'select') {
+                $opts = '<option value="">انتخاب کنید...</option>';
+                foreach ((array)($f['options'] ?? []) as $o) {
+                    $opts .= '<option value="' . e((string)$o) . '"' . ($def !== '' && $def === (string)$o ? ' selected' : '') . '>' . e((string)$o) . '</option>';
+                }
+                $input = '<select name="' . e($name) . '" class="sahand-fi"' . $reqAttr . '>' . $opts . '</select>';
+            } elseif ($type === 'radio' || $type === 'checkbox') {
+                $input = '<div style="display:flex;flex-direction:column;gap:6px">';
+                foreach ((array)($f['options'] ?? []) as $o) {
+                    $input .= '<label style="display:flex;gap:7px;align-items:center;font-size:12.5px"><input type="' . ($type === 'radio' ? 'radio' : 'checkbox') . '" name="' . e($name . ($type === 'checkbox' ? '[]' : '')) . '" value="' . e((string)$o) . '"> ' . e((string)$o) . '</label>';
+                }
+                $input .= '</div>';
+            } elseif ($type === 'consent') {
+                $input = '<label style="display:flex;gap:8px;font-size:12px;align-items:flex-start;font-weight:400"><input type="checkbox" name="' . e($name) . '" value="بله" style="margin-top:4px"' . $reqAttr . '> <span>' . e((string)($f['text'] ?? '')) . $reqMark . '</span></label>';
+                $fieldsHtml .= '<div class="form-group' . $fullCls . '">' . $input . $help . '</div>';
+                continue;
+            } elseif ($type === 'rating') {
+                $input = '<div class="survey-opts" dir="ltr" style="display:flex;gap:4px;justify-content:flex-end">';
+                foreach ([5, 4, 3, 2, 1] as $r) {
+                    $input .= '<label style="cursor:pointer"><input type="radio" name="' . e($name) . '" value="' . $r . '" style="display:none"><span style="font-size:22px">⭐</span></label>';
+                }
+                $input .= '</div>';
+            } elseif ($type === 'file') {
+                $input = '<input type="file" name="' . e($name) . '" class="sahand-fi sahand-file" accept="image/*" multiple><div class="sahand-imgs"></div>';
+            } elseif ($type === 'date') {
+                $input = '<input type="text" name="' . e($name) . '" data-jalali-picker class="sahand-fi" placeholder="انتخاب تاریخ (شمسی)" inputmode="none" value="' . $def . '"' . $reqAttr . '>';
+            } elseif ($type === 'number') {
+                $min = isset($f['min']) && $f['min'] !== null ? ' min="' . e((string)$f['min']) . '"' : '';
+                $max = isset($f['max']) && $f['max'] !== null ? ' max="' . e((string)$f['max']) . '"' : '';
+                $input = '<input type="number" name="' . e($name) . '" class="sahand-fi" placeholder="' . $ph . '" value="' . $def . '"' . $min . $max . $reqAttr . '>';
+            } else {
+                $t = in_array($type, ['email', 'tel', 'url'], true) ? $type : 'text';
+                $ltr = in_array($type, ['email', 'tel', 'url'], true) ? ' dir="ltr"' : '';
+                $input = '<input type="' . $t . '" name="' . e($name) . '" class="sahand-fi" placeholder="' . $ph . '" value="' . $def . '"' . $ltr . $reqAttr . '>';
+            }
+            $fieldsHtml .= '<div class="form-group' . $fullCls . '"><label>' . e($label) . $reqMark . '</label>' . $input . $help . '</div>';
+        }
+
+        $html .= '<form class="sahand-form" data-form="custom" data-form-slug="' . e($slug) . '" data-dest="' . e(implode(',', $dest)) . '" novalidate>'
+            . '<div class="form-grid">' . $fieldsHtml . '</div>'
+            . '<button type="submit" class="hero-btn full sahand-form-btn">' . e($btnText) . '</button>'
+            . '<div class="sahand-form-msg" style="display:none"></div>'
+            . '</form>';
+        return $html;
     }
 }
 

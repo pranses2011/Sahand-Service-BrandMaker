@@ -46,12 +46,24 @@ function api_submit_form_entry(int $urlBrandId): void
     }
 
     $formBlock = preg_replace('/[^a-z0-9_\-]/', '', (string)($input['form_block'] ?? 'custom')) ?: 'custom';
+    /* 🧩 v2.44 (S12) — فرم سفارشی: شناسه + برچسب فارسی فیلدها از فرم‌ساز */
+    $formSlug = preg_replace('/[^a-z0-9\-_]/', '', (string)($input['form_slug'] ?? ''));
+    $customForm = null;
+    if ($formSlug !== '') {
+        $customForm = class_exists('CustomFormManager') ? CustomFormManager::bySlug($formSlug) : null;
+        if ($customForm && $customForm['brand_id'] !== null && $customForm['brand_id'] !== (int)$brand['id']) {
+            $customForm = null;
+            $formSlug = '';
+        }
+        $formBlock = 'custom';
+    }
     $fields = [];
     if (is_array($input['fields'] ?? null)) {
         foreach ($input['fields'] as $k => $v) {
             $k = preg_replace('/[^a-zA-Z0-9_]/', '', (string)$k);
             if ($k === '' || strlen($k) > 40) { continue; }
-            $fields[$k] = is_string($v) ? mb_substr($v, 0, 2000) : '';
+            /* چندانتخابی checkbox[] آرایه است → پیوست با «،» */
+            $fields[$k] = is_string($v) ? mb_substr($v, 0, 2000) : (is_array($v) ? mb_substr(implode('، ', array_map('strval', $v)), 0, 2000) : '');
         }
     }
 
@@ -116,11 +128,16 @@ function api_submit_form_entry(int $urlBrandId): void
             $entryId = $db->insert('form_entries', [
                 'brand_id'    => $brand['id'],
                 'form_block'  => $formBlock,
+                'form_slug'   => $formSlug !== '' ? $formSlug : null,
                 'page_url'    => $pageUrl,
                 'fields'      => json_encode($fields, JSON_UNESCAPED_UNICODE),
                 'ip_address'  => $ip,
                 'created_at'  => date('Y-m-d H:i:s'),
             ]);
+            /* 🧩 شمارنده سریع فرم سفارشی */
+            if ($customForm) {
+                try { $db->query('UPDATE custom_forms SET entries_count = entries_count + 1 WHERE id = ?', [(int)$customForm['id']]); } catch (Throwable $ec) {}
+            }
         } catch (Throwable $ie) {
             Logger::error('ثبت فرم ناموفق', ['error' => $ie->getMessage()]);
         }
@@ -151,12 +168,12 @@ function api_submit_form_entry(int $urlBrandId): void
             'quick-contact-form' => 'تماس سریع', 'appointment-form' => 'رزرو نوبت', 'appointment-compact' => 'رزرو سریع نوبت',
             'survey-form' => 'نظرسنجی', 'request-form' => 'درخواست خدمات', 'hero-form' => 'فرم درخواست سریع',
         ];
-        $label = $formLabels[$formBlock] ?? 'فرم';
+        $label = $customForm ? ('فرم سفارشی: ' . $customForm['title']) : ($formLabels[$formBlock] ?? 'فرم');
         NotificationService::notify(
             0, 'request',
             ($label !== 'فرم' ? $label : 'فرم جدید') . ': ' . (($fields['full_name'] ?? '') !== '' ? $fields['full_name'] : ($fields['phone'] ?? ($fields['email'] ?? 'بدون نام'))),
             'برند ' . $brand['name_fa'] . ($pageUrl ? ' — صفحه ' . $pageUrl : ''),
-            'form-entries.php?view=' . $entryId
+            'form-entries.php?view=' . $entryId . ($formSlug !== '' ? '&form=' . $formSlug : '')
         );
     } catch (Throwable $nE) { /* بی‌صدا */ }
 

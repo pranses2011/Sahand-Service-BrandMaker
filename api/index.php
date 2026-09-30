@@ -128,6 +128,16 @@ $router->add('GET', 'brand/{brandId}/devices', function ($p) {
     json_response(['success' => true, 'data' => $devices]);
 });
 
+// 🧩 v2.44 (S12) — فرم‌های سفارشی: فهرست (پالت قالب‌ساز) + تعریف تک‌فرم (رندر سایت)
+$router->add('GET', 'brand/{brandId}/custom-forms', function ($p) {
+    require __DIR__ . '/endpoints/custom-form.php';
+    api_custom_forms_list((int)$p['brandId']);
+});
+$router->add('GET', 'brand/{brandId}/custom-form/{slug}', function ($p) {
+    require __DIR__ . '/endpoints/custom-form.php';
+    api_custom_form_single((int)$p['brandId'], (string)$p['slug']);
+});
+
 // 🗺️ منوی برند
 $router->add('GET', 'brand/{brandId}/menu/{location}', function ($p) {
     require __DIR__ . '/endpoints/brand.php';

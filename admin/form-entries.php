@@ -48,6 +48,9 @@ if ($view > 0) {
 $where = '1=1';
 $params = [];
 if ($brandFilter > 0) { $where .= ' AND fe.brand_id = ?'; $params[] = $brandFilter; }
+/* 🧩 v2.44 (S12) — فیلتر اسلاگ فرم سفارشی */
+$customSlugFilter = preg_replace('/[^a-z0-9\-_]/', '', (string)get_param('slug'));
+if ($customSlugFilter !== '') { $where .= ' AND fe.form_slug = ?'; $params[] = $customSlugFilter; }
 if ($formFilter !== '') { $where .= ' AND fe.form_block = ?'; $params[] = $formFilter; }
 
 $total = 0;
@@ -57,7 +60,7 @@ $entries = [];
 try {
     $total = (int)$db->fetchValue('SELECT COUNT(*) FROM form_entries');
     $todayCount = (int)$db->fetchValue('SELECT COUNT(*) FROM form_entries WHERE created_at >= ?', [date('Y-m-d 00:00:00')]);
-    $formTypes = $db->fetchAll('SELECT form_block, COUNT(*) AS c FROM form_entries GROUP BY form_block ORDER BY c DESC');
+    $formTypes = $db->fetchAll('SELECT form_block, form_slug, COUNT(*) AS c FROM form_entries GROUP BY form_block, form_slug ORDER BY c DESC');
     $entries = $db->fetchAll(
         "SELECT fe.*, b.name_fa AS brand_name FROM form_entries fe LEFT JOIN brands b ON b.id = fe.brand_id
          WHERE {$where} ORDER BY fe.id DESC LIMIT 100",
@@ -113,12 +116,18 @@ require __DIR__ . '/includes/header.php';
             <option value="<?= (int)$b['id'] ?>" <?= $brandFilter === (int)$b['id'] ? 'selected' : '' ?>><?= e($b['name_fa']) ?></option>
         <?php endforeach; ?>
     </select>
-    <select name="form" class="form-control" style="max-width:200px">
+    <select name="form" class="form-control" style="max-width:220px">
         <option value="">📋 همه انواع فرم</option>
+        <?php $customFormsByIdx = []; foreach ($db->fetchAll('SELECT slug, title FROM custom_forms') ?: [] as $cf): $customFormsByIdx[$cf['slug']] = $cf['title']; endforeach; ?>
         <?php foreach ($formTypes as $ft): ?>
-            <option value="<?= e($ft['form_block']) ?>" <?= $formFilter === $ft['form_block'] ? 'selected' : '' ?>><?= e($formLabels[$ft['form_block']][0] ?? $ft['form_block']) ?> (<?= en_to_fa_digits((string)$ft['c']) ?>)</option>
+            <?php if (($ft['form_slug'] ?? '') !== ''): /* فرم سفارشی — با عنوان و فیلتر اسلاگ */ ?>
+                <option value="custom" data-slug="<?= e($ft['form_slug']) ?>" <?= ($formFilter === 'custom' && $customSlugFilter === $ft['form_slug']) ? 'selected' : '' ?>>🧩 <?= e($customFormsByIdx[$ft['form_slug']] ?? $ft['form_slug']) ?> (<?= en_to_fa_digits((string)$ft['c']) ?>)</option>
+            <?php else: ?>
+                <option value="<?= e($ft['form_block']) ?>" <?= $formFilter === $ft['form_block'] ? 'selected' : '' ?>><?= e($formLabels[$ft['form_block']][0] ?? $ft['form_block']) ?> (<?= en_to_fa_digits((string)$ft['c']) ?>)</option>
+            <?php endif; ?>
         <?php endforeach; ?>
     </select>
+    <input type="hidden" name="slug" id="fe-slug-filter" value="<?= e($customSlugFilter) ?>">
     <button type="submit" class="btn btn-primary">🔍 اعمال فیلتر</button>
     <a href="form-entries.php" class="btn btn-outline">↺ همه</a>
 </form>
@@ -204,3 +213,16 @@ require __DIR__ . '/includes/header.php';
 </div>
 <div class="hint" style="margin-top:12px">💡 فرم «درخواست خدمات» (صفحه /request سایت برند) در <a href="requests.php">صفحه درخواست‌ها</a> نمایش داده می‌شود — این صفحه مخصوص سایر فرم‌های قالب‌ساز است.</div>
 <?php require __DIR__ . '/includes/footer.php'; ?>
+<script>
+/* 🧩 v2.44 (S12) — انتخاب فرم سفارشی در دراپ‌داون، اسلاگ را در فیلتر مخفی می‌گذارد */
+(function () {
+    var sel = document.querySelector('select[name="form"]');
+    var slugInput = document.getElementById('fe-slug-filter');
+    if (!sel || !slugInput) { return; }
+    sel.addEventListener('change', function () {
+        var opt = sel.options[sel.selectedIndex];
+        slugInput.value = (opt && opt.getAttribute('data-slug')) || '';
+        if (sel.value !== 'custom') { slugInput.value = ''; }
+    });
+})();
+</script>

@@ -623,14 +623,38 @@ CREATE TABLE IF NOT EXISTS `form_entries` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `brand_id` INT UNSIGNED NOT NULL,
   `form_block` VARCHAR(60) NOT NULL DEFAULT 'custom' COMMENT 'نوع فرم (contact/newsletter/callback/...)',
+  `form_slug` VARCHAR(120) NULL COMMENT 'شناسه فرم سفارشی (custom_forms.slug) — v2.44',
   `page_url` VARCHAR(500) NULL,
   `fields` JSON NULL COMMENT 'فیلدهای فرم به‌صورت JSON',
   `ip_address` VARCHAR(60) NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_fentry_brand` (`brand_id`, `created_at`),
-  KEY `idx_fentry_form` (`form_block`)
+  KEY `idx_fentry_form` (`form_block`),
+  KEY `idx_fe_slug` (`form_slug`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='ثبت فرم‌های سفارشی سایت برند';
+
+-- ============================================================
+-- 2️⃣1️⃣-ب custom_forms — فرم‌ساز سفارشی (S12 / v2.44)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `custom_forms` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `brand_id` INT UNSIGNED NULL COMMENT 'NULL = همه برندها (فرم سراسری)',
+  `title` VARCHAR(190) NOT NULL COMMENT 'عنوان فرم',
+  `slug` VARCHAR(120) NOT NULL COMMENT 'شناسه لاتین یکتا (در عنصر قالب‌ساز)',
+  `description` TEXT NULL COMMENT 'توضیح بالای فرم',
+  `fields` MEDIUMTEXT NOT NULL COMMENT 'JSON آرایه فیلدها (نوع/برچسب/تنظیمات)',
+  `settings` TEXT NULL COMMENT 'JSON تنظیمات (دکمه/پیام موفقیت/مقصد ارسال/چیدمان)',
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `entries_count` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'شمارنده سریع ورودی‌ها',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_cf_slug` (`slug`),
+  KEY `idx_cf_brand` (`brand_id`),
+  KEY `idx_cf_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='فرم‌ساز سفارشی (S12 / v2.44)';
 
 -- ============================================================
 -- 2️⃣2️⃣ notifications — اعلان‌های پنل

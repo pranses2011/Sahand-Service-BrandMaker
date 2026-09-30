@@ -1510,12 +1510,14 @@ const BLOCK_FIELDS = {
     'location-cards': ['T', 'S', 'C', 'IT', 'DYN'], 'expert-cards': ['T', 'S', 'C', 'IT'], 'logo-cloud': ['T', 'S', 'C', 'IT'],
     'brand-intro-card': ['T', 'S'], 'price-highlight': ['T', 'S', '$', 'G', 'B', 'BTN'], 'price-compare': ['T', 'S', 'C', 'IT', 'BTN'],
     'service-price-cards': ['T', 'S', 'C', 'IT'], 'feature-icons-grid': ['T', 'S', 'C', 'IT'],
-    /* فرم — 🆕 v2.32: LNK بی‌اثر حذف شد (دکمه فرم عملکردی است و لینک نمی‌شود) */
+    /* فرم — 🆕 v2.32: LNK بی‌اثر حذف شد (دکمه فرم عملکردی است و لینک نمی‌شود)
+       🆕 v2.44 (S12): CFS = انتخاب فرم سفارشی ساخته‌شده در فرم‌ساز */
     'contact-form': ['T', 'B', 'FRM', 'DST'], 'request-form': ['T', 'B', 'FRM', 'DST'], 'newsletter-form': ['T', 'B', 'FRM', 'DST'],
     'appointment-form': ['T', 'B', 'FRM', 'DST'], 'quick-contact-form': ['T', 'B', 'FRM', 'DST'],
     'booking-calendar': ['T', 'S', 'BTN'], 'warranty-check': ['T', 'S', 'B', 'BTN'], 'price-estimate': ['T', 'S', 'BTN'],
     'device-error-lookup': ['T', 'S', 'BTN'], 'appointment-compact': ['T', 'B', 'FRM', 'DST'],
     'callback-form': ['T', 'B', 'FRM', 'DST'], 'survey-form': ['T', 'IT', 'FRM', 'DST'],
+    'custom-form': ['T', 'CFS'],
     /* آمار — 🆕 v2.29: رنگ نوارهای پیشرفت + 🆕 v2.40: S زیرعنوان همه آماری‌ها + T شمارنده بزرگ */
     'counter-stats': ['T', 'S', 'IT'], 'progress-bars': ['T', 'S', 'CLR', 'IT'], 'skill-bars': ['T', 'S', 'CLR', 'IT'],
     'stats-grid': ['T', 'S', 'C', 'IT'], 'stats-strip': ['T', 'S', 'IT'],
@@ -1565,6 +1567,8 @@ const CODE_MAP = {
     'CLR': 'barColor', 'SLT': 'slideType',
     /* 🆕 v2.31 — لینک دکمه + تنظیمات فرم */
     'LNK': 'btnLink', 'FRM': '__formFields', 'DST': '__formDest', 'GT': 'gaugeText',
+    /* 🆕 v2.44 (S12) — انتخاب فرم سفارشی فرم‌ساز */
+    'CFS': 'customFormSlug',
     /* 🆕 v2.32 — ویرایشگر دکمه‌های عنصر (متن + لینک جداگانه هر دکمه) */
     'BTN': '__buttons',
     /* 🆕 v2.43 (S04) — کلید داده پویا از سایت‌ساز (خواندن خودکار تلفن/آدرس/مقالات/...) */
@@ -1755,6 +1759,15 @@ function renderProps() {
                 html += `<label class="form-check" style="font-size:11.5px;margin-bottom:5px"><input type="checkbox" ${(k === 'panel' ? (FD.panel !== 0 && FD.panel !== false) : !!FD[k]) ? 'checked' : ''} onchange="setFormDest('${selected}','${k}',this.checked?1:0)"> ${l} <small style="color:#94a3b8">— ${hint}</small></label>`;
             });
             html += `<div class="hint" style="margin-top:5px;font-size:10px">ترکیب دلخواه — مثلاً «پنل + تلگرام». کانال‌های ایمیل/تلگرام/بله باید در تنظیمات ارسال فعال باشند.</div>`;
+        } else if (code === 'CFS') {
+            /* 🧩 v2.44 (S12) — انتخاب فرم سفارشی ساخته‌شده در فرم‌ساز */
+            const CF = (window.TB_SERVER_DATA && TB_SERVER_DATA.customForms) || [];
+            html += `<div class="form-group"><label>🧩 فرم سفارشی (از فرم‌ساز)</label>
+                <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','customFormSlug',this.value)">
+                    <option value="">— انتخاب فرم —</option>
+                    ${CF.map(f => `<option value="${esc(f.slug)}" ${(props.customFormSlug || '') === f.slug ? 'selected' : ''}>${esc(f.title)}</option>`).join('')}
+                </select>
+                <div class="hint" style="margin-top:4px">${CF.length ? 'فیلدها، دکمه و پیام موفقیت از فرم‌ساز می‌آیند. ' + esc(String(CF.length)) + ' فرم فعال موجود است.' : 'هنوز فرمی نساخته‌اید — از منوی پنل: «فرم‌ساز» → «فرم جدید». بعد از ساخت، این لیست را رفرش کنید.'} <a href="form-builder.php" target="_blank" style="color:#1d4ed8">🧩 فرم‌ساز ↗</a></div></div>`;
         } else if (code === 'SLT') {
             /* 🎞 v2.29 — نوع اسلایدهای اسلایدر (تصویر/متن/کارت/مقاله/برند) */
             html += `<div class="form-group"><label>🎞 نوع اسلایدها</label>

@@ -107,6 +107,9 @@ if ($hasFormBlock) {
     $formBlock = preg_replace('/[^a-z0-9_\-]/', '', (string)$data['form_block']);
     if ($formBlock === '') { $formBlock = 'custom'; }
     $formPayload = ['form_block' => $formBlock, 'fields' => []];
+    /* 🧩 v2.44 (S12) — شناسه فرم سفارشی فرم‌ساز */
+    $cfSlug = preg_replace('/[^a-z0-9\-_]/', '', (string)($data['form_slug'] ?? ''));
+    if ($cfSlug !== '') { $formPayload['form_slug'] = $cfSlug; }
     /* فیلدها: کلیدهای امن کوتاه + مقدار متن محدود */
     if (is_array($data['fields'] ?? null)) {
         foreach ($data['fields'] as $fk => $fv) {

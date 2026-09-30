@@ -46,6 +46,9 @@
             page: location.pathname,
             fields: {}
         };
+        /* 🧩 v2.44 (S12) — شناسه فرم سفارشی فرم‌ساز */
+        var formSlug = form.getAttribute('data-form-slug');
+        if (formSlug) { data.form_slug = formSlug; }
         new FormData(form).forEach(function (v, k) {
             if (k !== 'images') { data.fields[k] = v; }
         });
