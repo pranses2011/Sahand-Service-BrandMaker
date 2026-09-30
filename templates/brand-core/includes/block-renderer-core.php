@@ -2255,6 +2255,17 @@ if (!function_exists('pv_page_css_vars')) {
             $val = (string)($p[$key] ?? 'default');
             if ($val !== '' && $val !== 'default' && isset($cfg[$val])) { $v[$cfg['var']] = $cfg[$val]; }
         }
+        /* 🆕 v2.44 (S08) — عرض دلخواه px + گردی کارت/دکمه + متن تیره */
+        if ((string)($p['containerWidth'] ?? '') === 'custom') {
+            $v['--pg-width'] = max(480, min(1920, (int)($p['containerPx'] ?? 1080))) . 'px';
+        }
+        $cardRadMap = ['sharp' => '2px', 'default' => '', 'round' => '22px', 'pill' => '34px'];
+        $crad = (string)($p['cardRadius'] ?? 'default');
+        if (isset($cardRadMap[$crad]) && $cardRadMap[$crad] !== '') { $v['--pg-card-rad'] = $cardRadMap[$crad]; }
+        $btnRadMap = ['sharp' => '3px', 'default' => '', 'pill' => '999px'];
+        $brad = (string)($p['btnRadius'] ?? 'default');
+        if (isset($btnRadMap[$brad]) && $btnRadMap[$brad] !== '') { $v['--pg-btn-rad'] = $btnRadMap[$brad]; }
+        if (!empty($p['darkText']) && preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)$p['darkText'])) { $v['--pg-dark-text'] = (string)$p['darkText']; }
         if (!empty($p['titleColor'])) { $v['--pg-title'] = (string)$p['titleColor']; }
         /* 🆕 v2.29 — فاصله محتوای صفحه از لبه‌ها (بالا/پایین/چپ/راست — درخواست کاربر) */
         $pgPad = static function ($val): string {

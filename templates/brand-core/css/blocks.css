@@ -470,3 +470,55 @@
 /* ④ درصد دلخواه از عرض صفحه */
 .bb-wrap.bb-layout-percent { width: var(--pg-layout-w, 80%); max-width: none; margin-inline: auto; }
 #canvas-blocks.pv-layout-percent { width: var(--pg-layout-w, 80%); max-width: none; margin-inline: auto; }
+
+/* ══════════════════════════════════════════════════════════
+ * 🆕 v2.44 (S08) — تکمیل تنظیمات صفحه: گردی کارت/دکمه + hover
+ * + حالت تیره + بلور زمینه + نمایش تدریجی بخش‌ها
+ * ══════════════════════════════════════════════════════════ */
+
+/* ① گردی مستقل کارت‌ها و دکمه‌ها */
+.bb-wrap .fake-card, #canvas-blocks .fake-card { border-radius: var(--pg-card-rad, var(--pg-radius, 14px)); }
+.bb-wrap .hero-btn, #canvas-blocks .hero-btn { border-radius: var(--pg-btn-rad, 12px); }
+
+/* ② جلوه hover کارت‌ها — lift (افزایش و سایه) */
+.bb-hover-lift .fake-card, #canvas-blocks.pv-hover-lift .fake-card { transition: transform .22s ease, box-shadow .22s ease; }
+.bb-hover-lift .fake-card:hover, #canvas-blocks.pv-hover-lift .fake-card:hover { transform: translateY(-5px); box-shadow: 0 14px 34px rgba(2,8,23,.16); }
+/* zoom (بزرگ‌شدن نامحسوس) */
+.bb-hover-zoom .fake-card, #canvas-blocks.pv-hover-zoom .fake-card { transition: transform .2s ease; }
+.bb-hover-zoom .fake-card:hover, #canvas-blocks.pv-hover-zoom .fake-card:hover { transform: scale(1.028); }
+/* glow (هاله نورانی) */
+.bb-hover-glow .fake-card, #canvas-blocks.pv-hover-glow .fake-card { transition: box-shadow .25s ease, border-color .25s ease; }
+.bb-hover-glow .fake-card:hover, #canvas-blocks.pv-hover-glow .fake-card:hover { box-shadow: 0 0 0 3px color-mix(in srgb, var(--p, #2563eb) 26%, transparent), 0 8px 26px rgba(2,8,23,.13); }
+
+/* ③ حالت تیره کل صفحه (سایت واقعی — کلاس روی قاب) */
+.bb-page-dark { background: #0b1220 !important; color: var(--pg-dark-text, #e2e8f0); }
+.bb-page-dark .blk { background: #101a2e; border-bottom-color: #1e293b; }
+.bb-page-dark .blk-title, .bb-page-dark .card-t, .bb-page-dark b { color: #f1f5f9; }
+.bb-page-dark .feat-d, .bb-page-dark .pv-text { color: #94a3b8; }
+.bb-page-dark .fake-card { background: #111c33; border-color: #1e293b; }
+.bb-page-dark .hero-btn { background: var(--p, #2563eb); color: #fff; }
+.bb-page-dark .hero-btn.ghost { background: transparent; color: #cbd5e1; border: 1px solid #334155; }
+.bb-page-dark .chip { background: #111c33; color: #cbd5e1; }
+.bb-page-dark .price-table { background: #0f172a; }
+.bb-page-dark .price-row { border-bottom-color: #1e293b; }
+
+/* ④ بلور تصویر زمینه — تصویر در لایه شبه‌عنصر، فقط خودش تار می‌شود */
+.bb-wrap.bb-bg-blur { position: relative; }
+.bb-wrap.bb-bg-blur::before {
+    content: ""; position: absolute; inset: calc(-1 * var(--pg-bg-blur, 6px)); z-index: -1;
+    background-image: var(--pg-bg-img); background-size: cover; background-position: center;
+    filter: blur(var(--pg-bg-blur, 6px)); pointer-events: none;
+}
+
+/* ⑤ نمایش تدریجی بخش‌ها هنگام اسکرول */
+.blk.bb-reveal { opacity: 0; transform: translateY(22px); transition: opacity .55s ease, transform .55s ease; }
+.blk.bb-reveal.bb-reveal-in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .blk.bb-reveal { opacity: 1; transform: none; transition: none; } }
+
+/* ⑥ پیش‌نمایش بوم قالب‌ساز — نمایشگر بلور (ساده) */
+#canvas-blocks[style*="--pg-bg-blur"] { position: relative; }
+#canvas-blocks[style*="--pg-bg-blur"]::after {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background-image: inherit; background-size: cover; background-position: center;
+    filter: blur(var(--pg-bg-blur, 6px));
+}

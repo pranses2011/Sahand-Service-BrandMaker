@@ -124,6 +124,18 @@ const PAGE_DEFAULTS = {
     boxedPad: '26',          /* فاصله محتوا از قاب جعبه (px) */
     boxedRadius: '18'        /* گردی گوشه جعبه (px) */
 };
+/* v2.44 (S08) — page settings completion */
+const PAGE_DEFAULTS_V244 = {
+    containerPx: '',         /* custom content width px (containerWidth=custom) */
+    cardRadius: 'default',   /* card corners: sharp|default|round|pill */
+    cardHover: 'lift',       /* hover effect: none|lift|zoom|glow */
+    btnRadius: 'default',    /* button corners: sharp|default|pill */
+    scrollReveal: 0,         /* reveal sections on scroll */
+    pageDark: 0,             /* dark mode for live site page */
+    bgBlur: '0',             /* background image blur (px) */
+    darkText: ''             /* light text color for dark mode */
+};
+Object.assign(PAGE_DEFAULTS, PAGE_DEFAULTS_V244);
 function pageProp(k) {
     return (pageProps && pageProps[k] !== undefined && pageProps[k] !== '') ? pageProps[k] : (PAGE_DEFAULTS[k] !== undefined ? PAGE_DEFAULTS[k] : '');
 }
@@ -277,8 +289,19 @@ function applyPageSettings() {
     }
     const spacing = { compact: '30px', default: '54px', roomy: '74px', airy: '96px' }[pageProp('sectionSpacing')] || '54px';
     const gap = { tight: '14px', default: '26px', roomy: '44px' }[pageProp('sectionGap')] || '26px';
-    const width = { narrow: '860px', default: '1080px', wide: '1240px', full: '100%' }[pageProp('containerWidth')] || '1080px';
+    const widthMap = { narrow: '860px', default: '1080px', wide: '1240px', full: '100%', custom: 'custom' };
+    let width = widthMap[pageProp('containerWidth')] || '1080px';
+    if (width === 'custom') { width = Math.max(480, Math.min(1920, parseInt(pageProp('containerPx'), 10) || 1080)) + 'px'; }
     const radius = { sharp: '2px', default: '14px', round: '22px', pill: '34px' }[pageProp('radius')] || '14px';
+    /* v2.44 (S08) — card/button radius + hover + blur */
+    const cardRad = { sharp: '2px', default: '14px', round: '22px', pill: '34px' }[pageProp('cardRadius')] || '';
+    const btnRad = { sharp: '3px', default: '12px', pill: '999px' }[pageProp('btnRadius')] || '';
+    let hoverCls = { none: '', lift: 'pv-hover-lift', zoom: 'pv-hover-zoom', glow: 'pv-hover-glow' }[pageProp('cardHover')];
+    if (typeof hoverCls === 'undefined') { hoverCls = 'pv-hover-lift'; }
+    stage.classList.remove('pv-hover-lift', 'pv-hover-zoom', 'pv-hover-glow');
+    if (hoverCls) { stage.classList.add(hoverCls); }
+    const bgBlurPx = Math.max(0, Math.min(20, parseInt(pageProp('bgBlur'), 10) || 0));
+    const darkTextC = /^#[0-9a-fA-F]{3,8}$/.test(String(pageProp('darkText'))) ? pageProp('darkText') : '';
     const tsize = { sm: '13px', default: '14.5px', lg: '16px' }[pageProp('textSize')] || '14.5px';
     const shadow = { none: 'none', soft: '0 2px 8px rgba(2,8,23,.05)', default: '0 5px 18px rgba(2,8,23,.08)', strong: '0 12px 32px rgba(2,8,23,.16)' }[pageProp('cardShadow')] || '0 5px 18px rgba(2,8,23,.08)';
     const tc = pageProp('titleColor');
@@ -317,6 +340,8 @@ function applyPageSettings() {
     stage.classList.remove('pv-layout-full', 'pv-layout-boxed', 'pv-layout-center', 'pv-layout-percent');
     const pLayout = String(pageProp('pageLayout') || 'normal');
     if (pLayout !== 'normal') { stage.classList.add('pv-layout-' + pLayout); }
+    /* v2.44 (S08) — site dark mode also simulated on canvas */
+    stage.classList.toggle('pv-page-dark', pageProp('darkPreview') == 1 || pageProp('pageDark') == 1);
     const pctW = Math.max(40, Math.min(100, parseInt(pageProp('customWidthPct'), 10) || 80));
     const bPad = Math.max(0, Math.min(80, parseInt(pageProp('boxedPad'), 10) || 26));
     const bRad = Math.max(0, Math.min(40, parseInt(pageProp('boxedRadius'), 10) || 18));
@@ -326,6 +351,8 @@ function applyPageSettings() {
     if (pLayout === 'boxed') { layoutCss = ';--pg-box-pad:' + bPad + 'px;--pg-box-rad:' + bRad + 'px;--pg-box-bg:' + bBg; }
     stage.style.cssText = '--pg-accent:' + accent + ';--pg-hw:' + hWeight + ';--pg-ls:' + lSpace +
         (fontFam ? ';--pg-font:' + fontFam : '') + (patCls ? ';--pg-pat:' + patColor : '') +
+        (cardRad ? ';--pg-card-rad:' + cardRad : '') + (btnRad ? ';--pg-btn-rad:' + btnRad : '') +
+        (bgBlurPx ? ';--pg-bg-blur:' + bgBlurPx + 'px' : '') + (darkTextC ? ';--pg-dark-text:' + darkTextC : '') +
         ';--pg-section-pad:' + spacing + ';--pg-gap:' + gap + ';--pg-width:' + width +
         ';--pg-radius:' + radius + ';--pg-text:' + tsize + ';--pg-shadow:' + shadow +
         ';--pg-title:' + (tc !== '' ? tc : 'inherit') + bodyC + linkC + lhVar + tsVar +
@@ -344,10 +371,12 @@ function renderPageProps() {
         '<div class="form-group"><label>🎨 زمینه صفحه</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'pageBg\',this.value)">' + opt('pageBg', [['default', 'پیش‌فرض (سفید)'], ['surface', 'کمرنگ خاکستری'], ['light', 'روشن'], ['dark', 'تیره'], ['custom', 'رنگ دلخواه'], ['gradient', 'گرادیانت 🆕'], ['image', 'تصویر زمینه 🆕']]) + '</select></div>' +
         '<div class="form-group" id="pg-bg-color-box" style="' + (pageProp('pageBg') === 'custom' ? '' : 'display:none') + '"><label>رنگ دلخواه زمینه</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="' + pageProp('pageBgColor') + '" oninput="setPageProp(\'pageBgColor\',this.value)"><code style="font-size:10.5px;direction:ltr">' + pageProp('pageBgColor') + '</code></div></div>' +
         '<div class="form-group" id="pg-grad-box" style="' + (pageProp('pageBg') === 'gradient' ? '' : 'display:none') + '"><label>🌈 گرادیانت زمینه</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:44px;height:31px;padding:2px;cursor:pointer" value="' + pageProp('gradFrom') + '" oninput="setPageProp(\'gradFrom\',this.value)" title="رنگ شروع"><span style="font-size:11px;color:var(--text-light)">تا</span><input type="color" class="form-control" style="width:44px;height:31px;padding:2px;cursor:pointer" value="' + pageProp('gradTo') + '" oninput="setPageProp(\'gradTo\',this.value)" title="رنگ پایان"><input type="number" class="form-control" style="width:64px;font-size:11px" min="0" max="360" value="' + pageProp('gradAngle') + '" onchange="setPageProp(\'gradAngle\',this.value)" title="زاویه (درجه)"></div><div class="hint" style="margin-top:4px">دو رنگ + زاویه گرادیانت کل صفحه.</div></div>' +
-        '<div class="form-group" id="pg-img-box" style="' + (pageProp('pageBg') === 'image' ? '' : 'display:none') + '"><label>🖼 آدرس تصویر زمینه</label><input type="text" class="form-control" style="font-size:11px;direction:ltr;text-align:left" value="' + esc(pageProp('bgImage')) + '" oninput="setPageProp(\'bgImage\',this.value)" placeholder="https://example.com/bg.jpg"><label class="form-check" style="margin:8px 0;font-size:11.5px"><input type="checkbox" ' + (pageProp('bgImageFixed') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'bgImageFixed\',this.checked?1:0)"> تصویر ثابت (پارالکس هنگام اسکرول)</label><label>🎨 پوشش رنگ روی تصویر (برای خوانایی متن)</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:44px;height:31px;padding:2px;cursor:pointer" value="' + pageProp('overlayColor') + '" oninput="setPageProp(\'overlayColor\',this.value)"><input type="range" min="0" max="90" value="' + pageProp('overlayOpacity') + '" oninput="setPageProp(\'overlayOpacity\',this.value)" style="flex:1" title="شفافیت پوشش ٪"><code style="font-size:10.5px">' + pageProp('overlayOpacity') + '٪</code></div></div>' +
+        '<div class="form-group" id="pg-img-box" style="' + (pageProp('pageBg') === 'image' ? '' : 'display:none') + '"><label>🖼 آدرس تصویر زمینه</label><input type="text" class="form-control" style="font-size:11px;direction:ltr;text-align:left" value="' + esc(pageProp('bgImage')) + '" oninput="setPageProp(\'bgImage\',this.value)" placeholder="https://example.com/bg.jpg"><label class="form-check" style="margin:8px 0;font-size:11.5px"><input type="checkbox" ' + (pageProp('bgImageFixed') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'bgImageFixed\',this.checked?1:0)"> تصویر ثابت (پارالکس هنگام اسکرول)</label><label>🎨 پوشش رنگ روی تصویر (برای خوانایی متن)</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:44px;height:31px;padding:2px;cursor:pointer" value="' + pageProp('overlayColor') + '" oninput="setPageProp(\'overlayColor\',this.value)"><input type="range" min="0" max="90" value="' + pageProp('overlayOpacity') + '" oninput="setPageProp(\'overlayOpacity\',this.value)" style="flex:1" title="شفافیت پوشش ٪"><code style="font-size:10.5px">' + pageProp('overlayOpacity') + '٪</code><label class="form-group" style="margin-top:8px">🔥 میزان تاری تصویر زمینه (px)<div style="display:flex;gap:7px;align-items:center"><input type="range" min="0" max="20" value="' + pageProp('bgBlur') + '" oninput="setPageProp(\'bgBlur\',this.value)" style="flex:1"><code style="font-size:10.5px">' + pageProp('bgBlur') + 'px</code></div></label></div></div></div>' +
         '<div class="form-group"><label>↕️ فاصله داخلی بخش‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'sectionSpacing\',this.value)">' + opt('sectionSpacing', [['compact', 'فشرده (۳۰px)'], ['default', 'پیش‌فرض (۵۴px)'], ['roomy', 'جادار (۷۴px)'], ['airy', 'خیلی باز (۹۶px)']]) + '</select></div>' +
         '<div class="form-group"><label>📏 فاصله بین بخش‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'sectionGap\',this.value)">' + opt('sectionGap', [['tight', 'نزدیک (۱۴px)'], ['default', 'پیش‌فرض (۲۶px)'], ['roomy', 'باز (۴۴px)']]) + '</select></div>' +
-        '<div class="form-group"><label>📐 عرض محتوای صفحه</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'containerWidth\',this.value)">' + opt('containerWidth', [['narrow', 'باریک (۸۶۰px)'], ['default', 'پیش‌فرض (۱۰۸۰px)'], ['wide', 'عریض (۱۲۴۰px)'], ['full', 'تمام‌عرض']]) + '</select></div>' +
+        '<div class="form-group"><label>📐 عرض محتوای صفحه</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'containerWidth\',this.value);renderPageProps()">' + opt('containerWidth', [['narrow', 'باریک (۸۶۰px)'], ['default', 'پیش‌فرض (۱۰۸۰px)'], ['wide', 'عریض (۱۲۴۰px)'], ['full', 'تمام‌عرض']]) + '</select></div>' +
+        /* v2.44 (S08) - custom content width px */
+        '<div class="form-group" id="pg-cpx-box" style="' + (pageProp('containerWidth') === 'custom' ? '' : 'display:none') + '"><label>📏 عرض دلخواه محتوا (px)</label><input type="number" class="form-control" style="font-size:12px" min="480" max="1920" value="' + pageProp('containerPx') + '" onchange="setPageProp(\'containerPx\',this.value)"><div class="hint" style="margin-top:4px">480 تا 1920 پیکسل.</div></div>' +
         /* 🆕 v2.43 (S08) — استایل چیدمان صفحه: تمام‌عرض/جعبه/وسط/درصد دلخواه */
         '<hr style="border:none;border-top:1px dashed var(--border);margin:12px 0">' +
         '<div style="font-size:11px;font-weight:800;color:var(--primary);margin:0 0 7px">🏗 استایل چیدمان صفحه (🆕)</div>' +
@@ -357,6 +386,10 @@ function renderPageProps() {
         '<div class="form-group"><label>↔️ فاصله محتوا از قاب (px)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="80" value="' + pageProp('boxedPad') + '" onchange="setPageProp(\'boxedPad\',this.value)"></div>' +
         '<div class="form-group"><label>⬜ گردی گوشه جعبه (px)</label><input type="number" class="form-control" style="font-size:12px" min="0" max="40" value="' + pageProp('boxedRadius') + '" onchange="setPageProp(\'boxedRadius\',this.value)"></div></div>' +
         '<div class="form-group"><label>⬜ گردی گوشه‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'radius\',this.value)">' + opt('radius', [['sharp', 'تیز (۲px)'], ['default', 'پیش‌فرض (۱۴px)'], ['round', 'گرد (۲۲px)'], ['pill', 'خیلی گرد (۳۴px)']]) + '</select></div>' +
+        /* v2.44 (S08) - card/btn radius + hover */
+        '<div class="form-group"><label>💣 گردی کارت‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'cardRadius\',this.value)">' + opt('cardRadius', [['sharp', 'تیز (2px)'], ['default', 'مانند صفحه'], ['round', 'گرد (22px)'], ['pill', 'خیلی گرد (34px)']]) + '</select></div>' +
+        '<div class="form-group"><label>👇 جلوه هنگام اشاره ماوس (حالت hover کارت‌ها)</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'cardHover\',this.value)">' + opt('cardHover', [['none', 'بدون جلوه'], ['lift', 'افزایش و سایه (پیشنهادی)'], ['zoom', 'بزرگ‌شدن نامحسوس'], ['glow', 'هاله نورانی']]) + '</select></div>' +
+        '<div class="form-group"><label>🔘 گردی دکمه‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'btnRadius\',this.value)">' + opt('btnRadius', [['sharp', 'تیز (3px)'], ['default', 'پیش‌فرض (12px)'], ['pill', 'کپسولی (999px)']]) + '</select></div>' +
         '<div class="form-group"><label>🎨 رنگ پیش‌فرض عنوان‌ها</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="' + (pageProp('titleColor') || '#1e40af') + '" oninput="setPageProp(\'titleColor\',this.value)"><button type="button" class="btn btn-outline btn-sm" onclick="setPageProp(\'titleColor\',\'\');renderPageProps()" title="حذف رنگ">✕ پیش‌فرض</button></div></div>' +
         '<div class="form-group"><label>🔤 اندازه متن</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'textSize\',this.value)">' + opt('textSize', [['sm', 'کوچک'], ['default', 'پیش‌فرض'], ['lg', 'بزرگ']]) + '</select></div>' +
         '<div class="form-group"><label>🌫 سایه کارت‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'cardShadow\',this.value)">' + opt('cardShadow', [['none', 'بدون سایه'], ['soft', 'ملایم'], ['default', 'پیش‌فرض'], ['strong', 'قوی']]) + '</select></div>' +
@@ -372,6 +405,10 @@ function renderPageProps() {
         '<label class="form-check" style="font-size:12px;margin-bottom:5px"><input type="checkbox" ' + (pageProp('scrollProgress') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'scrollProgress\',this.checked?1:0)"> 📊 نوار پیشرفت اسکرول (بالای صفحه)</label>' +
         '<label class="form-check" style="font-size:12px;margin-bottom:5px"><input type="checkbox" ' + (pageProp('backToTop') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'backToTop\',this.checked?1:0)"> ⬆️ دکمه بازگشت به بالا</label>' +
         '<label class="form-check" style="font-size:12px"><input type="checkbox" ' + (pageProp('smoothScroll') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'smoothScroll\',this.checked?1:0)"> 🌊 اسکرول نرم لینک‌های داخلی</label>' +
+        /* v2.44 (S08) - dark mode + reveal */
+        '<label class="form-check" style="font-size:12px;margin-bottom:5px"><input type="checkbox" ' + (pageProp('pageDark') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'pageDark\',this.checked?1:0);renderPageProps()"> 🌙 حالت تیره کل صفحه (در سایت واقعی)</label>' +
+        '<div class="form-group" id="pg-darktext-box" style="' + (pageProp('pageDark') == 1 ? '' : 'display:none') + '"><label>📝 رنگ متن در حالت تیره</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="' + (pageProp('darkText') || '#e2e8f0') + '" oninput="setPageProp(\'darkText\',this.value)"><code style="font-size:10.5px;direction:ltr">' + (pageProp('darkText') || '#e2e8f0') + '</code></div></div>' +
+        '<label class="form-check" style="font-size:12px"><input type="checkbox" ' + (pageProp('scrollReveal') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'scrollReveal\',this.checked?1:0)"> ✀️ نمایش تدریجی بخش‌ها هنگام اسکرول</label>' +
         '<hr style="border:none;border-top:1px dashed var(--border);margin:12px 0">' +
         '<div style="font-size:11px;font-weight:800;color:var(--primary);margin:0 0 7px">🎯 ظاهر پیشرفته (🆕 v2.31)</div>' +
         '<div class="form-group"><label>🎨 رنگ تاکیدی (لینک‌ها و دکمه‌ها)</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="' + (pageProp('accentColor') || '#1e40af') + '" oninput="setPageProp(\'accentColor\',this.value)"><button type="button" class="btn btn-outline btn-sm" onclick="setPageProp(\'accentColor\',\'\');renderPageProps()">✕ پیش‌فرض</button></div></div>' +
