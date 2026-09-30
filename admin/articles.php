@@ -888,8 +888,9 @@ $categories = $db->fetchAll('SELECT id, name_fa FROM article_categories');
                 </div>
             </div>
             <div class="form-group">
-                <label>محتوا (HTML)</label>
-                <textarea name="content" class="form-control" rows="18" style="font-family:monospace;font-size:12.5px;direction:rtl"><?= e($editArticle['content']) ?></textarea>
+                <label>محتوا <small style="font-weight:400;color:#64748b">— ویرایشگر حرفه‌ای (S13): قالب‌بندی · تصویر · جدول · لینک · نمای کد</small></label>
+                <?php /* ✍️ v2.44 (S13) — ویرایشگر غنی جایگزین textarea خام */ ?>
+                <textarea name="content" class="rich-editor" rows="18"><?= e($editArticle['content']) ?></textarea>
             </div>
             <div class="form-row">
                 <div class="form-group">
@@ -1877,4 +1878,7 @@ function toggleScheduleBox() {
     });
 })();
 </script>
+<?php /* ✍️ v2.44 (S13) — ویرایشگر غنی محتوای مقاله */ ?>
+<link rel="stylesheet" href="../assets/css/rich-editor.css?v=2.44">
+<script src="../assets/js/rich-editor.js?v=2.44"></script>
 <?php require __DIR__ . '/includes/footer.php'; ?>

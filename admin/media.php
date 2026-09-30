@@ -29,6 +29,72 @@ const MEDIA_DIRS = [
 
 /* ════════════ اکشن‌ها ════════════ */
 
+/* 🖼 v2.44 (S13) — API ویرایشگر غنی: آپلود مستقیم تصویر + فهرست تصاویر اخیر (JSON) */
+if (($_GET['api'] ?? '') === 'recent_images') {
+    header('Content-Type: application/json; charset=utf-8');
+    try {
+        $rows = $db->fetchAll(
+            "SELECT path, original_name, alt, width, height FROM media_files
+             WHERE kind IN ('article', 'misc') ORDER BY id DESC LIMIT 36"
+        ) ?: [];
+        $out = [];
+        foreach ($rows as $r) {
+            $p = (string)$r['path'];
+            $abs = ROOT_PATH . '/' . $p;
+            if (!is_file($abs)) { continue; }
+            $out[] = [
+                'url'  => asset_url($p),
+                'name' => mb_substr((string)$r['original_name'], 0, 28),
+                'alt'  => (string)($r['alt'] ?? ''),
+            ];
+        }
+        json_response(['success' => true, 'data' => $out]);
+    } catch (Throwable $e) {
+        json_response(['success' => false, 'error' => 'خطای دیتابیس'], 500);
+    }
+}
+if (($_GET['api'] ?? '') === 'upload_editor') {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        header('Content-Type: application/json; charset=utf-8');
+        json_response(['success' => false, 'error' => 'متد مجاز نیست'], 405);
+    }
+    Auth::enforceCsrf();
+    header('Content-Type: application/json; charset=utf-8');
+    try {
+        $f = $_FILES['image'] ?? null;
+        if (!$f || !is_array($f) || ($f['error'] ?? 1) !== UPLOAD_ERR_OK) {
+            json_response(['success' => false, 'error' => 'فایلی دریافت نشد'], 400);
+        }
+        if ((int)$f['size'] > UPLOAD_MAX_SIZE) {
+            json_response(['success' => false, 'error' => 'حجم فایل بیش از حد مجاز است'], 413);
+        }
+        $info = @getimagesize($f['tmp_name']);
+        if (!is_array($info) || empty($info[0])) {
+            json_response(['success' => false, 'error' => 'فایل تصویر معتبر نیست'], 422);
+        }
+        $extMap = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_WEBP => 'webp', IMAGETYPE_GIF => 'gif'];
+        $ext = $extMap[$info[2]] ?? 'jpg';
+        $dir = ROOT_PATH . '/uploads/articles/editor';
+        if (!is_dir($dir)) { @mkdir($dir, 0755, true); }
+        $name = 'ed_' . date('Ymd') . '_' . substr(bin2hex(random_bytes(6)), 0, 12) . '.' . $ext;
+        if (!move_uploaded_file($f['tmp_name'], $dir . '/' . $name)) {
+            json_response(['success' => false, 'error' => 'ذخیره فایل ناموفق'], 500);
+        }
+        $rel = 'uploads/articles/editor/' . $name;
+        try {
+            $db->insert('media_files', [
+                'path' => $rel, 'kind' => 'article',
+                'original_name' => pathinfo((string)$f['name'], PATHINFO_FILENAME),
+                'size' => (int)$f['size'], 'width' => (int)$info[0], 'height' => (int)$info[1],
+                'uploaded_by' => $auth->userId() ?: null,
+            ]);
+        } catch (Throwable $ie) { /* رکورد تکراری مهم نیست */ }
+        json_response(['success' => true, 'data' => ['url' => asset_url($rel), 'path' => $rel]]);
+    } catch (Throwable $e) {
+        json_response(['success' => false, 'error' => $e->getMessage()], 500);
+    }
+}
+
 /* 🔍 اسکن پوشه‌ها و ثبت فایل‌های جدید */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'scan') {
     Auth::enforceCsrf();

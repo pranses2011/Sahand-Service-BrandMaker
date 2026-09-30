@@ -787,7 +787,8 @@ foreach ($pages as $p) {
                             <input type="hidden" name="page_id" value="<?= (int)$page['id'] ?>">
                             <input type="hidden" name="page_content_json" value="<?= e($page['content'] ?? '{}') ?>">
                             <input type="hidden" name="content_field" value="<?= e((string)$mainField) ?>">
-                            <textarea name="content_value" class="form-control" rows="7" style="line-height:2.1"><?= e((string)($contentData[$mainField] ?? '')) ?></textarea>
+                            <?php /* ✍️ v2.44 (S13) — ویرایشگر غنی محتوای صفحات برند */ ?>
+                            <textarea name="content_value" class="rich-editor" rows="9"><?= e((string)($contentData[$mainField] ?? '')) ?></textarea>
                             <div class="hint" style="margin:8px 0 12px">ویرایش دستی محتوای تولیدشده توسط AI — تغییرات بلافاصله در سایت برند اعمال می‌شود (کش ۱۰ دقیقه).</div>
                             <button type="submit" class="btn btn-primary btn-sm">💾 ذخیره محتوا</button>
                         </form>
@@ -1198,4 +1199,7 @@ const BE = <?= json_encode($_be, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HE
 }
 .dom-swatch:hover { transform: translateY(-3px); }
 </style>
+<?php /* ✍️ v2.44 (S13) — ویرایشگر غنی محتوای صفحات برند */ ?>
+<link rel="stylesheet" href="../assets/css/rich-editor.css?v=2.44">
+<script src="../assets/js/rich-editor.js?v=2.44"></script>
 <?php require __DIR__ . '/includes/footer.php'; ?>
