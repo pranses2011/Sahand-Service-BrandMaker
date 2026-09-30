@@ -150,6 +150,10 @@ $logoUrl = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
         direction: ltr; font-family: monospace;
     }
     </style>
+<!-- 🎬 v2.44 (S14): انیمیشن‌های Lottie -->
+    <script src="<?= asset_ver('assets/js/vendor/fflate.min.js') ?>" defer></script>
+    <script src="<?= asset_ver('assets/js/vendor/lottie.min.js') ?>" defer></script>
+    <script src="<?= asset_ver('assets/js/lottie-player.js') ?>" defer></script>
 </head>
 <body>
 <div class="fp-page">

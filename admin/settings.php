@@ -1041,16 +1041,18 @@ $i18nSettings = (array)(Config::get('i18n_settings') ?: []);
             </div>
         </div>
 
-        <!-- 💬 v2.44 (S10) — کادر چت مستقیم با مدل زبانی -->
+        <!-- 💬 v2.44 (S10) — کادر چت مستقیم با مدل زبانی + 🎬 انیمیشن ربات (S14) -->
         <div class="card" style="margin-top:16px" id="ai-chat-card">
             <div class="card-header">
+                <div data-lottie="ai-chat" data-lottie-size="42" style="flex:0 0 auto"></div>
                 <h3>💬 چت مستقیم با هوش مصنوعی متن</h3>
                 <span class="badge badge-secondary" style="font-size:11px">پرامپت بدهید — مقاله، متن، ایده بگیرید</span>
             </div>
             <div class="card-body">
                 <div id="ai-chat-log" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding:4px;border:1px solid #e2e8f0;border-radius:12px;background:#fafcff;min-height:120px">
-                    <div class="ai-chat-empty" style="text-align:center;color:#94a3b8;font-size:12px;padding:26px 10px">
-                        🤖 یک پرامپت بنویسید و Enter بزنید — مثلاً «برای سایت تعمیرات یخچال، ۵ ایده مقاله سئوشده پیشنهاد بده»<br>
+                    <div class="ai-chat-empty" style="text-align:center;color:#94a3b8;font-size:12px;padding:14px 10px">
+                        <div data-lottie="ai-chat" data-lottie-size="76" style="margin:0 auto 6px"></div>
+                        یک پرامپت بنویسید و Enter بزنید — مثلاً «برای سایت تعمیرات یخچال، ۵ ایده مقاله سئوشده پیشنهاد بده»<br>
                         <small>پاسخ از زنجیره فال‌بک همین تنظیمات می‌آید؛ ارائه‌دهنده برنده زیر پیام اعلام می‌شود.</small>
                     </div>
                 </div>
@@ -1064,10 +1066,11 @@ $i18nSettings = (array)(Config::get('i18n_settings') ?: []);
         </div>
     </div>
 
-    <!-- 🖼 v2.44 (S10) — چت مستقیم تولید تصویر AI -->
+    <!-- 🖼 v2.44 (S10) — چت مستقیم تولید تصویر AI + 🎬 انیمیشن (S14) -->
     <div id="pane-aichat-img" class="stab-pane">
         <div class="card">
             <div class="card-header">
+                <div data-lottie="image-gen" data-lottie-size="42" style="flex:0 0 auto"></div>
                 <h3>🎨 چت مستقیم تولید تصویر با هوش مصنوعی</h3>
                 <span class="badge badge-secondary" style="font-size:11px">پرامپت بدهید — تصویر بسازید و دانلود کنید</span>
             </div>

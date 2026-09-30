@@ -85,6 +85,11 @@ try {
     <script src="<?= asset_ver('assets/js/admin.js') ?>" defer></script>
     <!-- 💬 کادرهای تعاملی زیبا (جایگزین alert/confirm) — قبل از admin.js تا همیشه در دسترس باشد -->
     <script src="<?= asset_ver('assets/js/sahand-dialog.js') ?>" defer></script>
+    <!-- 🎬 v2.44 (S14): انیمیشن‌های Lottie — fflate (باز کردن بسته .lottie) + پخش‌کننده + رابط SLottie -->
+    <script src="<?= asset_ver('assets/js/vendor/fflate.min.js') ?>" defer></script>
+    <script src="<?= asset_ver('assets/js/vendor/lottie.min.js') ?>" defer></script>
+    <script src="<?= asset_ver('assets/js/lottie-player.js') ?>" defer></script>
+    <script>window.SAHAND_VER='<?= e(SAHAND_VERSION) ?>';</script>
 </head>
 <body>
 <div class="layout">

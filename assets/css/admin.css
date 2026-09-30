@@ -993,3 +993,71 @@ td, .card-body, .alert, .card-header h3, .topbar-titles { overflow-wrap: break-w
     .lux-fields input[type="search"], .lux-fields input[type="tel"], .lux-fields input[type="number"],
     .lux-fields select, .lux-fields textarea { min-height: 46px; font-size: 14px; }
 }
+
+/* ══════════════════════════════════════════════════════════
+ * 🎬 v2.44 (S14) — انیمیشن‌های Lottie پنل + زیباسازی ظاهر
+ * ══════════════════════════════════════════════════════════ */
+
+.slottie { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; line-height: 0; }
+.slottie svg { display: block; width: 100% !important; height: 100% !important; }
+.slottie-hover { cursor: pointer; }
+
+/* چیپ انیمیشن کنار عنوان صفحه */
+.slottie-chip {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 52px; height: 52px; border-radius: 14px; flex: 0 0 auto;
+    background: linear-gradient(135deg, rgba(37, 99, 235, .10), rgba(124, 58, 237, .10));
+    border: 1px solid rgba(37, 99, 235, .18);
+    margin-inline-end: 12px; position: relative; overflow: hidden;
+}
+.slottie-chip::after {
+    content: ""; position: absolute; inset: -40%;
+    background: conic-gradient(from 0deg, transparent 70%, rgba(124, 58, 237, .16) 85%, transparent 100%);
+    animation: slottieGlow 4.5s linear infinite; border-radius: 50%;
+}
+@keyframes slottieGlow { to { transform: rotate(360deg); } }
+.slottie-chip .slottie { position: relative; z-index: 1; }
+
+/* انیمیشن لوگوی سایدبار */
+.slottie-brand { border-radius: 10px; }
+
+/* انیمیشن آیتم فعال منو */
+.slottie-menu { width: 26px; height: 26px; flex: 0 0 auto; display: inline-flex; }
+
+/* حالت خالی */
+.slottie-empty { display: flex; justify-content: center; margin: 0 auto 10px; opacity: .9; }
+
+/* ↳ جعبه‌های حالت خایی عمومی — ظاهر بهتر */
+.empty-state, .no-results { text-align: center; }
+
+/* 🌟 زیباسازی عمومی پنل v2.44 — نرم‌تر و شفاف‌تر */
+.card {
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.card:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(2, 8, 23, .09); }
+.nav-link { position: relative; transition: background .15s ease, color .15s ease, padding-inline .18s ease; }
+.nav-link:hover { padding-inline-start: calc(1rem + 3px); }
+.btn { transition: transform .14s ease, box-shadow .14s ease, filter .14s ease; }
+.btn:not(:disabled):hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0) scale(.98); }
+.topbar { backdrop-filter: blur(7px); }
+.alert { animation: alertSlideIn .3s ease; }
+@keyframes alertSlideIn { from { opacity: 0; transform: translateY(-7px); } to { opacity: 1; transform: none; } }
+
+/* مودال‌ها — ورود نرم‌تر */
+.modal { animation: modalFade .18s ease; }
+.modal .modal-box, .modal-content { animation: modalPop .22s cubic-bezier(.2, 1.1, .4, 1); }
+@keyframes modalFade { from { opacity: 0; } }
+@keyframes modalPop { from { opacity: 0; transform: scale(.94) translateY(9px); } }
+
+/* اسکلتون بارگذاری */
+.skeleton-line {
+    height: 13px; border-radius: 7px; margin: 7px 0;
+    background: linear-gradient(90deg, #eef2f7 25%, #f8fafc 50%, #eef2f7 75%);
+    background-size: 200% 100%; animation: skeletonWave 1.3s linear infinite;
+}
+@keyframes skeletonWave { to { background-position: -200% 0; } }
+
+/* هم‌ترازی انیمیشن داخل آیکون کارت‌های آماری */
+.stat-card .icon [data-lottie] { display: inline-flex; }
+.stat-card .icon { overflow: hidden; }

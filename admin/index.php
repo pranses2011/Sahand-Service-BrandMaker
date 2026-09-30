@@ -171,9 +171,10 @@ $meIni = mb_substr($meName !== '' ? $meName : 'م', 0, 1);
 .qa-item small{font-size:10.5px;color:var(--text-light,#64748b);line-height:1.7}
 </style>
 
-<!-- 🌟 هیرو خوش‌آمد (v2.39) -->
+<!-- 🌟 هیرو خوش‌آمد (v2.39) + 🎬 انیمیشن داشبورد (v2.44 S14) -->
 <div class="dash-hero">
     <div style="display:flex;align-items:center;gap:17px;flex-wrap:wrap">
+        <div data-lottie="dashboard" data-lottie-size="92" style="flex:0 0 auto"></div>
         <?php
         $heroAvatar = '';
         try {
@@ -205,14 +206,14 @@ $meIni = mb_substr($meName !== '' ? $meName : 'م', 0, 1);
 <!-- 📊 کارت‌های آماری -->
 <div class="stats-grid">
     <a class="stat-card" href="brands.php">
-        <div class="icon" style="background:rgba(37,99,235,.12)">🏷️</div>
+        <div class="icon" style="background:rgba(37,99,235,.12)"><span data-lottie="brands" data-lottie-size="34" data-lottie-mode="hover"></span></div>
         <div>
             <div class="number"><?= en_to_fa_digits((string)$stats['brands']) ?></div>
             <div class="label">برند فعال (<?= en_to_fa_digits((string)$stats['published']) ?> منتشرشده)</div>
         </div>
     </a>
     <a class="stat-card" href="requests.php">
-        <div class="icon" style="background:rgba(220,38,38,.12)">📨</div>
+        <div class="icon" style="background:rgba(220,38,38,.12)"><span data-lottie="requests" data-lottie-size="34" data-lottie-mode="hover"></span></div>
         <div>
             <div class="number"><?= en_to_fa_digits((string)$stats['requests_new']) ?></div>
             <div class="label">درخواست جدید (کل: <?= en_to_fa_digits((string)$stats['requests_total']) ?>)</div>
@@ -220,7 +221,7 @@ $meIni = mb_substr($meName !== '' ? $meName : 'م', 0, 1);
         </div>
     </a>
     <a class="stat-card" href="analytics.php">
-        <div class="icon" style="background:rgba(8,145,178,.12)">📈</div>
+        <div class="icon" style="background:rgba(8,145,178,.12)"><span data-lottie="analytics" data-lottie-size="34" data-lottie-mode="hover"></span></div>
         <div>
             <div class="number"><?= en_to_fa_digits((string)$stats['visits_today']) ?></div>
             <div class="label">بازدید امروز (۷ روز: <?= en_to_fa_digits((string)$stats['visits_week']) ?>)</div>
@@ -228,7 +229,7 @@ $meIni = mb_substr($meName !== '' ? $meName : 'م', 0, 1);
         </div>
     </a>
     <a class="stat-card" href="articles.php">
-        <div class="icon" style="background:rgba(5,150,105,.12)">📰</div>
+        <div class="icon" style="background:rgba(5,150,105,.12)"><span data-lottie="articles" data-lottie-size="34" data-lottie-mode="hover"></span></div>
         <div>
             <div class="number"><?= en_to_fa_digits((string)$stats['articles']) ?></div>
             <div class="label">مقاله (<?= en_to_fa_digits((string)$stats['ai_articles']) ?> تولید AI)</div>

@@ -293,12 +293,20 @@ $logoUrl     = $agencyLogo !== '' ? asset_url($agencyLogo) : '';
         .login-submit, .login-submit:hover { transform: none; }
     }
     </style>
+<!-- 🎬 v2.44 (S14): انیمیشن‌های Lottie -->
+    <script src="<?= asset_ver('assets/js/vendor/fflate.min.js') ?>" defer></script>
+    <script src="<?= asset_ver('assets/js/vendor/lottie.min.js') ?>" defer></script>
+    <script src="<?= asset_ver('assets/js/lottie-player.js') ?>" defer></script>
 </head>
 <body>
 <div class="login-page">
     <div class="login-grid"></div>
     <div class="login-wrap">
     <main class="login-card">
+        <!-- 🎬 v2.44 (S14): انیمیشن ورود — قفل بازشونده -->
+        <div style="display:flex;justify-content:center;margin-bottom:6px">
+            <div data-lottie="login" data-lottie-size="86"></div>
+        </div>
         <div class="login-brand">
             <div class="login-logo">
                 <?php if ($logoUrl): ?><img src="<?= e($logoUrl) ?>" alt="لوگو"><?php else: ?>🏗️<?php endif; ?>
