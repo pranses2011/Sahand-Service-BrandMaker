@@ -522,3 +522,35 @@
     background-image: inherit; background-size: cover; background-position: center;
     filter: blur(var(--pg-bg-blur, 6px));
 }
+
+/* ══════════════════════════════════════════════════════════
+ * 🆕 v2.44 (S09) — تکمیل تنظیمات عناصر: سایه/بوردر/تصویر زمینه بخش
+ * + رنگ و اندازه آیکون‌های همین بخش
+ * ══════════════════════════════════════════════════════════ */
+
+/* سایه اختصاصی بخش */
+.blk[style*="--blk-shadow"] { box-shadow: var(--blk-shadow); }
+
+/* بوردر اختصاصی بخش */
+.blk[style*="--blk-bd"] { border: var(--blk-bd); }
+
+/* تصویر زمینه همین بخش (با پوشش نیمه‌شفاف برای خوانایی) */
+.blk[style*="--blk-bgi"] {
+    background-image: linear-gradient(rgba(255,255,255,.86), rgba(255,255,255,.86)), var(--blk-bgi);
+    background-size: cover; background-position: center;
+}
+
+/* رنگ آیکون‌های همین بخش — جعبه‌های آیکون و آیکون‌های متنی */
+.blk[style*="--blk-ic"] .feat-ico,
+.blk[style*="--blk-ic"] .card-ico,
+.blk[style*="--blk-ic"] .divider-ico,
+.blk[style*="--blk-ic"] .story-year { color: var(--blk-ic); background: color-mix(in srgb, var(--blk-ic) 12%, transparent); }
+
+/* اندازه آیکون‌های همین بخش (ضریب مقیاس) */
+.blk[style*="--blk-ics"] .feat-ico,
+.blk[style*="--blk-ics"] .card-ico { font-size: calc(21px * var(--blk-ics, 1)); }
+.blk[style*="--blk-ics"] .feat-ico svg,
+.blk[style*="--blk-ics"] .card-ico img { width: calc(1.2em * var(--blk-ics, 1)) !important; height: calc(1.2em * var(--blk-ics, 1)) !important; }
+
+/* پیمایش نرم به لنگر — شناسه بخش */
+html { scroll-padding-top: 84px; }

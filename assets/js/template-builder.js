@@ -374,7 +374,7 @@ function renderPageProps() {
         '<div class="form-group" id="pg-img-box" style="' + (pageProp('pageBg') === 'image' ? '' : 'display:none') + '"><label>🖼 آدرس تصویر زمینه</label><input type="text" class="form-control" style="font-size:11px;direction:ltr;text-align:left" value="' + esc(pageProp('bgImage')) + '" oninput="setPageProp(\'bgImage\',this.value)" placeholder="https://example.com/bg.jpg"><label class="form-check" style="margin:8px 0;font-size:11.5px"><input type="checkbox" ' + (pageProp('bgImageFixed') == 1 ? 'checked' : '') + ' onchange="setPageProp(\'bgImageFixed\',this.checked?1:0)"> تصویر ثابت (پارالکس هنگام اسکرول)</label><label>🎨 پوشش رنگ روی تصویر (برای خوانایی متن)</label><div style="display:flex;gap:7px;align-items:center"><input type="color" class="form-control" style="width:44px;height:31px;padding:2px;cursor:pointer" value="' + pageProp('overlayColor') + '" oninput="setPageProp(\'overlayColor\',this.value)"><input type="range" min="0" max="90" value="' + pageProp('overlayOpacity') + '" oninput="setPageProp(\'overlayOpacity\',this.value)" style="flex:1" title="شفافیت پوشش ٪"><code style="font-size:10.5px">' + pageProp('overlayOpacity') + '٪</code><label class="form-group" style="margin-top:8px">🔥 میزان تاری تصویر زمینه (px)<div style="display:flex;gap:7px;align-items:center"><input type="range" min="0" max="20" value="' + pageProp('bgBlur') + '" oninput="setPageProp(\'bgBlur\',this.value)" style="flex:1"><code style="font-size:10.5px">' + pageProp('bgBlur') + 'px</code></div></label></div></div></div>' +
         '<div class="form-group"><label>↕️ فاصله داخلی بخش‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'sectionSpacing\',this.value)">' + opt('sectionSpacing', [['compact', 'فشرده (۳۰px)'], ['default', 'پیش‌فرض (۵۴px)'], ['roomy', 'جادار (۷۴px)'], ['airy', 'خیلی باز (۹۶px)']]) + '</select></div>' +
         '<div class="form-group"><label>📏 فاصله بین بخش‌ها</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'sectionGap\',this.value)">' + opt('sectionGap', [['tight', 'نزدیک (۱۴px)'], ['default', 'پیش‌فرض (۲۶px)'], ['roomy', 'باز (۴۴px)']]) + '</select></div>' +
-        '<div class="form-group"><label>📐 عرض محتوای صفحه</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'containerWidth\',this.value);renderPageProps()">' + opt('containerWidth', [['narrow', 'باریک (۸۶۰px)'], ['default', 'پیش‌فرض (۱۰۸۰px)'], ['wide', 'عریض (۱۲۴۰px)'], ['full', 'تمام‌عرض']]) + '</select></div>' +
+        '<div class="form-group"><label>📐 عرض محتوای صفحه</label><select class="form-control" style="font-size:12px" onchange="setPageProp(\'containerWidth\',this.value);renderPageProps()">' + opt('containerWidth', [['narrow', 'باریک (۸۶۰px)'], ['default', 'پیش‌فرض (۱۰۸۰px)'], ['wide', 'عریض (۱۲۴۰px)'], ['full', 'تمام‌عرض'], ['custom', 'دلخواه (px) 📝']]) + '</select></div>' +
         /* v2.44 (S08) - custom content width px */
         '<div class="form-group" id="pg-cpx-box" style="' + (pageProp('containerWidth') === 'custom' ? '' : 'display:none') + '"><label>📏 عرض دلخواه محتوا (px)</label><input type="number" class="form-control" style="font-size:12px" min="480" max="1920" value="' + pageProp('containerPx') + '" onchange="setPageProp(\'containerPx\',this.value)"><div class="hint" style="margin-top:4px">480 تا 1920 پیکسل.</div></div>' +
         /* 🆕 v2.43 (S08) — استایل چیدمان صفحه: تمام‌عرض/جعبه/وسط/درصد دلخواه */
@@ -1954,6 +1954,35 @@ function renderProps() {
                 <input type="number" class="form-control" style="font-size:12px" min="-80" max="300" value="${esc(props.mb ?? '')}" oninput="setProp('${selected}','mb',this.value)" placeholder="پایین — خالی=خودکار">
             </div>
             <div class="hint" style="margin-top:4px">🆕 جابه‌جایی دقیق همین بخش نسبت به بخش‌های قبل/بعد — عدد منفی = نزدیک‌تر.</div></div>`;
+    /* v2.44 (S09) — تکمیل تنظیمات عناصر: سایه/بوردر/تصویر زمینه/آیکون/لنگر */
+    html += `
+        <div class="form-group"><label>🌫 سایه اختصاصی همین بخش</label>
+            <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','boxShadow',this.value)">
+                ${[['', 'پیش‌فرض قالب'], ['none', 'بدون سایه'], ['soft', 'ملایم'], ['strong', 'قوی و عمیق']].map(([v, l]) => `<option value="${v}" ${(props.boxShadow || '') === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select></div>
+        <div class="form-group"><label>🔲 قاب دور همین بخش</label>
+            <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','borderStyle',this.value);renderProps()">
+                ${[['', 'بدون قاب'], ['thin', 'خط نازک'], ['dashed', 'خط‌چین'], ['thick', 'خط ضخیم']].map(([v, l]) => `<option value="${v}" ${(props.borderStyle || '') === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select>
+            ${props.borderStyle ? `<div style="display:flex;gap:7px;align-items:center;margin-top:7px">
+                <input type="color" class="form-control" style="width:44px;height:31px;padding:2px;cursor:pointer" value="${esc(props.borderColor || '#cbd5e1')}" oninput="setProp('${selected}','borderColor',this.value)" title="رنگ قاب">
+                <span style="font-size:11px;color:var(--text-light)">رنگ قاب دور بخش</span></div>` : ''}</div>
+        <div class="form-group"><label>🖼 تصویر زمینه همین بخش (اختیاری)</label>
+            <input type="text" class="form-control" style="font-size:11px;direction:ltr;text-align:left" value="${esc(props.bgImage || '')}" oninput="setProp('${selected}','bgImage',this.value)" placeholder="https://example.com/pattern.jpg">
+            <div class="hint" style="margin-top:4px">پس‌زمینه تصویری فقط برای همین بخش — پوشش سفید نیمه‌شفاف برای خوانایی متن اضافه می‌شود.</div></div>
+        <div class="form-group"><label>🎨 رنگ آیکون‌های همین بخش</label>
+            <div style="display:flex;gap:7px;align-items:center">
+                <input type="color" class="form-control" style="width:48px;height:33px;padding:2px;cursor:pointer" value="${esc(props.iconColor || '#0f766e')}" oninput="setProp('${selected}','iconColor',this.value)">
+                <button type="button" class="btn btn-outline btn-sm" onclick="setProp('${selected}','iconColor','');renderProps()" title="رنگ پیش‌فرض">✕ پیش‌فرض</button>
+            </div>
+            <div class="hint" style="margin-top:4px">همه جعبه‌های آیکون این بخش هم‌رنگ می‌شوند (آیکون‌های SVG رنگ نمی‌گیرند).</div></div>
+        <div class="form-group"><label>↕️ اندازه آیکون‌های همین بخش</label>
+            <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','iconSize',this.value)">
+                ${[['', 'پیش‌فرض'], ['sm', 'کوچک'], ['lg', 'بزرگ'], ['xl', 'خیلی بزرگ']].map(([v, l]) => `<option value="${v}" ${(props.iconSize || '') === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select></div>
+        <div class="form-group"><label>⚓ شناسه لنگری بخش (برای پیوند داخلی)</label>
+            <input type="text" class="form-control" style="font-size:11.5px;direction:ltr" value="${esc(props.anchorId || '')}" oninput="setProp('${selected}','anchorId',this.value)" placeholder="مثلاً services">
+            <div class="hint" style="margin-top:4px">در دکمه/منو لینک <b>#services</b> بدهید تا با کلیک، صفحه به همین بخش اسکرول شود.</div></div>`;
     }
     html += `
         <div class="form-group"><label>کلاس CSS سفارشی (اختیاری)</label>

@@ -197,6 +197,28 @@ if (!function_exists('pvStyleVars')) {
            «رنگ» برای دکمه‌ها — هم‌رنگ شدن دکمه با هویت بصری برند) */
         $btn = trim((string)($props['btnColor'] ?? ''));
         if (preg_match('/^#[0-9a-fA-F]{3,8}$/', $btn)) { $s .= '--blk-btn:' . $btn . ';'; }
+        /* 🆕 v2.44 (S09) — تکمیل تنظیمات عناصر: سایه/بوردر/تصویر زمینه بخش + رنگ/اندازه آیکون */
+        $bsh = (string)($props['boxShadow'] ?? '');
+        if ($bsh === 'none') { $s .= '--blk-shadow:none;'; }
+        elseif ($bsh === 'soft') { $s .= '--blk-shadow:0 3px 12px rgba(2,8,23,.09);'; }
+        elseif ($bsh === 'strong') { $s .= '--blk-shadow:0 14px 36px rgba(2,8,23,.18);'; }
+        $bd = (string)($props['borderStyle'] ?? '');
+        if (in_array($bd, ['thin', 'dashed', 'thick'], true)) {
+            $bc = preg_match('/^#[0-9a-fA-F]{3,8}$/', (string)($props['borderColor'] ?? '')) ? (string)$props['borderColor'] : '#cbd5e1';
+            $w = $bd === 'thick' ? '2.5px' : '1.5px';
+            $st = $bd === 'dashed' ? 'dashed' : 'solid';
+            $s .= '--blk-bd:' . $w . ' ' . $st . ' ' . $bc . ';';
+        }
+        $bgi = trim((string)($props['bgImage'] ?? ''));
+        if (preg_match('#^https?://[^\s"\'<>]{5,500}$#i', $bgi)) {
+            $s .= '--blk-bgi:url(\'' . $bgi . '\');';
+        }
+        $ic = trim((string)($props['iconColor'] ?? ''));
+        if (preg_match('/^#[0-9a-fA-F]{3,8}$/', $ic)) { $s .= '--blk-ic:' . $ic . ';'; }
+        $ics = (string)($props['iconSize'] ?? '');
+        if ($ics === 'sm') { $s .= '--blk-ics:.78;'; }
+        elseif ($ics === 'lg') { $s .= '--blk-ics:1.35;'; }
+        elseif ($ics === 'xl') { $s .= '--blk-ics:1.75;'; }
         return $s;
     }
 }
@@ -716,7 +738,7 @@ if (!function_exists('pv_render_block')) {
             $html = preg_replace('#^<div class="blk #', '<div class="blk ' . implode(' ', $inject) . ' ', $html, 1);
         }
         $vars = pvStyleVars($props);
-        if ($vars !== '' && preg_match('#--blk-tc|--blk-grad|--blk-txt|--blk-bg|--blk-mt|--blk-mb|--blk-btn#', $html) === 0) {
+        if ($vars !== '' && preg_match('#--blk-tc|--blk-grad|--blk-txt|--blk-bg|--blk-mt|--blk-mb|--blk-btn|--blk-shadow|--blk-bd|--blk-bgi|--blk-ic|--blk-ics#', $html) === 0) {
             if (preg_match('#^(<div class="blk [^>]*?)style="([^"]*)"#', $html, $sm)) {
                 $html = preg_replace('#^(<div class="blk [^>]*?)style="[^"]*"#', '$1style="' . $sm[2] . ';' . $vars . '"', $html, 1);
             } else {
@@ -771,6 +793,13 @@ if (!function_exists('pv_render_block')) {
                 $html,
                 1
             );
+        }
+        /* 🆕 v2.44 (S09) — شناسه لنگری بخش: پیوند #id از منو/دکمه به همین بخش */
+        $anchorId = preg_replace('/[^a-zA-Z0-9\-_]/', '', (string)($props['anchorId'] ?? ''));
+        if ($anchorId !== '') {
+            if (preg_match('#^(<div class="blk [^>]*?)>#', $html, $am)) {
+                $html = preg_replace('#^(<div class="blk [^>]*?)>#', '$1 id="' . $anchorId . '" data-anchor="1">', $html, 1);
+            }
         }
         /* 🖱 v2.29 — کلیک‌پذیری: کل عنصر داخل لینک */
         return pv_link_wrap($props, $html);
