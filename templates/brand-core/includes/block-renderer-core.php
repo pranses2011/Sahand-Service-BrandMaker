@@ -461,6 +461,131 @@ if (!function_exists('pv_dyn_article_tags')) {
     }
 }
 
+if (!function_exists('pv_dyn_socials')) {
+    /** 🔗 v2.44 (S04) — شبکه‌های اجتماعی واقعی از تنظیمات سایت‌ساز
+     * خروجی: [['icon'=>.., 'text'=>نام, 'link'=>URL], ...] — نگاشت آیکون از نام */
+    function pv_dyn_socials(): array
+    {
+        static $cache = null;
+        if ($cache !== null) { return $cache; }
+        $cache = [];
+        $st = pv_brand_settings();
+        $soc = (array)($st['socials'] ?? []);
+        $map = [
+            'telegram' => '📡', 'تلگرام' => '📡', 'tg' => '📡',
+            'instagram' => '📷', 'اینستاگرام' => '📷', 'اینستا' => '📷', 'insta' => '📷',
+            'whatsapp' => '💬', 'واتساپ' => '💬', 'واتس‌اپ' => '💬',
+            'aparat' => '▶️', 'آپارات' => '▶️',
+            'youtube' => '▶️', 'یوتیوب' => '▶️',
+            'twitter' => '🐦', 'x' => '🐦', 'توییتر' => '🐦', 'ایکس' => '🐦',
+            'linkedin' => '💼', 'لینکدین' => '💼',
+            'facebook' => '📘', 'فیسبوک' => '📘',
+            'eitaa' => '📨', 'ایتا' => '📨',
+            'bale' => '💬', 'بله' => '💬',
+            'rubika' => '🟣', 'روبیکا' => '🟣',
+        ];
+        foreach ($soc as $s) {
+            if (!is_array($s)) { continue; }
+            $name = trim((string)($s['name'] ?? ''));
+            $url = trim((string)($s['url'] ?? ''));
+            if ($url === '' || !preg_match('#^https?://#i', $url)) { continue; }
+            $key = mb_strtolower($name, 'UTF-8');
+            $icon = '📣';
+            foreach ($map as $k => $ic) { if (str_contains($key, $k)) { $icon = $ic; break; } }
+            $cache[] = ['icon' => $icon, 'text' => $name !== '' ? $name : 'شبکه اجتماعی', 'link' => $url, 'desc' => '', 'color' => ''];
+        }
+        return $cache;
+    }
+}
+if (!function_exists('pv_dyn_email')) {
+    /** ✉️ v2.44 (S04) — نخستین ایمیل عمومی از تنظیمات سایت‌ساز */
+    function pv_dyn_email(): string
+    {
+        $st = pv_brand_settings();
+        foreach ((array)($st['emails'] ?? []) as $em) {
+            if (is_array($em)) {
+                $v = trim((string)($em['email'] ?? $em['address'] ?? ''));
+            } else {
+                $v = trim((string)$em);
+            }
+            if ($v !== '' && filter_var($v, FILTER_VALIDATE_EMAIL)) { return $v; }
+        }
+        return '';
+    }
+}
+if (!function_exists('pv_dyn_warranty')) {
+    /** 🛡️ v2.44 (S04) — متن ضمانت از تنظیمات سایت‌ساز (تب ضمانت) */
+    function pv_dyn_warranty(): array
+    {
+        $st = pv_brand_settings();
+        $w = (array)($st['warranty'] ?? []);
+        return [
+            'period' => trim((string)($w['default_period'] ?? '')),
+            'text'   => trim((string)($w['text'] ?? '')),
+        ];
+    }
+}
+if (!function_exists('pv_dyn_city')) {
+    /** 🏙 v2.44 (S04) — شهر نمایندگی از نخستین آدرس سایت‌ساز */
+    function pv_dyn_city(): string
+    {
+        $st = pv_brand_settings();
+        foreach ((array)($st['addresses'] ?? []) as $a) {
+            if (is_array($a)) {
+                $c = trim((string)($a['city'] ?? ''));
+                if ($c !== '') { return $c; }
+            }
+        }
+        return defined('BRAND_CITY') ? trim((string)BRAND_CITY) : '';
+    }
+}
+if (!function_exists('pv_dyn_areas')) {
+    /** 📍 v2.44 (S04) — محدوده‌های خدمت از آدرس‌های سایت‌ساز (شهر + محله) */
+    function pv_dyn_areas(int $limit = 8): array
+    {
+        $st = pv_brand_settings();
+        $out = [];
+        foreach ((array)($st['addresses'] ?? []) as $a) {
+            if (!is_array($a)) { continue; }
+            $c = trim((string)($a['city'] ?? ''));
+            $ad = trim((string)($a['address'] ?? ''));
+            /* شهر (یک‌بار برای هر شهر متمایز): «کل تبریز» */
+            if ($c !== '') {
+                $cc = 'کل ' . $c;
+                if (!in_array($cc, $out, true)) { $out[] = $cc; }
+            }
+            /* محله/ابتدای آدرس کوتاه: «چهارراه ابوریحان» */
+            if ($ad !== '' && mb_strlen($ad) <= 60) {
+                $first = trim((string)(explode('،', $ad)[0] ?? ''));
+                if (mb_strlen($first) >= 3 && mb_strlen($first) <= 25 && !in_array($first, $out, true)) { $out[] = $first; }
+            }
+            if (count($out) >= $limit) { break; }
+        }
+        return $out;
+    }
+}
+if (!function_exists('pv_brand_logo_html')) {
+    /** 🏷 v2.44 (S04) — لوگو/نام برند واقعی برای هدر و فوتر قالب‌ساز
+     * در سایت برند: نام برند (BRAND_NAME_FA)؛ پیش‌نمایش: نمونه */
+    function pv_brand_logo_html(string $class = 'fake-logo'): string
+    {
+        if (!pv_renderer_is_preview() && defined('BRAND_NAME_FA') && trim((string)BRAND_NAME_FA) !== '') {
+            return '<div class="' . $class . '" style="font-size:15px;font-weight:800;line-height:1.25;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' . e((string)BRAND_NAME_FA) . '</div>';
+        }
+        return '<div class="' . $class . '">🏗️</div>';
+    }
+}
+if (!function_exists('pv_dyn_brand_title')) {
+    /** ✨ v2.44 (S04) — عنوان پیش‌فرض برنددار: «خدمات {برند}» */
+    function pv_dyn_brand_title(string $fallback): string
+    {
+        if (!pv_renderer_is_preview() && defined('BRAND_NAME_FA') && trim((string)BRAND_NAME_FA) !== '') {
+            return 'خدمات ' . trim((string)BRAND_NAME_FA);
+        }
+        return $fallback;
+    }
+}
+
 if (!function_exists('pvA')) {
     function pvA(array $it, string $inner): string
     {
@@ -797,9 +922,16 @@ if (!function_exists('pv_render_block_inner')) {
                    فیلدهای پنل بی‌اثر بودند — تکمیل تنظیمات عناصر) */
                 $hvPh = trim((string)($props['phone'] ?? '')) ?: pv_brand_phone() ?: '۰۲۱-۱۲۳۴۵۶۷۸';
                 $hvHr = trim((string)($props['hours'] ?? '')) ?: pv_brand_hours() ?: 'شنبه تا پنجشنبه ۹ تا ۲۰';
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' header-blk' . ($block === 'header-v3' ? ' glass' : '') . (!empty($props['sticky']) ? ' sticky-demo' : '') . '">' . ($block === 'header-v2' ? '<div class="tb-row"><span>📞 <a href="tel:' . e($hvPh) . '" style="color:inherit;text-decoration:none" dir="ltr">' . e(fa_num($hvPh)) . '</a></span><span>🕐 ' . e($hvHr) . '</span></div>' : '') . '<div class="h-row"><div class="fake-logo">🏗️</div><nav class="fake-nav">' . $menuHtml . '</nav><div class="fake-cta">' . e($props['btnText'] ?? 'ثبت درخواست') . '</div></div></div>';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' header-blk' . ($block === 'header-v3' ? ' glass' : '') . (!empty($props['sticky']) ? ' sticky-demo' : '') . '">' . ($block === 'header-v2' ? '<div class="tb-row"><span>📞 <a href="tel:' . e($hvPh) . '" style="color:inherit;text-decoration:none" dir="ltr">' . e(fa_num($hvPh)) . '</a></span><span>🕐 ' . e($hvHr) . '</span></div>' : '') . '<div class="h-row">' . pv_brand_logo_html() . '<nav class="fake-nav">' . $menuHtml . '</nav><div class="fake-cta">' . e($props['btnText'] ?? 'ثبت درخواست') . '</div></div></div>';
             case 'hero':
-                return $PV('<div class="hero-title">' . ($title ?: 'تعمیرات تخصصی با قطعات اصلی') . '</div><div class="hero-sub">' . e($props['subtitle'] ?? 'نمایندگی رسمی — پاسخگویی ۷ روز هفته') . '</div><div class="hero-btns"><span class="hero-btn">📞 تماس فوری</span><span class="hero-btn ghost">ثبت درخواست آنلاین</span></div>', 'hero-blk');
+                /* 🆕 v2.44 (S04) — عنوان/زیرعنوان پیش‌فرض از نام برند + شعار نمایندگی */
+                $heroT = $title !== '' ? $title : pv_dyn_brand_title('خدمات تخصصی با قطعات اصلی');
+                $heroS = trim((string)($props['subtitle'] ?? ''));
+                if ($heroS === '') {
+                    $heroAg = (string)(pv_brand_settings()['agency']['slogan_fa'] ?? '');
+                    $heroS = $heroAg !== '' ? $heroAg : 'پاسخگویی ۷ روز هفته';
+                }
+                return $PV('<div class="hero-title">' . $heroT . '</div><div class="hero-sub">' . e($heroS) . '</div><div class="hero-btns"><span class="hero-btn">📞 تماس فوری</span><span class="hero-btn ghost">ثبت درخواست آنلاین</span></div>', 'hero-blk');
             case 'hero-slider':
             case 'universal-slider':
                 /* 🎞 v2.29 — اسلایدر چندمقداری: هر تعداد اسلاید + نوع دلخواه + اسلاید واقعی با JS */
@@ -1156,17 +1288,32 @@ if (!function_exists('pv_render_block_inner')) {
                 $fl = pvItems($props, [['', 'خدمات', ''], ['', 'مقالات', ''], ['', 'تماس', '']]);
                 $flHtml = '';
                 foreach ($fl as $l) { $flHtml .= '<span>' . e($l['text']) . '</span>'; }
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' footer-blk"><div class="fake-logo">🏗️</div><nav class="fake-nav" style="justify-content:center">' . $flHtml . '</nav><div class="soc-row"><span> Telegram </span><span> Instagram </span><span> WhatsApp </span></div>' . (!empty($props['phone']) ? '<div class="feat-d" style="text-align:center;margin-top:6px">📞 ' . e($props['phone']) . '</div>' : '') . '</div>';
+                /* 🆕 v2.44 (S04) — سوشال‌ها و تلفن از تنظیمات سایت‌ساز */
+                $fsSoc = pv_dyn_socials();
+                $socHtml = '';
+                foreach ($fsSoc ?: [['icon' => '📣', 'text' => 'شبکه‌های اجتماعی', 'link' => ''], ['icon' => '📷', 'text' => 'اینستاگرام', 'link' => '']] as $s) {
+                    $socHtml .= '<span>' . pv_icon($s['icon']) . ' ' . e($s['text']) . '</span>';
+                }
+                $fsPh = trim((string)($props['phone'] ?? '')) ?: pv_brand_phone();
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' footer-blk">' . pv_brand_logo_html() . '<nav class="fake-nav" style="justify-content:center">' . $flHtml . '</nav><div class="soc-row">' . $socHtml . '</div>' . ($fsPh !== '' ? '<div class="feat-d" style="text-align:center;margin-top:6px">📞 <a href="tel:' . e($fsPh) . '" style="color:inherit" dir="ltr">' . e(fa_num($fsPh)) . '</a></div>' : '') . '</div>';
             }
             case 'footer-contact':
                 /* 🆕 v2.29 — از تنظیمات سایت‌ساز */
                 $fcPh = trim((string)($props['phone'] ?? '')) ?: pv_brand_phone() ?: '۰۲۱-۱۲۳۴۵۶۷۸';
                 /* 🆕 v2.40 — متن (X) = آدرس دلخواه (قبلاً فقط از تنظیمات برند) */
-                $fcAd = trim((string)($props['text'] ?? '')) ?: pv_brand_address() ?: 'تهران، خیابان نمونه';
+                $fcAd = trim((string)($props['text'] ?? '')) ?: pv_brand_address() ?: 'آدرس نمایندگی — از تنظیمات سایت‌ساز';
                 $fcHr = trim((string)($props['hours'] ?? '')) ?: pv_brand_hours() ?: 'شنبه تا پنجشنبه، ۹ صبح تا ۸ شب';
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' footer-blk"><div class="cols c3"><div><div class="fake-logo">🏗️</div></div><div><div class="card-t">تماس</div><div class="feat-d">📞 <a href="tel:' . e($fcPh) . '" style="color:inherit" dir="ltr">' . e(fa_num($fcPh)) . '</a><br>📍 ' . e($fcAd) . '</div></div><div><div class="card-t">ساعات کاری</div><div class="feat-d">' . e($fcHr) . '</div></div></div></div>';
+                /* 🆕 v2.44 (S04) — ایمیل واقعی هم در کارت تماس فوتر (در صورت وجود) */
+                $fcEm = pv_dyn_email();
+                $fcEmHtml = $fcEm !== '' ? '<br>✉️ <a href="mailto:' . e($fcEm) . '" style="color:inherit" dir="ltr">' . e($fcEm) . '</a>' : '';
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' footer-blk"><div class="cols c3"><div>' . pv_brand_logo_html() . '</div><div><div class="card-t">تماس</div><div class="feat-d">📞 <a href="tel:' . e($fcPh) . '" style="color:inherit" dir="ltr">' . e(fa_num($fcPh)) . '</a><br>📍 ' . e($fcAd) . $fcEmHtml . '</div></div><div><div class="card-t">ساعات کاری</div><div class="feat-d">' . e($fcHr) . '</div></div></div></div>';
             case 'copyright':
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' crump-blk">' . e($props['text'] ?? '© تمامی حقوق برای نمایندگی محفوظ است') . '</div>';
+                /* 🆕 v2.44 (S04) — متن پیش‌فرض با نام برند واقعی */
+                $crT = trim((string)($props['text'] ?? ''));
+                if ($crT === '' && defined('BRAND_NAME_FA') && !pv_renderer_is_preview() && trim((string)BRAND_NAME_FA) !== '') {
+                    $crT = '© تمامی حقوق برای ' . trim((string)BRAND_NAME_FA) . ' محفوظ است';
+                }
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' crump-blk">' . e($crT !== '' ? $crT : '© تمامی حقوق برای نمایندگی محفوظ است') . '</div>';
             case 'notification-bar':
                 /* 🎭 P2-21 — پیش‌نمایش: محتوای نمونه (رفتار قدیمی) */
                 if ($pvPreview) {
@@ -1182,8 +1329,20 @@ if (!function_exists('pv_render_block_inner')) {
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="story-wrap">' . $out . '</div></div>';
             }
             case 'area-list':
-                $its = pvItems($props, [['', 'سعادت‌آباد'], ['', 'پونک'], ['', 'ولنجک'], ['', 'تجریش'], ['', 'شهرک غرب'], ['', 'نیاوران']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="chip-row">' . implode('', array_map(static fn($a) => '<span class="chip">📍 ' . e($a['text']) . '</span>', $its)) . '</div></div>';
+                /* 🆕 v2.44 (S04) — مناطق از آدرس‌های واقعی سایت‌ساز (نه محله‌های تهران) */
+                $alIts = pvItems($props, []);
+                if (!$alIts) {
+                    $alDyn = pv_dyn_areas(8);
+                    $alCity = pv_dyn_city();
+                    if ($alDyn) {
+                        $alIts = array_map(static fn($a) => ['icon' => '📍', 'text' => $a, 'desc' => '', 'link' => '', 'color' => ''], $alDyn);
+                    } elseif ($alCity !== '') {
+                        $alIts = [['icon' => '📍', 'text' => 'کل ' . $alCity, 'desc' => '', 'link' => '', 'color' => '']];
+                    } else {
+                        $alIts = [['', 'منطقه اول', ''], ['', 'منطقه دوم', ''], ['', 'منطقه سوم', ''], ['', 'منطقه چهارم', '']];
+                    }
+                }
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '">' . $head . '<div class="chip-row">' . implode('', array_map(static fn($a) => '<span class="chip">📍 ' . e($a['text']) . '</span>', $alIts)) . '</div></div>';
             case 'checklist':
                 $its = pvItems($props, [['☑️', 'دستگاه را روشن و خاموش کنید و دوباره امتحان کنید'], ['☑️', 'کد خطای نمایشگر را یادداشت کنید'], ['☑️', 'صداهای غیرعادی و بوی سوختگی را بررسی کنید'], ['☑️', 'فاکتور خرید و گارانتی را آماده داشته باشید']]);
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . ' ' . $extraCls . '">' . $head . '<div class="feat-list">' . implode('', array_map(static fn($it) => pvA($it, '<div class="feat-row"><span class="feat-ico">' . pv_icon($it['icon'] ?: '☑️') . '</span><div>' . e($it['text']) . '</div></div>'), $its)) . '</div></div>';
@@ -1214,6 +1373,9 @@ if (!function_exists('pv_render_block_inner')) {
                     $ccIts = [['icon' => '📞', 'text' => 'تلفن', 'desc' => $ccPh !== '' ? fa_num($ccPh) : '۰۲۱-۱۲۳۴۵۶۷۸', 'link' => $ccPh !== '' ? 'tel:' . $ccPh : '']];
                     if ($ccAd !== '') { $ccIts[] = ['icon' => '📍', 'text' => 'آدرس', 'desc' => $ccAd, 'link' => pv_brand_map_url()]; }
                     $ccIts[] = ['icon' => '🕐', 'text' => 'ساعات کاری', 'desc' => (pv_brand_hours() ?: 'شنبه تا پنجشنبه ۹ تا ۲۰'), 'link' => ''];
+                    /* 🆕 v2.44 (S04) — کارت ایمیل واقعی در صورت وجود در تنظیمات */
+                    $ccEm = pv_dyn_email();
+                    if ($ccEm !== '') { $ccIts[] = ['icon' => '✉️', 'text' => 'ایمیل', 'desc' => $ccEm, 'link' => 'mailto:' . $ccEm]; }
                 }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'راه‌های ارتباطی') . '</div><div class="cols c3">' . implode('', array_map(static fn($it) => pvA($it, '<div class="fake-card"><div class="card-ico">' . pv_icon($it['icon'] ?: '📞') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>'), $ccIts)) . '</div></div>';
             case 'stats-grid':
@@ -1223,15 +1385,37 @@ if (!function_exists('pv_render_block_inner')) {
                     return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'سهند سرویس در یک نگاه') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card" style="text-align:center"><div class="stat-n">' . pv_icon($it['icon'] ?: '۰') . '</div><div class="feat-d">' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
                 }
                 $its = pvItems($props, [['۱۲+', 'سال تجربه'], ['۵۰k', 'تعمیر موفق'], ['۹۸٪', 'رضایت'], ['۴۲', 'نوع دستگاه'], ['۲۴/۷', 'پشتیبانی'], ['۶ ماه', 'ضمانت']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'در یک نگاه') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card" style="text-align:center"><div class="stat-n">' . pv_icon($it['icon'] ?: '۰') . '</div><div class="feat-d">' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
+                /* 🆕 v2.44 (S04) — عنوان پیش‌فرض آمار: نام برند واقعی */
+                $sgT = $title !== '' ? $title : (defined('BRAND_NAME_FA') && trim((string)BRAND_NAME_FA) !== '' ? trim((string)BRAND_NAME_FA) . ' در یک نگاه' : 'در یک نگاه');
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . $sgT . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card" style="text-align:center"><div class="stat-n">' . pv_icon($it['icon'] ?: '۰') . '</div><div class="feat-d">' . e($it['text']) . '</div></div>', $its)) . '</div></div>';
             case 'before-after':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'نتیجه تعمیر حرفه‌ای') . '</div><div class="ba-wrap"><div class="ba-side"><div class="ba-tag bad">قبل</div><div class="fake-card" style="text-align:center">' . e($props['text'] ?? 'دستگاه روشن نمی‌شود — کد خطا فعال') . '</div></div><div class="ba-arrow">←</div><div class="ba-side"><div class="ba-tag ok">بعد</div><div class="fake-card" style="text-align:center">' . e($props['textAfter'] ?? 'کارکرد کامل — تست‌شده و ضمانت‌دار') . '</div></div></div></div>';
             case 'cta-whatsapp': {
-                $ph = trim((string)($props['phone'] ?? ''));
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' cta-blk">' . ($title ? '<div class="blk-title" style="margin-bottom:9px">' . e($title) . '</div>' : '') . '<div class="hero-btns"><span class="hero-btn" style="background:#16a34a">💬 ' . ($ph !== '' ? 'گفتگو در واتساپ — ' . e($ph) : 'گفتگو در واتساپ') . '</span><span class="hero-btn ghost">📞 تماس تلفنی</span></div></div>';
+                /* 🆕 v2.44 (S04) — شماره از props یا تنظیمات سایت‌ساز (واتساپ/موبایل) */
+                $cwPh = trim((string)($props['phone'] ?? ''));
+                if ($cwPh === '') {
+                    $st = pv_brand_settings();
+                    $wa = trim((string)((array)($st['contacts']['phones'] ?? []) + [])['whatsapp'] ?? '');
+                    $cwPh = $wa !== '' ? $wa : pv_brand_phone();
+                }
+                $cwWa = '';
+                if (preg_match('/^\+?\d{7,15}$/', str_replace([' ', '-'], '', $cwPh))) {
+                    $cwWa = 'https://wa.me/' . preg_replace('/\D/', '', $cwPh);
+                }
+                $btn = '<span class="hero-btn" style="background:#16a34a">💬 ' . ($cwPh !== '' ? 'گفتگو در واتساپ — ' . e($cwPh) : 'گفتگو در واتساپ') . '</span>';
+                if ($cwWa !== '') { $btn = '<a href="' . e($cwWa) . '" target="_blank" rel="noopener" style="text-decoration:none">' . $btn . '</a>'; }
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . ' cta-blk">' . ($title ? '<div class="blk-title" style="margin-bottom:9px">' . e($title) . '</div>' : '') . '<div class="hero-btns">' . $btn . '<span class="hero-btn ghost">📞 تماس تلفنی</span></div></div>';
             }
             case 'warranty-banner':
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="feat-row" style="align-items:center"><span class="feat-ico" style="font-size:30px">🛡️</span><div><b style="font-size:15px">' . e($props['title'] ?? 'ضمانت کتبی ۶ ماهه روی قطعه و خدمات') . '</b><div class="feat-d">' . e($props['text'] ?? 'در صورت ایراد مجدد، تعمیر اصلاحی رایگان') . '</div></div><span class="hero-btn" style="margin-inline-start:auto">مشاهده شرایط</span></div></div>';
+                /* 🆕 v2.44 (S04) — متن ضمانت از تنظیمات سایت‌ساز (تب ضمانت) */
+                $wbT = trim((string)($props['title'] ?? ''));
+                $wbX = trim((string)($props['text'] ?? ''));
+                if ($wbT === '' || $wbX === '') {
+                    $wbDyn = pv_dyn_warranty();
+                    if ($wbT === '') { $wbT = $wbDyn['period'] !== '' ? 'ضمانت ' . $wbDyn['period'] . ' روی قطعه و خدمات' : 'ضمانت کتبی روی قطعه و خدمات'; }
+                    if ($wbX === '') { $wbX = $wbDyn['text'] !== '' ? trim(mb_substr(strip_tags($wbDyn['text']), 0, 110, 'UTF-8')) : 'در صورت ایراد مجدد، تعمیر اصلاحی رایگان'; }
+                }
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '><div class="feat-row" style="align-items:center"><span class="feat-ico" style="font-size:30px">🛡️</span><div><b style="font-size:15px">' . e($wbT) . '</b><div class="feat-d">' . e($wbX) . '</div></div><span class="hero-btn" style="margin-inline-start:auto">مشاهده شرایط</span></div></div>';
             case 'working-hours':
                 /* 🆕 v2.29 — اگر آیتمی تنظیم نشده باشد از ساعات کاری سایت‌ساز پر می‌شود */
                 $its = array_values(array_filter(pvItems($props, []), static fn($i) => trim((string)$i['text']) !== ''));
@@ -1241,8 +1425,14 @@ if (!function_exists('pv_render_block_inner')) {
                 }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'ساعات کاری') . '</div><div class="price-table">' . implode('', array_map(static fn($it) => '<div class="price-row"><span>' . e($it['text']) . '</span><b>' . e($it['desc']) . '</b></div>', $its)) . '</div></div>';
             case 'social-follow':
-                $its = pvItems($props, [['📡', 'تلگرام'], ['📷', 'اینستاگرام'], ['💬', 'واتساپ'], ['▶️', 'آپارات']]);
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'ما را دنبال کنید') . '</div><div class="hero-btns">' . implode('', array_map(static fn($it) => '<span class="hero-btn">' . pv_icon($it['icon'] ?: '📣') . ' ' . e($it['text']) . '</span>', $its)) . '</div></div>';
+                /* 🆕 v2.44 (S04) — لینک‌های واقعی شبکه‌های اجتماعی از تنظیمات سایت‌ساز */
+                $sfIts = pvItems($props, []);
+                if (!$sfIts) {
+                    $sfDyn = pv_dyn_socials();
+                    if ($sfDyn) { $sfIts = $sfDyn; }
+                }
+                if (!$sfIts) { $sfIts = [['📡', 'تلگرام', ''], ['📷', 'اینستاگرام', ''], ['💬', 'واتساپ', '']]; }
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'ما را دنبال کنید') . '</div><div class="hero-btns">' . implode('', array_map(static fn($it) => pvA($it, '<span class="hero-btn">' . pv_icon($it['icon'] ?: '📣') . ' ' . e($it['text']) . '</span>'), $sfIts)) . '</div></div>';
             case 'trust-badges':
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"' . $styleAttr . '>' . $head . '<div class="chip-row" style="justify-content:space-around">' . implode('', array_map(static fn($p) => '<div style="text-align:center;min-width:86px"><div style="font-size:26px">' . e($p['icon'] ?: '🏅') . '</div><div class="feat-d" style="font-size:11px">' . e($p['text']) . '</div></div>', pvItems($props, [['🛡️', 'ضمانت کتبی'], ['💳', 'پرداخت اقساطی'], ['⚡', 'اعزام فوری'], ['🏆', 'نمایندگی رسمی'], ['🔧', 'قطعات اصلی']]))) . '</div></div>';
             case 'footer-links': {
@@ -1314,7 +1504,8 @@ if (!function_exists('pv_render_block_inner')) {
                 /* 🆕 v2.29 — مقادیر پویا از تنظیمات سایت‌ساز */
                 $ciPh = trim((string)($props['phone'] ?? '')) ?: pv_brand_phone() ?: '۰۲۱-۱۲۳۴۵۶۷۸';
                 $ciHr = trim((string)($props['hours'] ?? '')) ?: pv_brand_hours() ?: 'شنبه تا پنجشنبه ۹ تا ۲۰';
-                $ciAd = pv_brand_address() ?: 'تهران';
+                /* 🆕 v2.44 (S04) — آدرس از تنظیمات سایت‌ساز (نه «تهران» ایستا) */
+                $ciAd = pv_brand_address() ?: (pv_dyn_city() ?: 'آدرس نمایندگی');
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="chip-row" style="justify-content:space-between"><span class="chip">📞 <a href="tel:' . e($ciPh) . '" style="color:inherit;text-decoration:none"><b dir="ltr">' . e(fa_num($ciPh)) . '</b></a></span><span class="chip">🕐 ' . e($ciHr) . '</span><span class="chip">📍 ' . e($ciAd) . '</span></div></div>';
             case 'pros-cons': {
                 /* 🎭 P2-21 — پیش‌نمایش: محتوای نمونه (رفتار قدیمی) */
@@ -1479,7 +1670,14 @@ if (!function_exists('pv_render_block_inner')) {
                 /* 🆕 v2.40 — زیرعنوان (S) فعال شد */
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="warning-box-demo"><span class="feat-ico" style="background:#fef2f2;font-size:22px">' . pv_icon($props['icon'] ?? '⚠️') . '</span><div><b style="color:#b91c1c">' . ($title ?: 'هشدار ایمنی مهم') . '</b>' . (!empty($props['subtitle']) ? '<div class="feat-d" style="font-weight:700">' . e($props['subtitle']) . '</div>' : '') . '<div class="feat-d">' . e($props['text'] ?? 'قبل از هرگونه باز کردن دستگاه، برق را کاملاً قطع کنید.') . '</div></div></div></div>';
             case 'brand-intro-card':
-                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="brand-intro-demo"><div class="fake-logo" style="font-size:34px">🏗️</div><div style="flex:1"><div class="blk-title" style="margin-bottom:4px">' . ($title ?: 'نمایندگی رسمی خدمات') . '</div><div class="feat-d">' . e($props['subtitle'] ?? 'بیش از یک دهه تجربه تخصصی') . '</div><div class="stars" style="font-size:11px;margin-top:5px">⭐⭐⭐⭐⭐ <b>۴.۹ از ۵</b></div></div><span class="hero-btn" style="align-self:center">مشاهده خدمات</span></div></div>';
+                /* 🆕 v2.44 (S04) — عنوان/زیرعنوان از نام برند و شعار واقعی */
+                $biT = $title !== '' ? $title : (defined('BRAND_NAME_FA') && !pv_renderer_is_preview() && trim((string)BRAND_NAME_FA) !== '' ? trim((string)BRAND_NAME_FA) : 'نمایندگی رسمی خدمات');
+                $biS = trim((string)($props['subtitle'] ?? ''));
+                if ($biS === '') {
+                    $biAg = (string)(pv_brand_settings()['agency']['slogan_fa'] ?? '');
+                    $biS = $biAg !== '' ? $biAg : 'تجربه تخصصی در خدمات';
+                }
+                return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="brand-intro-demo">' . pv_brand_logo_html() . '<div style="flex:1"><div class="blk-title" style="margin-bottom:4px">' . $biT . '</div><div class="feat-d">' . e($biS) . '</div><div class="stars" style="font-size:11px;margin-top:5px">⭐⭐⭐⭐⭐ <b>۴.۹ از ۵</b></div></div><span class="hero-btn" style="align-self:center">مشاهده خدمات</span></div></div>';
             case 'author-box':
                 /* 🆕 v2.40 — زیرعنوان (S) فعال شد (سمت/تخصص نویسنده) */
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="author-box-demo"><div class="fake-ava" style="font-size:38px">' . pv_icon($props['icon'] ?? '👨‍🔧') . '</div><div style="flex:1"><b style="font-size:14px">' . ($title ?: 'مهندس کریمی') . '</b>' . (!empty($props['subtitle']) ? '<div class="feat-d" style="font-weight:700">' . e($props['subtitle']) . '</div>' : '') . '<div class="feat-d">کارشناس برد و الکترونیک — ۱۴ سال تجربه</div><div class="feat-d" style="margin-top:4px">' . e($props['text'] ?? 'متخصص تعمیر برد‌های اصلی لباسشویی، یخچال و کولر گازی.') . '</div></div></div></div>';
@@ -1705,8 +1903,9 @@ if (!function_exists('pv_render_block_inner')) {
             case 'contact-map-split':
                 /* 🆕 v2.29 — مقادیر پویا از تنظیمات سایت‌ساز + نقشه لینک‌دار */
                 $cmPh = trim((string)($props['phone'] ?? '')) ?: pv_brand_phone() ?: '۰۲۱-۱۲۳۴۵۶۷۸';
-                $cmAd = pv_brand_address() ?: 'تهران، خیابان نمونه، پلاک ۱۲';
-                $cmHr = pv_brand_hours() ?: 'شنبه تا پنجشنبه ۹ تا ۲۰';
+                /* 🆕 v2.44 (S04) — فالبک آدرس خنثی (نه آدرس ساختگی تهران) */
+                $cmAd = pv_brand_address() ?: 'آدرس نمایندگی — از تنظیمات سایت‌ساز';
+                $cmHr = pv_brand_hours() ?: 'ساعات کاری — از تنظیمات سایت‌ساز';
                 $cmMap = pv_brand_map_url();
                 $mapBox = $cmMap !== ''
                     ? '<a href="' . e($cmMap) . '" target="_blank" rel="noopener" class="fake-img" style="min-height:130px;background:linear-gradient(135deg,#e2e8f0,#cbd5e1);text-decoration:none"><span style="font-size:30px">🗺️</span></a>'
