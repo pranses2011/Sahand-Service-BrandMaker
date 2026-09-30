@@ -49,7 +49,9 @@ render_article_seo($article, 'https://' . BRAND_DOMAIN . '/blog/' . urlencode($s
         <?php if (!empty($article['featured_image'])): ?>
             <?= article_image($article['featured_image'], $article['title'], true) ?>
         <?php endif; ?>
-        <div class="article-content"><?= $article['content'] ?></div>
+        <?php /* 🖼️ v2.44 (S02) — تصاویر درون‌متن: مسیر نسبی → مطلق سازنده +
+                 ارتقای پروتکل در HTTPS (ضد بلاک محتوای ترکیبی) */ ?>
+        <div class="article-content"><?= brand_fix_content_imgs((string)$article['content']) ?></div>
         <?php if (!empty($article['sources'])): ?>
             <!-- 🔎 v2.35: منابعِ آنلاینِ استفاده‌شده در این مقاله (سیگنال E-E-A-T) -->
             <div class="article-sources">

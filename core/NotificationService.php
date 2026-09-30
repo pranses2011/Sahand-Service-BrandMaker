@@ -108,6 +108,35 @@ class NotificationService
     }
 
     /**
+     * 💬 v2.44 (S06) — تحویل تضمینی پیام به بله
+     * ============================================================
+     * ① عکس اول (واترمارک‌دار) + کپشن کامل در یک پیام
+     * ② بقیه تصاویر واترمارک‌دار به‌ترتیب
+     * ③ اگر «هر» ارسال عکس رد شد → متن کامل درخواست با sendMessage
+     *    (درخواست کاربر هرگز گم نمی‌شود — ریشه «تست بله می‌رسد ولی
+     *    درخواست نه»: گاهی sendPhoto بله به‌دلیل محدودیت حجم/فرمت/مجموعه
+     *    رد می‌شود در حالی که sendMessage همان ربات سالم است).
+     */
+    private function baleDeliver(string $baleBase, string $chatId, array $images, string $caption, string $textFallback): bool
+    {
+        $ok = false;
+        if (!empty($images)) {
+            $ok = $this->sendPhotoGeneric($baleBase . '/sendPhoto', $chatId, $images[0], $caption);
+            foreach (array_slice($images, 1) as $ii => $img) {
+                $this->sendPhotoGeneric($baleBase . '/sendPhoto', $chatId, $img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($images)));
+            }
+        }
+        if (!$ok && trim($textFallback) !== '') {
+            /* 🩹 عکس رد شد → متن کامل جایگزین؛ اگر متن هم رد شد، خطا ثبت است */
+            $ok = $this->sendMessageGeneric($baleBase . '/sendMessage', [
+                'chat_id' => $chatId,
+                'text'    => mb_substr(trim(strip_tags($textFallback)), 0, 3900),
+            ]);
+        }
+        return $ok;
+    }
+
+    /**
      * 🚀 ارسال درخواست خدمات به همه کانال‌های فعال
      *
      * @param array $request داده‌های درخواست
@@ -329,18 +358,8 @@ class NotificationService
             $baleChat = (string)$baleCfg['chat_id'];
             $baleBase = 'https://tapi.bale.ai/bot' . $baleToken;
             $plainMessage = trim(strip_tags(str_replace(['<b>', '</b>', '\n'], ['', '', "\n"], $message)));
-            if (!empty($wmImages)) {
-                /* 🖼️ یک پیام واحد: تصویر اول واترمارک‌دار + کپشن کامل */
-                $result['bale'] = $this->sendPhotoGeneric($baleBase . '/sendPhoto', $baleChat, $wmImages[0], $caption);
-                foreach (array_slice($wmImages, 1) as $ii => $img) {
-                    $this->sendPhotoGeneric($baleBase . '/sendPhoto', $baleChat, $img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($wmImages)));
-                }
-            } else {
-                $result['bale'] = $this->sendMessageGeneric($baleBase . '/sendMessage', [
-                    'chat_id' => $baleChat,
-                    'text'    => $plainMessage,
-                ]);
-            }
+            /* 🛡 v2.44 (S06) — تحویل تضمینی: عکس رد شد → متن کامل */
+            $result['bale'] = $this->baleDeliver($baleBase, $baleChat, $wmImages, $caption, $plainMessage);
             if (!$result['bale']) {
                 $errors[] = 'بله: ناموفق';
             }
@@ -549,22 +568,14 @@ class NotificationService
             }
             if (!empty($baleCfg['enabled']) && !empty($baleCfg['bot_token']) && !empty($baleCfg['chat_id'])) {
                 $base = 'https://tapi.bale.ai/bot' . (string)$baleCfg['bot_token'];
-                if ($cardPath !== null && is_file($cardPath)) {
-                    $result['bale'] = $this->sendPhotoGeneric($base . '/sendPhoto', (string)$baleCfg['chat_id'], $cardPath, $caption);
-                    foreach (array_slice($images, 1) as $ii => $img) {
-                        $this->sendPhotoGeneric($base . '/sendPhoto', (string)$baleCfg['chat_id'], $img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($images)));
-                    }
-                } elseif (!empty($images)) {
-                    $result['bale'] = $this->sendPhotoGeneric($base . '/sendPhoto', (string)$baleCfg['chat_id'], $images[0], $caption);
-                    foreach (array_slice($images, 1) as $ii => $img) {
-                        $this->sendPhotoGeneric($base . '/sendPhoto', (string)$baleCfg['chat_id'], $img, '🖼️ تصویر پیوست ' . self::faNum($ii + 2) . ' از ' . self::faNum(count($images)));
-                    }
-                } else {
-                    $result['bale'] = $this->sendMessageGeneric($base . '/sendMessage', [
-                        'chat_id' => (string)$baleCfg['chat_id'],
-                        'text' => trim(strip_tags(str_replace(['<b>', '</b>'], '', $message))),
-                    ]);
-                }
+                /* 🛡 v2.44 (S06) — تحویل تضمینی بله: عکس رد شد → متن کامل */
+                $result['bale'] = $this->baleDeliver(
+                    $base,
+                    (string)$baleCfg['chat_id'],
+                    $images,
+                    $caption,
+                    trim(strip_tags(str_replace(['<b>', '</b>'], '', $message)))
+                );
             }
         }
 

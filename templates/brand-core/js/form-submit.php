@@ -115,6 +115,17 @@ if ($hasFormBlock) {
             $formPayload['fields'][$fk] = is_string($fv) ? mb_substr($fv, 0, 2000) : '';
         }
     }
+    /* 🩹 v2.44 (S03) — فیلدهای سطح‌بالا هم داخل fields بیایند:
+       ریشه باقیمانده «خطای ارتباط با سرور / فرم خالی است» — کلاینت‌هایی که
+       فیلدهای استاندارد را فقط در سطح بالا می‌فرستند (مثل صفحه /request قدیمی
+       یا فرم‌های سفارشی)، data.fields ندارند → fields خالی می‌رفت → 422.
+       اکنون $payload (فیلدهای استاندارد استخراج‌شده قبلاً) با fields ادغام
+       می‌شود؛ اولویت با data.fields است (مقادیر تازه‌تر). */
+    foreach ($payload as $pk => $pv) {
+        if ($pk !== 'images' && !isset($formPayload['fields'][$pk]) && is_string($pv)) {
+            $formPayload['fields'][$pk] = $pv;
+        }
+    }
     /* فیلدهای استاندارد فرم درخواست هم در سطح بالا (سازگاری) */
     foreach (['full_name', 'phone', 'phone2', 'address', 'device_type', 'device_other', 'device_model', 'description', 'preferred_date', 'preferred_time'] as $sf) {
         if (isset($payload[$sf])) { $formPayload[$sf] = $payload[$sf]; }

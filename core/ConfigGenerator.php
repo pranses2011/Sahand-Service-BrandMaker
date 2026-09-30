@@ -380,14 +380,54 @@ function cdn_asset(string \$path): string
     if (\$path === '' || \$path === null) {
         return '';
     }
-    if (strpos(\$path, 'http') === 0) {
-        return \$path;
+    /* 🆕 v2.44 (S02) — ارتقای پروتکل هنگام HTTPS (ضد محتوای ترکیبی) */
+    \$upProto = static function (string \$u): string {
+        \$isHttps = (!empty(\$_SERVER['HTTPS']) && \$_SERVER['HTTPS'] !== 'off')
+            || ((\$_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')
+            || ((\$_SERVER['SERVER_PORT'] ?? '') == '443');
+        if (\$isHttps) {
+            if (stripos(\$u, 'http://') === 0) {
+                \$u = 'https://' . substr(\$u, 7);
+            } elseif (strpos(\$u, '//') === 0) {
+                \$u = 'https:' . \$u;
+            }
+        }
+        return \$u;
+    };
+    if (strpos(\$path, 'http') === 0 || strpos(\$path, '//') === 0) {
+        return \$upProto(\$path);
     }
     \$path = ltrim(\$path, '/');
     if (strpos(\$path, 'uploads/') === 0) {
-        return BRANDMAKER_URL . '/' . \$path;
+        return \$upProto(BRANDMAKER_URL . '/' . \$path);
     }
-    return BRANDMAKER_ASSETS . '/' . ltrim(\$path, 'assets/');
+    return \$upProto(BRANDMAKER_ASSETS . '/' . ltrim(\$path, 'assets/'));
+}
+
+/**
+ * 🖼️ v2.44 (S02) — اصلاح تصاویر درون محتوای HTML (مسیر نسبی → مطلق سازنده)
+ */
+if (!function_exists('brand_fix_content_imgs')) {
+    function brand_fix_content_imgs(string \$html): string
+    {
+        if (trim(\$html) === '') {
+            return \$html;
+        }
+        return preg_replace_callback(
+            '#(<img\\b[^>]*\\bsrc=[\"\\'])([^\"\\']+)([\"\\'])#i',
+            static function (\$m) {
+                \$url = trim(\$m[2]);
+                if (\$url === '' || strpos(\$url, 'data:') === 0) {
+                    return \$m[0];
+                }
+                \$abs = (strpos(\$url, 'http') === 0 || strpos(\$url, '//') === 0)
+                    ? \$url
+                    : cdn_asset(\$url);
+                return \$m[1] . \$abs . \$m[3];
+            },
+            \$html
+        ) ?? \$html;
+    }
 }
 
 /* ==================================================

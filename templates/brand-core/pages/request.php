@@ -53,17 +53,16 @@ require __DIR__ . '/_page_base.php';
                 <label>نام دستگاه <span class="req">*</span></label>
                 <input type="text" name="device_other" placeholder="نوع دستگاه را بنویسید">
             </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>مدل دستگاه (اختیاری)</label>
-                    <input type="text" name="device_model" placeholder="مثلاً WS12T440">
-                </div>
-                <div class="form-group">
-                    <label>تاریخ مراجعه ترجیحی — شمسی (اختیاری)</label>
-                    <?php /* 🗓️ v2.42 — دیت‌پیکر شمسی در سطر مستقل (درخواست کاربر:
-                       «زمان ترجیحی و بازه زمانی چون در یک سطر هستند باهم قاطی میشن») */ ?>
-                    <input type="text" name="preferred_date" data-jalali-picker placeholder="انتخاب تاریخ (شمسی)" inputmode="none">
-                </div>
+            <div class="form-group">
+                <label>مدل دستگاه (اختیاری)</label>
+                <input type="text" name="device_model" placeholder="مثلاً WS12T440">
+            </div>
+            <?php /* 🗓️ v2.42 → v2.44 — تاریخ و بازه ساعتی هرکدام در سطر مستقل کامل
+               (درخواست کاربر: «زمان ترجیحی و بازه زمانی چون در یک سطر هستند
+               باهم قاطی میشن. در سطرهای جداگانه باشن») */ ?>
+            <div class="form-group">
+                <label>تاریخ مراجعه ترجیحی — شمسی (اختیاری)</label>
+                <input type="text" name="preferred_date" data-jalali-picker placeholder="انتخاب تاریخ (شمسی)" inputmode="none">
             </div>
             <div class="form-group">
                 <label>بازه ساعتی مراجعه (اختیاری)</label>

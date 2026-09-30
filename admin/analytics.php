@@ -122,6 +122,10 @@ foreach ((array)$cityRows as $cr) {
     $citiesDist[$city] = ($citiesDist[$city] ?? 0) + (int)$cr['c'];
 }
 arsort($citiesDist);
+/* 📱 v2.44 — گروه «اینترنت موبایل» بالای فهرست شهرها (شهر دقیق نامشخص) */
+if ($geoMobile > 0) {
+    $citiesDist = ['📱 اینترنت موبایل (مکان دقیق نامشخص)' => $geoMobile] + $citiesDist;
+}
 
 /* 📄 صفحات پربازدید */
 $topPages = $safeQuery(
@@ -317,13 +321,16 @@ $geoQuality = $safeQuery(
      FROM visits v WHERE {$where} GROUP BY src",
     $params
 );
-$geoSrcCounts = ['api' => 0, 'cache' => 0, 'local' => 0, '' => 0];
+$geoSrcCounts = ['api' => 0, 'cache' => 0, 'local' => 0, 'mobile' => 0, '' => 0];
 foreach ((array)$geoQuality as $gq) {
     $src = (string)($gq['src'] ?? '');
     if (!isset($geoSrcCounts[$src])) { $geoSrcCounts[$src] = 0; }
     $geoSrcCounts[$src] += (int)$gq['c'];
 }
 $geoUnknown = $geoSrcCounts['local'] + $geoSrcCounts[''];
+/* 📱 v2.44 (S07) — بازدیدهای اپراتور موبایل: شهر دقیق قابل تشخیص نیست؛
+   به‌جای «شهر غلط» (ریشه تبریز→خراسان رضوی) گروه خودش را می‌گیرند */
+$geoMobile = $geoSrcCounts['mobile'];
 
 /* ═══════════════════════════════════════════════════════════════
  * 🆕 v2.32 — هفت گزارش جدید (درخواست «انواع بیشتری از گزارش و آمار
@@ -701,6 +708,9 @@ if (get_param('export') === 'csv') {
             <?php endif; ?>
             <?php if ($geoUnknown > 0): ?>
                 <span class="badge badge-warning" style="font-size:11px" title="این بازدیدها هنوز جواب سرویس جغرافیایی معتبر نگرفته‌اند و در نقشه «نامشخص»اند">❓ <?= en_to_fa_digits((string)$geoUnknown) ?> در انتظار مکان</span>
+            <?php endif; ?>
+            <?php if ($geoMobile > 0): ?>
+                <span class="badge badge-secondary" style="font-size:11px" title="IPهای اپراتور موبایل (همراه‌اول/ایرانسل/رایتل) — سرویس‌های جهانی محل «ثبت اپراتور» را برمی‌گردانند نه محل واقعی کاربر؛ بنابراین شهر/استان آن‌ها عمداً خالی است و شهری غلط نشان داده نمی‌شود (v2.44)">📱 <?= en_to_fa_digits((string)$geoMobile) ?> اینترنت موبایل</span>
             <?php endif; ?>
             <!-- 🔄 v2.32 — بازحسابی جغرافیایی (رفع «تبریز → خراسان رضوی») -->
             <button type="button" class="btn btn-outline btn-sm" id="btn-geo-recompute" onclick="geoRecompute(this)" title="پاک‌سازی کش جغرافیایی + بازحلابی از سرویس‌های معتبر + حذف داده‌های حدسی قدیمی">🔄 بازحسابی جغرافیایی</button>

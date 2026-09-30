@@ -369,14 +369,69 @@ function cdn_asset(string $path): string
     if ($path === '' || $path === null) {
         return '';
     }
-    if (strpos($path, 'http') === 0) {
-        return $path;
+    /* 🆕 v2.44 (S02) — ارتقای پروتکل هنگام HTTPS:
+       ریشه «تصاویر مقاله نشان داده نمیشود» روی استقرار‌های SSL دار —
+       BRANDMAKER_URL هنگام استقرار http ثبت شده بود (پنل بدون SSL باز
+       بود) و مرورگر عکس‌های http را روی صفحه https «محتوای ترکیبی»
+       تشخیص داده و بی‌صدا بلاک می‌کند. اگر صفحه فعلی https است، همه
+       URLهای http سازنده به https ارتقا می‌یابند (پروتکل نسبی هم). */
+    $upProto = static function (string $u): string {
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')
+            || (($_SERVER['SERVER_PORT'] ?? '') == '443');
+        if ($isHttps) {
+            if (stripos($u, 'http://') === 0) {
+                $u = 'https://' . substr($u, 7);
+            } elseif (strpos($u, '//') === 0) {
+                $u = 'https:' . $u;
+            }
+        }
+        return $u;
+    };
+    if (strpos($path, 'http') === 0 || strpos($path, '//') === 0) {
+        return $upProto($path);
     }
     $path = ltrim($path, '/');
     if (strpos($path, 'uploads/') === 0) {
-        return BRANDMAKER_URL . '/' . $path;
+        return $upProto(BRANDMAKER_URL . '/' . $path);
     }
-    return BRANDMAKER_ASSETS . '/' . ltrim($path, 'assets/');
+    return $upProto(BRANDMAKER_ASSETS . '/' . ltrim($path, 'assets/'));
+}
+
+/**
+ * 🖼️ v2.44 (S02) — اصلاح تصاویر درون محتوای HTML مقاله/صفحه
+ *
+ * محتوای ذخیره‌شده ممکن است تصاویری با مسیر «نسبی» داشته باشد
+ * (خروجی ویرایشگرهای قدیمی یا دست‌کاری دستی): «uploads/x.png» یا
+ * «/uploads/x.png» — این مسیرها روی دامنه سایت برند فایل ندارند و
+ * تصویر نمایش داده نمی‌شود. این تابع همه src تصاویر را به آدرس مطلق
+ * سایت ساز تبدیل و در صورت HTTPS بودن صفحه، پروتکل را ارتقا می‌دهد.
+ */
+if (!function_exists('brand_fix_content_imgs')) {
+    function brand_fix_content_imgs(string $html): string
+    {
+        if (trim($html) === '') {
+            return $html;
+        }
+        return preg_replace_callback(
+            '#(<img\b[^>]*\bsrc=["\'])([^"\']+)(["\'])#i',
+            static function ($m) {
+                $url = trim($m[2]);
+                if ($url === '') {
+                    return $m[0];
+                }
+                /* داده درون‌خطی/مطلق بدون تغییر (مگر ارتقای پروتکل) */
+                if (strpos($url, 'data:') === 0) {
+                    return $m[0];
+                }
+                $abs = (strpos($url, 'http') === 0 || strpos($url, '//') === 0)
+                    ? $url
+                    : cdn_asset($url); /* نسبی → مطلق سازنده */
+                return $m[1] . $abs . $m[3];
+            },
+            $html
+        ) ?? $html;
+    }
 }
 
 /* ==================================================

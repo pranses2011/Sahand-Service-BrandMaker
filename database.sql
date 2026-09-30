@@ -599,6 +599,7 @@ CREATE TABLE IF NOT EXISTS `geoip_cache` (
   `city` VARCHAR(120) NULL,
   `province` VARCHAR(120) NULL,
   `country` VARCHAR(5) NULL,
+  `is_mobile` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'IP اپراتور موبایل — شهر/استان قابل اتکا نیست (v2.44)',
   `fetched_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`ip_prefix`),
   KEY `idx_geoip_fetched` (`fetched_at`)

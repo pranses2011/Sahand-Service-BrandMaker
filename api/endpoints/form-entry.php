@@ -55,11 +55,14 @@ function api_submit_form_entry(int $urlBrandId): void
         }
     }
 
-    /* 🧼 اعتبارسنجی حداقلی: نام یا ایمیل یا پیام یا تلفن */
-    $hasContent = trim((string)($fields['full_name'] ?? '')) !== ''
-        || trim((string)($fields['phone'] ?? '')) !== ''
-        || trim((string)($fields['email'] ?? '')) !== ''
-        || trim((string)($fields['description'] ?? '')) !== '';
+    /* 🧼 اعتبارسنجی حداقلی: نام یا ایمیل یا پیام یا تلفن
+       🩹 v2.44 (S03/S12) — فرم‌های سفارشی ممکن است هر نام فیلدی داشته باشند؛
+       «هر فیلد غیرخالی» هم قبول می‌شود (فیلدهای فنی مثل rating/page حذف شدند) */
+    $hasContent = false;
+    foreach ($fields as $fk => $fv) {
+        if (in_array($fk, ['images', 'rating'], true)) { continue; }
+        if (trim((string)$fv) !== '') { $hasContent = true; break; }
+    }
     if (!$hasContent) {
         json_response(['success' => false, 'error' => 'فرم خالی است — حداقل یک فیلد را پر کنید'], 422);
     }

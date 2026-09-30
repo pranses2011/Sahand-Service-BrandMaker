@@ -104,7 +104,9 @@ function api_track_visit(): void
             'country'     => $geo['country'],
             'city'        => $geo['city'] ?: null,
             'province'    => $geo['province'] ?: null,
-            'geo_src'     => $geo['source'] ?? 'local',
+            /* 📱 v2.44 (S07) — بازدید اپراتور موبایل: منبع «mobile» تا آمار
+               آن را از «نامشخص» جدا کند (گروه «اینترنت موبایل») */
+            'geo_src'     => !empty($geo['is_mobile']) ? 'mobile' : ($geo['source'] ?? 'local'),
             'referrer'    => $referrer ?: null,
             'search_keyword' => $keyword,
             'entry_page'  => $pageUrl,

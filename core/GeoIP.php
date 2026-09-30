@@ -216,7 +216,7 @@ class GeoIP
     {
         try {
             $row = Database::getInstance()->fetch(
-                'SELECT city, province, country FROM geoip_cache WHERE ip_prefix = ? AND fetched_at > DATE_SUB(?, INTERVAL ' . self::CACHE_TTL_DAYS . ' DAY) LIMIT 1',
+                'SELECT city, province, country, is_mobile FROM geoip_cache WHERE ip_prefix = ? AND fetched_at > DATE_SUB(?, INTERVAL ' . self::CACHE_TTL_DAYS . ' DAY) LIMIT 1',
                 [$prefix, date('Y-m-d H:i:s')]
             );
             if (!$row) { return null; }
@@ -225,6 +225,7 @@ class GeoIP
                 'country_fa' => ((string)$row['country'] === 'IR' || (string)$row['country'] === '') ? 'ایران' : self::countryFaName((string)$row['country']),
                 'city'       => (string)$row['city'],
                 'province'   => (string)$row['province'],
+                'is_mobile'  => !empty($row['is_mobile']),
                 'source'     => 'cache',
             ];
         } catch (Throwable $e) {
@@ -262,7 +263,9 @@ class GeoIP
         @file_put_contents($throttleFile, (string)$now);
 
         $result = self::fetchIpApi($ip) ?: self::fetchIpApiCo($ip) ?: self::fetchIpWho($ip);
-        if ($result === null || ($result['city'] === '' && $result['province'] === '')) {
+        /* 📱 v2.44 — نتیجه موبایلی معتبر است حتی بدون شهر/استان (کش هم می‌شود) */
+        $isMobileResult = is_array($result) && !empty($result['is_mobile']);
+        if ($result === null || (!$isMobileResult && ($result['city'] === '' && $result['province'] === ''))) {
             /* شبکه قطع یا هیچ سرویسی شهر/استان نداد — بدون کش (تلاش مجدد بعدی) */
             return null;
         }
@@ -270,26 +273,40 @@ class GeoIP
         /* 💾 فقط نتیجه معتبر کش می‌شود */
         try {
             Database::getInstance()->query(
-                'INSERT INTO geoip_cache (ip_prefix, city, province, country, fetched_at) VALUES (?, ?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE city = VALUES(city), province = VALUES(province), country = VALUES(country), fetched_at = VALUES(fetched_at)',
-                [$prefix, $result['city'], $result['province'], $result['country'], date('Y-m-d H:i:s')]
+                'INSERT INTO geoip_cache (ip_prefix, city, province, country, is_mobile, fetched_at) VALUES (?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE city = VALUES(city), province = VALUES(province), country = VALUES(country), is_mobile = VALUES(is_mobile), fetched_at = VALUES(fetched_at)',
+                [$prefix, $result['city'], $result['province'], $result['country'], $isMobileResult ? 1 : 0, date('Y-m-d H:i:s')]
             );
         } catch (Throwable $e) { /* کش در دسترس نیست — نتیجه بدون کش استفاده می‌شود */ }
         $result['source'] = 'api';
         return $result;
     }
 
-    /** 🛰 ip-api.com — city با lang=fa فارسی برمی‌گرداند (HTTP رایگان) */
+    /** 🛰 ip-api.com — city با lang=fa فارسی برمی‌گرداند (HTTP رایگان)
+     * 🆕 v2.44 (S07) — پرچم mobile هم خوانده می‌شود: IPهای اپراتور موبایل
+     * در دیتابیس‌های جهانی به «محل ثبت اپراتور» نگاشت می‌شوند نه محل واقعی
+     * کاربر → هر برچسب شهری حدس غلط است (ریشه «تبریز → خراسان رضوی»).
+     * برای بازدید موبایلی، شهر/استان خالی + is_mobile=1 برمی‌گردد. */
     private static function fetchIpApi(string $ip): ?array
     {
-        $url = 'http://ip-api.com/json/' . rawurlencode($ip) . '?fields=status,country,countryCode,regionName,city&lang=fa';
+        $url = 'http://ip-api.com/json/' . rawurlencode($ip) . '?fields=status,country,countryCode,regionName,city,mobile&lang=fa';
         $json = self::httpGet($url, 3.5);
         if ($json === null) { return null; }
         $d = json_decode($json, true);
         if (!is_array($d) || ($d['status'] ?? '') !== 'success') { return null; }
+        $cc = strtoupper((string)($d['countryCode'] ?? 'IR')) ?: 'IR';
+        /* 📱 اپراتور موبایل ایرانی؟ — شهر/استان نامعتبر است، فقط کشور */
+        if (!empty($d['mobile']) && $cc === 'IR') {
+            return [
+                'country'    => 'IR',
+                'country_fa' => 'ایران',
+                'city'       => '',
+                'province'   => '',
+                'is_mobile'  => true,
+            ];
+        }
         $province = self::regionFa((string)($d['regionName'] ?? ''));
         $city = self::cityFa((string)($d['city'] ?? ''));
-        $cc = strtoupper((string)($d['countryCode'] ?? 'IR')) ?: 'IR';
         return [
             'country'    => $cc,
             'country_fa' => $cc === 'IR' ? 'ایران' : self::countryFaName($cc),
@@ -408,6 +425,10 @@ class GeoIP
         }
         if ($result === null) {
             $result = self::fromLocal($ip);
+        }
+        /* 📱 v2.44 — کلید is_mobile همیشه حاضر (سرویس‌های قدیمی نمی‌دهند) */
+        if (!array_key_exists('is_mobile', $result)) {
+            $result['is_mobile'] = false;
         }
         return self::$memo[$prefix] = $result;
     }
