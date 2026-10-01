@@ -880,8 +880,10 @@ const TB_SERVER_DATA = {
     ) ?>,
     genericFieldsV229: <?= json_encode(array_fill_keys(array_keys($genericBlockKeys), ['T', 'S', 'X', 'C', 'IMG', 'IT'])) ?>,
     genericFieldsV231: <?= json_encode(array_fill_keys(['btn-duo','btn-gradient','btn-outline-row','btn-icon-row','btn-mega-cta','btn-social','progress-multi','progress-striped','progress-thin','progress-circles','progress-ring-big','progress-semi','rating-hero','info-tiles','feature-split','hover-cards','alert-gradient','gradient-quote','chips-filter','counter-cards'], ['T', 'S', 'CLR', 'IT'])) ?>,
-    /* 🧩 v2.44 (S12) — فرم‌های سفارشی فعال برای عنصر «فرم سفارشی» */
-    customForms: <?= json_encode(class_exists('CustomFormManager') ? CustomFormManager::listActive() : [], JSON_UNESCAPED_UNICODE) ?>,
+    /* 🧩 v2.44 (S12) + 🚨 v2.45 (S09) — فرم‌های فعال برای عنصر «فرم سفارشی»:
+       همه فرم‌ها (سراسری + اختصاصی هر برند) با نام برند — قبلاً فقط سراسری
+       دیده می‌شد و فرم‌های اختصاصی برند از انتخابگر غایب بودند (ریشه گزارش) */
+    customForms: <?= json_encode(class_exists('CustomFormManager') ? (method_exists('CustomFormManager', 'listAll') ? CustomFormManager::listAll() : CustomFormManager::listActive()) : [], JSON_UNESCAPED_UNICODE) ?>,
 };
 </script>
 <script src="../assets/js/template-builder.js?v=2.38"></script>

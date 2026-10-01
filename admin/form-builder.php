@@ -309,6 +309,19 @@ $efs = $isEdit ? $editForm['settings'] : ['btnText' => 'ارسال', 'successMsg
         if (f.type === 'number') {
             h += '<div class="form-row-2"><div class="form-group"><label>حداقل</label><input type="number" class="form-control fb-in" data-i="' + i + '" data-k="min" value="' + esc(f.min != null ? f.min : '') + '"></div><div class="form-group"><label>حداکثر</label><input type="number" class="form-control fb-in" data-i="' + i + '" data-k="max" value="' + esc(f.max != null ? f.max : '') + '"></div></div>';
         }
+        /* 🎭 v2.45 (S11) — ماسک و فرمت ورودی (فیلدهای متنی/تلفن) */
+        if (f.type === 'text' || f.type === 'tel') {
+            var MASKS = <?= json_encode(CustomFormManager::MASK_PRESETS, JSON_UNESCAPED_UNICODE) ?>;
+            var curMask = f.mask || 'none';
+            h += '<div class="form-group"><label>🎭 ماسک و فرمت ورودی</label><select class="form-control fb-mask" data-i="' + i + '">';
+            Object.keys(MASKS).forEach(function (mk) {
+                h += '<option value="' + mk + '"' + (curMask === mk ? ' selected' : '') + '>' + MASKS[mk][0] + '</option>';
+            });
+            h += '</select><div class="hint" style="margin-top:4px">هنگام تایپ، ورودی خودکار فرمت می‌شود و در ارسال، اعتبارسنجی می‌شود (کد ملی با رقم کنترل، کارت با الگوریتم بانکی). «#» = رقم، «A» = حرف، «*» = آزاد.</div></div>';
+            if (curMask === 'custom') {
+                h += '<div class="form-group"><label>✏️ الگوی دلخواه</label><input type="text" class="form-control fb-in" style="direction:ltr;text-align:left;font-family:monospace" data-i="' + i + '" data-k="maskPattern" value="' + esc(f.maskPattern || '') + '" placeholder="مثال: ####/##/## یا AA-#####"><div class="hint" style="margin-top:4px">جداشنباها (- / : فاصله .) خودکار درج می‌شوند.</div></div>';
+            }
+        }
         if (f.type === 'textarea') {
             h += '<div class="form-group"><label>تعداد سطرها</label><input type="number" min="2" max="12" class="form-control fb-in" data-i="' + i + '" data-k="rows" value="' + esc(f.rows || 4) + '"></div>';
         }
@@ -387,6 +400,18 @@ $efs = $isEdit ? $editForm['settings'] : ['btnText' => 'ارسال', 'successMsg
                     d.querySelector('.fb-field-head b').innerHTML = esc(fields[ii].label) + (fields[ii].required ? ' <span style="color:#dc2626">*</span>' : '');
                     syncJson();
                     renderPreview();
+                });
+            });
+            /* 🎭 v2.45 (S11) — تغییر ماسک فیلد: بازرندری ویرایشگر (نمایش الگوی دلخواه) */
+            d.querySelectorAll('.fb-mask').forEach(function (sel) {
+                sel.addEventListener('change', function () {
+                    var ii = +sel.getAttribute('data-i');
+                    var mk = sel.value;
+                    if (mk === 'none') { delete fields[ii].mask; delete fields[ii].maskPattern; }
+                    else { fields[ii].mask = mk; if (mk !== 'custom') { delete fields[ii].maskPattern; } }
+                    syncJson();
+                    renderPreview();
+                    render(); /* بازسازی برای نمایش/مخفی field الگوی دلخواه */
                 });
             });
             fieldsBox.appendChild(d);

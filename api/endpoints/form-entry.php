@@ -79,6 +79,21 @@ function api_submit_form_entry(int $urlBrandId): void
         json_response(['success' => false, 'error' => 'فرم خالی است — حداقل یک فیلد را پر کنید'], 422);
     }
 
+    /* 🎭 v2.45 (S11) — اعتبارسنجی سمت سرور فیلدهای ماسک‌دار فرم سفارشی
+       (کلاینت قابل دورزدن است؛ مرز واقعی همین‌جاست) */
+    if ($customForm && !empty($customForm['fields']) && class_exists('CustomFormManager') && method_exists('CustomFormManager', 'maskError')) {
+        foreach ((array)$customForm['fields'] as $mf) {
+            if (!is_array($mf) || empty($mf['mask'])) { continue; }
+            $mfName = (string)($mf['name'] ?? '');
+            $mfVal = trim((string)($fields[$mfName] ?? ''));
+            if ($mfVal === '') { continue; } /* خالی: الزامی‌بودنش جداگاره — برای فیلد اختیاریِ خالی ماسک نمی‌گیرد */
+            $err = CustomFormManager::maskError($mf, $mfVal);
+            if ($err !== null) {
+                json_response(['success' => false, 'error' => $err], 422);
+            }
+        }
+    }
+
     /* 📨 مقصد ارسال */
     $destRaw = (string)($input['dest'] ?? 'panel');
     $dests = array_values(array_intersect(['panel', 'email', 'telegram', 'bale'], array_filter(array_map('trim', explode(',', $destRaw)))));

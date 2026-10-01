@@ -2039,7 +2039,27 @@ if (!function_exists('pv_custom_form')) {
             }
 
             $input = '';
-            if ($type === 'textarea') {
+            /* 🎭 v2.45 (S11) — فیلد ماسک‌دار: فرمت زنده هنگام تایپ + اعتبارسنجی
+               (کد ملی/موبایل/تلفن/کارت/شبا/کد پستی/الگوی دلخواه) */
+            $mask = (string)($f['mask'] ?? 'none');
+            $isMasked = in_array($type, ['text', 'tel'], true) && $mask !== '' && $mask !== 'none';
+            if ($isMasked) {
+                $maskDefs = [
+                    'national_code' => ['##########', 'numeric', 'کد ملی — ۱۰ رقم'],
+                    'mobile'        => ['#### ### ####', 'numeric', '۰۹۱۲ ۳۴۵ ۶۷۸۹'],
+                    'phone'         => ['### ### ####', 'numeric', '۰۴۱ ۳۳۳ ۱۲۳۴۵'],
+                    'card'          => ['####-####-####-####', 'numeric', '۶۰۳۷-۹۹۷۵-XXXX-XXXX'],
+                    'sheba'         => ['IR########################', 'numeric', 'IR + ۲۴ رقم'],
+                    'postal'        => ['##########', 'numeric', 'کد پستی — ۱۰ رقم'],
+                ];
+                $pat = isset($maskDefs[$mask]) ? $maskDefs[$mask][0] : (string)($f['maskPattern'] ?? '');
+                $mode = isset($maskDefs[$mask]) ? $maskDefs[$mask][1] : 'text';
+                $exPh = isset($maskDefs[$mask]) ? $maskDefs[$mask][2] : $pat;
+                $autoPh = ($ph === '') ? $exPh : $ph;
+                $input = '<input type="text" name="' . e($name) . '" class="sahand-fi sahind-masked" data-mask="' . e($mask) . '"'
+                    . ' data-mask-pattern="' . e($pat) . '" data-mask-mode="' . $mode . '"'
+                    . ' placeholder="' . e($autoPh) . '" value="' . $def . '" dir="ltr" inputmode="' . ($mode === 'numeric' ? 'numeric' : 'text') . '" autocomplete="off"' . $reqAttr . '>';
+            } elseif ($type === 'textarea') {
                 $input = '<textarea name="' . e($name) . '" rows="' . max(2, min(12, (int)($f['rows'] ?? 4))) . '" class="sahand-fi" placeholder="' . $ph . '"' . $reqAttr . '>' . $def . '</textarea>';
             } elseif ($type === 'select') {
                 $opts = '<option value="">انتخاب کنید...</option>';

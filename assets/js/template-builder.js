@@ -1797,14 +1797,19 @@ function renderProps() {
             });
             html += `<div class="hint" style="margin-top:5px;font-size:10px">ترکیب دلخواه — مثلاً «پنل + تلگرام». کانال‌های ایمیل/تلگرام/بله باید در تنظیمات ارسال فعال باشند.</div>`;
         } else if (code === 'CFS') {
-            /* 🧩 v2.44 (S12) — انتخاب فرم سفارشی ساخته‌شده در فرم‌ساز */
+            /* 🧩 v2.44 (S12) — انتخاب فرم سفارشی ساخته‌شده در فرم‌ساز
+               🆕 v2.45 (S09): همه فرم‌ها (سراسری + اختصاصی برند) با برچسب محدوده */
             const CF = (window.TB_SERVER_DATA && TB_SERVER_DATA.customForms) || [];
+            const cfOptions = CF.map(f => {
+                const scope = f.brand_name ? ' — 🏷 ' + f.brand_name : ' — 🌐 سراسری';
+                return `<option value="${esc(f.slug)}" ${(props.customFormSlug || '') === f.slug ? 'selected' : ''}>${esc(f.title)}${esc(scope)}</option>`;
+            }).join('');
             html += `<div class="form-group"><label>🧩 فرم سفارشی (از فرم‌ساز)</label>
                 <select class="form-control" style="font-size:12px" onchange="setProp('${selected}','customFormSlug',this.value)">
                     <option value="">— انتخاب فرم —</option>
-                    ${CF.map(f => `<option value="${esc(f.slug)}" ${(props.customFormSlug || '') === f.slug ? 'selected' : ''}>${esc(f.title)}</option>`).join('')}
+                    ${cfOptions}
                 </select>
-                <div class="hint" style="margin-top:4px">${CF.length ? 'فیلدها، دکمه و پیام موفقیت از فرم‌ساز می‌آیند. ' + esc(String(CF.length)) + ' فرم فعال موجود است.' : 'هنوز فرمی نساخته‌اید — از منوی پنل: «فرم‌ساز» → «فرم جدید». بعد از ساخت، این لیست را رفرش کنید.'} <a href="form-builder.php" target="_blank" style="color:#1d4ed8">🧩 فرم‌ساز ↗</a></div></div>`;
+                <div class="hint" style="margin-top:4px">${CF.length ? esc(String(CF.length)) + ' فرم فعال — فرم‌های «سراسری» روی همه برندها و فرم‌های برچسب‌دار فقط روی همان برند نمایش داده می‌شوند.' : 'هنوز فرمی نساخته‌اید — از منوی پنل: «فرم‌ساز» → «فرم جدید». بعد از ساخت، این صفحه را رفرش کنید.'} <a href="form-builder.php" target="_blank" style="color:#1d4ed8">🧩 فرم‌ساز ↗</a></div></div>`;
         } else if (code === 'SLT') {
             /* 🎞 v2.29 — نوع اسلایدهای اسلایدر (تصویر/متن/کارت/مقاله/برند) */
             html += `<div class="form-group"><label>🎞 نوع اسلایدها</label>
