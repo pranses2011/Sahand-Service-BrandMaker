@@ -218,7 +218,12 @@ class ErrorCodeEngine
          * درخواست کاربر: خطایاب هم از مدل‌های زبانی رایگان استفاده کند
          * (با انتخاب روش در تنظیمات + فال‌بک زنجیره‌ای به مدل‌های بعدی
          * و در نهایت بازگشت به همین موتور داخلی/جستجوی وب). */
-        $textSettings = class_exists('AiTextService') ? AiTextService::settings() : ['method' => 'internal'];
+        $textSettings = class_exists('AiTextService') ? AiTextService::settings() : ['method' => 'internal', 'fallback' => true, 'fallback_order' => [], 'fallback_to_internal' => true];
+        /* 🎛 v2.45 (S01) — زنجیرهٔ فال‌بک «همه متدها» در خطایاب هم رعایت می‌شود */
+        $ecFbOrder = (array)($textSettings['fallback_order'] ?? []);
+        $ecFbEnabled = !isset($textSettings['fallback']) || !empty($textSettings['fallback']);
+        $ecResearchFallback = $ecFbEnabled && $textSettings['method'] === 'llm' && in_array('research', $ecFbOrder, true);
+        $ecInternalGuaranteed = !empty($textSettings['fallback_to_internal']) || in_array('internal', $ecFbOrder, true) || empty($ecFbOrder);
         if ($textSettings['method'] === 'llm') {
             try {
                 $existingCodes = $this->db->fetchAll(
@@ -252,8 +257,26 @@ class ErrorCodeEngine
                     ];
                 }
             } catch (Throwable $llmE) {
-                /* شکست LLM → ادامه با موتور داخلی و جستجوی وب */
+                /* 🛡 v2.45 (S01) — زنجیرهٔ «همه متدها»: جستجوی اینترنت در ترتیب
+                   فال‌بک باشد → ادامه با وب؛ موتور داخلی/KB فقط با تضمین؛
+                   هیچ‌کدام → خطای شفاف */
+                if ($ecResearchFallback) {
+                    $useWeb = true;
+                }
+                if (!$ecInternalGuaranteed && !$ecResearchFallback) {
+                    throw new RuntimeException(
+                        'تولید کدهای خطا با مدل زبانی ناموفق بود و هیچ فال‌بکی در زنجیره فعال نیست — '
+                        . $llmE->getMessage()
+                        . ' (در تنظیمات ▸ هوش مصنوعی: فال‌بک را روشن کنید یا 🌐 جستجوی اینترنت / 🔧 موتور داخلی را به ترتیب اضافه کنید)'
+                    );
+                }
             }
+        }
+
+        /* 🎛 v2.45 — سقوط بی‌استثنا از LLM (کمتر از ۳ کد معتبر): جستجوی وب
+           به‌عنوان گام بعدی زنجیره اگر کاربر چنین ترتیبی داده باشد */
+        if ($textSettings['method'] === 'llm' && $ecResearchFallback) {
+            $useWeb = true;
         }
 
         $this->progress(4, 'بررسی برند و دستگاه', $brand['name_fa'] . ' — ' . $deviceFa . ($useWeb ? ' — جستجوی آنلاین ' . $depthLabel . ' فعال' : ' — جستجوی آنلاین غیرفعال'));

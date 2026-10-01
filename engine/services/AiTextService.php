@@ -195,10 +195,12 @@ class AiTextService
             'model'    => (string)($cfg['model'] ?? ''),
             'keys'     => is_array($cfg['keys'] ?? null) ? $cfg['keys'] : [],
             'fallback' => !isset($cfg['fallback']) ? true : !empty($cfg['fallback']),
-            /* 🆕 ترتیب دلخواه فال‌بک — آرایه کلیدهای ارائه‌دهنده */
-            'fallback_order' => array_values(array_intersect(
+            /* 🆕 v2.45 — ترتیب دلخواه فال‌بک «همه متدها»: علاوه بر ارائه‌دهنده‌های
+               LLM، دو واحد متدی هم مجازند: research (جستجوی اینترنت) و
+               internal (موتور داخلی) — درخواست صریح کاربر */
+            'fallback_order' => array_values(array_filter(
                 (array)($cfg['fallback_order'] ?? []),
-                array_keys(self::PROVIDERS)
+                static fn($k) => is_string($k) && (in_array($k, ['internal', 'research'], true) || isset(self::PROVIDERS[$k]))
             )),
             'fallback_to_internal' => !isset($cfg['fallback_to_internal']) ? true : !empty($cfg['fallback_to_internal']),
             'timeout'  => max(15, min(180, (int)($cfg['timeout'] ?? AI_LLM_TIMEOUT))),

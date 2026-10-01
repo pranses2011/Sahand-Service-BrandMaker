@@ -294,7 +294,7 @@ class ArticleGenerator
          *   research = جستجوی اینترنت — تحقیق وب «اجباری» می‌شود و نگارش با
          *              موتور داخلیِ تغذیه‌شده از نتایج وب انجام می‌شود
          *   internal = دانش داخلی — هیچ تحقیق وب و هیچ LLM */
-        $textSettingsEarly = class_exists('AiTextService') ? AiTextService::settings() : ['method' => 'internal'];
+        $textSettingsEarly = class_exists('AiTextService') ? AiTextService::settings() : ['method' => 'internal', 'fallback' => true, 'fallback_order' => [], 'fallback_to_internal' => true];
         $depth = (string)($options['depth'] ?? 'balanced');
         $forceResearch = $textSettingsEarly['method'] === 'research';
         if ($forceResearch) {
@@ -303,7 +303,15 @@ class ArticleGenerator
             $options['research'] = false; /* دانش داخلی — بدون وب */
             unset($options['research_context']);
         }
-        if (empty($options['research_context']) && !empty($options['research'])) {
+        /* 🎛 v2.45 (S01) — «جستجوی اینترنت» به‌عنوان گام فال‌بک: اگر متد
+           انتخابی LLM بود و شکست خورد و کاربر research را در ترتیب فال‌بک
+           آورده باشد، تحقیق وب در نقطهٔ شکست اجرا می‌شود (نه قبل از LLM) */
+        $fbOrder = (array)($textSettingsEarly['fallback_order'] ?? []);
+        $fbEnabled = !isset($textSettingsEarly['fallback']) || !empty($textSettingsEarly['fallback']);
+        $researchAsFallback = $fbEnabled && $textSettingsEarly['method'] === 'llm' && in_array('research', $fbOrder, true);
+        $internalInChain = in_array('internal', $fbOrder, true) || empty($fbOrder);
+        $internalGuaranteed = !empty($textSettingsEarly['fallback_to_internal']) || $internalInChain;
+        $runWebResearch = function () use ($brand, $deviceKey, $customTitle, $topicType, $depth): ?array {
             try {
                 $meta = $this->deviceMetaFor($brand, $deviceKey, $customTitle);
                 $topic = $this->researchTopicFor($customTitle, $topicType, $meta);
@@ -320,11 +328,16 @@ class ArticleGenerator
                     'device_key' => (string)$meta['device_key'],
                     'learn'      => true,
                 ]);
-                if (!empty($research)) {
-                    $options['research_context'] = $research;
-                }
+                return $research ?: null;
             } catch (Throwable $e) {
                 /* شکست تحقیق نباید تولید را متوقف کند */
+                return null;
+            }
+        };
+        if (empty($options['research_context']) && !empty($options['research'])) {
+            $research = $runWebResearch();
+            if ($research !== null) {
+                $options['research_context'] = $research;
             }
         }
 
@@ -393,7 +406,37 @@ class ArticleGenerator
                     ];
                 }
             } catch (Throwable $llmE) {
-                /* شکست LLM = فال‌بک کامل به موتور داخلی (ادامه همین تابع) */
+                /* 🛡 v2.45 (S01) — زنجیرهٔ فال‌بک «همه متدها» (درخواست کاربر):
+                   ① «جستجوی اینترنت» در ترتیب فال‌بک باشد → همین حالا تحقیق وب
+                      اجرا و مقاله با موتور داخلیِ تغذیه‌شده نوشته می‌شود
+                   ② موتور داخلی فقط وقتی ادامه می‌دهد که در زنجیره یا تضمین باشد
+                   ③ هیچ فال‌بکی نباشد → خطای شفاف (نه سقوط بی‌صدا به داخلی) */
+                if ($researchAsFallback && empty($options['research_context'])) {
+                    $research = $runWebResearch();
+                    if ($research !== null) {
+                        $options['research_context'] = $research;
+                        $options['research'] = true;
+                    }
+                }
+                if (!$internalGuaranteed && empty($options['research_context'])) {
+                    throw new RuntimeException(
+                        'تولید با مدل زبانی ناموفق بود و هیچ فال‌بکی در زنجیره فعال نیست — '
+                        . $llmE->getMessage()
+                        . ' (در تنظیمات ▸ هوش مصنوعی: «موتور داخلی پاسخ تضمینی بدهد» را روشن کنید یا 🌐 جستجوی اینترنت / 🔧 موتور داخلی را به ترتیب فال‌بک اضافه کنید)'
+                    );
+                }
+                /* شکست LLM = فال‌بک به گام بعدی زنجیره (ادامه همین تابع) */
+            }
+        }
+
+        /* 🎛 v2.45 — سقوط بی‌استثنا از مسیر LLM (پیش‌نویس کوتاه/نامعتبر):
+           همان منطق فال‌بک اعمال می‌شود — شفاف و یکسان با حالت خطا */
+        if ($textSettingsEarly['method'] === 'llm'
+            && $researchAsFallback && empty($options['research_context'])) {
+            $research = $runWebResearch();
+            if ($research !== null) {
+                $options['research_context'] = $research;
+                $options['research'] = true;
             }
         }
 

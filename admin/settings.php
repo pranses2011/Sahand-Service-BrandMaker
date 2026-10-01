@@ -230,14 +230,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         $savedKey = trim((string)($_POST['ai_text_key_' . $pKey] ?? ''));
         if ($savedKey !== '') { $textKeys[$pKey] = $savedKey; }
     }
-    /* 🎛 ترتیب دلخواه فال‌بک — رشته JSON از ویرایشگر ترتیب */
+    /* 🎛 ترتیب دلخواه فال‌بک — رشته JSON از ویرایشگر ترتیب
+       v2.45: دو واحد متدی (research جستجوی اینترنت + internal موتور داخلی)
+       هم در کنار ارائه‌دهنده‌های LLM مجازند — درخواست کاربر: «همه متدها
+       در ترتیب فال‌بک باشند نه فقط مدل‌های هوش مصنوعی» */
     $fallbackOrder = [];
     $foRaw = (string)($_POST['ai_fallback_order'] ?? '[]');
     $foDecoded = json_decode($foRaw, true);
     if (is_array($foDecoded)) {
         foreach ($foDecoded as $foP) {
             $foP = clean_input((string)$foP);
-            if (array_key_exists($foP, AiTextService::PROVIDERS)) { $fallbackOrder[] = $foP; }
+            if (array_key_exists($foP, AiTextService::PROVIDERS) || in_array($foP, ['internal', 'research'], true)) {
+                $fallbackOrder[] = $foP;
+            }
         }
     }
     Config::set('article_text_settings', [
@@ -903,17 +908,42 @@ $i18nSettings = (array)(Config::get('i18n_settings') ?: []);
                 <?php foreach ($photoServices as $svcKey => $svc): if (!$svc['needs_key']) { continue; } ?>
                     <div class="form-group photo-key-field" data-service="<?= e($svcKey) ?>" style="display:none">
                         <label>🔑 کلید API «<?= e($svc['label']) ?>»</label>
-                        <input type="text" name="photo_key_<?= e($svcKey) ?>" class="form-control" style="direction:ltr;text-align:left" value="<?= e((string)($photoSettings['keys'][$svcKey] ?? '')) ?>" placeholder="<?= e($svc['hint']) ?>">
+                        <div style="display:flex;gap:8px;align-items:stretch">
+                            <input type="text" name="photo_key_<?= e($svcKey) ?>" class="form-control" style="direction:ltr;text-align:left;flex:1" value="<?= e((string)($photoSettings['keys'][$svcKey] ?? '')) ?>" placeholder="<?= e($svc['hint']) ?>">
+                            <?php if (!empty($svc['guide'])): ?>
+                                <button type="button" class="btn btn-outline" style="flex:none;font-size:11.5px" onclick="photoShowGuide('<?= e($svcKey) ?>')">📖 راهنمای دریافت کلید</button>
+                            <?php endif; ?>
+                        </div>
                         <div class="hint" style="margin-top:6px"><?= e($svc['hint']) ?> — کلید فقط برای همین سرویس استفاده می‌شود؛ اگر خالی بماند سرویس در زنجیره تلاش قرار نمی‌گیرد.</div>
                     </div>
                 <?php endforeach; ?>
+
+                <!-- 📖 v2.45 (S01) — راهنمای کامل دریافت کلید همه سرویس‌های تصویری -->
+                <details style="margin-top:14px;border:1px solid #e2e8f0;border-radius:12px;padding:0;background:#fff">
+                    <summary style="padding:11px 14px;cursor:pointer;font-weight:800;font-size:13px">📖 راهنمای کامل دریافت کلید API تصویر — همه <?= en_to_fa_digits((string)count(array_filter($photoServices, static fn($s) => !empty($s['guide'])))) ?> سرویس کلیددار (کلیک کنید)</summary>
+                    <div style="padding:4px 14px 14px">
+                        <?php foreach ($photoServices as $svcKey => $svc): $pg = $svc['guide'] ?? null; if (!$pg) { continue; } ?>
+                            <div style="border-right:3px solid <?= $svcKey === $photoSettings['service'] ? '#16a34a' : '#cbd5e1' ?>;padding:9px 12px;margin-bottom:9px;background:#f8fafc;border-radius:0 10px 10px 0">
+                                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                                    <b style="font-size:13px"><?= e($svc['label']) ?></b>
+                                    <?php if (!empty($pg['free'])): ?><span class="badge badge-success" style="font-size:10px">🆓 رایگان</span><?php else: ?><span class="badge badge-secondary" style="font-size:10px">💵 پرداختی</span><?php endif; ?>
+                                    <a href="<?= e($pg['url']) ?>" target="_blank" rel="noopener" style="font-size:11.5px;color:#1d4ed8" dir="ltr"><?= e($pg['url']) ?> ↗</a>
+                                </div>
+                                <ol style="margin:7px 18px 4px 0;padding:0;font-size:12px;line-height:2">
+                                    <?php foreach ($pg['steps'] as $st): ?><li><?= e($st) ?></li><?php endforeach; ?>
+                                </ol>
+                                <div style="font-size:11px;color:#64748b">📊 سقف مصرف: <?= e($pg['limit']) ?></div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </details>
 
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px">
                     <button type="button" id="btn-test-photo-service" class="btn btn-success">🧪 تست سرویس انتخابی</button>
                     <span id="photo-test-result" style="font-size:12.5px"></span>
                 </div>
                 <div class="hint" style="margin-top:12px">
-                    💡 ۱۴ سرویس پشتیبانی می‌شود — رایگان بدون کلید: «پولینیشنز» (Flux/Turbo) و «AI Horde»؛ کلید با پلن رایگان: Hugging Face / DeepAI / Together / fal.ai / Google Imagen (aistudio) / GetImg؛ اشتراکی: Stability / OpenAI (DALL·E 3 و gpt-image-1) / Ideogram / Replicate. سرویس انتخابی همیشه اول تلاش می‌شود و سرویس واقعاً استفاده‌شده در گزارش تولید تصاویر اعلام می‌شود. «تست سرویس» وضعیت اتصال و کلید را با یک درخواست واقعی بررسی می‌کند.
+                    💡 <?= en_to_fa_digits((string)count($photoServices)) ?> سرویس تصویرساز پشتیبانی می‌شود — رایگان بدون کلید: «پولینیشنز» (Flux/Turbo)، AI Horde، لورم‌فلیکر، ویکیمدیا، لکسیکا و Picsum؛ کلید با پلن رایگان: Z.ai CogView / Hugging Face / DeepAI / Together / fal.ai / Google Imagen / GetImg / Prodia / Segmind / Leonardo؛ پرداختی: Stability / OpenAI (DALL·E 3 و gpt-image-1) / Ideogram / Replicate. سرویس انتخابی همیشه اول تلاش می‌شود و سرویس واقعاً استفاده‌شده در گزارش تولید تصاویر اعلام می‌شود. «تست سرویس» وضعیت اتصال و کلید را با یک درخواست واقعی بررسی می‌کند.
                 </div>
             </div>
         </div>
@@ -966,7 +996,7 @@ $i18nSettings = (array)(Config::get('i18n_settings') ?: []);
                 </div>
                 <label class="form-check" style="margin:10px 0">
                     <input type="checkbox" name="ai_text_fallback" id="ai-fallback-chk" <?= !empty($aiTextSettings['fallback']) ? 'checked' : '' ?> onchange="aiMethodChanged()">
-                    🔄 فال‌بک زنجیره‌ای — در شکست هر مدل، مدل‌های بعدی خودکار امتحان شوند
+                    🔄 فال‌بک زنجیره‌ای — در شکست متد/مدل انتخابی، موارد بعدیِ ترتیب دلخواه شما (مدل‌ها + جستجوی اینترنت + موتور داخلی) خودکار امتحان شوند
                 </label>
                 <label class="form-check" style="margin:4px 0 10px">
                     <input type="checkbox" name="ai_fallback_internal" <?= !empty($aiTextSettings['fallback_to_internal']) ? 'checked' : '' ?>>
@@ -988,12 +1018,12 @@ $i18nSettings = (array)(Config::get('i18n_settings') ?: []);
                     <input type="text" name="ai_cf_account_id" class="form-control" style="direction:ltr;text-align:left" value="<?= e((string)($aiTextSettings['cloudflare_account_id'] ?? '')) ?>" placeholder="32 کاراکتر از داشبورد کلادفلر">
                 </div>
 
-                <!-- 🎛 v2.44 (S01) — ویرایشگر ترتیب فال‌بک (جابه‌جایی بالا/پایین) -->
+                <!-- 🎛 v2.44 (S01) → v2.45 — ویرایشگر ترتیب فال‌بک (جابه‌جایی بالا/پایین) — همه متدها -->
                 <div id="ai-fallback-order-box" style="margin-top:12px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px">
-                    <b style="font-size:12.5px">🎚 ترتیب فال‌بک دلخواه شما <small style="font-weight:400;color:#64748b">(اولین مورد زودتر امتحان می‌شود — با دکمه‌های ⬆⬇ جابه‌جا کنید)</small></b>
+                    <b style="font-size:12.5px">🎚 ترتیب فال‌بک دلخواه شما — همه متدها <small style="font-weight:400;color:#64748b">(اولین مورد زودتر امتحان می‌شود — با ⬆⬇ جابه‌جا کنید؛ شامل مدل‌های زبانی + 🌐 جستجوی اینترنت + 🔧 موتور داخلی)</small></b>
                     <input type="hidden" name="ai_fallback_order" id="ai-fallback-order" value="<?= e(json_encode(array_values($aiTextSettings['fallback_order'] ?: []), JSON_UNESCAPED_UNICODE)) ?>">
                     <div id="ai-fallback-list" style="margin-top:8px;display:flex;flex-direction:column;gap:5px"></div>
-                    <div class="hint" style="margin-top:7px">خالی = ترتیب پیش‌فرض (انتخابی ← بدون‌کلید ← بقیه دارای کلید). فقط ارائه‌دهنده‌هایی که کلیدشان ثبت شده یا بدون کلیدند عملاً امتحان می‌شوند.</div>
+                    <div class="hint" style="margin-top:7px">خالی = ترتیب پیش‌فرض (انتخابی ← بدون‌کلید ← بقیه دارای کلید ← موتور داخلی). «🌐 جستجوی اینترنت» یعنی در شکست متد/مدل‌های قبل، تحقیق وب + نگارش داخلی امتحان شود؛ «🔧 موتور داخلی» یعنی موتور داخلی در زنجیره باشد. سوییچ «موتور داخلی پاسخ تضمینی» همیشه موتور داخلی را آخرین گام اضافه می‌کند.</div>
                 </div>
 
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px">
@@ -1004,12 +1034,27 @@ $i18nSettings = (array)(Config::get('i18n_settings') ?: []);
                 <div style="margin-top:14px;padding:11px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px">
                     <b style="font-size:12.5px">🔗 زنجیره فال‌بک فعلی (به‌ترتیب تلاش):</b>
                     <div style="margin-top:7px;font-size:12px;line-height:2.1">
-                        <?php foreach ($aiTextChain as $ci => $cp): ?>
-                            <span class="badge <?= $cp === $aiTextSettings['provider'] ? 'badge-success' : 'badge-secondary' ?>" style="margin-inline-end:5px;font-size:11px">
-                                <?= (int)($ci + 1) ?>. <?= e($pList[$cp]['label'] ?? $cp) ?><?= $cp === $aiTextSettings['provider'] ? ' (انتخابی)' : '' ?>
+                        <?php
+                        /* 🎛 v2.45 — نمایش کل زنجیره: متد انتخابی + ترتیب کاربر (همه متدها) + مدل‌های باقی‌مانده */
+                        $unitLabels = ['research' => '🌐 جستجوی اینترنت (متد)', 'internal' => '🔧 موتور داخلی (متد)'];
+                        $chainUnits = [];
+                        foreach ((array)($aiTextSettings['fallback_order'] ?: []) as $u) {
+                            $chainUnits[$u] = $unitLabels[$u] ?? ($pList[$u]['label'] ?? $u);
+                        }
+                        if (!$chainUnits) {
+                            foreach ($aiTextChain as $cp) { $chainUnits[$cp] = $pList[$cp]['label'] ?? $cp; }
+                        }
+                        foreach ($aiTextChain as $cp) {
+                            if (empty($aiTextSettings['fallback_order']) || !isset($chainUnits[$cp])) {
+                                if (empty($aiTextSettings['fallback_order'])) { $chainUnits[$cp] = $pList[$cp]['label'] ?? $cp; }
+                            }
+                        }
+                        foreach ($chainUnits as $cu => $cl): ?>
+                            <span class="badge <?= $cu === $aiTextSettings['provider'] ? 'badge-success' : (isset($unitLabels[$cu]) ? 'badge-info' : 'badge-secondary') ?>" style="margin-inline-end:5px;font-size:11px">
+                                <?= e($cl) ?><?= $cu === $aiTextSettings['provider'] ? ' (انتخابی)' : '' ?>
                             </span>
                         <?php endforeach; ?>
-                        <?php if (!empty($aiTextSettings['fallback_to_internal'])): ?>
+                        <?php if (!empty($aiTextSettings['fallback_to_internal']) && !isset($chainUnits['internal'])): ?>
                             <span class="badge badge-info" style="font-size:11px">آخر: 🔧 موتور داخلی (تضمینی)</span>
                         <?php endif; ?>
                     </div>
@@ -1158,6 +1203,24 @@ function previewUiFont() {
 
     var hints = <?= json_encode(array_combine(array_keys($photoServices), array_column($photoServices, 'hint')), JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
     var needsKey = <?= json_encode(array_combine(array_keys($photoServices), array_column($photoServices, 'needs_key')), JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
+    var photoGuides = <?= json_encode(array_combine(array_keys($photoServices), array_column($photoServices, 'guide')), JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
+
+    /* ── 📖 v2.45 (S01): مودال راهنمای کلید سرویس تصویری (همان مودال متنی) ── */
+    window.photoShowGuide = function (key) {
+        var g = photoGuides[key];
+        var modal = document.getElementById('ai-guide-modal');
+        if (!g || !modal) { return; }
+        var svc = <?= json_encode(array_combine(array_keys($photoServices), array_column($photoServices, 'label')), JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
+        document.getElementById('ai-guide-title').innerHTML = '📖 کلید API ' + (svc[key] || key) +
+            (g.free ? ' <span class="badge badge-success" style="font-size:10px">🆓 رایگان</span>' : ' <span class="badge badge-secondary" style="font-size:10px">💵 پرداختی</span>');
+        var steps = (g.steps || []).map(function (s, i) { return '<div style="display:flex;gap:9px;margin-bottom:8px"><span style="flex:none;width:22px;height:22px;border-radius:7px;background:#1e40af;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">' + (i + 1) + '</span><span>' + String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span></div>'; }).join('');
+        document.getElementById('ai-guide-body').innerHTML =
+            '<a href="' + g.url + '" target="_blank" rel="noopener" style="display:inline-block;direction:ltr;font-size:12.5px;color:#1d4ed8;margin-bottom:12px">' + g.url + ' ↗</a>' +
+            steps +
+            '<div style="margin-top:10px;padding:8px 12px;background:#f1f5f9;border-radius:9px;font-size:12px">📊 سقف مصرف: ' + g.limit + '</div>' +
+            '<div style="margin-top:9px;font-size:11.5px;color:#64748b">پس از ساخت کلید، آن را در فیلد همین صفحه بچسبانید و «ذخیره همه تنظیمات» را بزنید.</div>';
+        modal.style.display = 'flex';
+    };
 
     window.togglePhotoKeyFields = function () {
         var svc = svcSelect.value;
@@ -1348,8 +1411,14 @@ function sahandTestEmail(btn) {
     /* داده ارائه‌دهنده‌ها از سرور */
     var AI_PROVIDERS = <?= json_encode($aiTextProviders, JSON_UNESCAPED_UNICODE) ?: '[]' ?>;
     var AI_SEL = <?= json_encode((string)$aiTextSettings['provider']) ?>;
+    /* 🎛 v2.45 — واحدهای متدی در زنجیره فال‌بک (درخواست کاربر: همه متدها) */
+    var AI_METHOD_UNITS = [
+        { key: 'research', label: '🌐 جستجوی اینترنت (متد)', needs_key: false, isMethod: true },
+        { key: 'internal', label: '🔧 موتور داخلی (متد)', needs_key: false, isMethod: true }
+    ];
     var pByKey = {};
     AI_PROVIDERS.forEach(function (p) { pByKey[p.key] = p; });
+    AI_METHOD_UNITS.forEach(function (u) { pByKey[u.key] = u; });
 
     /* ── ① نمایش/مخفی بر اساس متد ── */
     function aiMethodChanged() {
@@ -1369,8 +1438,9 @@ function sahandTestEmail(btn) {
         if (hint) { hint.textContent = hints[m.value] || ''; }
         if (provBox) { provBox.style.opacity = isLlm ? '1' : '.45'; }
         if (modelBox) { modelBox.style.opacity = isLlm ? '1' : '.45'; }
-        if (orderBox) { orderBox.style.display = (isLlm && fbChk && fbChk.checked) ? '' : 'none'; }
-        if (fbChk) { fbChk.parentElement.style.opacity = isLlm ? '1' : '.5'; }
+        /* 🎛 v2.45 — ترتیب فال‌بک برای همه متدها معنادار است (زنجیره ممکن است
+           بعد از شکست متد انتخابی، متدهای دیگر را امتحان کند) */
+        if (orderBox) { orderBox.style.display = (fbChk && fbChk.checked) ? '' : 'none'; }
     }
     window.aiMethodChanged = aiMethodChanged;
     aiMethodChanged();
@@ -1399,7 +1469,7 @@ function sahandTestEmail(btn) {
             row.style.cssText = 'display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #e2e8f0;border-radius:9px;padding:6px 9px;font-size:12px';
             row.innerHTML =
                 '<b style="min-width:18px;text-align:center;color:#64748b">' + (i + 1) + '.</b>' +
-                '<span style="flex:1">' + (p.label || key) + (key === AI_SEL ? ' <span class="badge badge-success" style="font-size:9.5px">انتخابی</span>' : '') + '</span>' +
+                '<span style="flex:1">' + (p.isMethod ? '' : '') + (p.label || key) + (key === AI_SEL ? ' <span class="badge badge-success" style="font-size:9.5px">انتخابی</span>' : '') + (p.isMethod ? ' <span class="badge badge-info" style="font-size:9px">متد</span>' : '') + '</span>' +
                 '<button type="button" class="btn btn-outline" style="padding:2px 8px;font-size:11px" data-mv="up" title="بالا">⬆</button>' +
                 '<button type="button" class="btn btn-outline" style="padding:2px 8px;font-size:11px" data-mv="down" title="پایین">⬇</button>' +
                 '<button type="button" class="btn btn-outline" style="padding:2px 8px;font-size:11px;color:#dc2626" data-mv="del" title="حذف">✕</button>';
@@ -1420,13 +1490,13 @@ function sahandTestEmail(btn) {
     addBtn.type = 'button';
     addBtn.className = 'btn btn-outline';
     addBtn.style.cssText = 'margin-top:7px;font-size:11.5px;padding:4px 12px';
-    addBtn.textContent = '+ افزودن ارائه‌دهنده به ترتیب';
+    addBtn.textContent = '+ افزودن به ترتیب فال‌بک (مدل‌ها و متدها)';
     addBtn.addEventListener('click', function () {
-        var opts = AI_PROVIDERS.filter(function (p) { return orderGet().indexOf(p.key) === -1; });
+        var opts = AI_METHOD_UNITS.concat(AI_PROVIDERS).filter(function (p) { return orderGet().indexOf(p.key) === -1; });
         if (!opts.length) { return; }
         var html = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">';
         opts.forEach(function (p) {
-            html += '<button type="button" class="btn btn-outline" style="font-size:11px;padding:4px 10px" data-add="' + p.key + '">' + p.label + (p.needs_key ? ' 🔑' : ' 🆓') + '</button>';
+            html += '<button type="button" class="btn btn-outline" style="font-size:11px;padding:4px 10px' + (p.isMethod ? ';border-color:#3b82f6;color:#1d4ed8' : '') + '" data-add="' + p.key + '">' + p.label + (p.isMethod ? '' : (p.needs_key ? ' 🔑' : ' 🆓')) + '</button>';
         });
         html += '</div>';
         var dv = document.createElement('div');

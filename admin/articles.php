@@ -21,6 +21,15 @@ if ($_aclBrand > 0) {
 
 $db = Database::getInstance();
 
+/* 🎛 v2.45 (S01) — متد واحد AI از تنظیمات — در سراسر صفحه (فرم + مودال + JS)
+   استفاده می‌شود؛ زود تعریف می‌شود تا در حالت ویرایش/لیست هم موجود باشد */
+$aiMethod = class_exists('AiTextService') ? AiTextService::settings() : ['method' => 'internal', 'fallback' => false, 'fallback_to_internal' => true];
+$aiMethodMeta = [
+    'internal' => ['🔧', 'دانش داخلی', 'بدون اینترنت و بدون کلید — همیشه موجود و تضمینی'],
+    'llm'      => ['🤖', 'مدل‌های زبانی', 'کیفیت بالا با کلید رایگان — ارائه‌دهنده و فال‌بک از تنظیمات'],
+    'research' => ['🌐', 'جستجوی اینترنت', 'تحقیق واقعی وب + نگارش با موتور داخلی تغذیه‌شده'],
+][$aiMethod['method']] ?? ['🔧', 'دانش داخلی', ''];
+
 /* 🗑️ حذف مقاله */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'delete') {
     Auth::enforceCsrf();
@@ -280,7 +289,10 @@ if (($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'imggen_progres
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'generate') {
     Auth::enforceCsrf();
     try {
-        /* 🎚️ v2.35 — عمقِ تحقیق وب (سریع/متعادل/عمیق) + زمانِ کافی برای حالت عمیق */
+        /* 🎛 v2.45 (S01) — متد واحد: «جستجوی اینترنت» بودن تحقیق وب فقط از
+           تنظیمات می‌آید؛ چک‌باکس قدیمی فرم حذف شد (درخواست کاربر: تولید
+           فقط با یک متدِ انتخابی در تنظیمات) */
+        $aiMethodInfo = class_exists('AiTextService') ? AiTextService::settings() : ['method' => 'internal'];
         $depth = (string)post('research_depth');
         if (!in_array($depth, ['fast', 'balanced', 'deep'], true)) {
             $depth = 'balanced';
@@ -294,7 +306,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'generate') {
             'topic_type'   => post('topic_type') ?: 'troubleshooting',
             'device_key'   => post('device_key') ?: null,
             'custom_title' => trim((string)post('custom_title')) ?: null, // 🆕 فاز Q.5
-            'research'     => post('research') === '1',                  // 🆕 فاز Q.7: جستجوی آنلاین
+            'research'     => $aiMethodInfo['method'] === 'research',    // 🎛 v2.45: فقط از متد تنظیمات
             'with_images'  => post('with_images') === '1',               // 🆕 فاز Q.8: تصاویر خودکار
             'depth'        => $depth,                                    // 🆕 v2.35: عمق تحقیق وب
         ]);
@@ -356,12 +368,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'generate_start'
     if (!in_array($depth, ['fast', 'balanced', 'deep'], true)) {
         $depth = 'balanced';
     }
+    /* 🎛 v2.45 (S01) — تحقیق وب فقط وقتی متدِ تنظیمات «جستجوی اینترنت» است */
+    $mInfoStart = class_exists('AiTextService') ? AiTextService::settings() : ['method' => 'internal'];
     $key = async_task_create('articlegen', [
         'brand_id'     => $brandId,
         'topic_type'   => (string)(post('topic_type') ?: 'troubleshooting'),
         'device_key'   => (string)(post('device_key') ?: ''),
         'custom_title' => trim((string)post('custom_title')) ?: '',
-        'research'     => post('research') === '1',
+        'research'     => $mInfoStart['method'] === 'research',
         'with_images'  => post('with_images') === '1',
         'depth'        => $depth,
     ]);
@@ -1071,8 +1085,18 @@ function toggleScheduleBox() {
 <?php if (!empty($showGenerate) && !empty($brands)): ?>
 <!-- 🤖 فرم تولید با AI -->
 <div class="card" style="border-color:var(--primary)">
-    <div class="card-header"><h3>🤖 تولید مقاله با هوش مصنوعی داخلی</h3></div>
+    <div class="card-header">
+        <h3>🤖 تولید مقاله با هوش مصنوعی</h3>
+        <span class="badge badge-info">متد فعال: <?= $aiMethodMeta[0] . ' ' . $aiMethodMeta[1] ?></span>
+    </div>
     <div class="card-body">
+        <div class="alert alert-info" style="font-size:12.5px;display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px">
+                <b>🎛 متد واحد تولید (از تنظیمات):</b> <?= $aiMethodMeta[0] ?> <b><?= $aiMethodMeta[1] ?></b> — <?= e($aiMethodMeta[2]) ?>.
+                <?php if ($aiMethod['method'] === 'llm'): ?><?= !empty($aiMethod['fallback']) ? 'فال‌بک زنجیره‌ای روشن است و در شکست، مدل‌های بعدی به ترتیب دلخواه شما امتحان می‌شوند' : 'فال‌بک خاموش است — فقط ارائه‌دهنده انتخابی' ?><?= !empty($aiMethod['fallback_to_internal']) ? ' و در انتها موتور داخلی پاسخ تضمینی می‌دهد.' : ' و فال‌بک به موتور داخلی هم خاموش است.' ?><?php endif; ?>
+            </div>
+            <a href="settings.php#aitext" class="btn btn-outline btn-sm" style="flex:none;white-space:nowrap">⚙️ تغییر متد در تنظیمات</a>
+        </div>
         <form method="post">
             <?= Auth::csrfField() ?>
             <input type="hidden" name="action" value="generate">
@@ -1145,10 +1169,7 @@ function toggleScheduleBox() {
                 <div id="title-suggestions" style="display:none;margin-top:12px" class="seo-stats"></div>
             </div>
             <div class="form-row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">
-                <label style="display:flex;gap:8px;align-items:center;font-weight:600;cursor:pointer;margin:0">
-                    <input type="checkbox" name="research" value="1" checked style="width:18px;height:18px">
-                    <span>🔎 استفاده از جستجوی اینترنت هنگام نوشتن</span>
-                </label>
+                <?php if ($aiMethod['method'] === 'research'): ?>
                 <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin:0">
                     <span>🎚️ عمق جستجو</span>
                     <select name="research_depth" class="form-control" style="width:auto;min-width:170px">
@@ -1157,12 +1178,17 @@ function toggleScheduleBox() {
                         <option value="deep">عمیق (≈۲ تا ۳ دقیقه)</option>
                     </select>
                 </label>
+                <?php else: ?>
+                <input type="hidden" name="research_depth" value="balanced">
+                <?php endif; ?>
                 <label style="display:flex;gap:8px;align-items:center;font-weight:600;cursor:pointer;margin:0">
                     <input type="checkbox" name="with_images" value="1" checked style="width:18px;height:18px">
                     <span>🖼️ تصاویر خودکار مقاله (۳ تصویر)</span>
                 </label>
             </div>
-            <div class="hint" style="margin-top:6px">🔎 جستجوی آنلاین (روشن پیش‌فرض): کوئری‌های فارسی+انگلیسی، خواندن متن کامل صفحات، استخراجِ سرفصل‌های واقعیِ رقبا، آمارِ منبع‌دار و پرسش‌های کاربران به مقاله اضافه می‌شود. 🎚️ «عمیق» دو موتور جستجو و تا ۷ صفحه را می‌خواند (زمان بیشتر، محتوای غنی‌تر). 🖼️ تصاویر با alt و کپشن استاندارد در متن درج می‌شوند.</div>
+            <div class="hint" style="margin-top:6px">
+                🎛 روش تولید (دانش داخلی / مدل زبانی / جستجوی اینترنت) و ترتیب فال‌بک فقط از <a href="settings.php#aitext" target="_blank">تنظیمات ▸ هوش مصنوعی</a> کنترل می‌شود — اینجا فقط عنوان و دستگاه انتخاب می‌کنید. <?= $aiMethod['method'] === 'research' ? '«عمیق» دو موتور جستجو و تا ۷ صفحه را می‌خواند (زمان بیشتر، محتوای غنی‌تر).' : '' ?> 🖼️ تصاویر با alt و کپشن استاندارد در متن درج می‌شوند.
+            </div>
             <button type="submit" id="btn-generate-article" class="btn btn-success btn-lg">🚀 تولید مقاله یکتا</button>
             <div class="hint" style="margin-top:8px">موتور AI محتوای ۸۰۰-۱۵۰۰ کلمه‌ای یکتا با لینک داخلی، سئو و اصلاح خودکار نگارش فارسی تولید می‌کند. تولید به‌صورت «گام‌به‌گام» انجام می‌شود و پیشرفت هر مرحله زنده نمایش داده می‌شود — دیگر هیچ تایم‌اوت سروری رخ نمی‌دهد.</div>
         </form>
@@ -1670,6 +1696,9 @@ function toggleScheduleBox() {
 
     var modal    = document.getElementById('articlegen-modal');
     if (!modal) { return; }
+    /* 🎛 v2.45 (S01) — فاز آغازین و برچسب متد از متدِ واحد تنظیمات */
+    var INIT_PHASE   = <?= json_encode($aiMethod['method'] === 'research' ? 'research' : 'compose') ?>;
+    var METHOD_LABEL = <?= json_encode($aiMethodMeta[0] . ' ' . $aiMethodMeta[1]) ?>;
     var bar      = document.getElementById('agen-bar');
     var pctEl    = document.getElementById('agen-percent');
     var titleEl  = document.getElementById('agen-title');
@@ -1837,8 +1866,8 @@ function toggleScheduleBox() {
         pctEl.textContent = '۱٪'; logEl.innerHTML = '';
         btnRetry.style.display = 'none'; btnOpen.style.display = 'none'; btnClose.style.display = 'none';
         btnGen.disabled = true; btnGen.textContent = '⏳ در حال تولید...';
-        setPhase('research');
-        setTitle('🚀 آغاز صف تولید گام‌به‌گام');
+        setPhase(INIT_PHASE);
+        setTitle('🚀 آغاز صف تولید گام‌به‌گام (' + METHOD_LABEL + ')');
         setDetail('در حال ساخت وظیفه و اعتبارسنجی ورودی‌ها...');
         modal.style.display = 'flex';
 
@@ -1847,7 +1876,6 @@ function toggleScheduleBox() {
             topic_type:    form.elements.topic_type ? form.elements.topic_type.value : 'troubleshooting',
             device_key:    form.elements.device_key ? form.elements.device_key.value : '',
             custom_title:  form.elements.custom_title ? form.elements.custom_title.value : '',
-            research:      form.elements.research && form.elements.research.checked ? '1' : '0',
             research_depth: form.elements.research_depth ? form.elements.research_depth.value : 'balanced',
             with_images:   form.elements.with_images && form.elements.with_images.checked ? '1' : '0'
         }).then(function (res) {

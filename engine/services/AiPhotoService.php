@@ -93,6 +93,165 @@ class AiPhotoService
         'leonardo'           => ['Leonardo — Phoenix',           true,  'کلید رایگان از app.leonardo.ai (۱۵۰ اعتبار روزانه)'],
     ];
 
+    /**
+     * 📖 v2.45 (S01) — راهنمای گام‌به‌گام دریافت کلید API سرویس‌های تصویری
+     * درخواست کاربر: «تمامی مدل‌های تصویری که در تنظیمات انتخاب می‌کنیم،
+     * راهنمای دقیق و به‌روز دریافت کلید را هم نشان بدهد».
+     * هر مورد: [آدرس صفحه کلید, [گام‌ها...], پلن رایگان؟, سقف رایگان]
+     */
+    const KEY_GUIDES = [
+        'huggingface' => [
+            'url' => 'https://huggingface.co/settings/tokens',
+            'steps' => [
+                'به huggingface.co بروید و ثبت‌نام/ورود کنید (ثبت‌نام رایگان است).',
+                'به Settings → Access Tokens بروید (مسیر مستقیم: huggingface.co/settings/tokens).',
+                'دکمه «New token» را بزنید؛ نوع «Read» کافی است (یا Fine-grained با دسترسی inference).',
+                'توکن (شروع با hf_) را کپی و در فیلد همین صفحه بچسبانید.',
+                'در پلن رایگان، مدل‌های SDXL گاهی «loading» طولانی دارند — صبور باشید یا FLUX سریع‌تر است.',
+            ],
+            'free' => true, 'limit' => 'سقف ماهانه کم — برای تصاویر پرتعداد کافی نیست',
+        ],
+        'deepai' => [
+            'url' => 'https://deepai.org/dashboard/profile',
+            'steps' => [
+                'به deepai.org بروید و ثبت‌نام کنید (ورود با گوگل هم دارد).',
+                'به صفحه Dashboard → Profile بروید.',
+                'کلید API («Quick Keys») در همان صفحه نمایش داده می‌شود — کپی کنید.',
+                'پلن رایگان تعداد محدودی تولید تصویر در ماه می‌دهد؛ برای بیشتر، پلن ارزان ماهانه دارد.',
+            ],
+            'free' => true, 'limit' => 'چند تولید رایگان در ماه',
+        ],
+        'together' => [
+            'url' => 'https://api.together.ai/settings/keys',
+            'steps' => [
+                'به api.together.ai بروید و ثبت‌نام کنید.',
+                'به Settings → API Keys بروید و «Create new key» بزنید.',
+                'کلید را کپی و اینجا ثبت کنید.',
+                'مدل «FLUX.1 [schnell]» در پلن رایگان با محدودیت روزانه قابل استفاده است — مدل پیش‌فرض همین است.',
+            ],
+            'free' => true, 'limit' => 'FLUX schnell: تعداد محدود تصویر رایگان در روز',
+        ],
+        'fal' => [
+            'url' => 'https://fal.ai/dashboard/keys',
+            'steps' => [
+                'به fal.ai بروید و ثبت‌نام کنید (ورود با گوگل).',
+                'به Dashboard → Keys بروید و «Add Key» را بزنید.',
+                'کلید (شروع با fal_key یا hex) را کپی کنید.',
+                'اعتبار اولیه رایگان برای تست می‌گیرید؛ بعد از اتمام باید شارژ کنید (قیمت FLUX schnell بسیار پایین است).',
+            ],
+            'free' => true, 'limit' => 'اعتبار اولیه آزمایشی (~۱ دلار)',
+        ],
+        'stability' => [
+            'url' => 'https://platform.stability.ai/account/keys',
+            'steps' => [
+                'به platform.stability.ai بروید و ثبت‌نام کنید.',
+                'به Account → API Keys بروید و «Generate API Key» بزنید.',
+                'کلید (شروع با sk-) را کپی و اینجا ثبت کنید.',
+                'برای اعتبار، از بخش Billing مقدار کمی شارژ لازم است — سریع‌ترین و پایدارترین مدل SD3 Core.',
+            ],
+            'free' => false, 'limit' => 'پرداختی (خیلی ارزان) — بدون پلن رایگان',
+        ],
+        'openai' => [
+            'url' => 'https://platform.openai.com/api-keys',
+            'steps' => [
+                'به platform.openai.com بروید و با اکانت OpenAI وارد شوید.',
+                'به API Keys بروید و «Create new secret key» بزنید.',
+                'کلید (شروع با sk-) را کپی و اینجا ثبت کنید.',
+                'از بخش Billing اعتبار اضافه کنید — DALL·E 3 پرداختی است (هر تصویر ~۰.۰۴ دلار).',
+            ],
+            'free' => false, 'limit' => 'پرداختی — کیفیت فوق‌العاده',
+        ],
+        'openai_gptimage' => [
+            'url' => 'https://platform.openai.com/api-keys',
+            'steps' => [
+                'مثل DALL·E 3 همان کلید platform.openai.com/api-keys استفاده می‌شود — یک کلید برای هر دو.',
+                'این گزینه مدل جدیدتر gpt-image-1 است: متن فارسی داخل تصویر و دقت دستورات بالاتر.',
+                'هزینه هر تصویر کمی بیشتر از DALL·E 3 است.',
+            ],
+            'free' => false, 'limit' => 'پرداختی — بهترین درک پرامپت فارسی',
+        ],
+        'gemini' => [
+            'url' => 'https://aistudio.google.com/apikey',
+            'steps' => [
+                'به aistudio.google.com/apikey بروید (نیاز به اکانت گوگل).',
+                'دکمه «Create API Key» را بزنید و پروژه انتخاب/سازید.',
+                'کلید (شروع با AIza) را کپی و اینجا ثبت کنید.',
+                'مدل تصویرساز گوگل (Imagen) در پلن رایگان سقف روزانه محدودی دارد.',
+            ],
+            'free' => true, 'limit' => 'سقف روزانه محدود در پلن رایگان',
+        ],
+        'ideogram' => [
+            'url' => 'https://ideogram.ai/api',
+            'steps' => [
+                'به ideogram.ai/api بروید و برای دسترسی API درخواست بدهید (فرم کوتاه).',
+                'پس از تأیید، در داشبورد بخش API Keys کلید بسازید.',
+                'کلید را کپی و اینجا ثبت کنید.',
+                'قوی‌ترین مدل برای پوستر، لوگو و تایپوگرافی داخل تصویر (حتی فارسی).',
+            ],
+            'free' => false, 'limit' => 'پرداختی — اعتبار اولیه آزمایشی',
+        ],
+        'getimg' => [
+            'url' => 'https://getimg.ai/dashboard/apikeys',
+            'steps' => [
+                'به getimg.ai بروید و ثبت‌نام کنید.',
+                'به Dashboard → API Keys بروید و «Create key» بزنید.',
+                'کلید را کپی و اینجا ثبت کنید.',
+                'هر ماه تعداد محدودی تصویر رایگان دارد (اعتبار ماهانه تمدید می‌شود).',
+            ],
+            'free' => true, 'limit' => '~۱۰۰ تصویر رایگان در ماه',
+        ],
+        'replicate' => [
+            'url' => 'https://replicate.com/account/api-tokens',
+            'steps' => [
+                'به replicate.com بروید و ثبت‌نام کنید (ورود با گوگل).',
+                'به Account → API Tokens بروید و «Create token» بزنید.',
+                'توکن (شروع با r8_) را کپی و اینجا ثبت کنید.',
+                'پس از ثبت کارت، اعتبار آزمایشی رایگان می‌گیرید؛ FLUX schnell بسیار ارزان است.',
+            ],
+            'free' => false, 'limit' => 'اعتبار آزمایشی اولیه + پرداختی ارزان',
+        ],
+        'zai_cogview' => [
+            'url' => 'https://console.z.ai',
+            'steps' => [
+                'به console.z.ai بروید و با ایمیل ثبت‌نام/ورود کنید.',
+                'از منوی کنار، بخش «API Keys» را باز کنید.',
+                'دکمه «Create Key» را بزنید، نام دلخواه بدهید و کلید را کپی کنید (فقط یک‌بار نشان داده می‌شود).',
+                'همان کلید متنی Z.ai برای تصویرساز CogView-4 هم کار می‌کند — کیفیت فارسی بسیار خوب.',
+            ],
+            'free' => true, 'limit' => 'پلن رایگان با سقف روزانه',
+        ],
+        'prodia' => [
+            'url' => 'https://prodia.com',
+            'steps' => [
+                'به prodia.com بروید و ثبت‌نام کنید.',
+                'از داشبورد، بخش API Keys را باز کنید و کلید بسازید.',
+                'کلید را کپی و اینجا ثبت کنید.',
+                'پلن آزمایشی رایگان دارد؛ مدل SDXL Lightning سریع و سبک است.',
+            ],
+            'free' => true, 'limit' => 'پلن آزمایشی محدود',
+        ],
+        'segmind' => [
+            'url' => 'https://segmind.com/user/api-keys',
+            'steps' => [
+                'به segmind.com بروید و ثبت‌نام کنید.',
+                'به بخش User → API Keys بروید (مسیر مستقیم: segmind.com/user/api-keys).',
+                'کلید را کپی و اینجا ثبت کنید.',
+                'هر روز اعتبار رایگان تمدید می‌شود — برای تولید روزانه مقاله کافی است.',
+            ],
+            'free' => true, 'limit' => 'اعتبار رایگان روزانه (تعداد کم تصویر)',
+        ],
+        'leonardo' => [
+            'url' => 'https://app.leonardo.ai',
+            'steps' => [
+                'به app.leonardo.ai بروید و ثبت‌نام کنید.',
+                'از منوی کنار، بخش «API Access» را باز کنید.',
+                'کلید API بسازید و کپی کنید.',
+                'روزانه ۱۵۰ اعتبار رایگان دارد؛ مدل Phoenix کیفیت هنری بالایی دارد.',
+            ],
+            'free' => true, 'limit' => '۱۵۰ اعتبار رایگان روزانه',
+        ],
+    ];
+
     /** 🗺️ نام انگلیسی دستگاه‌ها برای پرامپت (کلید دانش → عبارت پرامپت) */
     const DEVICE_PROMPTS = [
         'refrigerator'       => 'modern double-door refrigerator',
@@ -283,20 +442,36 @@ class AiPhotoService
         return $cfg;
     }
 
-    /** 📋 فهرست سرویس‌ها برای رابط کاربری تنظیمات */
+    /** 📋 فهرست سرویس‌ها برای رابط کاربری تنظیمات — v2.45: راهنمای کلید هم */
     public static function servicesList(): array
     {
         $cfg = self::settings();
         $list = [];
         foreach (self::SERVICES as $key => [$label, $needsKey, $hint]) {
+            $g = self::KEY_GUIDES[$key] ?? null;
             $list[$key] = [
                 'label'     => $label,
                 'needs_key' => $needsKey,
                 'hint'      => $hint,
                 'has_key'   => $needsKey ? trim((string)($cfg['keys'][$key] ?? '')) !== '' : true,
+                'guide'     => $g ? [
+                    'url'   => $g['url'],
+                    'steps' => $g['steps'],
+                    'free'  => (bool)$g['free'],
+                    'limit' => $g['limit'],
+                ] : null,
             ];
         }
         return $list;
+    }
+
+    /** 📖 راهنمای یک سرویس تصویری (مودال پنل / مستندات) — v2.45 (S01) */
+    public static function keyGuide(string $service): ?array
+    {
+        $g = self::KEY_GUIDES[$service] ?? null;
+        if (!$g) { return null; }
+        $label = self::SERVICES[$service][0] ?? $service;
+        return ['service' => $service, 'label' => $label, 'url' => $g['url'], 'steps' => $g['steps'], 'free' => (bool)$g['free'], 'limit' => $g['limit']];
     }
 
     /** 🔑 کلید یک سرویس از تنظیمات (خالی اگر ندارد) */

@@ -22,6 +22,15 @@ if ($_aclBrand > 0) {
 
 $db = Database::getInstance();
 $fm = new FileManager();
+
+/* 🎛 v2.45 (S01) — متد واحد AI از تنظیمات — نشانگر زنده در فرم خطایاب */
+$errMethod = class_exists('AiTextService') ? AiTextService::settings() : ['method' => 'internal'];
+$errMethodMeta = [
+    'internal' => ['🔧', 'دانش داخلی', 'پایگاه دانش داخلی ۹ برند پرتقاضا — بدون اینترنت'],
+    'llm'      => ['🤖', 'مدل‌های زبانی', 'استخراج کدها با مدل زبانی تنظیمات + فال‌بک زنجیره‌ای'],
+    'research' => ['🌐', 'جستجوی اینترنت', 'جستجوی آنلاین فارسی + خارجی با منبع‌یابی'],
+][$errMethod['method']] ?? ['🔧', 'دانش داخلی', ''];
+
 $engine = new ErrorCodeEngine();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -193,11 +202,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'generate_device') {
         $brandId = (int)post('brand_id');
         $deviceKey = (string)post('device_key');
-        /* 🐛 v2.12: چک‌باکس HTML بدون value="1" مقدار «on» می‌فرستاد و === '1'
-           همیشه false بود → جستجوی آنلاین هرگز اجرا نمی‌شد و خطای
-           «جستجوی آنلاین غیرفعال بود» نمایش داده می‌شد. حالا هر دو مقدار
-           پذیرفته می‌شود (HTML هم value="1" گرفت). */
-        $useWeb = in_array(post('use_web'), ['1', 'on', 'true'], true);
+        /* 🎛 v2.45 (S01) — متد واحد: جستجوی وب فقط از متدِ تنظیمات می‌آید؛
+           چک‌باکس قدیمی use_web حذف شد (درخواست کاربر: خطایاب هم فقط با
+           متدِ انتخابی در تنظیمات کار کند — رفتار قابل پیش‌بینی و شفاف) */
+        $errMethodInfo = class_exists('AiTextService') ? AiTextService::settings() : ['method' => 'internal'];
+        $useWeb = $errMethodInfo['method'] === 'research';
         $overwrite = in_array(post('overwrite'), ['1', 'on', 'true'], true);
         /* 🆕 v2.34 — عمق جستجوی اینترنتی (fast | balanced | deep) */
         $searchDepth = strtolower(trim((string)post('search_depth', 'balanced')));
@@ -568,8 +577,17 @@ try {
 <div class="grid-2">
     <!-- 🚨 موتور خطایاب AI — برند → دستگاه → همه کدها -->
     <div class="card" style="border-color:var(--primary)">
-        <div class="card-header"><h3>🚨 تولید با موتور خطایاب AI (کدهای واقعی)</h3></div>
+        <div class="card-header">
+            <h3>🚨 تولید با موتور خطایاب AI (کدهای واقعی)</h3>
+            <span class="badge badge-info">متد فعال: <?= $errMethodMeta[0] . ' ' . $errMethodMeta[1] ?></span>
+        </div>
         <div class="card-body">
+            <div class="alert alert-info" style="font-size:12.5px;display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap">
+                <div style="flex:1;min-width:220px">
+                    <b>🎛 متد واحد تولید (از تنظیمات):</b> <?= $errMethodMeta[0] ?> <b><?= $errMethodMeta[1] ?></b> — <?= e($errMethodMeta[2]) ?>. جستجوی آنلاین، مدل زبانی یا دانش داخلی بودنِ خطایاب از همین متد تعیین می‌شود.
+                </div>
+                <a href="settings.php#aitext" class="btn btn-outline btn-sm" style="flex:none;white-space:nowrap">⚙️ تغییر متد در تنظیمات</a>
+            </div>
             <form method="post" id="form-generate">
                 <?= Auth::csrfField() ?>
                 <input type="hidden" name="action" value="generate_device">
@@ -588,6 +606,7 @@ try {
                     </select>
                     <div class="hint" id="gen-device-hint">فهرست دستگاه‌ها بر اساس برند انتخابی به‌صورت خودکار فیلتر می‌شود.</div>
                 </div>
+                <?php if ($errMethod['method'] === 'research'): ?>
                 <div class="form-group" style="margin:10px 0">
                     <label>۳. عمق جستجوی اینترنتی</label>
                     <select name="search_depth" id="gen-depth" class="form-control">
@@ -597,11 +616,13 @@ try {
                     </select>
                     <div class="hint">🌍 در همه حالت‌ها سایت‌های <b>فارسی و غیرفارسی</b> با هم جستجو می‌شوند (کوئری‌های فارسی با تنظیمات فارسی و کوئری‌های انگلیسی با تنظیمات انگلیسی به موتورها می‌روند) و منابعِ رسمی برند، دفترچه‌های قطعات، فروشگاه‌های قطعات و انجمن‌های تعمیرات در اولویت‌اند.</div>
                 </div>
-                <label class="form-check" style="margin:10px 0"><input type="checkbox" name="use_web" value="1" checked> 🌐 جستجوی آنلاین اینترنت (فارسی + خارجی) برای کدهای بیشتر با منبع‌یابی</label>
+                <?php else: ?>
+                <input type="hidden" name="search_depth" value="balanced">
+                <?php endif; ?>
                 <label class="form-check" style="margin-bottom:10px"><input type="checkbox" name="overwrite" value="1"> 🔄 جایگزینی کدهای قبلی همین دستگاه</label>
                 <button type="submit" class="btn btn-success btn-block">🚨 تولید همه کدهای خطای واقعی این دستگاه</button>
                 <div class="hint" style="margin-top:10px">
-                    🧠 کدها «ساخته» نمی‌شوند — از پایگاه دانش ۱۵۰ کدی ۹ برند پرتقاضا + جستجوی آنلاین وب «استخراج» می‌شوند و همه ۱۴ فیلد به‌صورت یکتا و سئو-پسند تکمیل می‌گردد.
+                    🧠 کدها «ساخته» نمی‌شوند — <?= $errMethod['method'] === 'research' ? 'از جستجوی آنلاین وب' : ($errMethod['method'] === 'llm' ? 'از مدل زبانی تنظیمات' : 'از پایگاه دانش ۱۵۰ کدی ۹ برند پرتقاضا') ?> «استخراج» می‌شوند و همه ۱۴ فیلد به‌صورت یکتا و سئو-پسند تکمیل می‌گردد. برای تغییر روش، متد را در <a href="settings.php#aitext" target="_blank">تنظیمات ▸ هوش مصنوعی</a> عوض کنید.
                 </div>
             </form>
         </div>
