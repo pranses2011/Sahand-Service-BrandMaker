@@ -1490,8 +1490,16 @@ if (!function_exists('pv_render_block_inner')) {
             case 'location-cards':
                 /* 🆕 v2.43 (S04) — شعبه‌ها از آدرس‌های واقعی سایت‌ساز (درخواست
                    کاربر: «همه عناصر از سایت ساز اطلاعاتشان را بگیرند»)؛
-                   در نبود آدرس، آیتم‌های دستی کاربر می‌مانند */
-                $its = pvItems($props, [['🏬', 'شعبه مرکزی', 'تهران، ولیعصر'], ['🏬', 'شعبه غرب', 'تهران، سعادت‌آباد']]);
+                   در نبود آدرس، آیتم‌های دستی کاربر می‌مانند
+                   🚨 v2.45 (S04): در سایت واقعی دیگر «شعبه تهران» ساختگی نشان
+                   داده نمی‌شود (برند تبریزی بدون آدرس = کارت راهنما، نه تهران) —
+                   کارت نمونه فقط در پیش‌نمایش قالب‌ساز برای دید طراحی می‌ماند */
+                $sampleItems = [['🏬', 'شعبه مرکزی', 'تهران، ولیعصر'], ['🏬', 'شعبه غرب', 'تهران، سعادت‌آباد']];
+                $manualIts = [];
+                foreach ((array)($props['items'] ?? []) as $mi) {
+                    if (is_array($mi) && trim((string)($mi['text'] ?? '')) !== '') { $manualIts[] = $mi; }
+                }
+                $its = pvItems($props, pv_renderer_is_preview() || $manualIts ? $sampleItems : []);
                 $dynOn = !in_array((string)($props['dynamic'] ?? '1'), ['0', 'off', 'false'], true); /* 🆕 S04: هم رشته هم عدد */
                 if ($dynOn) {
                     $dynAddr = (array)(pv_brand_settings()['addresses'] ?? []);
@@ -1509,6 +1517,11 @@ if (!function_exists('pv_render_block_inner')) {
                         if (count($dynIts) >= 6) { break; }
                     }
                     if ($dynIts) { $its = $dynIts; }
+                }
+                if (!$its) {
+                    /* سایت واقعی بدون آدرس و بدون آیتم دستی — راهنمای پیکربندی به‌جای داده ساختگی */
+                    return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'شعب ما') . '</div>'
+                        . '<div class="feat-d" style="text-align:center;padding:22px">📍 هنوز آدرس شعبه‌ای ثبت نشده است.<br><small>آدرس‌ها از پنل سایت‌ساز (تنظیمات برند ← تب آدرس‌ها) به‌صورت خودکار اینجا نمایش داده می‌شوند — یا در قالب‌ساز، آیتم دستی وارد کنید.</small></div></div>';
                 }
                 return '<div class="blk ' . $bgClass . ' ' . $padClass . '"><div class="blk-title">' . ($title ?: 'شعب ما') . '</div><div class="cols c' . pvCols($props, 3) . '">' . implode('', array_map(static fn($it) => '<div class="fake-card"' . (!empty($it['link']) ? ' onclick="location.href=\'' . e(pv_safe_link((string)$it['link'])) . '\'" style="cursor:pointer"' : '') . '><div class="card-ico">' . pv_icon($it['icon'] ?: '🏬') . '</div><div class="card-t">' . e($it['text']) . '</div><div class="feat-d">' . e($it['desc']) . '</div></div>', $its)) . '</div></div>';
             case 'expert-cards':
