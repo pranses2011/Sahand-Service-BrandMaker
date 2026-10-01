@@ -34,3 +34,5 @@ uploads/requests/*
 # 🖼 v2.39 — آواتار کاربران (محتوای کاربر)
 uploads/avatars/*
 !uploads/avatars/.gitkeep
+cache/migrations.state
+cache/migrations.state.lock
