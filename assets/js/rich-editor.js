@@ -51,6 +51,15 @@
         clear: svg('<path d="M20 12a8 8 0 1 1-2.34-5.66"/><polyline points="20 4 20 8 16 8"/>'),
         source: svg('<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/><line x1="10" y1="4" x2="14" y2="20" opacity=".45"/>'),
         trash: svg('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'),
+        /* 🆕 v2.45 (S13) — ابزارهای حرفه‌ای جدید */
+        sub: '<b style="font-size:13px">x<span style="font-size:9px;vertical-align:sub">2</span></b>',
+        sup: '<b style="font-size:13px">x<span style="font-size:9px;vertical-align:super">2</span></b>',
+        indent: svg('<line x1="21" y1="6" x2="9" y2="6"/><line x1="21" y1="12" x2="3" y2="12"/><line x1="21" y1="18" x2="9" y2="18"/><polyline points="5 9 2 12 5 15"/>'),
+        outdent: svg('<line x1="21" y1="6" x2="9" y2="6"/><line x1="21" y1="12" x2="3" y2="12"/><line x1="21" y1="18" x2="9" y2="18"/><polyline points="7 9 4 12 7 15"/>'),
+        search: svg('<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/>'),
+        expand: svg('<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>'),
+        emoji: svg('<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5s1.2 1.8 3.5 1.8 3.5-1.8 3.5-1.8"/><circle cx="9" cy="9.5" r=".8" fill="currentColor"/><circle cx="15" cy="9.5" r=".8" fill="currentColor"/>'),
+        plainPaste: svg('<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="8" y1="11" x2="16" y2="11" opacity=".5"/><line x1="8" y1="15" x2="13" y2="15" opacity=".5"/>'),
     };
 
     function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -103,6 +112,19 @@
                 ['table', 'جدول', function () { insertTable(); }],
                 ['hr', 'خط جداکننده', function () { exec('insertHorizontalRule'); }],
             ],
+            /* 🆕 v2.45 (S13) — بالا/پایین‌نویس + تورفتگی */
+            [
+                ['sub', 'پایین‌نویس (x₂)', function () { exec('subscript'); }],
+                ['sup', 'بالانویس (x²)', function () { exec('superscript'); }],
+                ['indent', 'افزایش تورفتگی', function () { exec('indent'); }],
+                ['outdent', 'کاهش تورفتگی', function () { exec('outdent'); }],
+            ],
+            /* 🆕 v2.45 (S13) — جستجو/جایگزینی + نمادها + تمام‌صفحه */
+            [
+                ['search', 'جستجو و جایگزینی (Ctrl+F)', function () { findReplace(); }],
+                ['emoji', 'نمادهای ویژه', function () { specialChars(); }],
+                ['expand', 'حالت تمام‌صفحه (تمرکز)', function () { toggleFullscreen(); }],
+            ],
             [
                 ['clear', 'پاک‌سازی قالب', function () { exec('removeFormat'); exec('formatBlock', '<p>'); }],
                 ['source', 'نمای کد HTML', function () { toggleSource(); }],
@@ -153,6 +175,37 @@
             document.execCommand('styleWithCSS', false, false);
             sync();
         });
+
+        /* 🆕 v2.45 (S13) — اندازه فونت (بازشو) + چسباندن متنی خام */
+        var fsWrap = document.createElement('div');
+        fsWrap.className = 're-tgroup';
+        var fsSel = document.createElement('select');
+        fsSel.className = 're-select';
+        fsSel.title = 'اندازه فونت متن انتخاب‌شده';
+        fsSel.innerHTML = '<option value="">اندازه</option>' +
+            ['12', '14', '16', '18', '20', '24', '30'].map(function (s) { return '<option value="' + s + '"' + '>' + s + 'px</option>'; }).join('');
+        fsSel.addEventListener('change', function () {
+            var v = fsSel.value;
+            fsSel.selectedIndex = 0;
+            if (!v) { return; }
+            var sel = window.getSelection();
+            var txt = sel ? sel.toString() : '';
+            if (!txt) { return; }
+            insertAtCursor('<span style="font-size:' + parseInt(v, 10) + 'px">' + esc(txt) + '</span>');
+        });
+        fsWrap.appendChild(fsSel);
+        var plainBtn = document.createElement('button');
+        plainBtn.type = 'button';
+        plainBtn.className = 're-btn re-plain';
+        plainBtn.title = 'چسباندن متنی خام (بدون قالب) — روشن/خاموش';
+        plainBtn.innerHTML = IC.plainPaste;
+        plainBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+        plainBtn.addEventListener('click', function () {
+            plainPaste = !plainPaste;
+            plainBtn.classList.toggle('re-on', plainPaste);
+        });
+        fsWrap.appendChild(plainBtn);
+        bar.appendChild(fsWrap);
 
         wrap.appendChild(bar);
 
@@ -329,6 +382,127 @@
             sync();
         }
 
+        /* ═══ 🆕 v2.45 (S13) — جستجو و جایگزینی ═══ */
+        function findReplace() {
+            var modal = document.createElement('div');
+            modal.className = 're-modal';
+            modal.innerHTML =
+                '<div class="re-modal-box re-find-box">' +
+                '<div class="re-modal-head"><b>🔍 جستجو و جایگزینی</b><button type="button" class="re-btn" data-x>✕</button></div>' +
+                '<div class="re-find-body">' +
+                '<input type="text" class="re-find-what" placeholder="عبارت مورد جستجو..." dir="auto">' +
+                '<input type="text" class="re-find-with" placeholder="جایگزین با..." dir="auto">' +
+                '<label class="re-find-case"><input type="checkbox" class="re-find-ci"> مطابقت بدون بزرگی/کوچکی حروف</label>' +
+                '<div class="re-find-actions">' +
+                '<button type="button" class="re-btn" data-next>پیدا کردن بعدی</button>' +
+                '<button type="button" class="re-btn" data-one>جایگزینی همین</button>' +
+                '<button type="button" class="re-btn re-ok" data-all>جایگزینی همه</button>' +
+                '</div><div class="re-find-msg"></div></div></div>';
+            document.body.appendChild(modal);
+            var what = modal.querySelector('.re-find-what');
+            var with_ = modal.querySelector('.re-find-with');
+            var msg = modal.querySelector('.re-find-msg');
+            setTimeout(function () { what.focus(); }, 30);
+            modal.addEventListener('click', function (e) { if (e.target === modal) { modal.remove(); } });
+            modal.querySelector('[data-x]').addEventListener('click', function () { modal.remove(); });
+            /* بستن با Esc */
+            var escClose = function (ev) { if (ev.key === 'Escape') { modal.remove(); document.removeEventListener('keydown', escClose); } };
+            document.addEventListener('keydown', escClose);
+
+            function flags() { return modal.querySelector('.re-find-ci').checked ? 'gi' : 'g'; }
+            function countMatches() {
+                var w = what.value;
+                if (!w) { return 0; }
+                var text = ed.innerText || '';
+                var m = text.match(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags().replace('g', '')));
+                return m ? m.length : 0;
+            }
+            function updateMsg() {
+                var n = countMatches();
+                msg.textContent = n ? ('✅ ' + n.toLocaleString('fa-IR') + ' مورد پیدا شد') : 'موردی پیدا نشد';
+            }
+            what.addEventListener('input', updateMsg);
+
+            /* پیدا کردن بعدی — انتخاب در بوم */
+            modal.querySelector('[data-next]').addEventListener('click', function () {
+                var w = what.value;
+                if (!w) { return; }
+                focusEd();
+                /* جستجو در متن بوم با window.find — پشتیبانی خوب کروم/فایرفاکس */
+                try { window.find(w, !modal.querySelector('.re-find-ci').checked, false, true); } catch (err) { updateMsg(); }
+            });
+            /* جایگزینی همین */
+            modal.querySelector('[data-one]').addEventListener('click', function () {
+                var w = what.value;
+                if (!w) { return; }
+                var sel = window.getSelection();
+                if (sel && sel.toString() === w) {
+                    document.execCommand('insertText', false, with_.value);
+                } else {
+                    modal.querySelector('[data-next]').click();
+                }
+                sync(); updateMsg();
+            });
+            /* جایگزینی همه — روی متن ساده */
+            modal.querySelector('[data-all]').addEventListener('click', function () {
+                var w = what.value;
+                if (!w) { msg.textContent = 'عبارت جستجو خالی است'; return; }
+                var text = ed.innerText || '';
+                var rx = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags());
+                var n = countMatches();
+                if (!n) { msg.textContent = 'موردی پیدا نشد'; return; }
+                /* حفظ ساختار: جایگزینی فقط داخل گره‌های متنی */
+                var walker = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT);
+                var nodes = [];
+                while (walker.nextNode()) { nodes.push(walker.currentNode); }
+                nodes.forEach(function (nd) {
+                    if (rx.test(nd.nodeValue)) {
+                        nd.nodeValue = nd.nodeValue.replace(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags()), with_.value);
+                    }
+                });
+                sync();
+                msg.textContent = '✅ ' + n.toLocaleString('fa-IR') + ' مورد جایگزین شد';
+            });
+        }
+
+        /* ═══ 🆕 v2.45 (S13) — نمادهای ویژه ═══ */
+        function specialChars() {
+            var chars = ['©', '®', '™', '°', '±', '×', '÷', '≈', '≠', '≤', '≥', '→', '←', '↔', '↑', '↓', '«', '»', '…', '—', '–', '؛', '٫', '٬', '€', '£', '¥', '√', '∞', '∑', 'π', 'µ', '™', '✓', '✗', '★', '☆', '♦', '⚠', '℗'];
+            var modal = document.createElement('div');
+            modal.className = 're-modal';
+            modal.innerHTML = '<div class="re-modal-box re-chars-box">' +
+                '<div class="re-modal-head"><b>✨ نمادهای ویژه</b><button type="button" class="re-btn" data-x>✕</button></div>' +
+                '<div class="re-chars-grid">' + chars.map(function (c) { return '<button type="button" class="re-char">' + c + '</button>'; }).join('') + '</div></div>';
+            document.body.appendChild(modal);
+            modal.addEventListener('click', function (e) { if (e.target === modal) { modal.remove(); } });
+            modal.querySelector('[data-x]').addEventListener('click', function () { modal.remove(); });
+            var escClose2 = function (ev) { if (ev.key === 'Escape') { modal.remove(); document.removeEventListener('keydown', escClose2); } };
+            document.addEventListener('keydown', escClose2);
+            modal.querySelectorAll('.re-char').forEach(function (b) {
+                b.addEventListener('click', function () {
+                    insertAtCursor(esc(b.textContent));
+                    modal.remove();
+                });
+            });
+        }
+
+        /* ═══ 🆕 v2.45 (S13) — حالت تمام‌صفحه (تمرکز) ═══ */
+        function toggleFullscreen() {
+            var on = wrap.classList.toggle('re-fullscreen');
+            if (on) {
+                document.body.style.overflow = 'hidden';
+                ed.style.minHeight = 'calc(100vh - 210px)';
+                focusEd();
+            } else {
+                document.body.style.overflow = '';
+                ed.style.minHeight = (options.minHeight || 320) + 'px';
+            }
+        }
+        /* خروج با Esc */
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && wrap.classList.contains('re-fullscreen')) { toggleFullscreen(); }
+        });
+
         function insertTable() {
             var rc = prompt('ابعاد جدول (سطر × ستون) — مثلاً 3x4:', '3x4');
             if (!rc) { return; }
@@ -361,7 +535,7 @@
                 });
         }
 
-        /* ── همگام‌سازی با textarea + شمارش ── */
+        /* ── همگام‌سازی با textarea + شمارش + زمان مطالعه ── */
         var syncTimer = null;
         function sync() {
             clearTimeout(syncTimer);
@@ -371,7 +545,11 @@
                 var text = ed.innerText || '';
                 if (countEl) {
                     var words = text.trim() ? text.trim().split(/\s+/).length : 0;
-                    countEl.textContent = '📝 ' + words.toLocaleString('fa-IR') + ' کلمه · ' + text.length.toLocaleString('fa-IR') + ' کاراکتر';
+                    /* 🆕 v2.45 (S13): زمان تقریبی مطالعه (۲۲۰ کلمه در دقیقه — فارسی) */
+                    var mins = Math.max(1, Math.round(words / 220));
+                    countEl.textContent = '📝 ' + words.toLocaleString('fa-IR') + ' کلمه · ' +
+                        text.length.toLocaleString('fa-IR') + ' کاراکتر · ⏱ حدود ' +
+                        mins.toLocaleString('fa-IR') + ' دقیقه مطالعه';
                 }
                 if (options.onChange) { options.onChange(html); }
             }, 120);
@@ -386,6 +564,11 @@
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
                 e.preventDefault();
                 insertLink();
+            }
+            /* 🆕 v2.45 (S13): Ctrl+F = جستجو و جایگزینی داخل ویرایشگر */
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+                e.preventDefault();
+                findReplace();
             }
             if (e.key === 'Enter') {
                 /* داخل blockquote/li/h* همیشه p جدید — رفتار طبیعی */
@@ -409,9 +592,18 @@
             });
         });
 
-        /* ── چسباندن: متن ساده از Word/سایت‌ها (ضد تزریق استایل) ── */
+        /* ── چسباندن: متن ساده از Word/سایت‌ها (ضد تزریق استایل) ──
+           🆕 v2.45 (S13): دکمه «متن خام» روشن = همه قالب حذف و فقط متن می‌چسبد */
+        var plainPaste = false;
         ed.addEventListener('paste', function (e) {
             var html = e.clipboardData && e.clipboardData.getData ? e.clipboardData.getData('text/html') : '';
+            if (plainPaste) {
+                e.preventDefault();
+                var txt = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
+                document.execCommand('insertText', false, txt);
+                sync();
+                return;
+            }
             if (!html) { return; }
             e.preventDefault();
             var clean = cleanHtml(html)
