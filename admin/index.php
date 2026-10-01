@@ -236,14 +236,14 @@ $meIni = mb_substr($meName !== '' ? $meName : 'م', 0, 1);
         </div>
     </a>
     <a class="stat-card" href="error-codes.php">
-        <div class="icon" style="background:rgba(217,119,6,.12)">🚨</div>
+        <div class="icon" style="background:rgba(217,119,6,.12)"><span data-lottie="error-codes" data-lottie-size="34" data-lottie-mode="hover"></span></div>
         <div>
             <div class="number"><?= en_to_fa_digits((string)$stats['error_codes']) ?></div>
             <div class="label">کد خطای ثبت‌شده</div>
         </div>
     </a>
     <a class="stat-card" href="brands.php">
-        <div class="icon" style="background:rgba(124,58,237,.12)">🔧</div>
+        <div class="icon" style="background:rgba(124,58,237,.12)"><span data-lottie="builder" data-lottie-size="34" data-lottie-mode="hover"></span></div>
         <div>
             <div class="number"><?= en_to_fa_digits((string)$stats['devices']) ?></div>
             <div class="label">دستگاه ثبت‌شده</div>

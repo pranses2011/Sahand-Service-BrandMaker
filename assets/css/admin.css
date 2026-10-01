@@ -1027,6 +1027,15 @@ td, .card-body, .alert, .card-header h3, .topbar-titles { overflow-wrap: break-w
 /* حالت خالی */
 .slottie-empty { display: flex; justify-content: center; margin: 0 auto 10px; opacity: .9; }
 
+/* 🆕 v2.45 (S14) — چیپ انیمیشن عنوان کارت‌ها */
+.card-header h3 { display: flex; align-items: center; gap: 10px; }
+.slottie-cardhead {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 10px; flex: 0 0 auto;
+    background: linear-gradient(135deg, rgba(37, 99, 235, .08), rgba(124, 58, 237, .08));
+    border: 1px solid rgba(37, 99, 235, .14);
+}
+
 /* ↳ جعبه‌های حالت خایی عمومی — ظاهر بهتر */
 .empty-state, .no-results { text-align: center; }
 

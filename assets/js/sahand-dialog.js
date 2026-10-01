@@ -31,6 +31,25 @@
         question: { icon: '❓', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe', title: 'تأیید' },
     };
 
+    /* ---------- 🎬 v2.45 (S14): انیمیشن Lottie هر نوع (اگر پخش‌کننده حاضر باشد) ---------- */
+    var LOT_BY_TYPE = {
+        success: 'success', danger: 'error', info: 'notification',
+        warning: 'error-codes', question: 'search'
+    };
+    function mountLottie(container, name, size) {
+        /* فقط اگر پخش‌کننده لاتی در صفحه لود شده باشد — در غیر این صورت ایموجی می‌ماند */
+        try {
+            if (window.SLottie && container) {
+                container.textContent = '';
+                var holder = document.createElement('span');
+                holder.setAttribute('data-lottie', name);
+                holder.setAttribute('data-lottie-size', String(size));
+                container.appendChild(holder);
+                window.SLottie.mount(holder, name, { size: size });
+            }
+        } catch (e) { /* بی‌صدا — ایموجی قبلی حذف نشده در صورت خطا */ }
+    }
+
     var zIndex = 10000;
 
     /* ---------- 🏗️ ساخت زیرساخت DOM یک‌باره ---------- */
@@ -101,6 +120,8 @@
         var type = TYPES[opts.type] ? opts.type : 'info';
         var t = TYPES[type];
         var iconHtml = '<div class="sd-icon" style="background:' + t.bg + ';border:1.5px solid ' + t.border + '">' + (opts.icon || t.icon) + '</div>';
+        /* 🎬 آیکون انیمیت‌شده — فقط وقتی آیکون سفارشی داده نشده و پخش‌کننده حاضر است */
+        var useLottie = !opts.icon && window.SLottie && LOT_BY_TYPE[type];
         var id = 'sd' + (++dialog._seq);
 
         var box = document.createElement('div');
@@ -176,6 +197,7 @@
         backdrop.appendChild(box);
         document.body.appendChild(backdrop);
         requestAnimationFrame(function () { backdrop.classList.add('sd-show'); });
+        if (useLottie) { mountLottie(box.querySelector('.sd-icon'), LOT_BY_TYPE[type], 40); }
 
         var done = false;
         function close(value) {
@@ -346,8 +368,13 @@
         el.className = 'sd-toast';
         el.style.borderColor = t.color;
         el.style.background = t.bg;
-        el.innerHTML = '<span style="font-size:17px">' + (opts.icon || t.icon) + '</span><span style="color:' + t.color + '">' + esc(opts.message) + '</span>';
+        var iconHolder = '<span style="font-size:17px;display:inline-flex;width:24px;justify-content:center">' + (opts.icon || t.icon) + '</span>';
+        el.innerHTML = iconHolder + '<span style="color:' + t.color + '">' + esc(opts.message) + '</span>';
         toastWrap.appendChild(el);
+        /* 🎬 v2.45 (S14): آیکون انیمیت‌شده توست */
+        if (!opts.icon && window.SLottie && LOT_BY_TYPE[type]) {
+            mountLottie(el.firstElementChild, LOT_BY_TYPE[type], 22);
+        }
         var dur = opts.duration || 3800;
         setTimeout(function () {
             el.classList.add('sd-hide');

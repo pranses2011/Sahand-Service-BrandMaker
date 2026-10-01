@@ -40,6 +40,38 @@
         reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     } catch (e) { reduceMotion = false; }
 
+    /* 🩺 v2.45 (S14): نرمال‌ساز فریم‌کلید — ریشه «چند فریم ثم خرابی»
+       برخی مولدها فریم‌کلید میانی بدون i/o (ایزینگ) می‌سازند؛ lottie-web
+       هنگام interpolate می‌خواند kf.o.x ← TypeError ← توقف کامل رندر.
+       هر ویژگی انیمیت‌شده (a:1 + k:[{t,s}]) را یافته و ایزینگ پیش‌فرض
+       تزریق می‌کنیم (ease-out برای کلید آغازین، ease-in-out برای بقیه). */
+    function normalizeKeyframes(data) {
+        function easeOut() { return { x: 0.167, y: 0.167 }; }
+        function easeInOut() { return { x: 0.42, y: 0 }; }
+        function fix(kfs) {
+            for (var j = 0; j < kfs.length - 1; j++) {
+                var kf = kfs[j];
+                if (!kf || typeof kf !== 'object' || kf.h) { continue; }
+                if (!kf.o) { kf.o = j === 0 ? easeOut() : easeInOut(); }
+                if (!kf.i) { kf.i = { x: j === 0 ? 0.58 : 0.58, y: 1 }; }
+            }
+        }
+        function walk(node) {
+            if (!node || typeof node !== 'object') { return; }
+            if (Array.isArray(node)) { for (var i = 0; i < node.length; i++) { walk(node[i]); } return; }
+            if (node.a === 1 && Array.isArray(node.k) && node.k.length &&
+                typeof node.k[0] === 'object' && node.k[0] !== null && node.k[0].t !== undefined) {
+                fix(node.k);
+                return; /* داخل فریم‌کلیدها پیمایش نمی‌شود */
+            }
+            for (var key in node) {
+                if (node.hasOwnProperty(key)) { walk(node[key]); }
+            }
+        }
+        walk(data);
+        return data;
+    }
+
     function fetchAnim(name) {
         if (cache[name]) { return Promise.resolve(cache[name]); }
         var url = BASE + name + '.lottie' + (window.SAHAND_VER ? '?v=' + window.SAHAND_VER : '');
@@ -57,7 +89,7 @@
             }
             if (!jsonKey) { throw new Error('no animation json'); }
             var text = ff.strFromU8(files[jsonKey]);
-            var data = JSON.parse(text);
+            var data = normalizeKeyframes(JSON.parse(text));
             cache[name] = data;
             return data;
         }).catch(function (err) {
@@ -153,6 +185,30 @@
         return PAGE_MAP[p] || 'dashboard';
     }
 
+    /* 🗺️ v2.45 (S14): نگاشت کلیدواژه عنوان کارت → انیمیشن مناسب */
+    var CARD_MAP = [
+        [/بازدید|آمار|تحلیل|آنلاین/, 'analytics'],
+        [/نقشه|جغرافیا|استان|کشور/, 'analytics'],
+        [/مقاله|محتوا/, 'articles'],
+        [/دستگاه|تلفن همراه|موبایل/, 'stats'],
+        [/درخواست/, 'requests'],
+        [/فرم|ورودی/, 'form-builder'],
+        [/دیدگاه/, 'comments'],
+        [/هوش مصنوعی|AI|یادگیری/, 'ai'],
+        [/برند|نمایندگی/, 'brands'],
+        [/گزارش|خروجی|چاپ/, 'docs'],
+        [/پشتیبان|بکاپ|نسخه/, 'backups'],
+        [/استقرار|دیپلوی|انتشار/, 'deploy'],
+        [/تلگرام|بله|پیام|اعلان|ایمیل/, 'notification'],
+        [/خطا|مشکل/, 'error'],
+        [/سئو|موتور جستجو|وبمستر/, 'seo'],
+        [/کاربر|نقش|دسترسی/, 'users'],
+        [/تنظیمات|پیکربندی/, 'settings'],
+        [/تصویر|رسانه|گالری/, 'media'],
+        [/موتور جستجو|جستجو/, 'search'],
+        [/سلامت|پایش|لاگ|گزارش رویداد/, 'health']
+    ];
+
     /* 🌟 تزریق خودکار: چیپ انیمیشن کنار عنوان صفحه + تزئین سایدبار */
     function autoDecorate() {
         /* ۱) آیکون کنار عنوان بالای صفحه (topbar h2) */
@@ -196,6 +252,38 @@
             w.setAttribute('data-lottie', 'empty');
             w.setAttribute('data-lottie-size', '84');
             es.insertBefore(w, es.firstChild);
+        });
+        /* ۵) 🆕 v2.45 — عنوان کارت‌ها (card-header h3): چیپ انیمیشن موضوعی */
+        document.querySelectorAll('.card-header h3:not(.slottie-done)').forEach(function (h3) {
+            h3.classList.add('slottie-done');
+            var txt = h3.textContent || '';
+            var anim = null;
+            for (var ci = 0; ci < CARD_MAP.length; ci++) {
+                if (CARD_MAP[ci][0].test(txt)) { anim = CARD_MAP[ci][1]; break; }
+            }
+            if (!anim) { anim = page(); }
+            var cwrap = document.createElement('span');
+            cwrap.className = 'slottie-cardhead';
+            cwrap.setAttribute('data-lottie', anim);
+            cwrap.setAttribute('data-lottie-size', '30');
+            cwrap.setAttribute('title', '');
+            h3.insertBefore(cwrap, h3.firstChild);
+        });
+        /* ۶) 🆕 v2.45 — کارت‌های آماری با آیکون ایموجی خالص → انیمیشن */
+        document.querySelectorAll('.stat-card .icon:not(.slottie-done)').forEach(function (ic) {
+            if (ic.querySelector('[data-lottie]')) { ic.classList.add('slottie-done'); return; }
+            var txt = (ic.textContent || '').trim();
+            if (!txt || txt.length > 2) { return; } /* ایموجی تک‌کاراکتری */
+            ic.classList.add('slottie-done');
+            var guess = { '📈': 'analytics', '📉': 'analytics', '🚨': 'error-codes', '🔧': 'builder',
+                '👥': 'users', '📝': 'articles', '📧': 'notification', '🔔': 'notification',
+                '📊': 'stats', '🏷️': 'brands', '🛠️': 'error-codes', '💡': 'ai' }[txt] || page();
+            var swrap = document.createElement('span');
+            swrap.setAttribute('data-lottie', guess);
+            swrap.setAttribute('data-lottie-size', '34');
+            swrap.setAttribute('data-lottie-mode', 'hover');
+            ic.textContent = '';
+            ic.appendChild(swrap);
         });
     }
 
