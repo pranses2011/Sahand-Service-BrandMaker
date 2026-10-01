@@ -784,7 +784,7 @@ if (get_param('export') === 'csv') {
     </div>
 </div>
 
-<!-- 🌍 v2.43 (S07) — پراکندگی کشوری با نقشه جهانی نقطه‌ای -->
+<!-- 🌍 v2.45 (S07) — پراکندگی کشوری با نقشه جهانی «مرزدار» (Natural Earth) -->
 <div class="card" style="margin-bottom:18px">
     <div class="card-header">
         <h3>🌍 پراکندگی کشوری بازدیدکنندگان — نقشه جهانی</h3>
@@ -797,60 +797,62 @@ if (get_param('export') === 'csv') {
             <div class="empty-state"><div class="icon">🌍</div><p>داده کشوری ثبت نشده است.<br><small>پس از بازدید کاربران، نقشه جهانی اینجا نمایش داده می‌شود.</small></p></div>
         <?php else: ?>
             <?php
-            /* 🎨 نقشه جهانی نقطه‌ای: هر نقطه = ۵°×۵° خشکی؛ کشورهای دارای بازدید رنگ می‌گیرند */
+            /* 🎨 v2.45 — نقشه جهانی با مرز واقعی کشورها (جایگزین نقطه‌ای v2.43
+               به درخواست کاربر: «نقشه کامل که مرز کشورها مشخص باشه — تمیز و
+               زیبا مانند نقشه پراکندگی ایران») — همان سبک نقشه استان‌ها:
+               رنگ شدت + مرز + عدد + tooltip + رتبه‌بندی کنار */
             $worldMap = GeoIP::worldMap();
+            $wv = (array)($worldMap['viewBox'] ?? [1000, 392]);
+            $wCountries = (array)($worldMap['countries'] ?? []);
             $ccCounts = [];
             foreach ($byCountry as $cr) {
                 $cc = strtoupper(trim((string)$cr['cc']));
                 if ($cc !== '') { $ccCounts[$cc] = (int)$cr['c']; }
             }
             $maxCC = max($ccCounts ?: [1]) ?: 1;
-            /* نقاط خشکی کشورهای دارای بازدید — برای رنگ‌آمیزی */
-            $ccCells = [];
-            foreach ($worldMap['boxes'] ?? [] as $cc => $box) {
-                if (!isset($ccCounts[$cc])) { continue; }
-                [$lo1, $lo2, $la1, $la2] = [(int)$box[0], (int)$box[1], (int)$box[2], (int)$box[3]];
-                $ccCells[$cc] = [];
-                foreach ($worldMap['cells'] ?? [] as $cell) {
-                    $lon = -180 + ((int)$cell[0]) * 5 + 2.5;
-                    $lat = 90 - ((int)$cell[1]) * 5 - 2.5;
-                    if ($lon >= $lo1 && $lon <= $lo2 && $lat >= $la1 && $lat <= $la2) {
-                        $ccCells[$cc][] = $cell;
-                    }
-                }
-            }
-            $dotsHtml = '';
-            $cellKey = static fn($c) => ((int)$c[0]) . ',' . ((int)$c[1]);
-            $colored = [];
-            foreach ($ccCells as $cc => $cells2) {
-                foreach ($cells2 as $cell) { $colored[$cellKey($cell)] = $cc; }
-            }
-            foreach (($worldMap['cells'] ?? []) as $cell) {
-                $x = ((int)$cell[0]) * 10 + 5;
-                $y = ((int)$cell[1]) * 10 + 5;
-                $key = $cellKey($cell);
-                if (isset($colored[$key])) {
-                    $cc = $colored[$key];
-                    $t = pow($ccCounts[$cc] / $maxCC, 0.55);
+            $totalCC = array_sum($ccCounts) ?: 1;
+            $countryPaths = '';
+            foreach ($wCountries as $wcc => $wgeo):
+                $wcc = (string)$wcc;
+                $wcount = (int)($ccCounts[$wcc] ?? 0);
+                $wnm = $countryFa[$wcc] ?? GeoIP::countryNameFa($wcc);
+                if ($wcount > 0) {
+                    $t = pow($wcount / $maxCC, 0.6);
                     $r = (int)round(219 + (30 - 219) * $t);
                     $g = (int)round(234 + (64 - 234) * $t);
                     $b = (int)round(254 + (175 - 254) * $t);
-                    $dotsHtml .= '<circle cx="' . $x . '" cy="' . $y . '" r="3.6" fill="rgb(' . $r . ',' . $g . ',' . $b . ')"><title>' . e($countryFa[$cc] ?? $cc) . ' — ' . en_to_fa_digits((string)$ccCounts[$cc]) . ' بازدیدکننده</title></circle>';
+                    $fill = "rgb({$r},{$g},{$b})";
+                    $stroke = '#2563eb';
                 } else {
-                    $dotsHtml .= '<circle cx="' . $x . '" cy="' . $y . '" r="3.1" fill="#dbe4ef"></circle>';
+                    $fill = '#eef2f7';
+                    $stroke = '#ffffff';
                 }
-            }
+                $countryPaths .= '<path d="' . e($wgeo['path']) . '" fill="' . $fill . '" stroke="' . $stroke . '" stroke-width="' . ($wcount > 0 ? '0.9' : '0.6') . '" stroke-linejoin="round" class="wr-country" data-cc="' . e($wcc) . '" data-count="' . $wcount . '"><title>' . e($wnm) . ($wcount > 0 ? ' — ' . en_to_fa_digits((string)$wcount) . ' بازدیدکننده' : '') . '</title></path>';
+            endforeach;
+            /* برچسب عدد: فقط کشورهای دارای بازدید که جا دارند (مسیر بزرگ = کشور بزرگ) */
+            $ccLabels = '';
+            arsort($ccCounts);
+            $labelBudget = 9;
+            foreach ($ccCounts as $cc => $count):
+                if ($labelBudget < 1) { break; }
+                if (!isset($wCountries[$cc]) || $count < $maxCC * 0.10) { continue; }
+                if (strlen((string)$wCountries[$cc]['path']) < 420) { continue; } /* کشور کوچک — عدد جا نمی‌شود */
+                [$lx, $ly] = $wCountries[$cc]['xy'];
+                $ccLabels .= '<text x="' . $lx . '" y="' . $ly . '" text-anchor="middle" font-size="13" font-weight="800" fill="#0c2d6b" style="paint-order:stroke;stroke:#fff;stroke-width:2.6px">' . e(en_to_fa_digits((string)$count)) . '</text>';
+                $labelBudget--;
+            endforeach;
             ?>
             <div style="display:grid;grid-template-columns:1fr 250px;gap:18px;align-items:start">
                 <div style="direction:ltr;background:linear-gradient(160deg,#f8fbff,#eef5fc);border-radius:14px;padding:8px;border:1px solid #dbeafe">
-                    <svg viewBox="0 0 720 360" style="width:100%;height:auto;display:block" role="img" aria-label="نقشه جهانی پراکندگی بازدیدکنندگان">
-                        <?= $dotsHtml ?>
+                    <svg viewBox="0 0 <?= (int)$wv[0] ?> <?= (int)$wv[1] ?>" style="width:100%;height:auto;display:block" role="img" aria-label="نقشه جهانی پراکندگی بازدیدکنندگان">
+                        <?= $countryPaths ?>
+                        <?= $ccLabels ?>
                     </svg>
-                    <div style="text-align:center;font-size:10px;color:#64748b;padding:4px 0 2px">نقشه جهانی نقطه‌ای — کشورهای دارای بازدید رنگ گرفته‌اند (موس روی هر نقطه = جزئیات)</div>
+                    <div style="text-align:center;font-size:10px;color:#64748b;padding:4px 0 2px">نقشه جهانی با مرز کشورها (۱۷۳ کشور — Natural Earth) — موس روی هر کشور = نام و تعداد بازدیدکننده</div>
                 </div>
                 <div>
                     <div style="font-size:12px;font-weight:800;margin-bottom:9px;color:#334155">🏆 رتبه‌بندی کشورها</div>
-                    <?php $totalCC = array_sum($ccCounts) ?: 1; $ci = 0; ?>
+                    <?php $ci = 0; ?>
                     <?php foreach (array_slice($ccCounts, 0, 10, true) as $cc => $cnt): $ci++; ?>
                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
                             <span style="flex:none;width:21px;height:21px;border-radius:7px;background:<?= $ci === 1 ? '#1e40af' : ($ci === 2 ? '#3b82f6' : ($ci === 3 ? '#93c5fd' : '#e2e8f0')) ?>;color:<?= $ci <= 3 ? '#fff' : '#475569' ?>;font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center"><?= e(en_to_fa_digits((string)$ci)) ?></span>

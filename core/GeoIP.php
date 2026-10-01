@@ -515,18 +515,19 @@ class GeoIP
     }
 
     /**
-     * 🌍 v2.43 (S07) — نقشه جهانی نقطه‌ای (dot-grid)
-     * @return array ['cells' => [[col,row],...], 'boxes' => ['IR' => [lon1,lon2,lat1,lat2], ...]]
+     * 🌍 v2.45 — نقشه جهانی با مرز واقعی کشورها (Natural Earth 110m admin_0)
+     * @return array ['viewBox' => [W,H], 'countries' => ['IR' => ['path'=>..., 'xy'=>[x,y]], ...]]
      */
     public static function worldMap(): array
     {
         static $w = null;
         if ($w === null) {
-            $w = ['cells' => [], 'boxes' => []];
+            /* 🎨 v2.45 — نقشه مرزدار (Natural Earth 110m) به‌جای نقطه‌ای dot-grid */
+            $w = ['viewBox' => [1000, 392], 'countries' => []];
             $file = dirname(__DIR__) . '/geoip/world-map.php';
             if (file_exists($file)) {
                 $loaded = include $file;
-                if (is_array($loaded)) { $w = $loaded; }
+                if (is_array($loaded) && !empty($loaded['countries'])) { $w = $loaded; }
             }
         }
         return $w;
