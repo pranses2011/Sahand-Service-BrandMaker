@@ -43,6 +43,13 @@ class GeoIP
     /** @var bool آیا همه سرویس‌های خارجی در این اجرا شکست خوردند؟ (قطعی شبکه) */
     private static $externalDead = false;
 
+    /** 🧪 v2.45 — پاک‌سازی حافظه درون‌درخواست (فقط تست) */
+    public static function resetMemoForTests(): void
+    {
+        self::$memo = [];
+        self::$externalDead = false;
+    }
+
     /** TTL کش جغرافیایی در روزها — 🚨 v2.32: ۴۵→۱۴ روز (جواب بد کمتر عمر می‌کند) */
     private const CACHE_TTL_DAYS = 14;
 
@@ -282,6 +289,45 @@ class GeoIP
         return $result;
     }
 
+    /** 📱 v2.45 (S07) — تشخیص اپراتور موبایل ایرانی از سازمان/ASN
+     *  🚨 چرا لازم است: ip-api.com پرچم mobile می‌دهد اما رایگانش فقط HTTP
+     *  است و از بسیاری هاست‌های ایرانی مسدود/کند است → زنجیره به ipapi.co
+     *  یا ipwho.is می‌افتد که پرچم موبایل ندارند و «محل ثبت اپراتور» را
+     *  برمی‌گردانند (مثلاً بلوک‌های همراه‌اول خراسان → کاربر تبریز به‌عنوان
+     *  «خراسان رضوی» ثبت می‌شود — گزارش کاربر). این گارد مستقل از سرویس،
+     *  از رشته سازمان یا شماره ASN تشخیص می‌دهد. */
+    private static function irMobileOrg(?string $org, $asn = null): bool
+    {
+        if ($org !== null && $org !== '') {
+            $o = mb_strtolower($org);
+            $keywords = [
+                'mobile communication company',   /* MCI — نام رسمی RIPE */
+                'iran cell service',              /* Irancell — نام رسمی */
+                'irancell', 'mtn irancell',
+                'rightel', 'taliya',
+                'mobin net', 'mobinnet', 'aptus',
+                'همراه اول', 'ایرانسل', 'رایتل', 'تالیا', 'مبین نت',
+            ];
+            foreach ($keywords as $kw) {
+                if (strpos($o, $kw) !== false) { return true; }
+            }
+            /* MCI/MCIL به‌عنوان کلمه کامل (نه زیررشته مثل «advanced») */
+            if (preg_match('/(?<![a-z])(mci|mcil)(?![a-z])/', $o)) { return true; }
+        }
+        /* شماره ASN اپراتورهای موبایل ایران (پایدار در RIPE) */
+        static $mobileAsns = [
+            197207 => true, /* MCI — همراه اول */
+            44244  => true, /* Irancell */
+            57218  => true, /* Irancell */
+            50591  => true, /* Irancell */
+            57274  => true, /* Rightel */
+            43708  => true, /* Rightel */
+            50273  => true, /* Taliya */
+        ];
+        if ($asn !== null && isset($mobileAsns[(int)$asn])) { return true; }
+        return false;
+    }
+
     /** 🛰 ip-api.com — city با lang=fa فارسی برمی‌گرداند (HTTP رایگان)
      * 🆕 v2.44 (S07) — پرچم mobile هم خوانده می‌شود: IPهای اپراتور موبایل
      * در دیتابیس‌های جهانی به «محل ثبت اپراتور» نگاشت می‌شوند نه محل واقعی
@@ -289,14 +335,25 @@ class GeoIP
      * برای بازدید موبایلی، شهر/استان خالی + is_mobile=1 برمی‌گردد. */
     private static function fetchIpApi(string $ip): ?array
     {
-        $url = 'http://ip-api.com/json/' . rawurlencode($ip) . '?fields=status,country,countryCode,regionName,city,mobile&lang=fa';
+        $url = 'http://ip-api.com/json/' . rawurlencode($ip) . '?fields=status,country,countryCode,regionName,city,mobile,as&lang=fa';
         $json = self::httpGet($url, 3.5);
         if ($json === null) { return null; }
         $d = json_decode($json, true);
         if (!is_array($d) || ($d['status'] ?? '') !== 'success') { return null; }
         $cc = strtoupper((string)($d['countryCode'] ?? 'IR')) ?: 'IR';
-        /* 📱 اپراتور موبایل ایرانی؟ — شهر/استان نامعتبر است، فقط کشور */
+        /* 📱 اپراتور موبایل ایرانی؟ — شهر/استان نامعتبر است، فقط کشور
+           🆕 v2.45: علاوه بر پرچم mobile، رشته AS هم بررسی می‌شود (دو لایه) */
         if (!empty($d['mobile']) && $cc === 'IR') {
+            return [
+                'country'    => 'IR',
+                'country_fa' => 'ایران',
+                'city'       => '',
+                'province'   => '',
+                'is_mobile'  => true,
+            ];
+        }
+        $orgStr = (string)($d['as'] ?? '');
+        if ($cc === 'IR' && self::irMobileOrg($orgStr)) {
             return [
                 'country'    => 'IR',
                 'country_fa' => 'ایران',
@@ -315,7 +372,9 @@ class GeoIP
         ];
     }
 
-    /** 🛰 ipapi.co — 🆕 v2.32 سرویس دوم (HTTPS — جایگزین مطمئن ip-api در صورت فیلترینگ) */
+    /** 🛰 ipapi.co — 🆕 v2.32 سرویس دوم (HTTPS — جایگزین مطمئن ip-api در صورت فیلترینگ)
+     *  🆕 v2.45 (S07) — گارد موبایل: این سرویس پرچم mobile ندارد و برای IPهای
+     *  اپراتور، «محل ثبت اپراتور» را برمی‌گرداند؛ از فیلد org تشخیص می‌دهیم. */
     private static function fetchIpApiCo(string $ip): ?array
     {
         $url = 'https://ipapi.co/' . rawurlencode($ip) . '/json/';
@@ -323,9 +382,13 @@ class GeoIP
         if ($json === null) { return null; }
         $d = json_decode($json, true);
         if (!is_array($d) || (isset($d['error']) && $d['error']) || empty($d['country_code'])) { return null; }
+        $cc = strtoupper((string)$d['country_code']) ?: 'IR';
+        /* 📱 گارد اپراتور موبایل — org مثل «Mobile Communication Company of Iran PLC» */
+        if ($cc === 'IR' && (self::irMobileOrg((string)($d['org'] ?? '')) || self::irMobileOrg(null, $d['asn'] ?? null))) {
+            return ['country' => 'IR', 'country_fa' => 'ایران', 'city' => '', 'province' => '', 'is_mobile' => true];
+        }
         $province = self::regionFa((string)($d['region'] ?? ''));
         $city = self::cityFa((string)($d['city'] ?? ''));
-        $cc = strtoupper((string)$d['country_code']) ?: 'IR';
         return [
             'country'    => $cc,
             'country_fa' => $cc === 'IR' ? 'ایران' : self::countryFaName($cc),
@@ -334,17 +397,26 @@ class GeoIP
         ];
     }
 
-    /** 🛰 ipwho.is — سرویس سوم (HTTPS) */
+    /** 🛰 ipwho.is — سرویس سوم (HTTPS)
+     *  🆕 v2.45 (S07) — گارد موبایل: connection.org/isp/asn + type=Cellular */
     private static function fetchIpWho(string $ip): ?array
     {
-        $url = 'https://ipwho.is/' . rawurlencode($ip) . '?fields=success,country,country_code,region,city';
+        $url = 'https://ipwho.is/' . rawurlencode($ip) . '?fields=success,country,country_code,region,city,connection';
         $json = self::httpGet($url, 3.5);
         if ($json === null) { return null; }
         $d = json_decode($json, true);
         if (!is_array($d) || empty($d['success'])) { return null; }
+        $cc = strtoupper((string)($d['country_code'] ?? 'IR')) ?: 'IR';
+        /* 📱 گارد اپراتور موبایل — دو راه: type=Cellular یا سازمان/ASN */
+        $conn = is_array($d['connection'] ?? null) ? $d['connection'] : [];
+        $isCellular = isset($conn['type']) && stripos((string)$conn['type'], 'cell') !== false;
+        if ($cc === 'IR' && ($isCellular
+            || self::irMobileOrg((string)($conn['org'] ?? '') ?: (string)($conn['isp'] ?? ''))
+            || self::irMobileOrg(null, $conn['asn'] ?? null))) {
+            return ['country' => 'IR', 'country_fa' => 'ایران', 'city' => '', 'province' => '', 'is_mobile' => true];
+        }
         $province = self::regionFa((string)($d['region'] ?? ''));
         $city = self::cityFa((string)($d['city'] ?? ''));
-        $cc = strtoupper((string)($d['country_code'] ?? 'IR')) ?: 'IR';
         return [
             'country'    => $cc,
             'country_fa' => $cc === 'IR' ? 'ایران' : self::countryFaName($cc),
@@ -591,6 +663,18 @@ class GeoIP
                     );
                     $stats['prefixes_resolved']++;
                 } catch (Throwable $uE) { /* ستون قدیمی */ }
+            } elseif (!empty($geo['is_mobile'])) {
+                /* 📱 v2.45 (S07) — پیشوند اپراتور موبایل: ردیف‌های قبلی که با
+                   «محل ثبت اپراتور» (مثل خراسان رضوی برای کاربر تبریز) پر
+                   شده بودند پاک می‌شوند و geo_src=mobile می‌گیرند — پیش از
+                   این، این ردیف‌ها دست‌نخورده می‌ماندند و خطای قدیمی پابرجا! */
+                try {
+                    $stats['rows_updated'] += $db->query(
+                        "UPDATE visits SET city = NULL, province = NULL, geo_src = 'mobile' WHERE ip_prefix = ?",
+                        [$prefix]
+                    );
+                    $stats['prefixes_resolved']++;
+                } catch (Throwable $uE2) { /* ستون قدیمی */ }
             }
         }
 
