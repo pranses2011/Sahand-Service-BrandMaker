@@ -22,6 +22,21 @@ require_once dirname(__DIR__) . '/config.php';
 header('Content-Type: application/json; charset=utf-8');
 header('X-Powered-By: SahandBrandMaker/' . SAHAND_VERSION);
 
+/* ═══ 🌐 v2.45 — CORS سطح-روتر (رفع قطعی preflight) ═══
+ * 🚨 ریشه «خطای ارتباط با سرور» دیدگاه‌ها: میان‌افزار CORS فقط «داخل»
+ * مسیر منطبق اجرا می‌شود؛ Router مسیر را ابتدا «با متد» تطبیق می‌دهد و
+ * هیچ مسیری با متد OPTIONS ثبت نشده → preflight به 404 بدون هدرهای
+ * CORS می‌خورد → fetch مرورگر رد می‌شد. اکنون هدرها + پاسخ 204 به
+ * OPTIONS «قبل» از dispatch صادر می‌شوند (لایه دفاعی؛ مسیر اصلی
+ * اکنون پروکسی همان‌مبدأ است). */
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, X-API-Key');
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
 $router = new Router();
 
 /* ==================================================

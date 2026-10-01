@@ -239,15 +239,20 @@ if ($abVariant !== null && is_array($abTest)) {
     var beacon = function (ev) {
         if (sent[ev]) { return; }
         sent[ev] = true;
+        /* 🩹 v2.45 — Blob با type ساده text/plain: ارسال بدون preflight
+           (application/json در برخی مرورگرها مسدود/رد می‌شد) — سرور بدنه
+           JSON را مستقل از Content-Type می‌خواند (Router::jsonInput) */
+        var body = JSON.stringify({ api_key: cfg.api_key, test_id: cfg.test_id, variant: cfg.variant, event: ev, visitor: cfg.visitor });
         try {
-            navigator.sendBeacon && navigator.sendBeacon(cfg.url, new Blob(
-                [JSON.stringify({ api_key: cfg.api_key, test_id: cfg.test_id, variant: cfg.variant, event: ev, visitor: cfg.visitor })],
-                { type: 'application/json' }
-            ));
-        } catch (e) { /* fallback fetch */
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(cfg.url, new Blob([body], { type: 'text/plain;charset=UTF-8' }));
+            } else {
+                throw new Error('no beacon');
+            }
+        } catch (e) { /* fallback fetch — بدون preflight (text/plain) */
             try {
-                fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
-                    body: JSON.stringify({ api_key: cfg.api_key, test_id: cfg.test_id, variant: cfg.variant, event: ev, visitor: cfg.visitor }) }).catch(function () {});
+                fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, keepalive: true,
+                    body: body }).catch(function () {});
             } catch (e2) { /* بی‌صدا */ }
         }
     };

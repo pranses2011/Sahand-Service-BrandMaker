@@ -56,6 +56,34 @@ if (!is_array($data)) {
    زنجیره مجاز 422/429 ندارد) آن را catch می‌کرد → «خطای ارتباط با سرور»!
    اکنون: ① فیلدهای استاندارد از data.fields هم برداشته می‌شوند
    ② بررسی خالی بودن «پس از» ادغام دو منبع انجام می‌شود. */
+
+/* ═══ 🆕 v2.45 — پروکسی دیدگاه مقالات (رفع قطعی «خطای ارتباط با سرور») ═══
+   🚨 ریشه: فرم دیدگاه صفحه مقاله تا v2.44 مستقیم از مرورگر به API پنل
+   (مبدأ متفاوت) fetch با Content-Type: application/json می‌زد → مرورگر
+   پیش‌فرض OPTIONS (preflight) می‌فرستاد → روتر API هیچ مسیری با متد
+   OPTIONS ثبت نکرده → 404 بدون هدرهای CORS → fetch رد می‌شد →
+   «خطای ارتباط با سرور». دیدگاه‌ها روی همه سایت‌های برند قطعی بودند!
+   راه‌حل: همان الگوی موفق فرم‌ها — POST همان‌مبدأ به همین پروکسی. */
+if (($data['action'] ?? '') === 'comment') {
+    $commentPayload = [
+        'article_slug' => preg_replace('/[^a-zA-Z0-9\-_%\x{0600}-\x{06FF}]/u', '', mb_substr((string)($data['article_slug'] ?? ''), 0, 190)),
+        'name'    => mb_substr(trim((string)($data['name'] ?? '')), 0, 120),
+        'email'   => mb_substr(trim((string)($data['email'] ?? '')), 0, 190),
+        'body'    => mb_substr(trim((string)($data['body'] ?? '')), 0, 3000),
+        'website' => mb_substr((string)($data['website'] ?? ''), 0, 200), /* honeypot */
+    ];
+    if ($commentPayload['article_slug'] === '' || mb_strlen($commentPayload['name']) < 2 || mb_strlen($commentPayload['body']) < 5) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'نام و متن دیدگاه را کامل وارد کنید.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    /* postToAPI خودش api_key برند را ضمیمه می‌کند */
+    $response = postToAPI('brand/' . BRAND_ID . '/comment', $commentPayload);
+    http_response_code(!empty($response['success']) ? 200 : 422);
+    echo json_encode($response, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 $allowed = ['full_name', 'phone', 'phone2', 'address', 'device_type', 'device_other',
             'device_model', 'description', 'preferred_date', 'preferred_time', 'images'];
 $payload = [];

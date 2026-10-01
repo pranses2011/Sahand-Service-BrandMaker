@@ -118,7 +118,7 @@ define('CACHE_TTL', {$cacheTtl});                          // مدت اعتبا�
  * -------------------------------------------------- */
 define('DEBUG_MODE', {$debugModeStr});                          // حالت دیباگ (در محیط اجرا: خاموش)
 define('I18N_ENABLED', {$i18nEnabled});                     // 🌍 v2.44 (S11) — چندزبانه فعال/غیرفعال (تنظیمات سایت‌ساز)
-define('VERSION', '1.4.1');                                // نسخه هسته سایت برند (🆕 v2.42 — رفع دو باگ دیت‌پیکر (تک‌کلیک + تغییر ماه) + بزرگ‌سازی؛ شکستن کش JS/CSS)
+define('VERSION', '1.6.0');                                // نسخه هسته سایت برند (🆕 v2.45 — پروکسی دیدگاه + رفع preflight + تصویر شاخص srcset)
 date_default_timezone_set('Asia/Tehran');                  // ⏰ منطقه زمانی ایران
 mb_internal_encoding('UTF-8');                              // 🔤 انکودینگ UTF-8
 

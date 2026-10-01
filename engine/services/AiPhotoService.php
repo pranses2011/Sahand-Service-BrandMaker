@@ -621,6 +621,12 @@ class AiPhotoService
             $this->progress((int)round(6 + 82 * ($i / $count)) - 1, 'مهر واترمارک‌ها', 'تصویر ' . $i . ' از ' . $count . ' — لوگوی برند + نمایندگی');
             $this->stampWatermarks($abs, $brand);
 
+            /* 🖼 v2.45 (S02) — ساخت نسخه‌های -400w/-800w همین تصویر AI:
+               article_image() صفحه مقاله srcset می‌سازد؛ بدون این نسخه‌ها
+               مرورگر کاندید ۴۰۴ برمی‌گزیند و تصویر شاخص «نامرئی» می‌شد
+               (ریشه گزارش کاربر — فقط آپلود دستی variant داشت). */
+            $this->makeSizeVariantsQuiet($abs);
+
             $images[] = [
                 'path'    => $rel,
                 'url'     => rtrim(BASE_URL, '/') . '/' . $rel,
@@ -636,6 +642,27 @@ class AiPhotoService
             $this->progress(90, 'تصاویر آماده شد', count($images) . ' تصویر واقعی با «' . implode(' + ', $usedLabels) . '» تولید شد');
         }
         return $images;
+    }
+
+    /**
+     * 🖼 v2.45 (S02) — ساخت بی‌صدای نسخه‌های -400w/-800w تصویر (برای srcset)
+     * از تابع مشترک FileManager::makeSizeVariants استفاده می‌کند؛ هر شکستی
+     * بی‌صدا رد می‌شود چون نسخه‌ها «اختیاری» هستند و تصویر اصلی معتبر است.
+     */
+    private function makeSizeVariantsQuiet(string $absPath): void
+    {
+        try {
+            if (!is_file($absPath) || !function_exists('getimagesize')) { return; }
+            $info = @getimagesize($absPath);
+            if (!is_array($info) || (int)($info[0] ?? 0) <= 420) { return; }
+            $ext = strtolower((string)pathinfo($absPath, PATHINFO_EXTENSION));
+            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) { return; }
+            if (class_exists('FileManager')) {
+                (new FileManager())->makeSizeVariants($absPath, (int)$info[0], (int)$info[1], $ext);
+            }
+        } catch (Throwable $e) {
+            /* نسخه‌ها اختیاری‌اند — تصویر اصلی سالم است */
+        }
     }
 
     /**

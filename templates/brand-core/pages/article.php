@@ -143,16 +143,23 @@ render_article_seo($article, 'https://' . BRAND_DOMAIN . '/blog/' . urlencode($s
     </div>
 </article>
 <script>
-/* 📮 v2.37 — ارسال دیدگاه (fetch + JSON — همان الگوی فرم‌های قالب‌ساز) */
+/* 📮 v2.37 → v2.45 — ارسال دیدگاه
+   🚨 ریشه قطعی «خطای ارتباط با سرور»: فرم مستقیم از مرورگر به API پنل
+   (مبدأ متفاوت) با Content-Type: application/json می‌رفت → مرورگر preflight
+   می‌فرستاد → روتر پنل مسیر OPTIONS نداشت → 404 بدون هدر CORS → شکست.
+   راه‌حل: POST همان‌مبدأ به پروکسی /js/form-submit.php (action=comment) —
+   دقیقاً همان الگوی موفق فرم درخواست؛ فال‌بک: تماس مستقیم (برای نصب‌های
+   قدیمی که پروکسی ندارند). */
 (function () {
     var form = document.getElementById('commentForm');
     if (!form) { return; }
     var msg = document.getElementById('commentMsg');
+    var API_DIRECT = <?= json_encode(rtrim(BRANDMAKER_API, '/') . '/brand/' . BRAND_ID . '/comment') ?>;
     form.addEventListener('submit', function (ev) {
         ev.preventDefault();
         var btn = form.querySelector('button[type="submit"]');
         var payload = {
-            api_key: <?= json_encode(BRAND_API_KEY) ?>,
+            action: 'comment',
             article_slug: <?= json_encode($slug) ?>,
             name: form.elements.name.value.trim(),
             email: form.elements.email.value.trim(),
@@ -167,11 +174,24 @@ render_article_seo($article, 'https://' . BRAND_DOMAIN . '/blog/' . urlencode($s
             return;
         }
         if (btn) { btn.disabled = true; }
-        fetch(<?= json_encode(rtrim(BRANDMAKER_API, '/') . '/brand/' . BRAND_ID . '/comment') ?>, {
+        /* ① مسیر اصلی: پروکسی همان‌مبدأ (بدون CORS/SSL مرورگر — الگوی form.js) */
+        fetch('/js/form-submit.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
-        }).then(function (r) { return r.json(); }).then(function (j) {
+        }).then(function (r) {
+            if (!r.ok && r.status !== 200 && r.status !== 422 && r.status !== 429) { throw new Error('proxy ' + r.status); }
+            return r.json();
+        }).catch(function () {
+            /* ② فال‌بک: تماس مستقیم با کلید در بدنه (نصب‌های قدیمی) */
+            payload.api_key = <?= json_encode(BRAND_API_KEY) ?>;
+            delete payload.action;
+            return fetch(API_DIRECT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                body: JSON.stringify(payload)
+            }).then(function (r) { return r.json(); });
+        }).then(function (j) {
             if (j && j.success) {
                 form.reset();
                 msg.textContent = (j.data && j.data.message) ? j.data.message : 'دیدگاه شما ثبت شد و پس از بازبینی منتشر می‌شود.';

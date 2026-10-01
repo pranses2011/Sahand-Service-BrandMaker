@@ -437,7 +437,21 @@ class ImageWatermark
         ]);
         $ok = $ext === 'png' ? imagepng($img, $outAbs, 8) : imagejpeg($img, $outAbs, 88);
         imagedestroy($img);
-        return $ok ? $outRel : null;
+        if ($ok) {
+            /* 🖼 v2.45 (S02) — نسخه‌های -400w/-800w خروجی واترمارک‌دار:
+               article_image() srcset می‌سازد؛ بدون این نسخه‌ها کاندید 404
+               انتخاب می‌شد و تصویر شاخص مقاله نامرئی می‌ماند. */
+            try {
+                if (class_exists('FileManager')) {
+                    $wi = @getimagesize($outAbs);
+                    if (is_array($wi) && (int)($wi[0] ?? 0) > 420) {
+                        (new FileManager())->makeSizeVariants($outAbs, (int)$wi[0], (int)$wi[1], $ext);
+                    }
+                }
+            } catch (Throwable $vE) { /* نسخه‌ها اختیاری‌اند */ }
+            return $outRel;
+        }
+        return null;
     }
 
     /** 🖼 مسیر مطلق لوگوی برند (رستر؛ SVG فقط با Imagick) */

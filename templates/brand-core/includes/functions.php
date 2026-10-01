@@ -46,8 +46,16 @@ if (!function_exists('article_image')) {
            همین ابعاد نسبت ۱۶:۹ را رزرو می‌کنند. */
         /* 🖼 v2.34 — srcset برای صفحه‌بندی چندسایزی (P1 #19): اگر نسخه‌های
            تغییر اندازه‌یافته (پسوند -400w/-800w) کنار تصویر موجود باشند،
-           مرورگر در کارت‌های کوچک فقط نسخه سبک را دانلود می‌کند. */
+           مرورگر در کارت‌های کوچک فقط نسخه سبک را دانلود می‌کند.
+           🚨 v2.45 (S02) — ریشه باقی‌مانده «تصویر شاخص در صفحه مقاله نشان
+           داده نمی‌شود»: نسخه‌های -400w/-800w فقط برای «آپلود دستی» ساخته
+           می‌شوند، نه تصاویر AI (uploads/articles/ai/) و واترمارک‌دار (wm/)
+           → مرورگر با srcset کاندید 404 را برمی‌گزیند و «هرگز» به src
+           اصلی برنمی‌گردد → تصویر نامرئی. اکنون: ① onerror — با شکست
+           کاندید، srcset حذف و تصویر اصلی بارگذاری می‌شود ② نسخه‌ها در
+           پایپ‌لاین‌های AI/واترمارک هم ساخته می‌شوند (سمت پنل). */
         $srcset = '';
+        $onerror = '';
         if ($image) {
             $candidates = [];
             foreach ([400 => '-400w', 800 => '-800w'] as $w => $suffix) {
@@ -59,6 +67,9 @@ if (!function_exists('article_image')) {
             if (count($candidates) >= 2) {
                 $srcset = ' srcset="' . e(implode(', ', $candidates)) . '"'
                     . ' sizes="(max-width: 480px) 100vw, (max-width: 900px) 45vw, 360px"';
+                /* 🛟 فال‌بک: کاندید srcset موجود نبود (404) → srcset را بینداز
+                   و تصویر اصلی را بارگذاری کن — onerror=null ضد حلقه بی‌نهایت */
+                $onerror = ' onerror="this.onerror=null;this.removeAttribute(\'srcset\');this.src=this.getAttribute(\'src\');"';
             }
         }
         /* 📐 v2.42 — درخواست کاربر «تصاویر مقالات فشرده شدن، ارتفاعشان خیلی کم شده»:
@@ -68,7 +79,7 @@ if (!function_exists('article_image')) {
            ابعاد صریح حذف می‌شود تا نسبت طبیعی خود تصویر حاکم باشد؛
            در کارت‌های فهرست (برش cover) همان ۱۶:۹ می‌ماند. */
         $dim = $single ? '' : ' width="800" height="450"';
-        return '<img src="' . e($src) . '" alt="' . e($alt) . '"' . $dim . ' loading="lazy"' . $srcset . ' class="article-image">';
+        return '<img src="' . e($src) . '" alt="' . e($alt) . '"' . $dim . ' loading="lazy"' . $srcset . $onerror . ' class="article-image">';
     }
 }
 
