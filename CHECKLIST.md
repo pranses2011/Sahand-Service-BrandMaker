@@ -1722,3 +1722,5 @@
 | 65.10 | ☑️ رگرسیون کامل | ۳۰۹/۳۰۹ سبز + رجیستری تست مشترک + tests/migrate.php | ✅ |
 | 65.11 | ☑️ مستندات v2.45.0 | CHANGELOG + WORKLOG + CHECKLIST + README + UPGRADE + AI-API-GUIDE + نسخه | ✅ |
 | 65.12 | ☑️ رلیز v2.45.0 | install.zip + update.zip + راهنماها + SHA256SUMS | ✅ |
+
+> 🔗 **رلیز v2.45.0**: https://github.com/pranses2011/Sahand-Service-BrandMaker/releases/tag/v2.45.0 — ۶ پیوست: install.zip (۱۷MB / ۲۱۲۹۲ فایل) + update.zip (۸۸۸KB / ۹۹ فایل: ۴۹ لاتی ترمیم‌شده + GeoIP + CustomFormManager + form.js با موتور ماسک + رندرگر + ویرایشگر + نقشه جهانی + مستندات) + راهنمای نصب و بروزرسانی فارسی + UPGRADE + AI-API-GUIDE + SHA256SUMS — چک‌سام‌ها پس از دانلود راستی‌آزمایی شد
