@@ -7,7 +7,7 @@
     <meta name="description" content="استودیوی ساخت لوگوموشن سهند سرویس؛ ۵۰ سبک حرکت، ۳۰ انیمیشن زمینه و خروجی حرفه‌ای تا 4K.">
     <title>استودیوی لوگوموشن | سهند سرویس</title>
     <link rel="stylesheet" href="assets/css/fonts.css?v=logo-motion-2">
-    <link rel="stylesheet" href="assets/css/logo-motion.css?v=8">
+    <link rel="stylesheet" href="assets/css/logo-motion.css?v=9">
 </head>
 <body>
 <div class="lm-app">
@@ -318,6 +318,11 @@
                     </button>
                 </div>
                 <p class="lm-support-note" id="supportNote">خروجی WebM در Chrome، Edge و Firefox جدید پشتیبانی می‌شود؛ برخی مرورگرها خروجی 4K/60fps را محدود می‌کنند.</p>
+                <div class="lm-video-result" id="videoResult" role="status" aria-live="polite" hidden>
+                    <div class="lm-video-result-copy"><strong>ویدئو آماده‌ی دریافت است</strong><small id="videoResultMeta">فایل خروجی</small></div>
+                    <a id="videoDownloadLink" href="#" download>دانلود ویدئو</a>
+                    <button id="videoResultClose" type="button" aria-label="بستن پیام دریافت">×</button>
+                </div>
             </section>
         </div>
 
@@ -329,6 +334,6 @@
 
     <div class="lm-toast" id="toast" role="status" aria-live="polite" hidden></div>
 </div>
-<script src="assets/js/logo-motion.js?v=8" defer></script>
+<script src="assets/js/logo-motion.js?v=9" defer></script>
 </body>
 </html>

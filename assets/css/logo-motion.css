@@ -401,3 +401,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
     .lm-audio-file-info { align-items: flex-start; flex-direction: column; gap: 2px; }
     .lm-audio-options { grid-template-columns: minmax(0,1fr); gap: 1px; }
 }
+.lm-video-result { display: flex; align-items: center; gap: 10px; margin-top: 11px; padding: 10px 11px; border: 1px solid #cfe6dc; border-radius: 11px; background: linear-gradient(115deg,#f0faf5,#f7fbff); }
+.lm-video-result-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.lm-video-result-copy strong { color: #2f7359; font-size: 9px; font-weight: 850; }
+.lm-video-result-copy small { overflow: hidden; color: #718c81; font-size: 7.5px; text-overflow: ellipsis; white-space: nowrap; }
+.lm-video-result > a { min-height: 31px; flex: none; display: inline-flex; align-items: center; justify-content: center; padding: 0 11px; border: 1px solid #9bcdb6; border-radius: 8px; background: linear-gradient(135deg,#27885f,#2476a1); color: #fff; font-size: 8px; font-weight: 850; text-decoration: none; box-shadow: 0 3px 8px rgba(43,123,91,.14); }
+.lm-video-result > a:hover { border-color: #68ad8b; background: linear-gradient(135deg,#207a54,#1f658f); }
+.lm-video-result > button { width: 24px; height: 24px; flex: none; border: 0; border-radius: 7px; background: transparent; color: #718c81; font: 18px/1 Arial,sans-serif; cursor: pointer; }
+.lm-video-result > button:hover { background: rgba(46,113,82,.08); color: #48665b; }
+@media (max-width: 580px) {
+    .lm-video-result { flex-wrap: wrap; gap: 7px; }
+    .lm-video-result-copy { flex-basis: calc(100% - 34px); }
+    .lm-video-result > a { flex: 1; }
+}

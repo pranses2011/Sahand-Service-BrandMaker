@@ -196,7 +196,11 @@
         overlay: document.getElementById('renderOverlay'),
         renderProgress: document.getElementById('renderProgress'),
         toast: document.getElementById('toast'),
-        support: document.getElementById('supportNote')
+        support: document.getElementById('supportNote'),
+        videoResult: document.getElementById('videoResult'),
+        videoResultMeta: document.getElementById('videoResultMeta'),
+        videoDownloadLink: document.getElementById('videoDownloadLink'),
+        videoResultClose: document.getElementById('videoResultClose')
     };
 
     const TEXT_ITEMS = [
@@ -289,6 +293,7 @@
         logo: null,
         logoLoadId: 0,
         objectUrl: null,
+        lastVideoUrl: null,
         toastTimer: 0
     };
 
@@ -2363,8 +2368,10 @@
         if (!state.exporting) return;
         const recorder = state.recorder;
         if (error) {
+            console.error('Logo-motion recording failed:', error);
             restoreAfterExport();
-            showToast('ساخت ویدئو متوقف شد. دوباره تلاش کنید.', 'error');
+            const detail = error && error.message ? ` (${String(error.message).slice(0, 120)})` : '';
+            showToast(`ضبط ویدئو متوقف شد${detail}؛ فرمت خروجی یا وضوح تصویر را تغییر دهید و دوباره تلاش کنید.`, 'error');
             return;
         }
         const mimeType = recorder && recorder.mimeType ? recorder.mimeType : (state.exportMimeType || 'video/webm');
@@ -2376,15 +2383,26 @@
         }
         const extension = /video\/mp4/i.test(mimeType) ? 'mp4' : 'webm';
         const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `sahand-service-logo-motion.${extension}`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.setTimeout(() => URL.revokeObjectURL(url), 15000);
+        const fileName = `sahand-service-logo-motion.${extension}`;
+        if (state.lastVideoUrl) URL.revokeObjectURL(state.lastVideoUrl);
+        state.lastVideoUrl = url;
+        el.videoDownloadLink.href = url;
+        el.videoDownloadLink.download = fileName;
+        el.videoResultMeta.textContent = `${fileName} · ${(blob.size / 1024 / 1024).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} مگابایت · ${state.fps} fps`;
+        el.videoResult.hidden = false;
+        try {
+            const autoDownload = document.createElement('a');
+            autoDownload.href = url;
+            autoDownload.download = fileName;
+            autoDownload.hidden = true;
+            document.body.appendChild(autoDownload);
+            autoDownload.click();
+            autoDownload.remove();
+        } catch (downloadError) {
+            // Keep the visible download link available when automatic downloads are blocked.
+        }
         restoreAfterExport();
-        showToast(`ویدئوی لوگوموشن با فرمت ${extension.toUpperCase()} دریافت شد.`);
+        showToast(`ویدئو آماده است؛ اگر دریافت خودکار شروع نشد، روی «دانلود ویدئو» بزنید.`);
     }
 
     function createExportStream(fps) {
@@ -2410,7 +2428,7 @@
     function createMediaRecorder(stream, mimeType) {
         const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: computeBitrate() });
         recorder.ondataavailable = event => { if (event.data && event.data.size > 0) state.chunks.push(event.data); };
-        recorder.onerror = () => finishExport(new Error('MediaRecorder error'));
+        recorder.onerror = event => finishExport(event && event.error ? event.error : new Error('MediaRecorder error'));
         recorder.onstop = () => finishExport(null);
         return recorder;
     }
@@ -2502,8 +2520,10 @@
             state.exportTimer = window.setTimeout(processExportFrame, 0);
             if (recorderChoice.fallback) showToast('کدک درخواستی در دسترس نبود؛ کدک سازگار جایگزین شد.', 'warning');
         } catch (error) {
+            console.error('Unable to initialize logo-motion recording:', error);
             restoreAfterExport();
-            showToast('مرورگر نتوانست ویدئو را ضبط کند؛ Chrome یا Edge را امتحان کنید.', 'error');
+            const detail = error && error.message ? ` (${String(error.message).slice(0, 120)})` : '';
+            showToast(`شروع ضبط ویدئو ممکن نشد${detail}؛ فرمت WebM یا وضوح پایین‌تر را امتحان کنید.`, 'error');
         }
     }
 
@@ -3266,10 +3286,13 @@
         syncAudioPlayback(state.offset, true);
     });
     el.export.addEventListener('click', startExport);
+    el.videoResultClose.addEventListener('click', () => { el.videoResult.hidden = true; });
     el.frame.addEventListener('click', downloadFrame);
     window.addEventListener('resize', updateStageLayout);
     window.addEventListener('beforeunload', () => {
         if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
+        if (state.lastVideoUrl) URL.revokeObjectURL(state.lastVideoUrl);
+        if (state.audioContext && state.audioContext.state !== 'closed') state.audioContext.close().catch(() => {});
         state.customFonts.forEach(font => {
             try { document.fonts.delete(font.face); } catch (error) {}
             URL.revokeObjectURL(font.objectUrl);
