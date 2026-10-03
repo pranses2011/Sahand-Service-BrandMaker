@@ -2407,30 +2407,60 @@
 
     function createExportStream(fps) {
         if (typeof canvas.captureStream !== 'function') throw new Error('Canvas capture is unavailable');
-        try {
-            const manualStream = canvas.captureStream(0);
-            const manualTrack = manualStream.getVideoTracks()[0];
-            if (manualTrack && typeof manualTrack.requestFrame === 'function') {
-                state.frameTrack = manualTrack;
-                state.manualFrameCapture = true;
-                return manualStream;
-            }
-            manualStream.getTracks().forEach(track => track.stop());
-        } catch (error) {
-            state.frameTrack = null;
-            state.manualFrameCapture = false;
-        }
         state.frameTrack = null;
         state.manualFrameCapture = false;
-        return canvas.captureStream(fps);
+        const stream = canvas.captureStream(clamp(Number(fps) || 30, 24, 60));
+        const videoTrack = stream && stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
+        if (!videoTrack || videoTrack.readyState === 'ended') {
+            if (stream && stream.getTracks) stream.getTracks().forEach(track => track.stop());
+            throw new Error('Canvas stream has no active video track');
+        }
+        return stream;
     }
 
     function createMediaRecorder(stream, mimeType) {
-        const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: computeBitrate() });
+        const bitrate = computeBitrate();
+        let recorder;
+        try {
+            recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: bitrate });
+        } catch (error) {
+            try { recorder = new MediaRecorder(stream, { mimeType }); }
+            catch (fallbackError) {
+                const combinedError = new Error(`${fallbackError.message || 'MediaRecorder init failed'} (bitrate option also failed: ${error.message || error})`);
+                combinedError.cause = fallbackError;
+                throw combinedError;
+            }
+        }
         recorder.ondataavailable = event => { if (event.data && event.data.size > 0) state.chunks.push(event.data); };
         recorder.onerror = event => finishExport(event && event.error ? event.error : new Error('MediaRecorder error'));
         recorder.onstop = () => finishExport(null);
         return recorder;
+    }
+
+    function startRecorderWithFallback(stream, preferredType) {
+        const candidates = [
+            preferredType,
+            ...recorderCandidates(state.format, state.codec),
+            ...recorderCandidates('webm', 'auto')
+        ].filter((type, index, list) => type && list.indexOf(type) === index && isRecorderTypeSupported(type));
+        let lastError = null;
+        for (const type of candidates) {
+            let recorder = null;
+            try {
+                recorder = createMediaRecorder(stream, type);
+                recorder.start(250);
+                return { recorder, type };
+            } catch (error) {
+                lastError = error;
+                if (recorder && recorder.state !== 'inactive') {
+                    recorder.ondataavailable = null;
+                    recorder.onerror = null;
+                    recorder.onstop = null;
+                    try { recorder.stop(); } catch (stopError) {}
+                }
+            }
+        }
+        throw lastError || new Error('No supported MediaRecorder type could start');
     }
 
     function processExportFrame() {
@@ -2488,29 +2518,18 @@
             state.exporting = true;
             state.exportStart = performance.now();
             state.stream = createExportStream(state.fps);
-            state.exportMimeType = recorderChoice.type;
             if (state.audioFile) {
                 ensureAudioGraph();
                 syncAudioPlayback(0, true);
                 addAudioTrack(state.stream);
             }
-            const manualCapturePreferred = state.manualFrameCapture;
             lockEditor(true);
             if (el.renderProgress) el.renderProgress.textContent = '۰٪ · آماده‌سازی فریم‌ها…';
-            try {
-                state.recorder = createMediaRecorder(state.stream, recorderChoice.type);
-                state.recorder.start(250);
-            } catch (manualCaptureError) {
-                if (!manualCapturePreferred) throw manualCaptureError;
-                state.chunks = [];
-                state.recorder = null;
-                stopTracks();
-                state.manualFrameCapture = false;
-                state.frameTrack = null;
-                state.stream = canvas.captureStream(state.fps);
-                if (state.audioFile) addAudioTrack(state.stream);
-                state.recorder = createMediaRecorder(state.stream, recorderChoice.type);
-                state.recorder.start(250);
+            const startedRecorder = startRecorderWithFallback(state.stream, recorderChoice.type);
+            state.recorder = startedRecorder.recorder;
+            state.exportMimeType = startedRecorder.type;
+            if (startedRecorder.type !== recorderChoice.type || recorderChoice.fallback) {
+                showToast('کدک درخواستی در دسترس نبود؛ از فرمت سازگار جایگزین استفاده می‌شود.', 'warning');
             }
             state.fallbackTimer = window.setTimeout(() => {
                 if (state.recorder && state.recorder.state !== 'inactive') {
