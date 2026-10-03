@@ -136,6 +136,9 @@ try {
                 <a class="nav-link <?= $activeMenu === 'template-builder' ? 'active' : '' ?>" href="template-builder.php">
                     <span class="icon">🎭</span> قالب‌ساز
                 </a>
+                <a class="nav-link" href="../logo-motion.html">
+                    <span class="icon">🎞️</span> لوگوموشن
+                </a>
                 <a class="nav-link <?= $activeMenu === 'themes' ? 'active' : '' ?>" href="themes.php" <?= $isLimitedRole ? 'style="display:none"' : '' ?>>
                     <span class="icon">🎨</span> تم‌ها
                 </a>
