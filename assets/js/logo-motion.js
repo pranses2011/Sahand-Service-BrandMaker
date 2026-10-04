@@ -9,6 +9,8 @@
     const canvas = document.getElementById('motionCanvas');
     const ctx = canvas && canvas.getContext('2d', { alpha: false });
     if (!canvas || !ctx) return;
+    const exportRenderCanvas = document.createElement('canvas');
+    const exportRenderContext = exportRenderCanvas.getContext('2d', { alpha: false });
 
     const MOTION_GROUPS = [
         { family: 'orbit', category: 'مداری', names: ['مدار آبی', 'مدار طلایی', 'مدار دوقلو', 'مدار مورب', 'مدار ضربانی'], descriptions: ['حلقه‌های همگرا', 'قوس گرم و لوکس', 'دو مسیر چرخان', 'مدار با زاویه‌ی پویا', 'گردش همراه با نبض'] },
@@ -20,7 +22,17 @@
         { family: 'scan', category: 'اسکن', names: ['اسکن افقی', 'اسکن عمودی', 'اسکن دوبل', 'نوارهای دیجیتال', 'اسکن متقاطع'], descriptions: ['روشن‌شدن خط‌به‌خط', 'پرده‌ی عمودی اسکن', 'دو موج اسکن', 'نمایش قطعه‌ای', 'دو پرتو متقاطع'] },
         { family: 'burst', category: 'ذرات و انرژی', names: ['فوران ذرات', 'انفجار ستاره‌ای', 'موج مداری', 'گردباد نور', 'شکوفایی'], descriptions: ['ذرات پیرامونی', 'جرقه‌های شعاعی', 'موج رو به بیرون', 'چرخش انرژی', 'بازشدن گلبرگ نور'] },
         { family: 'mask', category: 'ماسک و آشکارسازی', names: ['ماسک دایره‌ای', 'پرده از چپ', 'پرده از راست', 'ماسک قطری', 'آینه‌ی نرم'], descriptions: ['آشکارسازی شعاعی', 'بازشدن پرده‌ای', 'پرده‌ی معکوس', 'نمایش مورب لوگو', 'گشایش متقارن'] },
-        { family: 'glitch', category: 'دیجیتال', names: ['گلیچ دیجیتال', 'کروم درخشان', 'هولوگرافیک', 'موج سیگنال', 'پایان باشکوه'], descriptions: ['اختلال دیجیتال کوتاه', 'هاله‌ی کرومی', 'رد نوری هولوگرافیک', 'تداخل موجی', 'ترکیب ذرات و مدار'] }
+        { family: 'glitch', category: 'دیجیتال', names: ['گلیچ دیجیتال', 'کروم درخشان', 'هولوگرافیک', 'موج سیگنال', 'پایان باشکوه'], descriptions: ['اختلال دیجیتال کوتاه', 'هاله‌ی کرومی', 'رد نوری هولوگرافیک', 'تداخل موجی', 'ترکیب ذرات و مدار'] },
+        { family: 'elastic', category: 'فنری و کشسان', names: ['جهش کشسان', 'فرود نرم', 'تپش فنری', 'بازگشت لطیف', 'کشش سینمایی'], descriptions: ['جهش کنترل‌شده و تمیز', 'ورود با فرود ابریشمی', 'ضربان کوتاه و زنده', 'بازگشت فنری بدون اغراق', 'کشش و رهاسازی نرم'] },
+        { family: 'flip', category: 'سه‌بعدی و پرسپکتیو', names: ['فلیپ افقی', 'ورق‌خوردن', 'چرخش پرسپکتیو', 'بازشدن سه‌بعدی', 'فلیپ آینه‌ای'], descriptions: ['بازشدن با حس عمق', 'ورود شبیه ورق‌خوردن', 'چرخش کوتاه و لوکس', 'نمایش لایه‌به‌لایه', 'فلیپ متقارن'] },
+        { family: 'whip', category: 'سریع و ضربه‌ای', names: ['ورود ضربه‌ای', 'ویپ از چپ', 'ویپ از راست', 'برش سریع', 'شتاب ناگهانی'], descriptions: ['ورود پرقدرت با مکث', 'حرکت سریع و کنترل‌شده', 'حرکت معکوس و نرم', 'برش دقیق تبلیغاتی', 'شتاب کوتاه سینمایی'] },
+        { family: 'portal', category: 'هاله و پورتال', names: ['پورتال نور', 'دروازه‌ی ستاره‌ای', 'حلقه‌ی ظهور', 'گشایش کیهانی', 'درخشش مرکزی'], descriptions: ['ظهور از میان حلقه‌ی نور', 'آشکارسازی کیهانی', 'بازشدن چندلایه', 'هاله‌ی عمیق و آرام', 'ورود از مرکز نور'] },
+        { family: 'prism', category: 'نور و منشور', names: ['منشور رنگی', 'شکست نور', 'فلر کریستالی', 'درخشش طیفی', 'بازتاب منشوری'], descriptions: ['چرخش ظریف با نور رنگی', 'شکست نور در ورود', 'درخشش شیشه‌ای', 'هاله‌ی طیفی کنترل‌شده', 'انعکاس پریمیوم'] },
+        { family: 'float', category: 'شناوری', names: ['شناور آرام', 'بالاروی لطیف', 'تعلیق نرم', 'موج شناور', 'فرود بی‌صدا'], descriptions: ['حرکت بسیار نرم', 'بالاآمدن آهسته', 'مکث معلق و شیک', 'نوسان بسیار ظریف', 'فرود آرام و تمیز'] },
+        { family: 'ripple', category: 'موج و هاله', names: ['موج دایره‌ای', 'هاله‌ی ضربانی', 'موج آب', 'پالس چندگانه', 'حلقه‌ی آرام'], descriptions: ['گسترش حلقه‌های روشن', 'پالس نرم از مرکز', 'موج سیال و سبک', 'چند ضربان هم‌زمان', 'حلقه‌ی مینیمال'] },
+        { family: 'spotlight', category: 'نورافکن', names: ['نورافکن صحنه', 'نور دنبال‌کننده', 'هاله‌ی کانونی', 'ورود زیر نور', 'اسپات طلایی'], descriptions: ['نور موضعی و باشکوه', 'رد نور روی لوگو', 'کانون نور آرام', 'ورود به صحنه‌ی روشن', 'نور گرم و لوکس'] },
+        { family: 'shatter', category: 'انرژی و شکست', names: ['انفجار کنترل‌شده', 'شکست کریستالی', 'موج انرژی', 'رهاسازی شعاعی', 'فروپاشی معکوس'], descriptions: ['انرژی بالا بدون شلوغی', 'تکه‌های نورین و ظریف', 'ضربه‌ی موجی', 'بازشدن شعاعی', 'جمع‌شدن و ظهور'] },
+        { family: 'stardust', category: 'ذرات درخشان', names: ['غبار ستاره‌ای', 'رد جرقه‌ها', 'بارش نور', 'دنباله‌ی درخشان', 'شکوفه‌ی ستاره‌ای'], descriptions: ['درخشش ریز و ظریف', 'ذرات دنبال‌کننده', 'بارش کوتاه نور', 'حرکت شهاب‌وار', 'شکوفایی روشن'] }
     ];
     const MOTION_STYLES = MOTION_GROUPS.flatMap(group => group.names.map((name, variant) => ({
         id: `${group.family}-${variant}`,
@@ -41,7 +53,17 @@
         { family: 'rain', category: 'ذرات', names: ['باران نور', 'بارش طلایی', 'رد ستاره'] },
         { family: 'orbits', category: 'مدار', names: ['حلقه‌های دور', 'مدارهای آرام', 'حلقه‌ی ضربان'] },
         { family: 'scan', category: 'تکنولوژی', names: ['اسکن سینمایی', 'پرتوی عمودی', 'خط داده'] },
-        { family: 'galaxy', category: 'کیهانی', names: ['کهکشان کم‌نور', 'غبار کهکشانی', 'مارپیچ ستاره'] }
+        { family: 'galaxy', category: 'کیهانی', names: ['کهکشان کم‌نور', 'غبار کهکشانی', 'مارپیچ ستاره'] },
+        { family: 'bokeh', category: 'نور سینمایی', names: ['بوکه‌ی طلایی', 'حباب‌های رنگی', 'بوکه‌ی آرام'] },
+        { family: 'ribbons', category: 'سیال و ابریشم', names: ['روبان نور', 'موج ابریشمی', 'نوارهای شناور'] },
+        { family: 'confetti', category: 'جشن و انرژی', names: ['باران رنگی', 'کاغذرنگی طلایی', 'درخشش جشن'] },
+        { family: 'comets', category: 'کیهانی', names: ['دنباله‌دارها', 'شهاب‌های آبی', 'رد کهکشانی'] },
+        { family: 'ripples', category: 'موج و هاله', names: ['حلقه‌های گسترش‌یابنده', 'موج آب آرام', 'تپش‌های نور'] },
+        { family: 'prism', category: 'هندسی و بلوری', names: ['بلورهای شناور', 'منشورهای نور', 'شبکه‌ی کریستال'] },
+        { family: 'petals', category: 'طبیعت و ارگانیک', names: ['گلبرگ‌های نور', 'شکوفه‌ی نرم', 'گردش گلبرگ'] },
+        { family: 'matrix', category: 'تکنولوژی', names: ['داده‌های جاری', 'بارش دیجیتال', 'مسیرهای نوری'] },
+        { family: 'flare', category: 'هاله و نور', names: ['فلر لنز', 'پرتو سینمایی', 'بازتاب گرم'] },
+        { family: 'curtain', category: 'پرده و صحنه', names: ['پرده‌ی نور', 'ستون‌های متحرک', 'پرده‌ی افتتاحیه'] }
     ];
     const BACKGROUND_ANIMATIONS = BACKGROUND_GROUPS.flatMap(group => group.names.map((name, variant) => ({
         id: `${group.family}-${variant}`,
@@ -71,7 +93,19 @@
         { name: 'فیروزه‌ای', accent: '#40d4c8', gold: '#ffe08a' },
         { name: 'برنزی', accent: '#cf9659', gold: '#f2cf9b' },
         { name: 'نئون', accent: '#75ffb1', gold: '#c9a5ff' },
-        { name: 'آبی سلطنتی', accent: '#6094ff', gold: '#f2f2ff' }
+        { name: 'آبی سلطنتی', accent: '#6094ff', gold: '#f2f2ff' },
+        { name: 'شفق قطبی', accent: '#55f2c3', gold: '#b5a7ff' },
+        { name: 'لاجورد و مس', accent: '#377bea', gold: '#e2a36c' },
+        { name: 'صورتی نئون', accent: '#ff57bd', gold: '#8ce7ff' },
+        { name: 'یاقوت بنفش', accent: '#bf70ff', gold: '#ff8fa6' },
+        { name: 'نعنایی یخی', accent: '#5bdacb', gold: '#d5fff1' },
+        { name: 'کهربایی', accent: '#ffad45', gold: '#ffe2a4' },
+        { name: 'آبی فولادی', accent: '#6ca6c9', gold: '#d7e7ed' },
+        { name: 'آلبالویی', accent: '#e35375', gold: '#ffc5a5' },
+        { name: 'سبز نئونی', accent: '#95ed52', gold: '#f0ffbd' },
+        { name: 'بنفش کیهانی', accent: '#8a68e8', gold: '#70d8f0' },
+        { name: 'شن و دریا', accent: '#58b8aa', gold: '#e9c790' },
+        { name: 'یاقوت و مس', accent: '#bb3c65', gold: '#e9a879' }
     ];
     const BACKGROUND_COLORS = [
         { name: 'نیمه‌شب', value: '#07101f' },
@@ -81,10 +115,30 @@
         { name: 'سبز جنگلی', value: '#0b211e' },
         { name: 'زرشکی تیره', value: '#24111b' },
         { name: 'آبی نفتی', value: '#092329' },
-        { name: 'دودی', value: '#202732' }
+        { name: 'دودی', value: '#202732' },
+        { name: 'آبی جوهری', value: '#071b30' },
+        { name: 'بنفش شبانه', value: '#201338' },
+        { name: 'سبز زمردی', value: '#09291f' },
+        { name: 'قهوه‌ای لوکس', value: '#241c19' },
+        { name: 'خاکستری روشن', value: '#e9edf4' },
+        { name: 'سفید مه‌آلود', value: '#f5f7fb' }
+    ];
+    const REEL_PRESETS = [
+        { id: 'luxe-story', name: 'لوکس طلایی', badge: '۹:۱۶ · معرفی برند', aspect: '9:16', duration: 8, motion: 'orbit-1', backgroundAnimation: 'aurora-2', palette: 'آبی طلایی', background: '#07101f', backgroundIntensity: .78, backgroundSpeed: .9, motionIntensity: 1, logoScale: 1, textEnter: 'rise', textExit: 'fade', easing: 'cinematic' },
+        { id: 'neon-tech', name: 'تکنولوژی نئون', badge: '۹:۱۶ · مدرن', aspect: '9:16', duration: 8, motion: 'glitch-0', backgroundAnimation: 'matrix-2', palette: 'نئون', background: '#07101f', backgroundIntensity: .82, backgroundSpeed: 1.35, motionIntensity: 1.05, logoScale: .96, textEnter: 'wipe', textExit: 'blur', easing: 'sharp' },
+        { id: 'trusted-service', name: 'خدمات قابل‌اعتماد', badge: '۹:۱۶ · کسب‌وکار', aspect: '9:16', duration: 10, motion: 'rise-1', backgroundAnimation: 'ambient-2', palette: 'زمردی', background: '#0b211e', backgroundIntensity: .65, backgroundSpeed: .82, motionIntensity: .9, logoScale: 1, textEnter: 'fade', textExit: 'fade', easing: 'smooth' },
+        { id: 'special-offer', name: 'پیشنهاد ویژه', badge: '۹:۱۶ · پرانرژی', aspect: '9:16', duration: 8, motion: 'burst-1', backgroundAnimation: 'confetti-2', palette: 'غروب', background: '#24111b', backgroundIntensity: .72, backgroundSpeed: 1.2, motionIntensity: 1.12, logoScale: 1.03, textEnter: 'zoom', textExit: 'slide-left', easing: 'spring' },
+        { id: 'cinematic-wide', name: 'سینمایی تیره', badge: '۱۶:۹ · معرفی', aspect: '16:9', duration: 10, motion: 'portal-1', backgroundAnimation: 'galaxy-2', palette: 'نقره‌ای', background: '#101317', backgroundIntensity: .62, backgroundSpeed: .75, motionIntensity: .9, logoScale: 1.08, textEnter: 'blur', textExit: 'fade', easing: 'cinematic' },
+        { id: 'minimal-product', name: 'محصول مینیمال', badge: '۴:۵ · محصول', aspect: '4:5', duration: 8, motion: 'mask-0', backgroundAnimation: 'ribbons-1', palette: 'یخی', background: '#101c38', backgroundIntensity: .5, backgroundSpeed: .7, motionIntensity: .82, logoScale: 1.12, textEnter: 'rise', textExit: 'fade', easing: 'smooth' },
+        { id: 'future-data', name: 'آینده‌ی دیجیتال', badge: '۹:۱۶ · فناوری', aspect: '9:16', duration: 10, motion: 'scan-3', backgroundAnimation: 'grid-2', palette: 'فیروزه‌ای', background: '#092329', backgroundIntensity: .75, backgroundSpeed: 1.2, motionIntensity: .98, logoScale: 1, textEnter: 'type', textExit: 'wipe', easing: 'sharp' },
+        { id: 'active-energy', name: 'انرژی و حرکت', badge: '۹:۱۶ · اسپرت', aspect: '9:16', duration: 6, motion: 'whip-1', backgroundAnimation: 'comets-2', palette: 'لیمویی', background: '#101317', backgroundIntensity: .8, backgroundSpeed: 1.6, motionIntensity: 1.2, logoScale: .96, textEnter: 'slide-left', textExit: 'zoom', easing: 'sharp' },
+        { id: 'personal-brand', name: 'برند شخصی', badge: '۹:۱۶ · پرتره', aspect: '9:16', duration: 12, motion: 'float-0', backgroundAnimation: 'bokeh-1', palette: 'رزگلد', background: '#171127', backgroundIntensity: .68, backgroundSpeed: .7, motionIntensity: .78, logoScale: 1, textEnter: 'fade', textExit: 'fade', easing: 'smooth' },
+        { id: 'beauty-fashion', name: 'زیبایی و مد', badge: '۴:۵ · ظریف', aspect: '4:5', duration: 8, motion: 'prism-2', backgroundAnimation: 'petals-1', palette: 'بنفش شامپاینی', background: '#171127', backgroundIntensity: .58, backgroundSpeed: .78, motionIntensity: .88, logoScale: .98, textEnter: 'blur', textExit: 'fade', easing: 'cinematic' },
+        { id: 'square-launch', name: 'معرفی مربعی', badge: '۱:۱ · شبکه اجتماعی', aspect: '1:1', duration: 8, motion: 'elastic-2', backgroundAnimation: 'prism-1', palette: 'لاجوردی', background: '#101c38', backgroundIntensity: .68, backgroundSpeed: 1, motionIntensity: 1, logoScale: 1, textEnter: 'zoom', textExit: 'fade', easing: 'spring' },
+        { id: 'warm-launch', name: 'طلوع گرم', badge: '۹:۱۶ · رونمایی', aspect: '9:16', duration: 10, motion: 'spotlight-4', backgroundAnimation: 'flare-2', palette: 'غروب', background: '#241c19', backgroundIntensity: .7, backgroundSpeed: .85, motionIntensity: .92, logoScale: 1.04, textEnter: 'rise', textExit: 'fade', easing: 'cinematic' }
     ];
 
-    const canvasContext = ctx;
+    let canvasContext = ctx;
     const el = {
         brandName: document.getElementById('brandName'),
         tagline: document.getElementById('brandTagline'),
@@ -160,6 +214,7 @@
         thumb: document.getElementById('logoThumb'),
         fileName: document.getElementById('logoFileName'),
         motionSearch: document.getElementById('motionSearch'),
+        reelPresetGrid: document.getElementById('reelPresetGrid'),
         motionCategories: document.getElementById('motionCategories'),
         motionStyles: document.getElementById('motionStyles'),
         motionCount: document.getElementById('motionStyleCount'),
@@ -302,6 +357,13 @@
         exportStopRequested: false,
         exportFrameIndex: 0,
         exportTotalFrames: 0,
+        exportLastFrameIndex: -1,
+        exportDroppedFrames: 0,
+        exportRenderScale: 1,
+        exportRenderAverage: 0,
+        exportSlowFrameStreak: 0,
+        exportUiLastUpdate: 0,
+        exportAudioLastSync: 0,
         exportTimer: 0,
         exportMimeType: '',
         frameTrack: null,
@@ -466,14 +528,52 @@
         el.specFormat.textContent = `${formatName} · بدون واترمارک`;
     }
 
-    function updateCanvasResolution() {
-        if (state.exporting) return;
-        [WIDTH, HEIGHT] = designSizeForAspect(state.aspect);
-        const details = outputDetails();
-        if (canvas.width !== details.width || canvas.height !== details.height) {
-            canvas.width = details.width;
-            canvas.height = details.height;
+    function resizeExportRenderCanvas(scale) {
+        if (!exportRenderContext) return 1;
+        const [outputWidth, outputHeight] = outputSizeForSettings();
+        const safeScale = clamp(Number(scale) || 1, .05, 1);
+        const width = Math.max(1, Math.round(outputWidth * safeScale));
+        const height = Math.max(1, Math.round(outputHeight * safeScale));
+        if (exportRenderCanvas.width !== width || exportRenderCanvas.height !== height) {
+            exportRenderCanvas.width = width;
+            exportRenderCanvas.height = height;
         }
+        state.exportRenderScale = Math.min(width / outputWidth, height / outputHeight);
+        return state.exportRenderScale;
+    }
+
+    function minimumExportRenderScale() {
+        const [outputWidth, outputHeight] = outputSizeForSettings();
+        return Math.min(1, Math.sqrt((1280 * 720) / (outputWidth * outputHeight)));
+    }
+
+    function updateCanvasResolution(forExport = false) {
+        if (state.exporting && !forExport) return;
+        [WIDTH, HEIGHT] = designSizeForAspect(state.aspect);
+        const [outputWidth, outputHeight] = outputSizeForSettings();
+        const previewScale = Math.min(
+            1,
+            1920 / outputWidth,
+            1080 / outputHeight,
+            Math.sqrt((1920 * 1080) / (outputWidth * outputHeight))
+        );
+        const targetWidth = forExport ? outputWidth : Math.max(1, Math.round(outputWidth * previewScale));
+        const targetHeight = forExport ? outputHeight : Math.max(1, Math.round(outputHeight * previewScale));
+        if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+        }
+        if (forExport) {
+            const renderScale = Math.min(
+                1,
+                2560 / Math.max(outputWidth, outputHeight),
+                Math.sqrt(3_686_400 / (outputWidth * outputHeight))
+            );
+            resizeExportRenderCanvas(renderScale);
+            state.exportRenderAverage = 0;
+            state.exportSlowFrameStreak = 0;
+        }
+        canvasContext = ctx;
         updateOutputSummary();
         updateStageLayout();
     }
@@ -1300,6 +1400,187 @@
                 canvasContext.fill();
             }
             canvasContext.restore();
+        } else if (family === 'bokeh') {
+            canvasContext.save();
+            const count = 18 + variant * 8;
+            for (let i = 0; i < count; i++) {
+                const x = (deterministic(i + 18) * WIDTH + Math.sin(motion * .14 + i) * WIDTH * .035 + WIDTH) % WIDTH;
+                const y = (deterministic(i + 72) * HEIGHT + Math.sin(motion * .2 + i * .7) * HEIGHT * .08 + HEIGHT) % HEIGHT;
+                const radius = 8 + deterministic(i + 101) * (18 + variant * 10);
+                const alpha = (.025 + deterministic(i + 44) * .055) * strength;
+                canvasContext.globalAlpha = 1;
+                canvasContext.fillStyle = rgba(i % 5 === 0 ? state.gold : state.accent, alpha);
+                canvasContext.strokeStyle = rgba(i % 5 === 0 ? state.gold : state.accent, alpha * 1.8);
+                canvasContext.lineWidth = 1.2;
+                canvasContext.beginPath();
+                canvasContext.arc(x, y, radius, 0, Math.PI * 2);
+                canvasContext.fill();
+                canvasContext.stroke();
+            }
+            canvasContext.restore();
+        } else if (family === 'ribbons') {
+            canvasContext.save();
+            const bands = 3 + variant;
+            for (let band = 0; band < bands; band++) {
+                const baseline = HEIGHT * (.2 + band * .21);
+                const phase = motion * (.28 + band * .035) + band * 1.7;
+                const gradient = canvasContext.createLinearGradient(0, baseline - 80, WIDTH, baseline + 90);
+                gradient.addColorStop(0, rgba(state.accent, 0));
+                gradient.addColorStop(.5, rgba(band % 2 ? state.gold : state.accent, .16 * strength));
+                gradient.addColorStop(1, rgba(state.accent, 0));
+                canvasContext.strokeStyle = gradient;
+                canvasContext.lineWidth = 2 + variant * .8;
+                canvasContext.beginPath();
+                for (let x = 0; x <= WIDTH; x += Math.max(20, WIDTH / 32)) {
+                    const y = baseline + Math.sin(x / WIDTH * Math.PI * (1.2 + variant * .2) + phase) * (38 + variant * 12) + Math.cos(x / WIDTH * Math.PI * 2 + phase * .7) * 16;
+                    if (x === 0) canvasContext.moveTo(x, y); else canvasContext.lineTo(x, y);
+                }
+                canvasContext.stroke();
+            }
+            canvasContext.restore();
+        } else if (family === 'confetti') {
+            canvasContext.save();
+            const count = 32 + variant * 12;
+            for (let i = 0; i < count; i++) {
+                const x = deterministic(i + 4) * WIDTH;
+                const fall = (seconds * (65 + deterministic(i + 19) * 65) + deterministic(i + 53) * HEIGHT * 2) % (HEIGHT + 40) - 20;
+                const size = 4 + deterministic(i + 31) * (5 + variant * 2);
+                canvasContext.save();
+                canvasContext.translate(x + Math.sin(motion + i) * 18, fall);
+                canvasContext.rotate(seconds * (.5 + deterministic(i + 63) * 1.2) + i);
+                canvasContext.globalAlpha = (.1 + deterministic(i + 88) * .24) * strength;
+                canvasContext.fillStyle = i % 4 === 0 ? state.gold : (i % 3 === 0 ? state.accent : faintColor);
+                canvasContext.fillRect(-size / 2, -size * .32, size, size * .64);
+                canvasContext.restore();
+            }
+            canvasContext.restore();
+        } else if (family === 'comets') {
+            canvasContext.save();
+            const count = 4 + variant * 2;
+            for (let i = 0; i < count; i++) {
+                const cycle = (seconds * (.12 + variant * .025) + deterministic(i + 2)) % 1.15;
+                const x = cycle * (WIDTH + 260) - 130;
+                const y = deterministic(i + 63) * HEIGHT * .76 + HEIGHT * .06;
+                const trail = 70 + deterministic(i + 17) * (130 + variant * 30);
+                const gradient = canvasContext.createLinearGradient(x - trail, y + trail * .24, x, y);
+                gradient.addColorStop(0, rgba(state.accent, 0));
+                gradient.addColorStop(.72, rgba(state.accent, .2 * strength));
+                gradient.addColorStop(1, rgba(state.gold, .65 * strength));
+                canvasContext.strokeStyle = gradient;
+                canvasContext.lineWidth = 1.2 + variant * .35;
+                canvasContext.beginPath();
+                canvasContext.moveTo(x - trail, y + trail * .24);
+                canvasContext.lineTo(x, y);
+                canvasContext.stroke();
+                canvasContext.beginPath();
+                canvasContext.arc(x, y, 2 + variant * .55, 0, Math.PI * 2);
+                canvasContext.fillStyle = rgba(state.gold, .55 * strength);
+                canvasContext.fill();
+            }
+            canvasContext.restore();
+        } else if (family === 'ripples') {
+            canvasContext.save();
+            const count = 4 + variant * 2;
+            for (let i = 0; i < count; i++) {
+                const phase = (seconds * (.22 + variant * .035) + i / count) % 1;
+                const radius = 32 + phase * Math.max(WIDTH, HEIGHT) * .5;
+                canvasContext.globalAlpha = (1 - phase) * .16 * strength;
+                canvasContext.strokeStyle = i % 3 === 0 ? state.gold : state.accent;
+                canvasContext.lineWidth = 1 + (1 - phase) * 1.4;
+                canvasContext.beginPath();
+                canvasContext.ellipse(cx + Math.sin(i * 2.2) * WIDTH * .18, cy + Math.cos(i * 1.6) * HEIGHT * .16, radius, radius * .56, 0, 0, Math.PI * 2);
+                canvasContext.stroke();
+            }
+            canvasContext.restore();
+        } else if (family === 'prism') {
+            canvasContext.save();
+            const count = 7 + variant * 4;
+            for (let i = 0; i < count; i++) {
+                const x = deterministic(i + 12) * WIDTH;
+                const y = deterministic(i + 91) * HEIGHT;
+                const size = 13 + deterministic(i + 5) * (18 + variant * 7);
+                const angle = motion * .12 + deterministic(i + 48) * Math.PI;
+                canvasContext.save();
+                canvasContext.translate(x, y);
+                canvasContext.rotate(angle);
+                canvasContext.globalAlpha = (.07 + deterministic(i + 69) * .12) * strength;
+                canvasContext.strokeStyle = i % 4 === 0 ? state.gold : state.accent;
+                canvasContext.lineWidth = 1.1;
+                canvasContext.beginPath();
+                canvasContext.moveTo(0, -size);
+                canvasContext.lineTo(size * .72, size * .55);
+                canvasContext.lineTo(-size * .72, size * .55);
+                canvasContext.closePath();
+                canvasContext.stroke();
+                canvasContext.restore();
+            }
+            canvasContext.restore();
+        } else if (family === 'petals') {
+            canvasContext.save();
+            const count = 8 + variant * 4;
+            for (let i = 0; i < count; i++) {
+                const angle = i / count * Math.PI * 2 + motion * .15;
+                const orbit = Math.min(WIDTH, HEIGHT) * (.2 + .07 * Math.sin(motion * .2 + i));
+                const x = cx + Math.cos(angle) * orbit;
+                const y = cy + Math.sin(angle) * orbit * .65;
+                canvasContext.save();
+                canvasContext.translate(x, y);
+                canvasContext.rotate(angle + motion * .08);
+                canvasContext.globalAlpha = (.035 + .025 * (Math.sin(seconds + i) + 1)) * strength;
+                canvasContext.fillStyle = i % 3 === 0 ? state.gold : state.accent;
+                canvasContext.beginPath();
+                canvasContext.ellipse(0, 0, 7 + variant * 2, 20 + variant * 4, 0, 0, Math.PI * 2);
+                canvasContext.fill();
+                canvasContext.restore();
+            }
+            canvasContext.restore();
+        } else if (family === 'matrix') {
+            canvasContext.save();
+            const columns = 18 + variant * 6;
+            for (let i = 0; i < columns; i++) {
+                const x = deterministic(i + 17) * WIDTH;
+                const cell = Math.max(14, HEIGHT / 34);
+                const head = (seconds * (45 + deterministic(i + 50) * 55) + deterministic(i + 6) * HEIGHT * 2) % (HEIGHT + cell * 8);
+                const length = 3 + Math.floor(deterministic(i + 29) * (5 + variant));
+                for (let row = 0; row < length; row++) {
+                    const y = head - row * cell;
+                    if (y < 0 || y > HEIGHT) continue;
+                    canvasContext.globalAlpha = ((1 - row / length) * .14 + .025) * strength;
+                    canvasContext.fillStyle = row === 0 ? state.gold : state.accent;
+                    canvasContext.fillRect(x, y, 1.2 + variant * .35, Math.max(3, cell * .28));
+                }
+            }
+            canvasContext.restore();
+        } else if (family === 'flare') {
+            const flareX = WIDTH * (.18 + .64 * ((seconds * (.06 + variant * .018)) % 1));
+            const flareY = HEIGHT * (.24 + .5 * ((variant % 2) * .46));
+            const reach = Math.max(WIDTH, HEIGHT) * (.2 + variant * .04);
+            const flare = canvasContext.createRadialGradient(flareX, flareY, 0, flareX, flareY, reach);
+            flare.addColorStop(0, rgba(state.gold, .12 * strength));
+            flare.addColorStop(.2, rgba(state.accent, .055 * strength));
+            flare.addColorStop(1, rgba(state.accent, 0));
+            canvasContext.fillStyle = flare;
+            canvasContext.fillRect(0, 0, WIDTH, HEIGHT);
+            const streak = canvasContext.createLinearGradient(flareX - reach, flareY, flareX + reach, flareY);
+            streak.addColorStop(0, rgba(state.gold, 0));
+            streak.addColorStop(.5, rgba(state.gold, .18 * strength));
+            streak.addColorStop(1, rgba(state.gold, 0));
+            canvasContext.fillStyle = streak;
+            canvasContext.fillRect(0, flareY - 1, WIDTH, 2 + variant);
+        } else if (family === 'curtain') {
+            canvasContext.save();
+            const count = 10 + variant * 5;
+            for (let i = 0; i < count; i++) {
+                const x = (i / count * WIDTH + Math.sin(motion * .22 + i * .9) * 60 + WIDTH) % WIDTH;
+                const width = 7 + (i % 3) * 5;
+                const gradient = canvasContext.createLinearGradient(x - width, 0, x + width, 0);
+                gradient.addColorStop(0, rgba(state.accent, 0));
+                gradient.addColorStop(.5, rgba(i % 4 === 0 ? state.gold : state.accent, .09 * strength));
+                gradient.addColorStop(1, rgba(state.accent, 0));
+                canvasContext.fillStyle = gradient;
+                canvasContext.fillRect(x - width, 0, width * 2, HEIGHT);
+            }
+            canvasContext.restore();
         }
     }
 
@@ -1318,7 +1599,7 @@
         const cx = WIDTH / 2;
         const cy = centerY;
         const unit = Math.min(1, WIDTH / 1380);
-        const familyWeight = ['orbit', 'pulse', 'burst', 'mask'].includes(style.family) ? 1 : .52;
+        const familyWeight = ['orbit', 'pulse', 'burst', 'mask', 'portal', 'ripple', 'prism', 'stardust'].includes(style.family) ? 1 : .52;
         const offsetDirection = variant % 2 === 0 ? 1 : -1;
 
         canvasContext.save();
@@ -1435,6 +1716,8 @@
         const cardAlpha = easeBySetting(clamp(revealRaw / .48, 0, 1), state.logoEasing);
 
         let scale = .92 + .08 * pop;
+        let scaleX = 1;
+        let scaleY = 1;
         let rotation = 0;
         let yShift = 0;
         let xShift = 0;
@@ -1449,15 +1732,16 @@
             scale = (.76 + .24 * pop) * (1 + settle);
             glow = .34 + Math.sin(seconds * 3 + variant) * .04;
         } else if (family === 'spin') {
-            const direction = variant === 3 ? -1 : 1;
-            const turns = [.5, .25, 1, .75, 1.5][variant];
+            const variantIndex = variant % 5;
+            const direction = variantIndex === 3 ? -1 : 1;
+            const turns = [.5, .25, 1, .75, 1.5][variantIndex];
             rotation = direction * (1 - reveal) * Math.PI * 2 * turns;
             scale = .86 + .14 * pop;
         } else if (family === 'zoom') {
-            scale = (.24 + .76 * pop) * (variant === 1 ? 1 + Math.sin(revealRaw * Math.PI) * .06 : 1);
+            scale = (.24 + .76 * pop) * (variant % 5 === 1 ? 1 + Math.sin(revealRaw * Math.PI) * .06 : 1);
             glow = .42;
         } else if (family === 'rise') {
-            const direction = variant === 2 ? -1 : 1;
+            const direction = variant % 5 === 2 ? -1 : 1;
             yShift = direction * (1 - pop) * (90 + variant * 18) * unit;
             scale = .91 + .09 * pop;
         } else if (family === 'scan') {
@@ -1476,6 +1760,52 @@
             yShift = Math.cos(seconds * (31 + variant * 3)) * strength * .35;
             scale = .95 + .05 * pop;
             glow = .3;
+        } else if (family === 'elastic') {
+            scale = .68 + .32 * (state.logoEasing === 'spring' ? pop : easeOutBack(revealRaw));
+            rotation = Math.sin((1 - revealRaw) * Math.PI * 2 + variant * .4) * .11 * (1 - revealRaw);
+            glow = .36;
+        } else if (family === 'flip') {
+            scaleX = Math.max(.055, Math.abs(Math.sin(revealRaw * Math.PI / 2)));
+            scaleY = .9 + .1 * pop;
+            rotation = (1 - reveal) * (variant % 2 ? -.18 : .18);
+            glow = .24;
+        } else if (family === 'whip') {
+            const direction = variant % 2 ? -1 : 1;
+            xShift = -direction * (1 - pop) * Math.min(460, WIDTH * .24);
+            scale = .94 + .06 * pop;
+            glow = .32;
+        } else if (family === 'portal') {
+            scale = .2 + .8 * pop;
+            rotation = (1 - reveal) * (variant % 2 ? -.16 : .16);
+            glow = .48;
+        } else if (family === 'prism') {
+            scale = .72 + .28 * pop;
+            rotation = (1 - reveal) * (variant % 2 ? -.32 : .32);
+            yShift = (1 - pop) * -18 * unit;
+            glow = .48;
+        } else if (family === 'float') {
+            scale = .88 + .12 * pop;
+            yShift = (1 - pop) * 42 * unit + Math.sin(seconds * 1.45 + variant) * 8 * reveal * unit;
+            rotation = Math.sin(seconds * .8 + variant) * .012 * reveal;
+            glow = .25;
+        } else if (family === 'ripple') {
+            scale = .64 + .36 * pop;
+            rotation = (1 - reveal) * .1 * (variant % 2 ? -1 : 1);
+            glow = .34;
+        } else if (family === 'spotlight') {
+            scale = .84 + .16 * pop;
+            yShift = (1 - pop) * 30 * unit;
+            glow = .62;
+        } else if (family === 'shatter') {
+            scale = .42 + .58 * pop;
+            rotation = (1 - reveal) * (variant % 2 ? .23 : -.23);
+            xShift = Math.sin(seconds * 23 + variant) * (1 - reveal) * 13 * unit;
+            glow = .38;
+        } else if (family === 'stardust') {
+            scale = .72 + .28 * pop;
+            yShift = (1 - pop) * 28 * unit;
+            rotation = (1 - reveal) * .08;
+            glow = .4;
         }
 
         const keyedScale = evaluateKeyframes('logo', 'scale', seconds, 100) / 100;
@@ -1554,7 +1884,7 @@
             canvasContext.save();
             canvasContext.translate(cx + xShift, cy + yShift);
             canvasContext.rotate(rotation);
-            canvasContext.scale(scale, scale);
+            canvasContext.scale(scale * scaleX, scale * scaleY);
             canvasContext.shadowColor = rgba(state.accent, glow);
             canvasContext.shadowBlur = (family === 'zoom' || family === 'pulse' ? 35 : 20) * unit;
             canvasContext.globalAlpha = logoAlpha * (family === 'sweep' || family === 'scan' || family === 'mask' ? 1 : reveal);
@@ -1578,7 +1908,7 @@
             }
             canvasContext.restore();
 
-            if (family === 'sweep' || family === 'scan') drawBeam(cx + xShift, cy + yShift, imgWidth, imgHeight, reveal, variant, cardAlpha);
+            if (['sweep', 'scan', 'prism', 'spotlight'].includes(family)) drawBeam(cx + xShift, cy + yShift, imgWidth, imgHeight, reveal, variant, cardAlpha);
             if (family === 'glitch' && revealRaw < .75) {
                 canvasContext.save();
                 canvasContext.globalAlpha = logoAlpha * (1 - reveal) * .2;
@@ -1604,6 +1934,34 @@
             canvasContext.strokeStyle = state.accent;
             canvasContext.lineWidth = 2;
             canvasContext.stroke();
+            canvasContext.restore();
+        } else if (['portal', 'ripple'].includes(family) && revealRaw > .18) {
+            canvasContext.save();
+            const ringCount = family === 'portal' ? 2 : 3;
+            for (let ring = 0; ring < ringCount; ring++) {
+                const phase = (seconds * (family === 'portal' ? .42 : .3) + ring / ringCount + variant * .04) % 1;
+                canvasContext.globalAlpha = logoAlpha * (1 - phase) * (family === 'portal' ? .28 : .2);
+                canvasContext.beginPath();
+                canvasContext.ellipse(cx, cy, cardSize * (.52 + phase * .62), cardSize * (.52 + phase * .62) * .7, 0, 0, Math.PI * 2);
+                canvasContext.strokeStyle = ring % 2 ? state.gold : state.accent;
+                canvasContext.lineWidth = ring === 0 ? 2 : 1;
+                canvasContext.stroke();
+            }
+            canvasContext.restore();
+        } else if (family === 'shatter' && revealRaw < .88) {
+            canvasContext.save();
+            canvasContext.globalAlpha = logoAlpha * (1 - reveal) * .22;
+            canvasContext.strokeStyle = state.gold;
+            canvasContext.lineWidth = 1;
+            for (let ray = 0; ray < 9; ray++) {
+                const angle = ray / 9 * Math.PI * 2 + variant * .19;
+                const inner = cardSize * (.48 + reveal * .13);
+                const outer = cardSize * (.67 + reveal * .22);
+                canvasContext.beginPath();
+                canvasContext.moveTo(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner);
+                canvasContext.lineTo(cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer);
+                canvasContext.stroke();
+            }
             canvasContext.restore();
         }
         canvasContext.restore();
@@ -1647,7 +2005,7 @@
 
     function drawSparkles(progress, seconds, centerY) {
         const style = state.motionStyle || MOTION_STYLES[0];
-        const strength = style.family === 'burst' ? 1.6 : (style.family === 'glitch' ? .7 : 1);
+        const strength = ['burst', 'shatter', 'stardust'].includes(style.family) ? 1.55 : (style.family === 'glitch' ? .7 : 1);
         const start = easeBySetting(clamp((seconds - state.logoEntryTime - state.logoEntryDuration * .35) / .7, 0, 1), state.logoEasing);
         const exitVisibility = state.logoExitEffect === 'none' ? 1 : 1 - logoExitPhase(seconds);
         if (start * exitVisibility <= .001) return;
@@ -1993,23 +2351,36 @@
         });
     }
 
-    function drawFrame(seconds) {
+    function drawFrame(seconds, destinationCanvas = null, destinationContext = null) {
         const time = clamp(seconds, 0, state.duration);
         const progress = state.duration > 0 ? time / state.duration : 0;
-        const scaleX = canvas.width / WIDTH;
-        const scaleY = canvas.height / HEIGHT;
-        canvasContext.setTransform(1, 0, 0, 1, 0, 0);
-        canvasContext.clearRect(0, 0, canvas.width, canvas.height);
-        canvasContext.setTransform(scaleX, 0, 0, scaleY, 0, 0);
-        canvasContext.lineCap = 'round';
-        canvasContext.lineJoin = 'round';
-        drawBackground(progress, time);
-        const logoY = HEIGHT * .357;
-        drawRings(progress, time, logoY);
-        drawLogo(progress, time, logoY);
-        drawLogoCopies(time, logoY);
-        drawSparkles(progress, time, logoY);
-        drawLockup(time);
+        const renderingForExport = !destinationCanvas && state.exporting && !!exportRenderContext;
+        const targetCanvas = destinationCanvas || (renderingForExport ? exportRenderCanvas : canvas);
+        canvasContext = destinationContext || (renderingForExport ? exportRenderContext : ctx);
+        const scaleX = targetCanvas.width / WIDTH;
+        const scaleY = targetCanvas.height / HEIGHT;
+        try {
+            canvasContext.setTransform(1, 0, 0, 1, 0, 0);
+            canvasContext.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+            canvasContext.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+            canvasContext.lineCap = 'round';
+            canvasContext.lineJoin = 'round';
+            drawBackground(progress, time);
+            const logoY = HEIGHT * .357;
+            drawRings(progress, time, logoY);
+            drawLogo(progress, time, logoY);
+            drawLogoCopies(time, logoY);
+            drawSparkles(progress, time, logoY);
+            drawLockup(time);
+        } finally {
+            if (renderingForExport) {
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(exportRenderCanvas, 0, 0, canvas.width, canvas.height);
+            }
+            canvasContext = ctx;
+        }
     }
 
     function formatClock(seconds) {
@@ -2020,7 +2391,7 @@
     }
 
     function currentTime(now) {
-        if (state.exporting) return clamp(state.exportFrameIndex / Math.max(1, state.fps), 0, state.duration);
+        if (state.exporting) return clamp(Math.max(0, now - state.exportStart) / 1000, 0, state.duration);
         if (!state.playing) return state.offset;
         const elapsed = Math.max(0, now - state.startedAt) / 1000;
         return (state.offset + elapsed) % state.duration;
@@ -2662,15 +3033,26 @@
 
     function frameLoop(now) {
         const time = currentTime(now);
-        if (!state.exporting) {
+        if (!state.exporting && !state.exportPreparing) {
             drawFrame(time);
-        } else if (el.renderProgress && state.exportTotalFrames > 0) {
-            const percent = Math.round(Math.min(1, state.exportFrameIndex / state.exportTotalFrames) * 100);
-            el.renderProgress.textContent = `${percent.toLocaleString('fa-IR')}٪ · ${state.exportFrameIndex.toLocaleString('fa-IR')} از ${state.exportTotalFrames.toLocaleString('fa-IR')} فریم`;
+            updateTransport(time);
+            updateTimelinePlayhead(time);
+        } else if (now - state.exportUiLastUpdate >= 120) {
+            if (el.renderProgress && state.exportTotalFrames > 0) {
+                const progress = clamp(time / Math.max(.001, state.duration), 0, 1);
+                const percent = Math.round(progress * 100);
+                const currentFrame = Math.min(state.exportTotalFrames, Math.floor(progress * state.exportTotalFrames));
+                const dropped = state.exportDroppedFrames ? ` · ${state.exportDroppedFrames.toLocaleString('fa-IR')} فریم سبک‌سازی شد` : '';
+                el.renderProgress.textContent = `${percent.toLocaleString('fa-IR')}٪ · ${currentFrame.toLocaleString('fa-IR')} از ${state.exportTotalFrames.toLocaleString('fa-IR')} فریم${dropped}`;
+            }
+            updateTransport(time);
+            updateTimelinePlayhead(time);
+            state.exportUiLastUpdate = now;
         }
-        updateTransport(time);
-        updateTimelinePlayhead(time);
-        syncAudioPlayback(time, false);
+        if (!state.exporting || now - state.exportAudioLastSync >= 180) {
+            syncAudioPlayback(time, false);
+            if (state.exporting) state.exportAudioLastSync = now;
+        }
         window.requestAnimationFrame(frameLoop);
     }
 
@@ -2789,10 +3171,11 @@
         COLOR_PALETTES.forEach((palette, index) => {
             const button = document.createElement('button');
             button.type = 'button';
-            button.className = 'lm-swatch' + (index === 0 ? ' is-selected' : '');
+            const selected = palette.accent === state.accent && palette.gold === state.gold;
+            button.className = 'lm-swatch' + (selected ? ' is-selected' : '');
             button.title = palette.name;
             button.setAttribute('aria-label', palette.name);
-            button.setAttribute('aria-pressed', index === 0 ? 'true' : 'false');
+            button.setAttribute('aria-pressed', selected ? 'true' : 'false');
             const strip = document.createElement('i');
             strip.style.setProperty('--swatch-a', palette.accent);
             strip.style.setProperty('--swatch-b', palette.gold);
@@ -2819,11 +3202,12 @@
         BACKGROUND_COLORS.forEach((palette, index) => {
             const button = document.createElement('button');
             button.type = 'button';
-            button.className = 'lm-bg-swatch' + (index === 0 ? ' is-selected' : '');
+            const selected = palette.value === state.background;
+            button.className = 'lm-bg-swatch' + (selected ? ' is-selected' : '');
             button.style.background = `linear-gradient(145deg,${mixColor(palette.value, '#ffffff', .1)},${palette.value})`;
             button.title = palette.name;
             button.setAttribute('aria-label', `زمینه ${palette.name}`);
-            button.setAttribute('aria-pressed', index === 0 ? 'true' : 'false');
+            button.setAttribute('aria-pressed', selected ? 'true' : 'false');
             const label = document.createElement('span');
             label.textContent = palette.name;
             button.appendChild(label);
@@ -2838,6 +3222,93 @@
             });
             el.backgroundPalettes.appendChild(button);
         });
+    }
+
+    function renderReelPresets() {
+        if (!el.reelPresetGrid) return;
+        el.reelPresetGrid.replaceChildren();
+        REEL_PRESETS.forEach(preset => {
+            const palette = COLOR_PALETTES.find(item => item.name === preset.palette) || COLOR_PALETTES[0];
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'lm-reel-preset';
+            button.style.setProperty('--preset-accent', palette.accent);
+            button.style.setProperty('--preset-gold', palette.gold);
+            button.setAttribute('aria-label', `${preset.name}؛ ${preset.badge}`);
+            const mark = document.createElement('span');
+            mark.className = 'lm-reel-preset-mark';
+            mark.textContent = preset.aspect;
+            const copy = document.createElement('span');
+            copy.className = 'lm-reel-preset-copy';
+            const title = document.createElement('strong');
+            title.textContent = preset.name;
+            const subtitle = document.createElement('small');
+            subtitle.textContent = preset.badge;
+            copy.append(title, subtitle);
+            const arrow = document.createElement('span');
+            arrow.className = 'lm-reel-preset-arrow';
+            arrow.textContent = '↗';
+            button.append(mark, copy, arrow);
+            button.addEventListener('click', () => applyReelPreset(preset));
+            el.reelPresetGrid.appendChild(button);
+        });
+    }
+
+    function applyReelPreset(preset) {
+        const motion = MOTION_STYLES.find(style => style.id === preset.motion);
+        const backgroundAnimation = BACKGROUND_ANIMATIONS.find(animation => animation.id === preset.backgroundAnimation);
+        const palette = COLOR_PALETTES.find(item => item.name === preset.palette);
+        if (!motion || !backgroundAnimation || !palette) {
+            showToast('یکی از اجزای این قالب در دسترس نیست.', 'warning');
+            return;
+        }
+        state.aspect = preset.aspect;
+        el.aspect.value = preset.aspect;
+        el.duration.value = String(preset.duration);
+        state.motionStyle = motion;
+        state.backgroundAnimation = backgroundAnimation;
+        state.accent = palette.accent;
+        state.gold = palette.gold;
+        state.background = preset.background;
+        state.backgroundIntensity = preset.backgroundIntensity;
+        state.backgroundSpeed = preset.backgroundSpeed;
+        state.motionIntensity = preset.motionIntensity;
+        state.logoScale = preset.logoScale;
+        state.logoEasing = preset.easing;
+        state.logoExitEffect = 'none';
+        state.logoExitAuto = true;
+        el.logoScale.value = String(Math.round(preset.logoScale * 100));
+        el.logoScaleValue.textContent = `${Number(el.logoScale.value).toLocaleString('fa-IR')}٪`;
+        el.logoEasing.value = preset.easing;
+        el.logoExitEffect.value = 'none';
+        el.motionIntensity.value = String(Math.round(preset.motionIntensity * 100));
+        el.motionIntensityValue.textContent = `${Number(el.motionIntensity.value).toLocaleString('fa-IR')}٪`;
+        el.backgroundIntensity.value = String(Math.round(preset.backgroundIntensity * 100));
+        el.backgroundIntensityValue.textContent = `${Number(el.backgroundIntensity.value).toLocaleString('fa-IR')}٪`;
+        el.backgroundSpeed.value = String(Math.round(preset.backgroundSpeed * 100));
+        el.backgroundSpeedValue.textContent = `${preset.backgroundSpeed.toLocaleString('fa-IR', { maximumFractionDigits: 2 })}×`;
+        el.accentColor.value = palette.accent;
+        el.goldColor.value = palette.gold;
+        el.backgroundColor.value = preset.background;
+        el.motionSearch.value = '';
+        el.backgroundSearch.value = '';
+        allTextItems().forEach(item => {
+            const style = styleForText(item.key);
+            style.enterEffect = preset.textEnter;
+            style.exitEffect = preset.textExit;
+            style.easing = preset.easing;
+        });
+        setDuration(preset.duration);
+        updateCanvasResolution();
+        el.selectedMotion.textContent = motion.name;
+        document.getElementById('selectedBackgroundName').textContent = backgroundAnimation.name;
+        renderPalettes();
+        renderBackgroundPalettes();
+        renderMotionStyles();
+        renderBackgroundAnimations();
+        syncTextSettingsControls();
+        drawFrame(currentTime(performance.now()));
+        showToast(`قالب «${preset.name}» اعمال شد؛ حالا متن، لوگو و صدا را شخصی‌سازی کنید.`);
     }
 
     const MOTION_CATEGORIES = [...new Set(MOTION_STYLES.map(style => style.category))];
@@ -3077,6 +3548,14 @@
         state.exportStopRequested = false;
         state.exportFrameIndex = 0;
         state.exportTotalFrames = 0;
+        state.exportLastFrameIndex = -1;
+        state.exportDroppedFrames = 0;
+        state.exportRenderScale = 1;
+        state.exportRenderAverage = 0;
+        state.exportSlowFrameStreak = 0;
+        state.exportUiLastUpdate = 0;
+        state.exportAudioLastSync = 0;
+        state.exportStart = 0;
         state.exportMimeType = '';
         state.frameTrack = null;
         state.manualFrameCapture = false;
@@ -3123,7 +3602,9 @@
         state.lastVideoUrl = url;
         el.videoDownloadLink.href = url;
         el.videoDownloadLink.download = fileName;
-        el.videoResultMeta.textContent = `${fileName} · ${(blob.size / 1024 / 1024).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} مگابایت · ${state.fps} fps`;
+        const droppedFrameNote = state.exportDroppedFrames ? ` · ${state.exportDroppedFrames.toLocaleString('fa-IR')} فریم برای حفظ مدت کلیپ سبک‌سازی شد` : '';
+        const adaptiveRenderNote = state.exportRenderScale < .995 ? ` · رندر تطبیقی ${Math.round(state.exportRenderScale * 100).toLocaleString('fa-IR')}٪` : '';
+        el.videoResultMeta.textContent = `${fileName} · ${state.duration.toLocaleString('fa-IR')} ثانیه · ${(blob.size / 1024 / 1024).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} مگابایت · ${state.fps} fps${droppedFrameNote}${adaptiveRenderNote}`;
         el.videoResult.hidden = false;
         try {
             const autoDownload = document.createElement('a');
@@ -3200,35 +3681,59 @@
 
     function processExportFrame() {
         if (!state.exporting || state.exportStopRequested) return;
-        const frameIndex = state.exportFrameIndex;
-        if (frameIndex >= state.exportTotalFrames) {
+        const now = performance.now();
+        const elapsed = Math.max(0, (now - state.exportStart) / 1000);
+        if (elapsed >= state.duration) {
+            try {
+                if (state.audioTracks.length) syncAudioPlayback(state.duration, true);
+                state.exportFrameIndex = state.exportTotalFrames;
+                if (state.manualFrameCapture && state.frameTrack) state.frameTrack.requestFrame();
+            } catch (error) {
+                finishExport(error);
+                return;
+            }
             state.exportStopRequested = true;
             state.exportTimer = window.setTimeout(() => {
-                try { if (state.recorder && state.recorder.state !== 'inactive') state.recorder.stop(); }
-                catch (error) { finishExport(error); }
-            }, Math.max(1, Math.round(1000 / state.fps)));
+                try {
+                    if (state.recorder && state.recorder.state !== 'inactive') state.recorder.stop();
+                    else if (state.exporting) finishExport(null);
+                } catch (error) { finishExport(error); }
+            }, Math.max(20, Math.ceil(1000 / Math.max(1, state.fps))));
             return;
         }
-        try {
-            const frameTime = Math.min(state.duration, frameIndex / state.fps);
-            if (state.audioTracks.length) syncAudioPlayback(frameTime, frameIndex === 0);
-            drawFrame(frameTime);
-            if (state.manualFrameCapture && state.frameTrack) state.frameTrack.requestFrame();
-        } catch (error) {
-            finishExport(error);
-            return;
+
+        const frameIndex = Math.min(state.exportTotalFrames - 1, Math.floor(elapsed * state.fps));
+        if (frameIndex > state.exportLastFrameIndex) {
+            try {
+                if (state.exportLastFrameIndex >= 0) state.exportDroppedFrames += Math.max(0, frameIndex - state.exportLastFrameIndex - 1);
+                const frameTime = Math.min(state.duration, frameIndex / state.fps);
+                if (state.audioTracks.length) syncAudioPlayback(frameTime, frameIndex === 0);
+                const renderStartedAt = performance.now();
+                drawFrame(frameTime);
+                const renderDuration = performance.now() - renderStartedAt;
+                state.exportRenderAverage = state.exportRenderAverage ? state.exportRenderAverage * .78 + renderDuration * .22 : renderDuration;
+                if (state.exportRenderAverage > (1000 / Math.max(1, state.fps)) * 1.35) state.exportSlowFrameStreak += 1;
+                else state.exportSlowFrameStreak = Math.max(0, state.exportSlowFrameStreak - 1);
+                const minScale = minimumExportRenderScale();
+                if (state.exportSlowFrameStreak >= 3 && state.exportRenderScale > minScale + .025) {
+                    resizeExportRenderCanvas(Math.max(minScale, state.exportRenderScale * .82));
+                    state.exportSlowFrameStreak = 0;
+                    showToast('برای حفظ زمان دقیق کلیپ، وضوح داخلی رندر با توان دستگاه تطبیق داده شد.', 'warning');
+                }
+                if (state.manualFrameCapture && state.frameTrack) state.frameTrack.requestFrame();
+                state.exportLastFrameIndex = frameIndex;
+                state.exportFrameIndex = Math.min(state.exportTotalFrames, frameIndex + 1);
+            } catch (error) {
+                finishExport(error);
+                return;
+            }
         }
-        state.exportFrameIndex += 1;
-        const frameDelay = Math.max(1, Math.round(1000 / state.fps));
-        if (state.exportFrameIndex >= state.exportTotalFrames) {
-            state.exportStopRequested = true;
-            state.exportTimer = window.setTimeout(() => {
-                try { if (state.recorder && state.recorder.state !== 'inactive') state.recorder.stop(); }
-                catch (error) { finishExport(error); }
-            }, frameDelay);
-        } else {
-            state.exportTimer = window.setTimeout(processExportFrame, frameDelay);
-        }
+
+        // Schedule against an absolute media-time deadline. Waiting a full frame
+        // after drawing adds render cost to every frame and makes clips minutes long.
+        const nextFrame = Math.max(0, state.exportLastFrameIndex + 1);
+        const deadline = state.exportStart + nextFrame * 1000 / Math.max(1, state.fps);
+        state.exportTimer = window.setTimeout(processExportFrame, Math.max(0, deadline - performance.now()));
     }
 
     async function startExport() {
@@ -3246,9 +3751,13 @@
             state.offset = 0;
             state.chunks = [];
             state.exportFrameIndex = 0;
-            state.exportTotalFrames = Math.max(1, Math.round(state.duration * state.fps));
+            state.exportTotalFrames = Math.max(1, Math.ceil(state.duration * state.fps));
+            state.exportLastFrameIndex = -1;
+            state.exportDroppedFrames = 0;
+            state.exportUiLastUpdate = 0;
+            state.exportAudioLastSync = 0;
             state.exportStopRequested = false;
-            updateCanvasResolution();
+            updateCanvasResolution(true);
             lockEditor(true);
             state.exportPreparing = true;
             if (el.renderProgress) el.renderProgress.textContent = 'در حال آماده‌سازی لوگوی امن…';
@@ -3257,13 +3766,12 @@
             state.exportOriginalLogo = state.logo;
             state.exportLogoUrl = cleanLogo.objectUrl;
             state.logo = cleanLogo.image;
-            canvas.width = canvas.width;
+            state.exportPreparing = false;
+            state.exportStart = performance.now();
+            state.exporting = true;
             drawFrame(0);
             assertCanvasOriginClean();
 
-            state.exportPreparing = false;
-            state.exporting = true;
-            state.exportStart = performance.now();
             state.stream = createExportStream(state.fps);
             if (state.audioTracks.length) {
                 state.audioTracks.forEach(track => ensureAudioGraph(track));
@@ -3274,6 +3782,10 @@
             const startedRecorder = startRecorderWithFallback(state.stream, recorderChoice.type);
             state.recorder = startedRecorder.recorder;
             state.exportMimeType = startedRecorder.type;
+            state.exportStart = performance.now();
+            state.exportFrameIndex = 0;
+            state.exportLastFrameIndex = -1;
+            if (state.audioTracks.length) syncAudioPlayback(0, true);
             if (startedRecorder.type !== recorderChoice.type || recorderChoice.fallback) {
                 showToast('کدک درخواستی در دسترس نبود؛ از فرمت سازگار جایگزین استفاده می‌شود.', 'warning');
             }
@@ -3281,7 +3793,7 @@
                 if (state.recorder && state.recorder.state !== 'inactive') {
                     try { state.recorder.stop(); } catch (error) { finishExport(error); }
                 }
-            }, state.duration * 10000 + 30000);
+            }, state.duration * 3000 + 15000);
             state.exportTimer = window.setTimeout(processExportFrame, 0);
         } catch (error) {
             console.error('Unable to initialize logo-motion recording:', error);
@@ -4161,9 +4673,16 @@
     }
 
     function downloadFrame() {
-        if (state.exporting) return;
-        drawFrame(currentTime(performance.now()));
-        canvas.toBlob(blob => {
+        if (state.exporting || state.exportPreparing) return;
+        const [width, height] = outputSizeForSettings();
+        const frameCanvas = document.createElement('canvas');
+        frameCanvas.width = width;
+        frameCanvas.height = height;
+        const frameContext = frameCanvas.getContext('2d', { alpha: false });
+        if (!frameContext) { showToast('ساخت فریم با وضوح انتخابی ممکن نشد.', 'error'); return; }
+        try { drawFrame(currentTime(performance.now()), frameCanvas, frameContext); }
+        catch (error) { showToast('رسم فریم برای PNG انجام نشد.', 'error'); return; }
+        frameCanvas.toBlob(blob => {
             if (!blob) { showToast('ذخیره‌ی فریم انجام نشد.', 'error'); return; }
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -4173,7 +4692,7 @@
             link.click();
             link.remove();
             window.setTimeout(() => URL.revokeObjectURL(url), 5000);
-            showToast('فریم فعلی به‌صورت PNG ذخیره شد.');
+            showToast(`فریم PNG با ابعاد ${formatNumber(width)} × ${formatNumber(height)} آماده شد.`);
         }, 'image/png');
     }
 
@@ -4423,6 +4942,7 @@
 
     renderPalettes();
     renderBackgroundPalettes();
+    renderReelPresets();
     updateCategories();
     renderMotionStyles();
     renderBackgroundAnimations();
