@@ -294,6 +294,9 @@
         logoLoadId: 0,
         objectUrl: null,
         lastVideoUrl: null,
+        exportPreparing: false,
+        exportOriginalLogo: null,
+        exportLogoUrl: null,
         toastTimer: 0
     };
 
@@ -2179,16 +2182,26 @@
 
     function getSvgExtension(name) { return /\.svg$/i.test(name || ''); }
 
+    function hasUnsafeSvgUrl(value) {
+        const urlPattern = /url\(\s*([^)]*)\s*\)/gi;
+        let match;
+        while ((match = urlPattern.exec(String(value || ''))) !== null) {
+            const reference = match[1].trim().replace(/^(["'])(.*)\1$/, '$2').trim();
+            if (!reference.startsWith('#')) return true;
+        }
+        return false;
+    }
+
     function sanitizeSvg(source) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(source, 'image/svg+xml');
         if (doc.querySelector('parsererror') || !doc.documentElement || doc.documentElement.localName !== 'svg') throw new Error('فایل SVG معتبر نیست.');
         Array.from(doc.documentElement.querySelectorAll('*')).forEach(node => {
             const tag = (node.localName || '').toLowerCase();
-            if (['script', 'foreignobject', 'iframe', 'object', 'embed', 'audio', 'video'].includes(tag)) node.remove();
+            if (['script', 'foreignobject', 'iframe', 'object', 'embed', 'audio', 'video', 'image', 'feimage'].includes(tag)) node.remove();
         });
         doc.querySelectorAll('style').forEach(node => {
-            if (/@import|url\(\s*["']?(?:https?:|\/\/|javascript:)/i.test(node.textContent || '')) node.remove();
+            if (/@import\b/i.test(node.textContent || '') || hasUnsafeSvgUrl(node.textContent || '')) node.remove();
         });
         const allNodes = [doc.documentElement, ...doc.documentElement.querySelectorAll('*')];
         allNodes.forEach(node => {
@@ -2203,7 +2216,7 @@
                     if (value && !value.startsWith('#')) node.removeAttribute(attribute.name);
                     return;
                 }
-                if (/javascript:|data:text\/html/i.test(value) || /url\(\s*["']?(?:https?:|\/\/|javascript:)/i.test(value)) node.removeAttribute(attribute.name);
+                if (/javascript:|data:text\/html/i.test(value) || hasUnsafeSvgUrl(value)) node.removeAttribute(attribute.name);
             });
         });
         return new XMLSerializer().serializeToString(doc.documentElement);
@@ -2212,6 +2225,7 @@
     function setLogoSource(source, fileName, objectUrl) {
         const loadId = ++state.logoLoadId;
         const candidate = new Image();
+        candidate.crossOrigin = 'anonymous';
         candidate.onload = function () {
             if (loadId !== state.logoLoadId) {
                 if (objectUrl) URL.revokeObjectURL(objectUrl);
@@ -2233,6 +2247,40 @@
             if (loadId === state.logoLoadId) showToast('بارگذاری لوگو انجام نشد؛ فرمت فایل را بررسی کنید.', 'error');
         };
         candidate.src = source;
+    }
+
+    async function createCleanLogoForExport() {
+        const source = state.objectUrl || DEFAULT_LOGO;
+        let response;
+        try { response = await fetch(source, { cache: 'no-store' }); }
+        catch (error) { throw new Error('لوگو از مبدأ امن خوانده نشد؛ یک فایل لوگوی محلی بارگذاری کنید یا لوگوی پیش‌فرض را بازنشانی کنید.'); }
+        if (!response.ok) throw new Error(`لوگوی فعلی از سرور خوانده نشد (HTTP ${response.status}).`);
+        let blob = await response.blob();
+        if (!blob.size || blob.size > MAX_LOGO_BYTES) throw new Error('حجم لوگو برای خروجی معتبر نیست.');
+        if (blob.type === 'image/svg+xml' || getSvgExtension(source)) {
+            blob = new Blob([sanitizeSvg(await blob.text())], { type: 'image/svg+xml' });
+        }
+        const objectUrl = URL.createObjectURL(blob);
+        const image = new Image();
+        try {
+            await new Promise((resolve, reject) => {
+                image.onload = resolve;
+                image.onerror = () => reject(new Error('نسخه‌ی امن لوگو در مرورگر خوانده نشد.'));
+                image.src = objectUrl;
+            });
+            if (!image.naturalWidth || !image.naturalHeight) throw new Error('ابعاد لوگو برای خروجی معتبر نیست.');
+            return { image, objectUrl };
+        } catch (error) {
+            URL.revokeObjectURL(objectUrl);
+            throw error;
+        }
+    }
+
+    function assertCanvasOriginClean() {
+        try { canvasContext.getImageData(0, 0, 1, 1); }
+        catch (error) {
+            throw new Error('پیش‌نمایش هنوز تصویر خارج از دامنه دارد؛ لوگوی محلی را دوباره بارگذاری یا بازنشانی کنید.');
+        }
     }
 
     async function handleLogoFile(file) {
@@ -2345,6 +2393,7 @@
         window.clearTimeout(state.fallbackTimer);
         window.clearTimeout(state.exportTimer);
         state.exporting = false;
+        state.exportPreparing = false;
         state.exportStopRequested = false;
         state.exportFrameIndex = 0;
         state.exportTotalFrames = 0;
@@ -2353,6 +2402,12 @@
         state.manualFrameCapture = false;
         state.recorder = null;
         stopTracks();
+        if (state.exportLogoUrl) {
+            state.logo = state.exportOriginalLogo;
+            URL.revokeObjectURL(state.exportLogoUrl);
+        }
+        state.exportOriginalLogo = null;
+        state.exportLogoUrl = null;
         lockEditor(false);
         if (el.renderProgress) el.renderProgress.textContent = '۰٪ · این پنجره را باز نگه دارید';
         state.playing = state.restorePlaying;
@@ -2496,8 +2551,8 @@
         }
     }
 
-    function startExport() {
-        if (state.exporting) return;
+    async function startExport() {
+        if (state.exporting || state.exportPreparing) return;
         const recorderChoice = chooseRecorderType();
         if (!recorderChoice.type) {
             const name = state.format === 'mp4' ? 'MP4' : 'WebM';
@@ -2514,7 +2569,19 @@
             state.exportTotalFrames = Math.max(1, Math.round(state.duration * state.fps));
             state.exportStopRequested = false;
             updateCanvasResolution();
+            lockEditor(true);
+            state.exportPreparing = true;
+            if (el.renderProgress) el.renderProgress.textContent = 'در حال آماده‌سازی لوگوی امن…';
+
+            const cleanLogo = await createCleanLogoForExport();
+            state.exportOriginalLogo = state.logo;
+            state.exportLogoUrl = cleanLogo.objectUrl;
+            state.logo = cleanLogo.image;
+            canvas.width = canvas.width;
             drawFrame(0);
+            assertCanvasOriginClean();
+
+            state.exportPreparing = false;
             state.exporting = true;
             state.exportStart = performance.now();
             state.stream = createExportStream(state.fps);
@@ -2523,7 +2590,6 @@
                 syncAudioPlayback(0, true);
                 addAudioTrack(state.stream);
             }
-            lockEditor(true);
             if (el.renderProgress) el.renderProgress.textContent = '۰٪ · آماده‌سازی فریم‌ها…';
             const startedRecorder = startRecorderWithFallback(state.stream, recorderChoice.type);
             state.recorder = startedRecorder.recorder;
@@ -2537,12 +2603,11 @@
                 }
             }, state.duration * 10000 + 30000);
             state.exportTimer = window.setTimeout(processExportFrame, 0);
-            if (recorderChoice.fallback) showToast('کدک درخواستی در دسترس نبود؛ کدک سازگار جایگزین شد.', 'warning');
         } catch (error) {
             console.error('Unable to initialize logo-motion recording:', error);
             restoreAfterExport();
             const detail = error && error.message ? ` (${String(error.message).slice(0, 120)})` : '';
-            showToast(`شروع ضبط ویدئو ممکن نشد${detail}؛ فرمت WebM یا وضوح پایین‌تر را امتحان کنید.`, 'error');
+            showToast(`شروع ضبط ویدئو ممکن نشد${detail}؛ لوگوی محلی یا فرمت WebM را امتحان کنید.`, 'error');
         }
     }
 
@@ -3310,6 +3375,7 @@
     window.addEventListener('resize', updateStageLayout);
     window.addEventListener('beforeunload', () => {
         if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
+        if (state.exportLogoUrl) URL.revokeObjectURL(state.exportLogoUrl);
         if (state.lastVideoUrl) URL.revokeObjectURL(state.lastVideoUrl);
         if (state.audioContext && state.audioContext.state !== 'closed') state.audioContext.close().catch(() => {});
         state.customFonts.forEach(font => {
