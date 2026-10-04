@@ -102,10 +102,19 @@
         previewGuides: document.getElementById('previewGuides'),
         safeGuides: document.getElementById('safeGuides'),
         audioFile: document.getElementById('audioFile'),
+        voiceFile: document.getElementById('voiceFile'),
         audioUploadButton: document.getElementById('audioUploadButton'),
+        voiceUploadButton: document.getElementById('voiceUploadButton'),
         timelineAddAudio: document.getElementById('timelineAddAudio'),
-        timelineAudioActionLabel: document.getElementById('timelineAudioActionLabel'),
+        timelineAddVoice: document.getElementById('timelineAddVoice'),
+        timelineAddText: document.getElementById('timelineAddText'),
+        timelineAddLogo: document.getElementById('timelineAddLogo'),
         removeAudio: document.getElementById('removeAudio'),
+        audioTrackList: document.getElementById('audioTrackList'),
+        selectedAudioControls: document.getElementById('selectedAudioControls'),
+        addTextLayer: document.getElementById('addTextLayer'),
+        addLogoLayer: document.getElementById('addLogoLayer'),
+        logoLayerList: document.getElementById('logoLayerList'),
         audioFileName: document.getElementById('audioFileName'),
         audioFileMeta: document.getElementById('audioFileMeta'),
         audioPreview: document.getElementById('audioPreview'),
@@ -229,6 +238,10 @@
         logoScale: Number(el.logoScale.value) / 100 || 1,
         englishText: el.brandEnglish.value.trim(),
         textStyles: Object.fromEntries(TEXT_ITEMS.map(item => [item.key, { ...item.defaults }])),
+        extraTextLayers: [],
+        textLayerSequence: 0,
+        logoLayers: [],
+        logoLayerSequence: 0,
         customFonts: [],
         keyframes: [],
         keyframeSequence: 0,
@@ -238,6 +251,10 @@
         audioDuration: 0,
         audioStart: 0,
         audioPeaks: [],
+        audioTracks: [],
+        audioTrackSequence: 0,
+        selectedAudioTrackId: null,
+        audioPreviewAssigned: false,
         timelinePointerDrag: null,
         timelineRenderPending: false,
         audioVolume: 1,
@@ -305,15 +322,6 @@
         toastTimer: 0
     };
 
-    const KEYFRAME_TARGETS = [
-        { key: 'logo', label: 'لوگو' },
-        { key: 'title', label: 'نام برند' },
-        { key: 'tagline', label: 'شعار' },
-        { key: 'phone', label: 'تلفن' },
-        { key: 'website', label: 'وب‌سایت' },
-        { key: 'english', label: 'متن انگلیسی' },
-        { key: 'audio', label: 'موسیقی' }
-    ];
     const LOGO_KEYFRAME_PROPERTIES = [
         { key: 'scale', label: 'مقیاس لوگو', min: 50, max: 150, step: 1, unit: '٪' },
         { key: 'opacity', label: 'شفافیت', min: 0, max: 100, step: 1, unit: '٪' },
@@ -326,10 +334,17 @@
         { key: 'yOffset', label: 'جابجایی عمودی', min: -25, max: 25, step: .5, unit: '٪' },
         { key: 'letterSpacing', label: 'فاصله‌ی حروف', min: -2, max: 18, step: .5, unit: ' px' }
     ];
+    const AUDIO_KEYFRAME_PROPERTIES = [{ key: 'volume', label: 'بلندی صدا', min: 0, max: 150, step: 1, unit: '٪' }];
+    const LOGO_LAYER_KEYFRAME_PROPERTIES = [
+        { key: 'scale', label: 'مقیاس کپی لوگو', min: 15, max: 100, step: 1, unit: '٪' },
+        { key: 'opacity', label: 'شفافیت', min: 0, max: 100, step: 1, unit: '٪' },
+        { key: 'rotation', label: 'چرخش', min: -180, max: 180, step: 1, unit: '°' },
+        { key: 'xOffset', label: 'جابجایی افقی', min: -45, max: 45, step: .5, unit: '٪' },
+        { key: 'yOffset', label: 'جابجایی عمودی', min: -35, max: 35, step: .5, unit: '٪' }
+    ];
     const KEYFRAME_PROPERTIES = Object.fromEntries([
         ['logo', LOGO_KEYFRAME_PROPERTIES],
-        ...TEXT_ITEMS.map(item => [item.key, TEXT_KEYFRAME_PROPERTIES]),
-        ['audio', [{ key: 'volume', label: 'بلندی موسیقی', min: 0, max: 150, step: 1, unit: '٪' }]]
+        ...TEXT_ITEMS.map(item => [item.key, TEXT_KEYFRAME_PROPERTIES])
     ]);
 
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -583,17 +598,118 @@
         return grid;
     }
 
+    function allTextItems() {
+        return [...TEXT_ITEMS, ...state.extraTextLayers];
+    }
+
+    function textValueForItem(item) {
+        if (!item) return '';
+        return item.valueFrom ? String(state[item.valueFrom] || '') : String(item.value || '');
+    }
+
+    function addTextLayer(sourceKey, isDuplicate) {
+        if (state.extraTextLayers.length >= 24) {
+            showToast('حداکثر ۲۴ لایه‌ی نوشته‌ی اضافه می‌توانید بسازید.', 'warning');
+            return null;
+        }
+        const source = sourceKey ? allTextItems().find(item => item.key === sourceKey) : null;
+        const templateKey = source ? (source.templateKey || source.key) : 'custom';
+        const defaults = source ? (source.defaults || styleForText(source.key)) : TEXT_ITEMS[0].defaults;
+        state.textLayerSequence += 1;
+        const key = `text-layer-${Date.now().toString(36)}-${state.textLayerSequence.toString(36)}`;
+        const siblingCount = state.extraTextLayers.filter(item => item.templateKey === templateKey).length;
+        const sourceY = source ? Number(source.defaultY) : 52;
+        const layer = {
+            key,
+            label: source ? `${source.label} · کپی ${siblingCount + 1}` : `نوشته‌ی جدید ${siblingCount + 1}`,
+            templateKey,
+            defaultY: source && ['phone', 'website'].includes(templateKey) ? sourceY : clamp(sourceY + (isDuplicate ? ((siblingCount % 2 ? -1 : 1) * 6) : 0), 8, 92),
+            rtl: source ? !!source.rtl : true,
+            icon: source && source.icon ? source.icon : (templateKey === 'phone' ? 'phone' : (templateKey === 'website' ? 'web' : '')),
+            value: source ? textValueForItem(source) : 'نوشته‌ی جدید',
+            defaults: { ...defaults }
+        };
+        state.extraTextLayers.push(layer);
+        const style = { ...styleForText(source ? source.key : 'title') };
+        if (isDuplicate && !['phone', 'website'].includes(templateKey)) {
+            style.yOffset = clamp((Number(style.yOffset) || 0) + (siblingCount % 2 ? -4 : 4), -25, 25);
+        }
+        state.textStyles[key] = style;
+        buildTextSettings();
+        const addedDetails = el.textSettings.querySelector(`[data-text-layer-key="${key}"]`);
+        if (addedDetails) { addedDetails.open = true; addedDetails.scrollIntoView({ block: 'nearest' }); }
+        updateTextTimingControls(key);
+        renderTimelineTracks();
+        drawFrame(currentTime(performance.now()));
+        showToast(source ? `لایه‌ی «${layer.label}» به‌صورت مستقل اضافه شد.` : 'لایه‌ی نوشته‌ی جدید اضافه شد.');
+        return layer;
+    }
+
+    function removeTextLayer(key) {
+        const layer = state.extraTextLayers.find(item => item.key === key);
+        if (!layer) return;
+        state.extraTextLayers = state.extraTextLayers.filter(item => item.key !== key);
+        delete state.textStyles[key];
+        state.keyframes = state.keyframes.filter(frame => frame.target !== key);
+        if (state.selectedKeyframeId && !state.keyframes.some(frame => frame.id === state.selectedKeyframeId)) state.selectedKeyframeId = null;
+        buildTextSettings();
+        updateTextTimingControls();
+        renderTimelineTracks();
+        drawFrame(currentTime(performance.now()));
+        showToast('لایه‌ی نوشته حذف شد.');
+    }
+
     function buildTextSettings() {
         el.textSettings.replaceChildren();
-        TEXT_ITEMS.forEach((item, itemIndex) => {
+        allTextItems().forEach((item, itemIndex) => {
             const details = document.createElement('details');
-            details.className = 'lm-text-settings';
+            details.dataset.textLayerKey = item.key;
+            details.className = 'lm-text-settings' + (item.templateKey ? ' is-repeatable-layer' : '');
             if (itemIndex === 0) details.open = true;
             const summary = document.createElement('summary');
             summary.textContent = item.label;
             const body = document.createElement('div');
             body.className = 'lm-text-settings-body';
             const style = styleForText(item.key);
+
+            if (item.templateKey) {
+                const contentLabel = document.createElement('label');
+                contentLabel.className = 'lm-field-label lm-layer-content-label';
+                contentLabel.textContent = 'متن این لایه';
+                const content = document.createElement('textarea');
+                content.className = 'lm-input lm-textarea lm-layer-content';
+                content.rows = 2;
+                content.maxLength = 120;
+                content.value = item.value || '';
+                content.dataset.textKey = item.key;
+                content.dataset.textSetting = 'content';
+                content.setAttribute('aria-label', `محتوای ${item.label}`);
+                body.append(contentLabel, content);
+            }
+
+            const layerActions = document.createElement('div');
+            layerActions.className = 'lm-layer-actions';
+            const duplicate = document.createElement('button');
+            duplicate.type = 'button';
+            duplicate.className = 'lm-layer-action';
+            duplicate.textContent = '⧉ تکثیر این نوشته';
+            duplicate.addEventListener('click', event => {
+                event.preventDefault();
+                addTextLayer(item.key, true);
+            });
+            layerActions.appendChild(duplicate);
+            if (item.templateKey) {
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'lm-layer-action is-remove';
+                remove.textContent = 'حذف لایه';
+                remove.addEventListener('click', event => {
+                    event.preventDefault();
+                    removeTextLayer(item.key);
+                });
+                layerActions.appendChild(remove);
+            }
+            body.appendChild(layerActions);
 
             let grid = addTextSection(body, 'حروف و ظاهر');
             const fontOptions = [...FONT_PRESETS, ...state.customFonts.map(font => [font.family, `${font.name} · شخصی`])];
@@ -602,7 +718,7 @@
             addTextRange(grid, item.key, 'fontSize', 'اندازه', 10, 120, 1, 'px');
             addTextRange(grid, item.key, 'letterSpacing', 'فاصله‌ی حروف', -2, 18, .5, 'px');
             addTextSelect(grid, item.key, 'alignment', 'چیدمان افقی', ALIGN_OPTIONS);
-            if (item.key === 'english') addTextSelect(grid, item.key, 'caseMode', 'حروف انگلیسی', [['upper', 'حروف بزرگ'], ['normal', 'بدون تغییر'], ['lower', 'حروف کوچک']]);
+            if (item.key === 'english' || item.templateKey === 'english') addTextSelect(grid, item.key, 'caseMode', 'حروف انگلیسی', [['upper', 'حروف بزرگ'], ['normal', 'بدون تغییر'], ['lower', 'حروف کوچک']]);
             addTextColorMode(grid, item.key);
             addTextCheckbox(grid, item.key, 'italic', 'حروف ایتالیک');
 
@@ -646,11 +762,16 @@
     }
 
     function syncTextSettingsControls(onlyKey) {
-        const keys = onlyKey ? [onlyKey] : TEXT_ITEMS.map(item => item.key);
+        const keys = onlyKey ? [onlyKey] : allTextItems().map(item => item.key);
         keys.forEach(key => {
             const style = styleForText(key);
             el.textSettings.querySelectorAll(`[data-text-key="${key}"][data-text-setting]`).forEach(control => {
                 const property = control.dataset.textSetting;
+                if (property === 'content') {
+                    const item = allTextItems().find(entry => entry.key === key);
+                    control.value = item ? item.value : '';
+                    return;
+                }
                 if (control.type === 'checkbox') control.checked = !!style[property];
                 else if (style[property] !== undefined) control.value = String(style[property]);
                 if (property === 'entryTime' || property === 'exitTime') control.max = String(state.duration);
@@ -666,13 +787,13 @@
     }
 
     function updateTextTimingControls(onlyKey) {
-        const items = onlyKey ? TEXT_ITEMS.filter(item => item.key === onlyKey) : TEXT_ITEMS;
+        const items = onlyKey ? allTextItems().filter(item => item.key === onlyKey) : allTextItems();
         items.forEach(item => {
             const style = styleForText(item.key);
             style.entryTime = clamp(Number(style.entryTime) || 0, 0, state.duration);
             style.entryDuration = clamp(Number(style.entryDuration) || .8, .2, Math.min(3, state.duration));
             if (style.exitAuto) {
-                const exitLead = ({ title: 1.1, tagline: 1, website: .8, phone: .95, english: .85 })[item.key] || 1;
+                const exitLead = ({ title: 1.1, tagline: 1, website: .8, phone: .95, english: .85 })[item.templateKey || item.key] || 1;
                 style.exitTime = Math.min(state.duration, Math.max(style.entryTime + style.entryDuration + .25, state.duration - exitLead));
             }
             style.exitTime = clamp(Number(style.exitTime) || 0, 0, state.duration);
@@ -686,7 +807,15 @@
         const key = control.dataset.textKey;
         const property = control.dataset.textSetting;
         const style = state.textStyles[key];
-        if (!style || !property) return;
+        if (!property) return;
+        if (property === 'content') {
+            const item = state.extraTextLayers.find(entry => entry.key === key);
+            if (!item) return;
+            item.value = control.value.slice(0, 120);
+            drawFrame(currentTime(performance.now()));
+            return;
+        }
+        if (!style) return;
         if (control.type === 'checkbox') style[property] = control.checked;
         else if (control.type === 'range') style[property] = Number(control.value);
         else style[property] = control.value;
@@ -700,6 +829,172 @@
         } else {
             syncTextSettingsControls(key);
         }
+    }
+
+    function addLogoLayer(sourceId) {
+        if (state.logoLayers.length >= 8) {
+            showToast('حداکثر ۸ کپی لوگو می‌توانید به صحنه اضافه کنید.', 'warning');
+            return null;
+        }
+        state.logoLayerSequence += 1;
+        const index = state.logoLayers.length;
+        const source = state.logoLayers.find(item => item.id === sourceId);
+        const layer = source ? {
+            ...source,
+            id: `logo-layer-${Date.now().toString(36)}-${state.logoLayerSequence.toString(36)}`,
+            label: `${source.label || 'کپی لوگو'} · کپی ${index + 1}`,
+            xOffset: clamp((Number(source.xOffset) || 0) + (index % 2 ? -6 : 6), -45, 45)
+        } : {
+            id: `logo-layer-${Date.now().toString(36)}-${state.logoLayerSequence.toString(36)}`,
+            label: `کپی لوگو ${index + 1}`,
+            scale: 42,
+            xOffset: index % 2 ? 25 : -25,
+            yOffset: 0,
+            opacity: 100,
+            entryTime: Math.min(state.duration, .5 + index * .15),
+            entryDuration: .7,
+            exitTime: Math.max(.5, state.duration - .8),
+            exitDuration: .55,
+            exitAuto: true
+        };
+        state.logoLayers.push(layer);
+        renderLogoLayerList();
+        const addedLogoLayer = el.logoLayerList.querySelector(`[data-logo-layer-id="${layer.id}"]`);
+        if (addedLogoLayer) { addedLogoLayer.open = true; addedLogoLayer.scrollIntoView({ block: 'nearest' }); }
+        renderTimelineTracks();
+        drawFrame(currentTime(performance.now()));
+        showToast('کپی لوگو با اندازه و زمان‌بندی مستقل اضافه شد.');
+        return layer;
+    }
+
+    function removeLogoLayer(id) {
+        state.logoLayers = state.logoLayers.filter(layer => layer.id !== id);
+        state.keyframes = state.keyframes.filter(frame => frame.target !== `logoLayer:${id}`);
+        if (state.selectedKeyframeId && !state.keyframes.some(frame => frame.id === state.selectedKeyframeId)) state.selectedKeyframeId = null;
+        renderLogoLayerList();
+        renderTimelineTracks();
+        drawFrame(currentTime(performance.now()));
+        showToast('لایه‌ی لوگو حذف شد.');
+    }
+
+    function renderLogoLayerList() {
+        if (!el.logoLayerList) return;
+        el.logoLayerList.replaceChildren();
+        if (!state.logoLayers.length) {
+            const empty = document.createElement('p');
+            empty.className = 'lm-layer-empty-note';
+            empty.textContent = 'هنوز کپی اضافه‌ای ندارید؛ با دکمه‌ی بالا یک لوگوی مستقل بسازید.';
+            el.logoLayerList.appendChild(empty);
+            return;
+        }
+        state.logoLayers.forEach((layer, index) => {
+            const card = document.createElement('details');
+            card.dataset.logoLayerId = layer.id;
+            card.className = 'lm-logo-layer';
+            const summary = document.createElement('summary');
+            summary.textContent = layer.label || `کپی لوگو ${index + 1}`;
+            const body = document.createElement('div');
+            body.className = 'lm-logo-layer-body';
+            const actions = document.createElement('div');
+            actions.className = 'lm-layer-actions';
+            const copy = document.createElement('button');
+            copy.type = 'button';
+            copy.className = 'lm-layer-action';
+            copy.textContent = '⧉ تکثیر لوگو';
+            copy.addEventListener('click', event => {
+                event.preventDefault();
+                addLogoLayer(layer.id);
+            });
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'lm-layer-action is-remove';
+            remove.textContent = 'حذف لایه';
+            remove.addEventListener('click', event => {
+                event.preventDefault();
+                removeLogoLayer(layer.id);
+            });
+            actions.append(copy, remove);
+            body.appendChild(actions);
+            const grid = document.createElement('div');
+            grid.className = 'lm-logo-layer-grid';
+            const controls = [
+                ['scale', 'اندازه', 15, 100, 1, '%'],
+                ['xOffset', 'جابجایی افقی', -45, 45, 1, '%'],
+                ['yOffset', 'جابجایی عمودی', -35, 35, 1, '%'],
+                ['opacity', 'شفافیت', 0, 100, 1, '%'],
+                ['entryTime', 'شروع ورود', 0, state.duration, .1, 's'],
+                ['entryDuration', 'مدت ورود', .2, 3, .1, 's'],
+                ['exitTime', 'شروع خروج', 0, state.duration, .1, 's'],
+                ['exitDuration', 'مدت خروج', .2, 3, .1, 's']
+            ];
+            controls.forEach(([property, label, min, max, step, unit]) => {
+                const wrap = document.createElement('label');
+                wrap.className = 'lm-range-control';
+                const caption = document.createElement('span');
+                caption.className = 'lm-logo-layer-range-label';
+                const title = document.createElement('span');
+                title.textContent = label;
+                const output = document.createElement('b');
+                output.textContent = `${Number(layer[property]).toLocaleString('fa-IR', { maximumFractionDigits: 1 })}${unit}`;
+                caption.append(title, output);
+                const input = document.createElement('input');
+                input.type = 'range';
+                input.min = String(min);
+                input.max = String(max);
+                input.step = String(step);
+                input.value = String(layer[property]);
+                input.dataset.logoLayerId = layer.id;
+                input.dataset.logoLayerSetting = property;
+                wrap.append(caption, input);
+                grid.appendChild(wrap);
+            });
+            const autoLabel = document.createElement('label');
+            autoLabel.className = 'lm-text-inline-check lm-logo-layer-auto';
+            const auto = document.createElement('input');
+            auto.type = 'checkbox';
+            auto.checked = !!layer.exitAuto;
+            auto.dataset.logoLayerId = layer.id;
+            auto.dataset.logoLayerSetting = 'exitAuto';
+            const autoText = document.createElement('span');
+            autoText.textContent = 'خروج خودکار نزدیک پایان کلیپ';
+            autoLabel.append(auto, autoText);
+            body.append(grid, autoLabel);
+            card.append(summary, body);
+            el.logoLayerList.appendChild(card);
+        });
+    }
+
+    function updateLogoLayerFromControl(control) {
+        const layer = state.logoLayers.find(item => item.id === control.dataset.logoLayerId);
+        const property = control.dataset.logoLayerSetting;
+        if (!layer || !property) return;
+        layer[property] = control.type === 'checkbox' ? control.checked : Number(control.value);
+        if (property === 'exitTime') {
+            layer.exitAuto = false;
+            const auto = el.logoLayerList.querySelector(`[data-logo-layer-id="${layer.id}"][data-logo-layer-setting="exitAuto"]`);
+            if (auto) auto.checked = false;
+        }
+        if (property === 'entryTime' || property === 'entryDuration' || property === 'exitAuto') {
+            layer.entryTime = clamp(Number(layer.entryTime) || 0, 0, state.duration);
+            layer.entryDuration = clamp(Number(layer.entryDuration) || .7, .2, Math.min(3, state.duration));
+            if (layer.exitAuto) layer.exitTime = Math.min(state.duration, Math.max(layer.entryTime + layer.entryDuration + .3, state.duration - .8));
+            layer.exitTime = clamp(Number(layer.exitTime) || 0, 0, state.duration);
+            layer.exitDuration = clamp(Number(layer.exitDuration) || .55, .2, Math.min(3, state.duration));
+            const exitInput = el.logoLayerList.querySelector(`[data-logo-layer-id="${layer.id}"][data-logo-layer-setting="exitTime"]`);
+            const exitAutoInput = el.logoLayerList.querySelector(`[data-logo-layer-id="${layer.id}"][data-logo-layer-setting="exitAuto"]`);
+            if (exitInput) exitInput.value = String(layer.exitTime);
+            if (exitAutoInput) exitAutoInput.checked = !!layer.exitAuto;
+            const exitOutput = exitInput && exitInput.closest('.lm-range-control') && exitInput.closest('.lm-range-control').querySelector('b');
+            if (exitOutput) exitOutput.textContent = `${Number(layer.exitTime).toLocaleString('fa-IR', { maximumFractionDigits: 1 })}s`;
+        }
+        const wrap = control.closest('.lm-range-control');
+        const output = wrap && wrap.querySelector('b');
+        if (output && control.type !== 'checkbox') {
+            const unit = property === 'scale' || property === 'opacity' || property.endsWith('Offset') ? '٪' : ' ثانیه';
+            output.textContent = `${Number(layer[property]).toLocaleString('fa-IR', { maximumFractionDigits: 1 })}${unit}`;
+        }
+        renderTimelineTracks();
+        drawFrame(currentTime(performance.now()));
     }
 
     function updateLogoTimingControls() {
@@ -727,10 +1022,20 @@
         state.duration = clamp(Number(value) || 8, 1, 30);
         state.offset = 0;
         state.startedAt = performance.now();
+        state.audioTracks.forEach(track => { track.start = clamp(Number(track.start) || 0, 0, state.duration); });
+        state.logoLayers.forEach(layer => {
+            layer.entryTime = clamp(Number(layer.entryTime) || 0, 0, state.duration);
+            layer.entryDuration = clamp(Number(layer.entryDuration) || .7, .2, Math.min(3, state.duration));
+            if (layer.exitAuto) layer.exitTime = Math.min(state.duration, Math.max(layer.entryTime + layer.entryDuration + .3, state.duration - .8));
+            layer.exitTime = clamp(Number(layer.exitTime) || 0, 0, state.duration);
+            layer.exitDuration = clamp(Number(layer.exitDuration) || .55, .2, Math.min(3, state.duration));
+        });
         updateOutputSummary();
         updateTextTimingControls();
         updateLogoTimingControls();
         updateAudioControls();
+        renderLogoLayerList();
+        renderAudioTrackList();
         renderTimelineTracksForDurationChange();
         updateTransport(0);
     }
@@ -1305,6 +1610,41 @@
         return reveal;
     }
 
+    function drawLogoCopies(seconds, baseY) {
+        if (!state.logo || !state.logo.complete || state.logo.naturalWidth <= 0) return;
+        state.logoLayers.forEach(layer => {
+            const entryRaw = clamp((seconds - layer.entryTime) / Math.max(.1, layer.entryDuration), 0, 1);
+            if (entryRaw <= 0) return;
+            const exitRaw = clamp((seconds - layer.exitTime) / Math.max(.1, layer.exitDuration), 0, 1);
+            const entry = easeBySetting(entryRaw, state.logoEasing);
+            const exit = easeBySetting(exitRaw, state.logoEasing);
+            const key = `logoLayer:${layer.id}`;
+            const opacity = evaluateKeyframes(key, 'opacity', seconds, Number(layer.opacity) || 0) / 100;
+            const keyedScale = evaluateKeyframes(key, 'scale', seconds, Number(layer.scale) || 42) / 100;
+            const xOffset = evaluateKeyframes(key, 'xOffset', seconds, Number(layer.xOffset) || 0);
+            const yOffset = evaluateKeyframes(key, 'yOffset', seconds, Number(layer.yOffset) || 0);
+            const rotation = evaluateKeyframes(key, 'rotation', seconds, 0) * Math.PI / 180;
+            const side = clamp(Math.min(250, WIDTH * .2) * keyedScale, 44, 280);
+            const fit = Math.min(side / state.logo.naturalWidth, side / state.logo.naturalHeight);
+            const imageWidth = state.logo.naturalWidth * fit;
+            const imageHeight = state.logo.naturalHeight * fit;
+            const x = WIDTH / 2 + WIDTH * xOffset / 100;
+            const y = baseY + HEIGHT * yOffset / 100;
+            const popScale = .78 + .22 * entry;
+            const alpha = clamp(entry * (1 - exit) * opacity, 0, 1);
+            if (alpha <= .001) return;
+            canvasContext.save();
+            canvasContext.translate(x, y);
+            canvasContext.rotate(rotation);
+            canvasContext.scale(popScale, popScale);
+            canvasContext.globalAlpha *= alpha;
+            canvasContext.shadowColor = rgba(state.accent, .42);
+            canvasContext.shadowBlur = 24 * Math.min(1, WIDTH / 1400);
+            canvasContext.drawImage(state.logo, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
+            canvasContext.restore();
+        });
+    }
+
     function drawSparkles(progress, seconds, centerY) {
         const style = state.motionStyle || MOTION_STYLES[0];
         const strength = style.family === 'burst' ? 1.6 : (style.family === 'glitch' ? .7 : 1);
@@ -1388,7 +1728,7 @@
     }
 
     function textItemForKey(key) {
-        return TEXT_ITEMS.find(item => item.key === key) || TEXT_ITEMS[0];
+        return allTextItems().find(item => item.key === key) || TEXT_ITEMS[0];
     }
 
     function textPhase(key, seconds) {
@@ -1460,9 +1800,11 @@
     function textColor(key, style) {
         if (!style.autoColor) return style.color || '#f4f7fd';
         const light = colorIsLight(state.background);
-        if (key === 'title') return light ? '#172238' : '#f4f7fd';
-        if (key === 'tagline') return light ? '#526078' : '#b9c7dc';
-        if (key === 'phone' || key === 'website') return light ? '#35445d' : '#d2def0';
+        const item = textItemForKey(key);
+        const semanticKey = item.templateKey || key;
+        if (semanticKey === 'title') return light ? '#172238' : '#f4f7fd';
+        if (semanticKey === 'tagline') return light ? '#526078' : '#b9c7dc';
+        if (semanticKey === 'phone' || semanticKey === 'website') return light ? '#35445d' : '#d2def0';
         return light ? '#67758b' : '#9db1cc';
     }
 
@@ -1527,7 +1869,7 @@
         const anchorY = baseY + HEIGHT * (Number(style.yOffset) || 0) / 100;
         withTextMotion(key, seconds, anchorX, anchorY, maxWidth, Number(style.fontSize) * 1.55, phase => {
             let shown = text;
-            if (key === 'english') {
+            if (key === 'english' || item.templateKey === 'english') {
                 if (style.caseMode === 'upper') shown = text.toLocaleUpperCase('en');
                 else if (style.caseMode === 'lower') shown = text.toLocaleLowerCase('en');
             }
@@ -1552,17 +1894,24 @@
     function drawContactRow(seconds) {
         const values = [
             { key: 'website', icon: 'web', value: state.website.trim().slice(0, 48) },
-            { key: 'phone', icon: 'phone', value: state.phone.trim().slice(0, 28) }
+            { key: 'phone', icon: 'phone', value: state.phone.trim().slice(0, 28) },
+            ...state.extraTextLayers.filter(item => ['phone', 'website'].includes(item.templateKey)).map(item => ({ key: item.key, icon: item.icon || (item.templateKey === 'phone' ? 'phone' : 'web'), value: String(item.value || '').trim().slice(0, 48) }))
         ].filter(item => item.value);
         if (!values.length) return;
-        const gap = values.length > 1 ? 18 : 0;
+        const gap = values.length > 1 ? 14 : 0;
         const widths = values.map(item => {
             const style = animatedTextStyle(item.key, seconds);
             const textWidth = measureStyledText(item.value, style);
             const cap = Math.min(WIDTH * .44, WIDTH * clamp(Number(style.maxWidth) || 38, 20, 80) / 100);
             return clamp(textWidth, 60, cap) + 60;
         });
-        const totalWidth = widths.reduce((sum, width) => sum + width, 0) + gap;
+        const availableWidth = WIDTH * .9 - gap * Math.max(0, values.length - 1);
+        const widthTotal = widths.reduce((sum, width) => sum + width, 0);
+        if (widthTotal > availableWidth) {
+            const scale = availableWidth / widthTotal;
+            widths.forEach((width, index) => { widths[index] = Math.max(120, width * scale); });
+        }
+        const totalWidth = widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(0, values.length - 1);
         let cursor = WIDTH / 2 - totalWidth / 2;
         const light = colorIsLight(state.background);
 
@@ -1639,6 +1988,9 @@
         drawStyledText('tagline', state.tagline, seconds, HEIGHT * .709);
         drawContactRow(seconds);
         drawStyledText('english', state.englishText, seconds, HEIGHT * .866);
+        state.extraTextLayers.filter(item => !['phone', 'website'].includes(item.templateKey)).forEach(item => {
+            drawStyledText(item.key, item.value, seconds, HEIGHT * clamp(Number(item.defaultY) || 52, 4, 96) / 100);
+        });
     }
 
     function drawFrame(seconds) {
@@ -1655,6 +2007,7 @@
         const logoY = HEIGHT * .357;
         drawRings(progress, time, logoY);
         drawLogo(progress, time, logoY);
+        drawLogoCopies(time, logoY);
         drawSparkles(progress, time, logoY);
         drawLockup(time);
     }
@@ -1687,16 +2040,28 @@
     }
 
     function keyframeDefinition(target, property) {
-        return (KEYFRAME_PROPERTIES[target] || []).find(item => item.key === property) || null;
+        let definitions = Object.prototype.hasOwnProperty.call(KEYFRAME_PROPERTIES, target) ? KEYFRAME_PROPERTIES[target] : [];
+        if (String(target).startsWith('logoLayer:')) definitions = LOGO_LAYER_KEYFRAME_PROPERTIES;
+        else if (String(target).startsWith('audioTrack:')) definitions = AUDIO_KEYFRAME_PROPERTIES;
+        return definitions.find(item => item.key === property) || null;
     }
 
     function getKeyframeBaseValue(target, property) {
         if (target === 'logo') {
-            if (property === 'scale') return state.logoScale * 100;
+            if (property === 'scale') return 100;
             if (property === 'opacity') return 100;
             if (property === 'rotation') return 0;
         }
-        if (target === 'audio' && property === 'volume') return state.audioVolume * 100;
+        if (String(target).startsWith('logoLayer:')) {
+            const id = String(target).slice('logoLayer:'.length);
+            const layer = state.logoLayers.find(item => item.id === id);
+            if (layer && Object.prototype.hasOwnProperty.call(layer, property)) return Number(layer[property]) || 0;
+        }
+        if (String(target).startsWith('audioTrack:') && property === 'volume') {
+            const id = String(target).slice('audioTrack:'.length);
+            const track = state.audioTracks.find(item => item.id === id);
+            return track ? (Number(track.volume) || 0) * 100 : 0;
+        }
         const style = state.textStyles[target];
         if (style && Object.prototype.hasOwnProperty.call(style, property)) return Number(style[property]) || 0;
         return 0;
@@ -1729,9 +2094,12 @@
             const target = String(frame.target || '');
             const property = String(frame.property || '');
             const definition = keyframeDefinition(target, property);
+            const targetExists = target === 'logo' || TEXT_ITEMS.some(item => item.key === target) || state.extraTextLayers.some(item => item.key === target)
+                || (target.startsWith('logoLayer:') && state.logoLayers.some(item => item.id === target.slice('logoLayer:'.length)))
+                || (target.startsWith('audioTrack:') && state.audioTracks.some(item => item.id === target.slice('audioTrack:'.length)));
             const time = Number(frame.time);
             const amount = Number(frame.value);
-            if (!definition || !Number.isFinite(time) || !Number.isFinite(amount)) return;
+            if (!definition || !targetExists || !Number.isFinite(time) || !Number.isFinite(amount)) return;
             const id = typeof frame.id === 'string' && frame.id.length < 120 ? frame.id : `kf-import-${index}`;
             result.push({
                 id,
@@ -1771,12 +2139,12 @@
             return;
         }
         sorted.slice(0, 120).forEach(frame => {
-            const target = KEYFRAME_TARGETS.find(item => item.key === frame.target);
+            const targetLabel = keyframeTargetLabel(frame.target);
             const property = keyframeDefinition(frame.target, frame.property);
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'lm-keyframe-chip' + (frame.id === state.selectedKeyframeId ? ' is-selected' : '');
-            button.textContent = `${target ? target.label : frame.target} · ${property ? property.label : frame.property} · ${secondsLabel(frame.time)}`;
+            button.textContent = `${targetLabel || frame.target} · ${property ? property.label : frame.property} · ${secondsLabel(frame.time)}`;
             button.setAttribute('aria-label', `${button.textContent}، مقدار ${Number(frame.value).toLocaleString('fa-IR')}`);
             button.addEventListener('click', () => selectKeyframe(frame.id, true));
             el.keyframeList.appendChild(button);
@@ -1789,6 +2157,44 @@
         }
     }
 
+    function timelineTargets() {
+        const targets = [
+            { key: 'logo', label: 'لوگوی اصلی', kind: 'logo', keyframe: true },
+            ...TEXT_ITEMS.map(item => ({ key: item.key, label: item.label, kind: 'text', keyframe: true })),
+            ...state.logoLayers.map(layer => ({ key: `logoLayer:${layer.id}`, label: layer.label || 'کپی لوگو', kind: 'logoLayer', layerId: layer.id, keyframe: true })),
+            ...state.extraTextLayers.map(item => ({ key: item.key, label: item.label, kind: 'text', keyframe: true })),
+            ...state.audioTracks.map(track => ({ key: `audioTrack:${track.id}`, label: `${track.kind === 'voice' ? 'گفتار' : 'موسیقی'} · ${track.name}`, kind: 'audio', trackId: track.id, keyframe: true }))
+        ];
+        if (!state.audioTracks.length) targets.push({ key: 'audioEmpty', label: 'موسیقی و گفتار', kind: 'audioEmpty', keyframe: false });
+        return targets;
+    }
+
+    function keyframeTargetLabel(key) {
+        const target = timelineTargets().find(item => item.key === key);
+        return target ? target.label : '';
+    }
+
+    function keyframeDefinitionsForTarget(target) {
+        if (String(target).startsWith('logoLayer:')) return LOGO_LAYER_KEYFRAME_PROPERTIES;
+        if (String(target).startsWith('audioTrack:')) return AUDIO_KEYFRAME_PROPERTIES;
+        return Object.prototype.hasOwnProperty.call(KEYFRAME_PROPERTIES, target) ? KEYFRAME_PROPERTIES[target] : [];
+    }
+
+    function updateKeyframeTargetOptions() {
+        if (!el.keyframeTarget) return;
+        const previous = el.keyframeTarget.value;
+        const targets = timelineTargets().filter(target => target.keyframe);
+        el.keyframeTarget.replaceChildren();
+        targets.forEach(target => {
+            const option = document.createElement('option');
+            option.value = target.key;
+            option.textContent = target.label;
+            el.keyframeTarget.appendChild(option);
+        });
+        el.keyframeTarget.value = targets.some(target => target.key === previous) ? previous : (targets[0] ? targets[0].key : 'logo');
+        updateKeyframePropertyOptions();
+    }
+
     function renderTimelineTracks() {
         if (!el.timelineTracks || !el.timelineRuler) return;
         if (state.timelinePointerDrag) {
@@ -1799,105 +2205,117 @@
         renderTimelineRuler();
         el.timelineTracks.replaceChildren();
         const duration = Math.max(.1, state.duration);
-        if (el.timelineAudioActionLabel) el.timelineAudioActionLabel.textContent = state.audioFile ? 'جایگزینی صدا' : 'افزودن صدا';
-        if (el.timelineAddAudio) el.timelineAddAudio.classList.toggle('has-audio', !!state.audioFile);
+        updateKeyframeTargetOptions();
+        if (el.timelineAddAudio) el.timelineAddAudio.classList.toggle('has-audio', state.audioTracks.some(track => track.kind === 'music'));
+        if (el.timelineAddVoice) el.timelineAddVoice.classList.toggle('has-audio', state.audioTracks.some(track => track.kind === 'voice'));
 
-        const chooseAudioFile = () => {
-            if (!state.exporting && !state.exportPreparing && el.audioFile) el.audioFile.click();
+        const chooseAudioFile = (kind = 'music') => {
+            if (state.exporting || state.exportPreparing) return;
+            const input = kind === 'voice' ? el.voiceFile : el.audioFile;
+            if (input) input.click();
         };
-        const timelineTimeAt = (clientX, lane) => {
+        const timeAt = (clientX, lane) => {
             const rect = lane.getBoundingClientRect();
             return rect.width ? clamp((clientX - rect.left) / rect.width * duration, 0, duration) : 0;
         };
-        const setAudioStart = (value, commit) => {
-            state.audioStart = clamp(Number(value) || 0, 0, duration);
-            if (commit) state.audioStart = Math.round(state.audioStart * 10) / 10;
-            el.audioStart.max = String(state.duration);
-            el.audioStart.value = state.audioStart.toFixed(1);
-            el.audioStartValue.textContent = secondsLabel(state.audioStart);
+        const setTrackStart = (track, value, commit) => {
+            if (!track) return;
+            track.start = clamp(Number(value) || 0, 0, duration);
+            if (commit) track.start = Math.round(track.start * 10) / 10;
+            if (getSelectedAudioTrack() === track) {
+                syncAudioAliases(track);
+                el.audioStart.max = String(state.duration);
+                el.audioStart.value = track.start.toFixed(1);
+                el.audioStartValue.textContent = secondsLabel(track.start);
+            }
             if (commit) {
                 state.audioLastSync = 0;
                 syncAudioPlayback(currentTime(performance.now()), true);
             }
         };
-        const placeAudioClip = clip => {
-            const start = clamp(state.audioStart, 0, duration);
-            const end = state.audioFile && state.audioDuration && !state.audioLoop ? Math.min(duration, start + state.audioDuration) : duration;
+        const placeAudioClip = (clip, track) => {
+            const start = clamp(Number(track.start) || 0, 0, duration);
+            const end = track.loop || !track.duration ? duration : Math.min(duration, start + track.duration);
             clip.style.left = `${(start / duration) * 100}%`;
             clip.style.width = `${Math.max(.6, ((end - start) / duration) * 100)}%`;
-            clip.setAttribute('aria-valuenow', state.audioStart.toFixed(1));
-            clip.setAttribute('aria-valuetext', `${secondsLabel(state.audioStart)}؛ شروع موسیقی`);
+            clip.setAttribute('aria-valuenow', start.toFixed(1));
+            clip.setAttribute('aria-valuetext', `${secondsLabel(start)}؛ شروع ${track.kind === 'voice' ? 'گفتار' : 'موسیقی'}`);
         };
 
-        KEYFRAME_TARGETS.forEach(target => {
+        timelineTargets().forEach(target => {
             const row = document.createElement('div');
-            row.className = `lm-track-row lm-track-row-${target.key}`;
+            const kindClass = target.kind === 'audio' ? (state.audioTracks.find(track => track.id === target.trackId)?.kind || 'music') : target.kind;
+            const rowKind = target.kind === 'audioEmpty' ? 'audio-empty' : (target.kind === 'audio' ? `audio-${kindClass}` : target.kind);
+            row.className = `lm-track-row lm-track-row-${rowKind}`;
             const label = document.createElement('span');
             label.className = 'lm-track-label';
             label.textContent = target.label;
             const lane = document.createElement('div');
-            lane.className = `lm-track-lane lm-track-lane-${target.key}`;
+            const laneKind = target.kind === 'audioEmpty' ? 'audio-empty' : (target.kind === 'audio' ? `audio ${kindClass === 'voice' ? 'voice' : 'music'}` : target.kind);
+            lane.className = `lm-track-lane lm-track-lane-${laneKind}`;
             lane.dataset.target = target.key;
             lane.tabIndex = 0;
             lane.setAttribute('role', 'group');
-            lane.setAttribute('aria-label', target.key === 'audio' && !state.audioFile
-                ? 'ترک موسیقی خالی؛ برای افزودن فایل کلیک کنید یا فایل صوتی را اینجا رها کنید'
+            lane.setAttribute('aria-label', target.kind === 'audioEmpty'
+                ? 'ترک‌های صوتی خالی؛ برای افزودن موسیقی یا گفتار دکمه‌ها را انتخاب کنید یا فایل را اینجا رها کنید'
                 : `ترک ${target.label}؛ برای جابه‌جایی نشانگر بکشید`);
 
             let clipStart = 0;
             let clipEnd = duration;
-            if (target.key === 'logo') {
-                clipStart = clamp(Number.isFinite(Number(state.logoEntryTime)) ? Number(state.logoEntryTime) : 0, 0, duration);
-                const logoExit = Number.isFinite(Number(state.logoExitTime)) ? Number(state.logoExitTime) : duration;
-                clipEnd = clamp(logoExit, clipStart, duration);
-            } else if (target.key !== 'audio') {
+            let audioTrack = null;
+            if (target.kind === 'logo') {
+                clipStart = clamp(Number(state.logoEntryTime) || 0, 0, duration);
+                clipEnd = clamp(Number(state.logoExitTime) || duration, clipStart, duration);
+            } else if (target.kind === 'logoLayer') {
+                const layer = state.logoLayers.find(item => item.id === target.layerId);
+                if (layer) {
+                    clipStart = clamp(Number(layer.entryTime) || 0, 0, duration);
+                    clipEnd = clamp(Number(layer.exitTime) || duration, clipStart, duration);
+                }
+            } else if (target.kind === 'text') {
                 const style = state.textStyles[target.key] || TEXT_ITEMS[0].defaults;
-                clipStart = clamp(Number.isFinite(Number(style.entryTime)) ? Number(style.entryTime) : 0, 0, duration);
-                const textExit = style.exitAuto === false || !Number.isFinite(Number(style.exitTime)) ? duration : Number(style.exitTime);
-                clipEnd = clamp(textExit, clipStart, duration);
+                clipStart = clamp(Number(style.entryTime) || 0, 0, duration);
+                clipEnd = style.exitAuto === false ? duration : clamp(Number(style.exitTime) || duration, clipStart, duration);
+            } else if (target.kind === 'audio') {
+                audioTrack = state.audioTracks.find(track => track.id === target.trackId) || null;
             }
 
-            if (target.key === 'audio' && !state.audioFile) {
-                const emptyAction = document.createElement('button');
-                emptyAction.type = 'button';
-                emptyAction.className = 'lm-audio-empty-cta';
-                emptyAction.setAttribute('aria-label', 'افزودن یا رهاکردن فایل موسیقی در ترک صدا');
-                const plus = document.createElement('span');
-                plus.className = 'lm-audio-empty-plus';
-                plus.setAttribute('aria-hidden', 'true');
-                plus.textContent = '+';
-                const emptyText = document.createElement('span');
-                emptyText.className = 'lm-audio-empty-copy';
-                const emptyTitle = document.createElement('b');
-                emptyTitle.textContent = 'افزودن موسیقی';
-                const emptyHint = document.createElement('small');
-                emptyHint.textContent = 'انتخاب فایل یا کشیدن و رهاکردن در این ترک';
-                emptyText.append(emptyTitle, emptyHint);
-                emptyAction.append(plus, emptyText);
-                emptyAction.addEventListener('click', event => {
-                    event.stopPropagation();
-                    chooseAudioFile();
+            if (target.kind === 'audioEmpty') {
+                const emptyAction = document.createElement('div');
+                emptyAction.className = 'lm-audio-empty-actions';
+                [
+                    { kind: 'music', text: '＋ موسیقی' },
+                    { kind: 'voice', text: '＋ گفتار' }
+                ].forEach(item => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = `lm-audio-empty-cta${item.kind === 'voice' ? ' is-voice' : ''}`;
+                    button.textContent = item.text;
+                    button.addEventListener('click', event => {
+                        event.stopPropagation();
+                        chooseAudioFile(item.kind);
+                    });
+                    emptyAction.appendChild(button);
                 });
                 lane.appendChild(emptyAction);
-            } else if (target.key === 'audio') {
+            } else if (target.kind === 'audio' && audioTrack) {
                 const clip = document.createElement('span');
-                clip.className = 'lm-track-clip lm-track-clip-audio lm-audio-clip';
+                clip.className = `lm-track-clip lm-track-clip-audio lm-audio-clip${audioTrack.kind === 'voice' ? ' is-voice' : ''}`;
                 clip.tabIndex = 0;
                 clip.setAttribute('role', 'slider');
-                clip.setAttribute('aria-label', `موقعیت شروع موسیقی ${state.audioFile.name}؛ با کلیدهای جهت‌دار جابه‌جا کنید`);
+                clip.setAttribute('aria-label', `موقعیت شروع ${audioTrack.kind === 'voice' ? 'گفتار' : 'موسیقی'} ${audioTrack.name}؛ با کلیدهای جهت‌دار جابه‌جا کنید`);
                 clip.setAttribute('aria-valuemin', '0');
-                clip.setAttribute('aria-valuemax', String(state.duration));
-                clip.title = `${state.audioFile.name} · شروع در ${secondsLabel(state.audioStart)}${state.audioLoop ? ' · تکرار تا پایان کلیپ' : ''}`;
-                placeAudioClip(clip);
-
-                if (state.audioPeaks.length) {
+                clip.setAttribute('aria-valuemax', String(duration));
+                clip.title = `${audioTrack.name} · شروع در ${secondsLabel(audioTrack.start)}${audioTrack.loop ? ' · تکرار تا پایان کلیپ' : ''}`;
+                placeAudioClip(clip, audioTrack);
+                if (audioTrack.peaks.length) {
                     const waveform = document.createElement('span');
                     waveform.className = 'lm-audio-clip-waveform';
                     waveform.setAttribute('aria-hidden', 'true');
-                    const bars = Math.min(88, state.audioPeaks.length);
+                    const bars = Math.min(88, audioTrack.peaks.length);
                     for (let index = 0; index < bars; index += 1) {
                         const bar = document.createElement('i');
-                        const peak = state.audioPeaks[Math.floor(index * state.audioPeaks.length / bars)] || 0;
+                        const peak = audioTrack.peaks[Math.floor(index * audioTrack.peaks.length / bars)] || 0;
                         bar.style.height = `${Math.max(10, Math.round(peak * 86))}%`;
                         waveform.appendChild(bar);
                     }
@@ -1905,7 +2323,7 @@
                 }
                 const clipName = document.createElement('span');
                 clipName.className = 'lm-audio-clip-name';
-                clipName.textContent = `♫ ${state.audioFile.name} · ${state.audioDuration ? secondsLabel(state.audioDuration) : 'صدا'}`;
+                clipName.textContent = `${audioTrack.kind === 'voice' ? '◖' : '♫'} ${audioTrack.name} · ${audioTrack.duration ? secondsLabel(audioTrack.duration) : 'در حال بارگذاری'}`;
                 clip.appendChild(clipName);
                 lane.appendChild(clip);
 
@@ -1914,36 +2332,34 @@
                     event.stopPropagation();
                     event.preventDefault();
                     const rect = lane.getBoundingClientRect();
-                    state.timelinePointerDrag = {
-                        type: 'audio', pointerId: event.pointerId, clip, lane,
-                        startX: event.clientX, startTime: state.audioStart,
-                        laneWidth: Math.max(1, rect.width), moved: false
-                    };
+                    state.timelinePointerDrag = { type: 'audioClip', pointerId: event.pointerId, clip, lane, trackId: audioTrack.id, startX: event.clientX, startTime: audioTrack.start, laneWidth: Math.max(1, rect.width), moved: false };
                     clip.classList.add('is-dragging');
                     clip.focus({ preventScroll: true });
                     if (clip.setPointerCapture) clip.setPointerCapture(event.pointerId);
                 });
                 clip.addEventListener('pointermove', event => {
                     const drag = state.timelinePointerDrag;
-                    if (!drag || drag.type !== 'audio' || drag.pointerId !== event.pointerId) return;
+                    if (!drag || drag.type !== 'audioClip' || drag.pointerId !== event.pointerId) return;
+                    const track = state.audioTracks.find(item => item.id === drag.trackId);
+                    if (!track) return;
                     const delta = (event.clientX - drag.startX) / drag.laneWidth * duration;
                     if (Math.abs(event.clientX - drag.startX) > 2) drag.moved = true;
-                    state.audioStart = clamp(drag.startTime + delta, 0, duration);
-                    placeAudioClip(clip);
-                    el.audioStart.value = state.audioStart.toFixed(1);
-                    el.audioStartValue.textContent = secondsLabel(state.audioStart);
+                    setTrackStart(track, drag.startTime + delta, false);
+                    placeAudioClip(clip, track);
                 });
                 const finishAudioDrag = (event, cancelled) => {
                     const drag = state.timelinePointerDrag;
-                    if (!drag || drag.type !== 'audio' || drag.pointerId !== event.pointerId) return;
+                    if (!drag || drag.type !== 'audioClip' || drag.pointerId !== event.pointerId) return;
                     state.timelinePointerDrag = null;
                     clip.classList.remove('is-dragging');
-                    if (drag.moved) {
-                        setAudioStart(state.audioStart, true);
+                    const track = state.audioTracks.find(item => item.id === drag.trackId);
+                    if (track && drag.moved) {
+                        setTrackStart(track, track.start, true);
+                        renderAudioTrackList();
                         renderTimelineTracks();
                     } else if (!cancelled) {
                         state.playing = false;
-                        seekToTime(timelineTimeAt(event.clientX, lane));
+                        seekToTime(timeAt(event.clientX, lane));
                     }
                     if (state.timelineRenderPending) renderTimelineTracks();
                 };
@@ -1954,14 +2370,14 @@
                     event.preventDefault();
                     event.stopPropagation();
                     const step = event.shiftKey ? 1 : .1;
-                    const next = event.key === 'Home' ? 0 : event.key === 'End' ? duration : state.audioStart + (event.key === 'ArrowRight' ? step : -step);
-                    setAudioStart(next, true);
-                    placeAudioClip(clip);
-                    clip.title = `${state.audioFile.name} · شروع در ${secondsLabel(state.audioStart)}${state.audioLoop ? ' · تکرار تا پایان کلیپ' : ''}`;
+                    const next = event.key === 'Home' ? 0 : event.key === 'End' ? duration : audioTrack.start + (event.key === 'ArrowRight' ? step : -step);
+                    setTrackStart(audioTrack, next, true);
+                    placeAudioClip(clip, audioTrack);
+                    clip.title = `${audioTrack.name} · شروع در ${secondsLabel(audioTrack.start)}${audioTrack.loop ? ' · تکرار تا پایان کلیپ' : ''}`;
                 });
             } else {
                 const clip = document.createElement('span');
-                clip.className = `lm-track-clip lm-track-clip-${target.key}`;
+                clip.className = `lm-track-clip lm-track-clip-${target.kind === 'logoLayer' ? 'logo' : target.key}`;
                 clip.style.left = `${(clipStart / duration) * 100}%`;
                 clip.style.width = `${Math.max(.6, ((clipEnd - clipStart) / duration) * 100)}%`;
                 clip.setAttribute('aria-hidden', 'true');
@@ -1982,11 +2398,7 @@
                     if (event.button !== 0 || state.exporting || state.exportPreparing) return;
                     event.stopPropagation();
                     const rect = lane.getBoundingClientRect();
-                    state.timelinePointerDrag = {
-                        type: 'keyframe', pointerId: event.pointerId, marker, frame,
-                        startX: event.clientX, startTime: frame.time,
-                        laneWidth: Math.max(1, rect.width), moved: false
-                    };
+                    state.timelinePointerDrag = { type: 'keyframe', pointerId: event.pointerId, marker, frame, startX: event.clientX, startTime: frame.time, laneWidth: Math.max(1, rect.width), moved: false };
                     marker.classList.add('is-dragging');
                     marker.focus({ preventScroll: true });
                     if (marker.setPointerCapture) marker.setPointerCapture(event.pointerId);
@@ -2011,9 +2423,7 @@
                         frame.time = Math.round(frame.time * 100) / 100;
                         state.selectedKeyframeId = frame.id;
                         selectKeyframe(frame.id, false);
-                    } else if (cancelled) {
-                        marker.blur();
-                    }
+                    } else if (cancelled) marker.blur();
                     if (state.timelineRenderPending && (drag.moved || cancelled)) renderTimelineTracks();
                 };
                 marker.addEventListener('pointerup', event => finishKeyframeDrag(event, false));
@@ -2043,7 +2453,7 @@
                 lane.appendChild(marker);
             });
 
-            if (target.key === 'audio') {
+            if (target.kind === 'audio' || target.kind === 'audioEmpty') {
                 lane.addEventListener('dragenter', event => {
                     event.preventDefault();
                     lane.classList.add('is-dragover');
@@ -2060,25 +2470,25 @@
                     event.preventDefault();
                     lane.classList.remove('is-dragover');
                     const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
-                    if (file) handleAudioFile(file, false);
+                    const kind = audioTrack ? audioTrack.kind : 'music';
+                    if (file) addAudioFiles([file], kind);
                 });
             }
 
             lane.addEventListener('pointerdown', event => {
-                if (event.button !== 0 || state.exporting || state.exportPreparing || (target.key === 'audio' && !state.audioFile)) return;
-                if (event.target.closest('button,.lm-audio-clip')) return;
-                const rect = lane.getBoundingClientRect();
+                if (event.button !== 0 || state.exporting || state.exportPreparing || target.kind === 'audioEmpty') return;
+                if (event.target.closest('button,.lm-audio-clip,.lm-keyframe-marker')) return;
                 state.playing = false;
-                state.timelinePointerDrag = { type: 'scrub', pointerId: event.pointerId, lane, duration, moved: false };
+                state.timelinePointerDrag = { type: 'scrub', pointerId: event.pointerId, lane, moved: false };
                 lane.classList.add('is-scrubbing');
-                lane.setPointerCapture && lane.setPointerCapture(event.pointerId);
-                seekToTime(rect.width ? clamp((event.clientX - rect.left) / rect.width * duration, 0, duration) : 0);
+                if (lane.setPointerCapture) lane.setPointerCapture(event.pointerId);
+                seekToTime(timeAt(event.clientX, lane));
             });
             lane.addEventListener('pointermove', event => {
                 const drag = state.timelinePointerDrag;
                 if (!drag || drag.type !== 'scrub' || drag.pointerId !== event.pointerId || drag.lane !== lane) return;
                 drag.moved = true;
-                seekToTime(timelineTimeAt(event.clientX, lane));
+                seekToTime(timeAt(event.clientX, lane));
             });
             const finishLaneScrub = event => {
                 const drag = state.timelinePointerDrag;
@@ -2091,17 +2501,12 @@
             lane.addEventListener('pointercancel', finishLaneScrub);
             lane.addEventListener('click', event => {
                 if (event.target.closest('button,.lm-audio-clip,.lm-keyframe-marker')) return;
-                if (target.key === 'audio' && !state.audioFile) {
-                    chooseAudioFile();
-                    return;
-                }
-                seekToTime(timelineTimeAt(event.clientX, lane));
+                seekToTime(timeAt(event.clientX, lane));
             });
             lane.addEventListener('keydown', event => {
-                if (target.key === 'audio' && !state.audioFile && event.key === 'Enter') {
+                if (target.kind === 'audioEmpty' && event.key === 'Enter') {
                     event.preventDefault();
-                    event.stopPropagation();
-                    chooseAudioFile();
+                    chooseAudioFile('music');
                     return;
                 }
                 if (event.key === 'Enter') {
@@ -2133,7 +2538,7 @@
     function updateKeyframePropertyOptions() {
         if (!el.keyframeTarget || !el.keyframeProperty) return;
         const previous = el.keyframeProperty.value;
-        const definitions = KEYFRAME_PROPERTIES[el.keyframeTarget.value] || [];
+        const definitions = keyframeDefinitionsForTarget(el.keyframeTarget.value);
         el.keyframeProperty.replaceChildren();
         definitions.forEach(definition => {
             const option = document.createElement('option');
@@ -2232,7 +2637,9 @@
         if (selected) {
             selected.value = amount;
             renderTimelineTracks();
-            drawFrame(currentTime(performance.now()));
+            const time = currentTime(performance.now());
+            drawFrame(time);
+            syncAudioPlayback(time, true);
         }
     }
 
@@ -2242,7 +2649,9 @@
         state.selectedKeyframeId = null;
         renderTimelineTracks();
         syncKeyframeValueControl();
-        drawFrame(currentTime(performance.now()));
+        const time = currentTime(performance.now());
+        drawFrame(time);
+        syncAudioPlayback(time, true);
     }
 
     function renderTimelineTracksForDurationChange() {
@@ -2802,7 +3211,7 @@
         }
         try {
             const frameTime = Math.min(state.duration, frameIndex / state.fps);
-            if (state.audioFile) syncAudioPlayback(frameTime, frameIndex === 0);
+            if (state.audioTracks.length) syncAudioPlayback(frameTime, frameIndex === 0);
             drawFrame(frameTime);
             if (state.manualFrameCapture && state.frameTrack) state.frameTrack.requestFrame();
         } catch (error) {
@@ -2856,10 +3265,10 @@
             state.exporting = true;
             state.exportStart = performance.now();
             state.stream = createExportStream(state.fps);
-            if (state.audioFile) {
-                ensureAudioGraph();
+            if (state.audioTracks.length) {
+                state.audioTracks.forEach(track => ensureAudioGraph(track));
                 syncAudioPlayback(0, true);
-                addAudioTrack(state.stream);
+                addAudioMixTrack(state.stream);
             }
             if (el.renderProgress) el.renderProgress.textContent = '۰٪ · آماده‌سازی فریم‌ها…';
             const startedRecorder = startRecorderWithFallback(state.stream, recorderChoice.type);
@@ -2886,6 +3295,7 @@
     const MAX_CUSTOM_FONT_LIBRARY_BYTES = 12 * 1024 * 1024;
     const MAX_CUSTOM_FONT_COUNT = 8;
     const MAX_AUDIO_BYTES = 40 * 1024 * 1024;
+    const MAX_AUDIO_TRACKS = 12;
     const MAX_PROJECT_BYTES = 100 * 1024 * 1024;
 
     function fontMimeType(fileName) {
@@ -2958,8 +3368,9 @@
         const [font] = state.customFonts.splice(index, 1);
         try { document.fonts.delete(font.face); } catch (error) {}
         URL.revokeObjectURL(font.objectUrl);
-        TEXT_ITEMS.forEach(item => {
-            if (state.textStyles[item.key].fontFamily === family) state.textStyles[item.key].fontFamily = item.defaults.fontFamily;
+        allTextItems().forEach(item => {
+            const style = state.textStyles[item.key];
+            if (style && style.fontFamily === family) style.fontFamily = (item.defaults || TEXT_ITEMS[0].defaults).fontFamily;
         });
         renderCustomFontList();
         buildTextSettings();
@@ -2984,22 +3395,30 @@
         renderCustomFontList();
     }
 
-    function ensureAudioGraph() {
+    function getSelectedAudioTrack() {
+        return state.audioTracks.find(track => track.id === state.selectedAudioTrackId) || null;
+    }
+
+    function syncAudioAliases(track = getSelectedAudioTrack()) {
+        state.audioFile = track ? track.file : null;
+        state.audioUrl = track ? track.url : null;
+        state.audioDuration = track ? track.duration : 0;
+        state.audioStart = track ? track.start : 0;
+        state.audioPeaks = track ? track.peaks : [];
+        state.audioVolume = track ? track.volume : 1;
+        state.audioFadeIn = track ? track.fadeIn : .5;
+        state.audioFadeOut = track ? track.fadeOut : 1;
+        state.audioLoop = track ? track.loop : false;
+    }
+
+    function ensureAudioContext() {
         if (state.audioContext) return true;
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (!AudioContextClass) return false;
         try {
             const context = new AudioContextClass();
-            const source = context.createMediaElementSource(el.audioPreview);
-            const gain = context.createGain();
-            const destination = context.createMediaStreamDestination();
-            source.connect(gain);
-            gain.connect(context.destination);
-            gain.connect(destination);
             state.audioContext = context;
-            state.audioSource = source;
-            state.audioGain = gain;
-            state.audioDestination = destination;
+            state.audioDestination = context.createMediaStreamDestination();
             context.resume().catch(() => {});
             return true;
         } catch (error) {
@@ -3007,197 +3426,402 @@
         }
     }
 
-    function updateAudioControls() {
-        state.audioStart = clamp(state.audioStart, 0, state.duration);
-        el.audioVolume.value = String(Math.round(state.audioVolume * 100));
-        el.audioVolumeValue.textContent = `${Math.round(state.audioVolume * 100).toLocaleString('fa-IR')}٪`;
-        el.audioStart.max = String(state.duration);
-        el.audioStart.value = state.audioStart.toFixed(1);
-        el.audioStartValue.textContent = secondsLabel(state.audioStart);
-        el.audioFadeIn.value = state.audioFadeIn.toFixed(1);
-        el.audioFadeInValue.textContent = secondsLabel(state.audioFadeIn);
-        el.audioFadeOut.value = state.audioFadeOut.toFixed(1);
-        el.audioFadeOutValue.textContent = secondsLabel(state.audioFadeOut);
-        el.audioMode.value = state.audioLoop ? 'loop' : 'once';
-        el.audioPreview.loop = state.audioLoop;
+    function ensureAudioGraph(track) {
+        if (!track) return false;
+        if (track.gainNode && state.audioContext) return true;
+        if (!ensureAudioContext()) return false;
+        try {
+            track.sourceNode = state.audioContext.createMediaElementSource(track.element);
+            track.gainNode = state.audioContext.createGain();
+            track.sourceNode.connect(track.gainNode);
+            track.gainNode.connect(state.audioContext.destination);
+            track.gainNode.connect(state.audioDestination);
+            return true;
+        } catch (error) {
+            track.sourceNode = null;
+            track.gainNode = null;
+            return false;
+        }
     }
 
-    function updateAudioMeta() {
-        const duration = Number(el.audioPreview.duration);
-        if (Number.isFinite(duration) && duration > 0) state.audioDuration = duration;
-        const durationText = state.audioDuration ? ` · ${secondsLabel(state.audioDuration)}` : '';
-        const sizeText = state.audioFile ? ` · ${(state.audioFile.size / 1024 / 1024).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} MB` : '';
-        el.audioFileMeta.textContent = `${(state.audioFile && state.audioFile.type) || 'فایل صوتی'}${sizeText}${durationText}`;
+    function updateAudioControls() {
+        const track = getSelectedAudioTrack();
+        syncAudioAliases(track);
+        const hasTrack = !!track;
+        if (el.selectedAudioControls) el.selectedAudioControls.hidden = !hasTrack;
+        el.removeAudio.disabled = !hasTrack || state.exporting || state.exportPreparing;
+        if (!track) {
+            el.audioFileName.textContent = state.audioTracks.length ? 'ترکی انتخاب نشده' : 'ترکی انتخاب نشده';
+            el.audioFileMeta.textContent = 'حداکثر ۱۲ ترک · هر فایل ۴۰ مگابایت · مجموع ذخیره‌ی پروژه ۵۰ مگابایت';
+            const waveform = document.getElementById('audioWaveform');
+            const waveContext = waveform && waveform.getContext('2d');
+            if (waveContext) waveContext.clearRect(0, 0, waveform.width, waveform.height);
+            return;
+        }
+        el.audioFileName.textContent = track.name;
+        const durationText = track.duration ? ` · ${secondsLabel(track.duration)}` : '';
+        const sizeText = track.file ? ` · ${(track.file.size / 1024 / 1024).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} مگابایت` : '';
+        el.audioFileMeta.textContent = `${track.kind === 'voice' ? 'گفتار' : 'موسیقی'} · ${(track.file && track.file.type) || 'فایل صوتی'}${sizeText}${durationText}`;
+        el.audioVolume.value = String(Math.round(track.volume * 100));
+        el.audioVolumeValue.textContent = `${Math.round(track.volume * 100).toLocaleString('fa-IR')}٪`;
         el.audioStart.max = String(state.duration);
-        state.audioStart = clamp(state.audioStart, 0, state.duration);
-        el.audioStart.value = state.audioStart.toFixed(1);
-        el.audioStartValue.textContent = secondsLabel(state.audioStart);
+        track.start = clamp(track.start, 0, state.duration);
+        el.audioStart.value = track.start.toFixed(1);
+        el.audioStartValue.textContent = secondsLabel(track.start);
+        el.audioFadeIn.value = track.fadeIn.toFixed(1);
+        el.audioFadeInValue.textContent = secondsLabel(track.fadeIn);
+        el.audioFadeOut.value = track.fadeOut.toFixed(1);
+        el.audioFadeOutValue.textContent = secondsLabel(track.fadeOut);
+        el.audioMode.value = track.loop ? 'loop' : 'once';
+        track.element.loop = track.loop;
+        renderSelectedAudioWaveform(track);
+    }
+
+    function renderSelectedAudioWaveform(track = getSelectedAudioTrack()) {
+        const waveform = document.getElementById('audioWaveform');
+        const waveContext = waveform && waveform.getContext('2d');
+        if (!waveContext) return;
+        waveContext.clearRect(0, 0, waveform.width, waveform.height);
+        if (!track || !track.peaks.length) return;
+        const bars = Math.min(track.peaks.length, waveform.width);
+        const middle = waveform.height / 2;
+        waveContext.fillStyle = track.kind === 'voice' ? state.gold : state.accent;
+        for (let index = 0; index < bars; index += 1) {
+            const peak = track.peaks[Math.floor(index * track.peaks.length / bars)] || 0;
+            const height = Math.max(2, peak * waveform.height * .84);
+            waveContext.globalAlpha = .35 + peak * .65;
+            waveContext.fillRect(index * waveform.width / bars, middle - height / 2, Math.max(1, waveform.width / bars - 1), height);
+        }
+        waveContext.globalAlpha = 1;
+    }
+
+    function renderAudioTrackList() {
+        if (!el.audioTrackList) return;
+        el.audioTrackList.replaceChildren();
+        if (!state.audioTracks.length) {
+            const empty = document.createElement('p');
+            empty.className = 'lm-layer-empty-note lm-audio-empty-note';
+            empty.textContent = 'ترک صوتی ندارید. موسیقی و گفتار را هرکدام چندبار اضافه کنید.';
+            el.audioTrackList.appendChild(empty);
+            updateAudioControls();
+            return;
+        }
+        state.audioTracks.forEach(track => {
+            const card = document.createElement('div');
+            card.className = `lm-audio-track-card${track.id === state.selectedAudioTrackId ? ' is-selected' : ''}${track.kind === 'voice' ? ' is-voice' : ''}`;
+            const select = document.createElement('button');
+            select.type = 'button';
+            select.className = 'lm-audio-track-select';
+            select.setAttribute('aria-pressed', track.id === state.selectedAudioTrackId ? 'true' : 'false');
+            const badge = document.createElement('span');
+            badge.className = 'lm-audio-track-badge';
+            badge.textContent = track.kind === 'voice' ? 'گفتار' : 'موسیقی';
+            const info = document.createElement('span');
+            info.className = 'lm-audio-track-info';
+            const name = document.createElement('b');
+            name.textContent = track.name;
+            const meta = document.createElement('small');
+            const duration = track.duration ? secondsLabel(track.duration) : 'در حال خواندن…';
+            meta.textContent = `${duration} · شروع ${secondsLabel(track.start)} · ${Math.round(track.volume * 100).toLocaleString('fa-IR')}٪`;
+            info.append(name, meta);
+            select.append(badge, info);
+            select.addEventListener('click', () => selectAudioTrack(track.id));
+            const actions = document.createElement('div');
+            actions.className = 'lm-audio-track-actions';
+            const mute = document.createElement('button');
+            mute.type = 'button';
+            mute.className = 'lm-audio-track-action' + (track.muted ? ' is-muted' : '');
+            mute.textContent = track.muted ? 'بی‌صدا' : 'صدا';
+            mute.setAttribute('aria-label', track.muted ? `فعال‌کردن صدای ${track.name}` : `بی‌صداکردن ${track.name}`);
+            mute.addEventListener('click', () => {
+                track.muted = !track.muted;
+                renderAudioTrackList();
+                syncAudioPlayback(currentTime(performance.now()), true);
+            });
+            const duplicate = document.createElement('button');
+            duplicate.type = 'button';
+            duplicate.className = 'lm-audio-track-action';
+            duplicate.textContent = '⧉';
+            duplicate.title = `تکثیر ${track.name}`;
+            duplicate.setAttribute('aria-label', `تکثیر ${track.name}`);
+            duplicate.addEventListener('click', () => addAudioTrackFile(track.file, track.kind, { ...track, name: `${track.name} · کپی` }, false));
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'lm-audio-track-action is-remove';
+            remove.textContent = '×';
+            remove.title = `حذف ${track.name}`;
+            remove.setAttribute('aria-label', `حذف ${track.name}`);
+            remove.addEventListener('click', () => removeAudioTrack(track.id, false));
+            actions.append(mute, duplicate, remove);
+            card.append(select, actions);
+            el.audioTrackList.appendChild(card);
+        });
+        updateAudioControls();
+    }
+
+    function selectAudioTrack(id) {
+        if (!state.audioTracks.some(track => track.id === id)) return;
+        state.selectedAudioTrackId = id;
+        state.audioLastSync = 0;
+        updateAudioControls();
+        renderAudioTrackList();
+        renderTimelineTracks();
+        syncAudioPlayback(currentTime(performance.now()), true);
+    }
+
+    function updateAudioMeta(track) {
+        if (!track) return;
+        const duration = Number(track.element.duration);
+        if (Number.isFinite(duration) && duration > 0) track.duration = duration;
+        track.start = clamp(track.start, 0, state.duration);
+        if (track.id === state.selectedAudioTrackId) updateAudioControls();
+        renderAudioTrackList();
         renderTimelineTracks();
     }
 
-    async function drawAudioWaveform(file) {
-        if (!state.audioContext || !file || file.size > 16 * 1024 * 1024) return;
+    async function drawAudioWaveform(track) {
+        if (!track || !track.file || track.file.size > 16 * 1024 * 1024) return;
+        if (!ensureAudioContext()) return;
         try {
-            const decoded = await state.audioContext.decodeAudioData(await file.arrayBuffer());
-            if (state.audioFile !== file) return;
-            state.audioDuration = decoded.duration || state.audioDuration;
-            updateAudioMeta();
-            const waveform = document.getElementById('audioWaveform');
-            const waveContext = waveform && waveform.getContext('2d');
-            if (!waveContext) return;
+            const decoded = await state.audioContext.decodeAudioData(await track.file.arrayBuffer());
+            if (!state.audioTracks.includes(track)) return;
+            track.duration = decoded.duration || track.duration;
             const samples = decoded.getChannelData(0);
-            const bars = Math.min(480, waveform.width || 480);
-            const step = Math.max(1, Math.floor(samples.length / bars));
-            const timelinePeaks = [];
-            const peakStride = Math.max(1, Math.floor(bars / 88));
-            waveContext.clearRect(0, 0, waveform.width, waveform.height);
-            waveContext.fillStyle = state.accent;
-            const middle = waveform.height / 2;
-            for (let bar = 0; bar < bars; bar++) {
+            const peakCount = 96;
+            const stride = Math.max(1, Math.floor(samples.length / peakCount));
+            const peaks = [];
+            for (let bar = 0; bar < peakCount; bar += 1) {
                 let peak = 0;
-                const end = Math.min(samples.length, (bar + 1) * step);
-                for (let index = bar * step; index < end; index += 1) peak = Math.max(peak, Math.abs(samples[index]));
-                if (bar % peakStride === 0) timelinePeaks.push(peak);
-                const height = Math.max(2, peak * waveform.height * .84);
-                waveContext.globalAlpha = .35 + peak * .65;
-                waveContext.fillRect(bar * waveform.width / bars, middle - height / 2, Math.max(1, waveform.width / bars - 1), height);
+                const end = Math.min(samples.length, (bar + 1) * stride);
+                for (let index = bar * stride; index < end; index += 1) peak = Math.max(peak, Math.abs(samples[index]));
+                peaks.push(peak);
             }
-            waveContext.globalAlpha = 1;
-            state.audioPeaks = timelinePeaks;
+            track.peaks = peaks;
+            if (track.id === state.selectedAudioTrackId) updateAudioControls();
+            renderAudioTrackList();
             renderTimelineTracks();
         } catch (error) {
             // Waveform decoration is optional; native audio playback and export remain available.
         }
     }
 
-    async function handleAudioFile(file, quiet) {
-        if (!file || state.exporting || state.exportPreparing) return;
-        if (!String(file.type || '').startsWith('audio/') && !/\.(mp3|wav|ogg|m4a|aac|flac|opus)$/i.test(file.name)) {
-            showToast('فایل صوتی MP3، WAV، OGG، M4A، AAC یا FLAC انتخاب کنید.', 'warning');
-            return;
-        }
-        if (!file.size || file.size > MAX_AUDIO_BYTES) {
-            showToast('حجم فایل صوتی نباید بیشتر از ۴۰ مگابایت باشد.', 'warning');
-            return;
-        }
-        const previousStart = state.audioFile ? state.audioStart : 0;
-        if (state.audioUrl) URL.revokeObjectURL(state.audioUrl);
-        state.audioFile = file;
-        state.audioUrl = URL.createObjectURL(file);
-        state.audioDuration = 0;
-        state.audioPeaks = [];
-        state.audioStart = clamp(previousStart, 0, state.duration);
-        state.audioLastSync = 0;
-        state.audioLastTimelineTime = -1;
-        el.audioPreview.pause();
-        el.audioPreview.src = state.audioUrl;
-        el.audioPreview.loop = state.audioLoop;
-        el.audioFileName.textContent = file.name;
-        el.audioFileMeta.textContent = `${file.type || 'فایل صوتی'} · ${(file.size / 1024 / 1024).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} مگابایت`;
-        el.removeAudio.disabled = false;
-        ensureAudioGraph();
-        el.audioPreview.load();
-        el.audioStart.max = String(state.duration);
-        el.audioStart.value = state.audioStart.toFixed(1);
-        el.audioStartValue.textContent = secondsLabel(state.audioStart);
-        renderTimelineTracks();
-        drawAudioWaveform(file);
-        syncAudioPlayback(currentTime(performance.now()), true);
-        if (!quiet) showToast('موسیقی اضافه شد؛ صدا در همان دستگاه شما پردازش می‌شود.');
+    function isSupportedAudioFile(file) {
+        return !!file && (String(file.type || '').startsWith('audio/') || /\.(mp3|wav|ogg|m4a|aac|flac|opus)$/i.test(file.name));
     }
 
-    function clearAudioTrack(quiet) {
-        el.audioPreview.pause();
-        if (state.audioUrl) URL.revokeObjectURL(state.audioUrl);
-        state.audioUrl = null;
-        state.audioFile = null;
-        state.audioDuration = 0;
-        state.audioStart = 0;
-        state.audioPeaks = [];
+    function createAudioElement() {
+        if (!state.audioPreviewAssigned) {
+            state.audioPreviewAssigned = true;
+            return el.audioPreview;
+        }
+        const element = new Audio();
+        element.preload = 'metadata';
+        return element;
+    }
+
+    async function addAudioTrackFile(file, kind = 'music', settings = {}, quiet = false, preferredId = '') {
+        if (!file || state.exporting || state.exportPreparing) return null;
+        if (!isSupportedAudioFile(file)) {
+            if (!quiet) showToast('فایل صوتی MP3، WAV، OGG، M4A، AAC یا FLAC انتخاب کنید.', 'warning');
+            return null;
+        }
+        if (!file.size || file.size > MAX_AUDIO_BYTES) {
+            if (!quiet) showToast('حجم هر فایل صوتی نباید بیشتر از ۴۰ مگابایت باشد.', 'warning');
+            return null;
+        }
+        if (state.audioTracks.length >= MAX_AUDIO_TRACKS) {
+            if (!quiet) showToast(`حداکثر ${MAX_AUDIO_TRACKS} ترک موسیقی و گفتار به هر پروژه اضافه می‌شود.`, 'warning');
+            return null;
+        }
+        state.audioTrackSequence += 1;
+        const safeKind = kind === 'voice' ? 'voice' : 'music';
+        const safeId = typeof preferredId === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(preferredId) && !state.audioTracks.some(track => track.id === preferredId)
+            ? preferredId
+            : `audio-${Date.now().toString(36)}-${state.audioTrackSequence.toString(36)}`;
+        const url = URL.createObjectURL(file);
+        const element = createAudioElement();
+        const track = {
+            id: safeId,
+            kind: safeKind,
+            name: String(settings.name || file.name || (safeKind === 'voice' ? 'گفتار' : 'موسیقی')).slice(0, 120),
+            file,
+            url,
+            element,
+            duration: 0,
+            start: clamp(Number(settings.start) || 0, 0, state.duration),
+            volume: clamp(Number.isFinite(Number(settings.volume)) ? Number(settings.volume) : 1, 0, 1.5),
+            fadeIn: clamp(Number.isFinite(Number(settings.fadeIn)) ? Number(settings.fadeIn) : .5, 0, 5),
+            fadeOut: clamp(Number.isFinite(Number(settings.fadeOut)) ? Number(settings.fadeOut) : 1, 0, 5),
+            loop: !!settings.loop,
+            muted: !!settings.muted,
+            peaks: [],
+            sourceNode: null,
+            gainNode: null,
+            lastSync: 0,
+            lastTimelineTime: -1
+        };
+        state.audioTracks.push(track);
+        state.selectedAudioTrackId = track.id;
+        state.audioLastSync = 0;
+        state.audioLastTimelineTime = -1;
+        element.addEventListener('loadedmetadata', () => updateAudioMeta(track));
+        element.addEventListener('error', () => {
+            if (state.audioTracks.includes(track)) showToast(`پخش «${track.name}» در مرورگر ممکن نیست؛ فایل دیگری را انتخاب کنید.`, 'warning');
+        });
+        element.src = url;
+        element.loop = track.loop;
+        element.load();
+        ensureAudioGraph(track);
+        syncAudioAliases(track);
+        updateAudioControls();
+        renderAudioTrackList();
+        renderTimelineTracks();
+        await drawAudioWaveform(track);
+        syncAudioPlayback(currentTime(performance.now()), true);
+        if (!quiet) showToast(`${safeKind === 'voice' ? 'ترک گفتار' : 'ترک موسیقی'} اضافه شد؛ هر ترک زمان‌بندی و میکس مستقل دارد.`);
+        return track;
+    }
+
+    async function addAudioFiles(files, kind = 'music', quiet = false) {
+        const list = Array.from(files || []);
+        if (!list.length) return;
+        let added = 0;
+        let skipped = 0;
+        for (const file of list) {
+            if (state.audioTracks.length >= MAX_AUDIO_TRACKS) {
+                skipped += 1;
+                continue;
+            }
+            if (!isSupportedAudioFile(file) || !file.size || file.size > MAX_AUDIO_BYTES) {
+                skipped += 1;
+                continue;
+            }
+            const track = await addAudioTrackFile(file, kind, {}, true);
+            if (track) added += 1;
+            else skipped += 1;
+        }
+        if (!quiet && added) showToast(`${added.toLocaleString('fa-IR')} ترک ${kind === 'voice' ? 'گفتار' : 'موسیقی'} اضافه شد.`);
+        if (!quiet && skipped) showToast(skipped >= list.length ? 'فایل صوتی نامعتبر، بزرگ‌تر از ۴۰ مگابایت یا بیش از سقف ۱۲ ترک بود.' : `${skipped.toLocaleString('fa-IR')} فایل به‌دلیل نوع یا حجم نامعتبر رد شد.`, 'warning');
+    }
+
+    async function handleAudioFile(file, quiet, kind = 'music') {
+        return addAudioTrackFile(file, kind, {}, quiet);
+    }
+
+    function removeAudioTrack(id, quiet) {
+        const track = state.audioTracks.find(item => item.id === id);
+        if (!track) return;
+        track.element.pause();
+        if (track.gainNode) {
+            try { track.gainNode.gain.value = 0; track.gainNode.disconnect(); } catch (error) {}
+        }
+        if (track.sourceNode) { try { track.sourceNode.disconnect(); } catch (error) {} }
+        try { URL.revokeObjectURL(track.url); } catch (error) {}
+        track.element.removeAttribute('src');
+        try { track.element.load(); } catch (error) {}
+        state.audioTracks = state.audioTracks.filter(item => item.id !== id);
+        state.keyframes = state.keyframes.filter(frame => frame.target !== `audioTrack:${id}`);
+        if (state.selectedKeyframeId && !state.keyframes.some(frame => frame.id === state.selectedKeyframeId)) state.selectedKeyframeId = null;
+        if (state.selectedAudioTrackId === id) state.selectedAudioTrackId = state.audioTracks[0] ? state.audioTracks[0].id : null;
         state.timelinePointerDrag = null;
         state.audioLastSync = 0;
         state.audioLastTimelineTime = -1;
-        state.audioSourceTrack = null;
-        state.audioCaptureStream = null;
-        el.audioPreview.removeAttribute('src');
-        el.audioPreview.load();
-        el.audioFileName.textContent = 'فایلی انتخاب نشده';
-        el.audioFileMeta.textContent = 'MP3، WAV، OGG، M4A یا AAC · حداکثر ۴۰ مگابایت';
-        el.removeAudio.disabled = true;
-        if (state.audioGain) state.audioGain.gain.value = 0;
-        const waveform = document.getElementById('audioWaveform');
-        const waveformContext = waveform && waveform.getContext('2d');
-        if (waveformContext) waveformContext.clearRect(0, 0, waveform.width, waveform.height);
+        syncAudioAliases();
         updateAudioControls();
+        renderAudioTrackList();
         renderTimelineTracks();
-        if (!quiet) showToast('ترک صوتی حذف شد.');
+        syncAudioPlayback(currentTime(performance.now()), true);
+        if (!quiet) showToast('ترک صوتی انتخاب‌شده حذف شد.');
+    }
+
+    function clearAudioTracks(quiet) {
+        state.audioTracks.slice().forEach(track => {
+            track.element.pause();
+            if (track.gainNode) { try { track.gainNode.disconnect(); } catch (error) {} }
+            if (track.sourceNode) { try { track.sourceNode.disconnect(); } catch (error) {} }
+            try { URL.revokeObjectURL(track.url); } catch (error) {}
+            track.element.removeAttribute('src');
+            try { track.element.load(); } catch (error) {}
+        });
+        state.audioTracks = [];
+        state.selectedAudioTrackId = null;
+        state.timelinePointerDrag = null;
+        state.audioLastSync = 0;
+        state.audioLastTimelineTime = -1;
+        syncAudioAliases(null);
+        updateAudioControls();
+        renderAudioTrackList();
+        renderTimelineTracks();
+        if (!quiet) showToast('همه‌ی ترک‌های صوتی حذف شدند.');
     }
 
     function syncAudioPlayback(time, force) {
-        if (!state.audioFile || !state.audioUrl) return;
+        if (!state.audioTracks.length) return;
         const active = state.playing || state.exporting;
-        if (!active) {
-            el.audioPreview.pause();
-            if (state.audioGain) state.audioGain.gain.setTargetAtTime(0, state.audioContext.currentTime, .025);
-            else el.audioPreview.volume = 0;
-            return;
-        }
-        ensureAudioGraph();
-        if (state.audioContext && state.audioContext.state === 'suspended') state.audioContext.resume().catch(() => {});
+        const now = performance.now();
         if (state.audioLastTimelineTime >= 0 && time < state.audioLastTimelineTime - .05) force = true;
         state.audioLastTimelineTime = time;
-        const beforeStart = time < state.audioStart;
-        const relative = beforeStart ? 0 : time - state.audioStart;
-        const duration = state.audioDuration || Number(el.audioPreview.duration) || 0;
-        if (beforeStart) {
-            el.audioPreview.pause();
-            if (state.audioGain && state.audioContext) state.audioGain.gain.setTargetAtTime(0, state.audioContext.currentTime, .025);
-            else el.audioPreview.volume = 0;
-            return;
-        }
-        if (duration > 0 && !state.audioLoop && relative >= duration) {
-            el.audioPreview.pause();
-            if (state.audioGain) state.audioGain.gain.setTargetAtTime(0, state.audioContext.currentTime, .025);
-            return;
-        }
-        let audioTime = relative;
-        if (state.audioLoop && duration > 0) audioTime %= duration;
-        if (duration > 0) audioTime = clamp(audioTime, 0, Math.max(0, duration - .03));
-        const now = performance.now();
-        if (force || now - state.audioLastSync > 500) {
-            if (Number.isFinite(el.audioPreview.duration) && el.audioPreview.readyState >= 1 && Math.abs((Number(el.audioPreview.currentTime) || 0) - audioTime) > .22) {
-                try { el.audioPreview.currentTime = audioTime; } catch (error) {}
+        if (active) ensureAudioContext();
+        if (state.audioContext && state.audioContext.state === 'suspended' && active) state.audioContext.resume().catch(() => {});
+        state.audioTracks.forEach(track => {
+            const element = track.element;
+            const hasGraph = ensureAudioGraph(track);
+            const context = state.audioContext;
+            const relative = time - track.start;
+            const beforeStart = relative < 0;
+            const duration = track.duration || Number(element.duration) || 0;
+            if (!active || beforeStart || (duration > 0 && !track.loop && relative >= duration) || track.muted) {
+                element.pause();
+                if (track.gainNode && context) track.gainNode.gain.setTargetAtTime(0, context.currentTime, .025);
+                else element.volume = 0;
+                return;
             }
-            state.audioLastSync = now;
-        }
-        el.audioPreview.loop = state.audioLoop;
-        if (el.audioPreview.paused) el.audioPreview.play().catch(() => {});
-        const keyedVolume = evaluateKeyframes('audio', 'volume', time, state.audioVolume * 100) / 100;
-        let gain = beforeStart ? 0 : clamp(keyedVolume, 0, 1.5);
-        const fadeIn = Math.max(0, state.audioFadeIn);
-        if (!beforeStart && fadeIn > 0) gain *= clamp(relative / fadeIn, 0, 1);
-        const clipRemaining = Math.max(0, state.duration - time);
-        const audioRemaining = duration > 0 && !state.audioLoop ? Math.max(0, duration - relative) : clipRemaining;
-        const fadeRemaining = Math.min(clipRemaining, audioRemaining);
-        if (state.audioFadeOut > 0) gain *= clamp(fadeRemaining / state.audioFadeOut, 0, 1);
-        if (state.audioGain && state.audioContext) state.audioGain.gain.setTargetAtTime(gain, state.audioContext.currentTime, .025);
-        else el.audioPreview.volume = clamp(gain, 0, 1);
+            let audioTime = relative;
+            if (track.loop && duration > 0) audioTime %= duration;
+            if (duration > 0) audioTime = clamp(audioTime, 0, Math.max(0, duration - .03));
+            if (force || now - track.lastSync > 500) {
+                if (Number.isFinite(element.duration) && element.readyState >= 1 && Math.abs((Number(element.currentTime) || 0) - audioTime) > .22) {
+                    try { element.currentTime = audioTime; } catch (error) {}
+                }
+                track.lastSync = now;
+            }
+            track.lastTimelineTime = time;
+            element.loop = track.loop;
+            if (element.paused) element.play().catch(() => {});
+            const target = `audioTrack:${track.id}`;
+            const keyedVolume = evaluateKeyframes(target, 'volume', time, track.volume * 100) / 100;
+            let gain = clamp(keyedVolume, 0, 1.5);
+            if (track.fadeIn > 0) gain *= clamp(relative / track.fadeIn, 0, 1);
+            const clipRemaining = Math.max(0, state.duration - time);
+            const audioRemaining = duration > 0 && !track.loop ? Math.max(0, duration - relative) : clipRemaining;
+            const fadeRemaining = Math.min(clipRemaining, audioRemaining);
+            if (track.fadeOut > 0) gain *= clamp(fadeRemaining / track.fadeOut, 0, 1);
+            if (hasGraph && track.gainNode && context) track.gainNode.gain.setTargetAtTime(gain, context.currentTime, .025);
+            else element.volume = clamp(gain, 0, 1);
+        });
     }
 
-    function addAudioTrack(stream) {
-        if (!state.audioFile || !stream || typeof stream.addTrack !== 'function') return;
-        let track = null;
-        if (state.audioDestination) track = state.audioDestination.stream.getAudioTracks()[0] || null;
-        if (!track && typeof el.audioPreview.captureStream === 'function') {
-            state.audioCaptureStream = el.audioPreview.captureStream();
-            track = state.audioCaptureStream.getAudioTracks()[0] || null;
-        }
-        if (!track) {
-            showToast('این مرورگر امکان ترکیب صدای فایل با ویدئو را نمی‌دهد.', 'warning');
+    function addAudioMixTrack(stream) {
+        if (!state.audioTracks.length || !stream || typeof stream.addTrack !== 'function') return;
+        state.audioTracks.forEach(track => ensureAudioGraph(track));
+        let mixedTrack = state.audioDestination && state.audioDestination.stream.getAudioTracks()[0];
+        if (mixedTrack) {
+            stream.addTrack(typeof mixedTrack.clone === 'function' ? mixedTrack.clone() : mixedTrack);
             return;
         }
-        state.audioSourceTrack = track;
-        stream.addTrack(typeof track.clone === 'function' ? track.clone() : track);
+        let added = 0;
+        state.audioTracks.forEach(track => {
+            const capture = track.element.captureStream || track.element.mozCaptureStream;
+            if (typeof capture !== 'function') return;
+            const audioStream = capture.call(track.element);
+            const audioTrack = audioStream && audioStream.getAudioTracks()[0];
+            if (audioTrack) {
+                stream.addTrack(typeof audioTrack.clone === 'function' ? audioTrack.clone() : audioTrack);
+                added += 1;
+            }
+        });
+        if (!added) showToast('این مرورگر امکان ترکیب صدای فایل‌ها با ویدئو را نمی‌دهد.', 'warning');
+        else if (state.audioTracks.length > 1) showToast('ترکیب چند ترک به پشتیبانی Web Audio مرورگر وابسته است.', 'warning');
     }
 
     function blobToDataUrl(blob) {
@@ -3227,25 +3851,37 @@
             if (!logoResponse.ok) throw new Error('لوگو برای ذخیره‌ی پروژه خوانده نشد.');
             const logoBlob = await logoResponse.blob();
             if (logoBlob.size > MAX_LOGO_BYTES) throw new Error('لوگو از حد مجاز ذخیره‌ی پروژه بزرگ‌تر است.');
+            const audioBytes = state.audioTracks.reduce((total, track) => total + (track.file ? track.file.size : 0), 0);
+            if (audioBytes > 50 * 1024 * 1024) throw new Error('مجموع فایل‌های صوتی برای ذخیره‌ی پروژه نباید از ۵۰ مگابایت بیشتر شود.');
             const customFonts = [];
-            for (const font of state.customFonts) {
-                customFonts.push({ fileName: font.fileName, dataUrl: await blobToDataUrl(font.file) });
+            for (const font of state.customFonts) customFonts.push({ fileName: font.fileName, dataUrl: await blobToDataUrl(font.file) });
+            const audioTracks = [];
+            for (const track of state.audioTracks) {
+                audioTracks.push({
+                    id: track.id, kind: track.kind, name: track.name, fileName: track.file.name,
+                    dataUrl: await blobToDataUrl(track.file), start: track.start, volume: track.volume,
+                    fadeIn: track.fadeIn, fadeOut: track.fadeOut, loop: track.loop, muted: track.muted
+                });
             }
-            const audio = state.audioFile ? { fileName: state.audioFile.name, dataUrl: await blobToDataUrl(state.audioFile), start: state.audioStart, volume: state.audioVolume, fadeIn: state.audioFadeIn, fadeOut: state.audioFadeOut, loop: state.audioLoop } : null;
+            const selectedTrack = getSelectedAudioTrack();
             const project = {
                 schema: 'sahand-logo-motion-project',
-                version: 1,
+                version: 2,
                 savedAt: new Date().toISOString(),
                 brand: { title: state.title, tagline: state.tagline, phone: state.phone, website: state.website, englishText: state.englishText },
                 textStyles: state.textStyles,
+                extraTextLayers: state.extraTextLayers,
+                logoLayers: state.logoLayers,
                 keyframes: state.keyframes,
                 customFonts,
-                audio,
+                audio: null,
+                audioTracks,
+                selectedAudioTrackId: state.selectedAudioTrackId,
                 logo: { fileName: el.fileName.textContent || 'logo', dataUrl: await blobToDataUrl(logoBlob) },
                 logoMotion: { logoScale: state.logoScale, easing: state.logoEasing, entryTime: state.logoEntryTime, entryDuration: state.logoEntryDuration, exitEffect: state.logoExitEffect, exitTime: state.logoExitTime, exitDuration: state.logoExitDuration, exitAuto: state.logoExitAuto, intensity: state.motionIntensity, styleId: state.motionStyle.id },
                 background: { color: state.background, intensity: state.backgroundIntensity, speed: state.backgroundSpeed, animationId: state.backgroundAnimation.id },
                 colors: { accent: state.accent, gold: state.gold },
-                audioSettings: { start: state.audioStart, volume: state.audioVolume, fadeIn: state.audioFadeIn, fadeOut: state.audioFadeOut, loop: state.audioLoop },
+                audioSettings: selectedTrack ? { start: selectedTrack.start, volume: selectedTrack.volume, fadeIn: selectedTrack.fadeIn, fadeOut: selectedTrack.fadeOut, loop: selectedTrack.loop } : {},
                 output: { duration: state.duration, resolution: state.resolution, aspect: state.aspect, fps: state.fps, format: state.format, codec: state.codec, bitrate: state.bitrate }
             };
             const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
@@ -3258,7 +3894,7 @@
             link.click();
             link.remove();
             window.setTimeout(() => URL.revokeObjectURL(url), 15000);
-            showToast('پروژه همراه با لوگو، فونت‌ها، صدا، کی‌فریم‌ها و تنظیمات ذخیره شد.');
+            showToast('پروژه همراه با همه‌ی لایه‌ها، موسیقی، گفتار، فونت‌ها و کی‌فریم‌ها ذخیره شد.');
         } catch (error) {
             showToast(error.message || 'ذخیره‌ی پروژه انجام نشد.', 'error');
         }
@@ -3266,6 +3902,61 @@
 
     function isHexColor(value) {
         return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
+    }
+
+    function sanitizeImportedTextLayers(value) {
+        if (!Array.isArray(value)) return [];
+        const safeTemplates = new Set([...TEXT_ITEMS.map(item => item.key), 'custom']);
+        const seen = new Set();
+        return value.slice(0, 24).filter(item => item && typeof item === 'object').map((item, index) => {
+            const requestedKey = typeof item.key === 'string' && /^text-(?:layer|import)-[a-zA-Z0-9_-]{1,70}$/.test(item.key) ? item.key : `text-import-${index + 1}`;
+            let key = requestedKey;
+            let suffix = 1;
+            while (seen.has(key) || TEXT_ITEMS.some(base => base.key === key)) { key = `${requestedKey}-${suffix++}`; }
+            seen.add(key);
+            const templateKey = safeTemplates.has(item.templateKey) ? item.templateKey : 'custom';
+            const source = TEXT_ITEMS.find(base => base.key === templateKey) || TEXT_ITEMS[0];
+            const label = typeof item.label === 'string' ? item.label.slice(0, 56) : `نوشته‌ی جدید ${index + 1}`;
+            return {
+                key,
+                label: label || `نوشته‌ی جدید ${index + 1}`,
+                templateKey,
+                defaultY: clamp(Number(item.defaultY) || (templateKey === 'custom' ? 52 : source.defaultY), 4, 96),
+                rtl: typeof item.rtl === 'boolean' ? item.rtl : source.rtl,
+                icon: templateKey === 'phone' ? 'phone' : (templateKey === 'website' ? 'web' : ''),
+                value: String(item.value || '').slice(0, 120),
+                defaults: { ...source.defaults }
+            };
+        });
+    }
+
+    function sanitizeImportedLogoLayers(value) {
+        if (!Array.isArray(value)) return [];
+        const seen = new Set();
+        return value.slice(0, 8).filter(item => item && typeof item === 'object').map((item, index) => {
+            const requestedId = typeof item.id === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(item.id) ? item.id : `logo-import-${index + 1}`;
+            let id = requestedId;
+            let suffix = 1;
+            while (seen.has(id)) id = `${requestedId}-${suffix++}`;
+            seen.add(id);
+            const number = (key, fallback, min, max) => {
+                const incoming = Number(item[key]);
+                return clamp(Number.isFinite(incoming) ? incoming : fallback, min, max);
+            };
+            return {
+                id,
+                label: typeof item.label === 'string' ? item.label.slice(0, 50) : `کپی لوگو ${index + 1}`,
+                scale: number('scale', 42, 15, 100),
+                xOffset: number('xOffset', index % 2 ? 25 : -25, -45, 45),
+                yOffset: number('yOffset', 0, -35, 35),
+                opacity: number('opacity', 100, 0, 100),
+                entryTime: number('entryTime', .5, 0, state.duration),
+                entryDuration: number('entryDuration', .7, .2, Math.min(3, state.duration)),
+                exitTime: number('exitTime', state.duration - .8, 0, state.duration),
+                exitDuration: number('exitDuration', .55, .2, Math.min(3, state.duration)),
+                exitAuto: typeof item.exitAuto === 'boolean' ? item.exitAuto : true
+            };
+        });
     }
 
     function sanitizeImportedTextStyles(styles) {
@@ -3278,8 +3969,8 @@
             fontSize: [10, 120], letterSpacing: [-2, 18], xOffset: [-30, 30], yOffset: [-25, 25], maxWidth: [20, 96], opacity: [10, 100],
             strokeWidth: [0, 8], shadowBlur: [0, 40], entryTime: [0, state.duration], entryDuration: [.2, 3], exitTime: [0, state.duration], exitDuration: [.2, 3]
         };
-        TEXT_ITEMS.forEach(item => {
-            const defaults = { ...item.defaults };
+        allTextItems().forEach(item => {
+            const defaults = { ...(item.defaults || TEXT_ITEMS[0].defaults) };
             const incoming = styles && styles[item.key] && typeof styles[item.key] === 'object' ? styles[item.key] : {};
             const merged = { ...defaults };
             Object.keys(limits).forEach(property => {
@@ -3309,7 +4000,7 @@
         if (file.size > MAX_PROJECT_BYTES) { showToast('فایل پروژه نباید بیشتر از ۱۰۰ مگابایت باشد.', 'warning'); return; }
         try {
             const project = JSON.parse(await file.text());
-            if (!project || project.schema !== 'sahand-logo-motion-project' || project.version !== 1) throw new Error('فایل پروژه‌ی سهند سرویس معتبر نیست.');
+            if (!project || project.schema !== 'sahand-logo-motion-project' || ![1, 2].includes(Number(project.version))) throw new Error('فایل پروژه‌ی سهند سرویس معتبر نیست.');
             if (!project.brand || !project.output || !project.logoMotion || !project.textStyles) throw new Error('بخشی از تنظیمات فایل پروژه ناقص است.');
 
             const importedFonts = [];
@@ -3344,7 +4035,11 @@
             el.website.value = state.website;
             el.brandEnglish.value = state.englishText;
 
-            state.duration = Number(project.output.duration) || 8;
+            state.duration = clamp(Number(project.output.duration) || 8, 1, 30);
+            state.extraTextLayers = sanitizeImportedTextLayers(project.extraTextLayers);
+            state.textLayerSequence = state.extraTextLayers.length;
+            state.logoLayers = sanitizeImportedLogoLayers(project.logoLayers);
+            state.logoLayerSequence = state.logoLayers.length;
             state.textStyles = sanitizeImportedTextStyles(project.textStyles);
             const motion = project.logoMotion;
             state.logoScale = clamp(Number(motion.logoScale) || 1, .55, 1.45);
@@ -3398,26 +4093,40 @@
             state.codec = el.codec.value || 'auto';
             state.bitrate = el.bitrate.value || 'high';
             configureFormatOptions();
-            state.keyframes = sanitizeImportedKeyframes(project.keyframes, state.duration);
-            state.selectedKeyframeId = null;
-            clearAudioTrack(true);
-            if (project.audio && project.audio.dataUrl) {
-                const audioFile = dataUrlToFile(project.audio.dataUrl, project.audio.fileName || 'project-audio.mp3', MAX_AUDIO_BYTES);
-                await handleAudioFile(audioFile, true);
+            const importedTracks = Number(project.version) >= 2 && Array.isArray(project.audioTracks)
+                ? project.audioTracks.slice(0, MAX_AUDIO_TRACKS)
+                : (project.audio && project.audio.dataUrl ? [{ ...project.audio, kind: 'music', name: project.audio.fileName, id: 'audio-legacy' }] : []);
+            const importedAudioFiles = [];
+            let importedAudioBytes = 0;
+            for (const audioRecord of importedTracks) {
+                if (!audioRecord || typeof audioRecord.dataUrl !== 'string') continue;
+                const fallbackName = audioRecord.kind === 'voice' ? 'project-voice.mp3' : 'project-music.mp3';
+                const fileName = (typeof audioRecord.fileName === 'string' ? audioRecord.fileName : fallbackName).slice(0, 160);
+                const audioFile = dataUrlToFile(audioRecord.dataUrl, fileName, MAX_AUDIO_BYTES);
+                importedAudioBytes += audioFile.size;
+                if (importedAudioBytes > 50 * 1024 * 1024) throw new Error('مجموع فایل‌های صوتی پروژه از سقف ۵۰ مگابایت بیشتر است.');
+                importedAudioFiles.push({ record: audioRecord, file: audioFile });
             }
-            const audioSettings = project.audioSettings || project.audio || {};
-            state.audioStart = clamp(Number(audioSettings.start) || 0, 0, state.duration);
-            const importedAudioVolume = Number(audioSettings.volume);
-            const importedAudioFadeIn = Number(audioSettings.fadeIn);
-            const importedAudioFadeOut = Number(audioSettings.fadeOut);
-            state.audioVolume = Number.isFinite(importedAudioVolume) ? clamp(importedAudioVolume, 0, 1.5) : 1;
-            state.audioFadeIn = Number.isFinite(importedAudioFadeIn) ? clamp(importedAudioFadeIn, 0, 5) : .5;
-            state.audioFadeOut = Number.isFinite(importedAudioFadeOut) ? clamp(importedAudioFadeOut, 0, 5) : 1;
-            state.audioLoop = !!audioSettings.loop;
+            clearAudioTracks(true);
+            for (const imported of importedAudioFiles) {
+                const audioRecord = imported.record;
+                await addAudioTrackFile(imported.file, audioRecord.kind === 'voice' ? 'voice' : 'music', audioRecord, true, audioRecord.id || '');
+            }
+            if (Number(project.version) >= 2 && state.audioTracks.some(track => track.id === project.selectedAudioTrackId)) {
+                state.selectedAudioTrackId = project.selectedAudioTrackId;
+            }
+            syncAudioAliases();
             updateAudioControls();
+            renderAudioTrackList();
+            const importedKeyframes = Number(project.version) === 1 && state.audioTracks.length
+                ? (Array.isArray(project.keyframes) ? project.keyframes.map(frame => frame && frame.target === 'audio' ? { ...frame, target: `audioTrack:${state.audioTracks[0].id}` } : frame) : project.keyframes)
+                : project.keyframes;
+            state.keyframes = sanitizeImportedKeyframes(importedKeyframes, state.duration);
+            state.selectedKeyframeId = null;
             renderCustomFontList();
             buildTextSettings();
             updateTextTimingControls();
+            renderLogoLayerList();
             updateLogoTimingControls();
             document.getElementById('selectedBackgroundName').textContent = state.backgroundAnimation.name;
             renderMotionStyles();
@@ -3443,7 +4152,7 @@
             updateTimelinePlayhead(0);
             syncKeyframeValueControl();
             syncAudioPlayback(0, true);
-            showToast('پروژه، لوگو، فونت‌ها و کی‌فریم‌ها بارگذاری شدند؛ صدای ذخیره‌شده نیز بازیابی شد.');
+            showToast('پروژه، همه‌ی لایه‌ها، کی‌فریم‌ها، موسیقی و گفتار بازیابی شدند.');
         } catch (error) {
             showToast(error.message || 'بارگذاری پروژه انجام نشد.', 'error');
         } finally {
@@ -3488,46 +4197,78 @@
     el.loadProject.addEventListener('click', () => el.projectFile.click());
     el.projectFile.addEventListener('change', event => loadProjectSettings(event.target.files && event.target.files[0]));
     el.previewGuides.addEventListener('change', () => { el.safeGuides.hidden = !el.previewGuides.checked; });
-    const openAudioPicker = () => {
-        if (!state.exporting && !state.exportPreparing) el.audioFile.click();
+    const openAudioPicker = (kind = 'music') => {
+        if (state.exporting || state.exportPreparing) return;
+        (kind === 'voice' ? el.voiceFile : el.audioFile).click();
     };
-    el.audioUploadButton.addEventListener('click', openAudioPicker);
-    el.timelineAddAudio.addEventListener('click', openAudioPicker);
+    el.audioUploadButton.addEventListener('click', () => openAudioPicker('music'));
+    el.voiceUploadButton.addEventListener('click', () => openAudioPicker('voice'));
+    el.timelineAddAudio.addEventListener('click', () => openAudioPicker('music'));
+    el.timelineAddVoice.addEventListener('click', () => openAudioPicker('voice'));
+    el.timelineAddText.addEventListener('click', () => addTextLayer(null, false));
+    el.timelineAddLogo.addEventListener('click', addLogoLayer);
+    el.addTextLayer.addEventListener('click', () => addTextLayer(null, false));
+    el.addLogoLayer.addEventListener('click', addLogoLayer);
     el.audioFile.addEventListener('change', event => {
-        handleAudioFile(event.target.files && event.target.files[0], false);
+        addAudioFiles(event.target.files, 'music', false);
         event.target.value = '';
     });
-    el.removeAudio.addEventListener('click', () => clearAudioTrack(false));
-    el.audioPreview.addEventListener('loadedmetadata', updateAudioMeta);
-    el.audioPreview.addEventListener('error', () => {
-        if (state.audioFile) showToast('پخش این فایل صوتی در مرورگر ممکن نیست؛ فایل دیگری را انتخاب کنید.', 'warning');
+    el.voiceFile.addEventListener('change', event => {
+        addAudioFiles(event.target.files, 'voice', false);
+        event.target.value = '';
+    });
+    el.removeAudio.addEventListener('click', () => {
+        const selected = getSelectedAudioTrack();
+        if (selected) removeAudioTrack(selected.id, false);
     });
     el.audioVolume.addEventListener('input', () => {
-        state.audioVolume = Number(el.audioVolume.value) / 100;
+        const track = getSelectedAudioTrack();
+        if (!track) return;
+        track.volume = Number(el.audioVolume.value) / 100;
+        syncAudioAliases(track);
         el.audioVolumeValue.textContent = `${Number(el.audioVolume.value).toLocaleString('fa-IR')}٪`;
         syncAudioPlayback(currentTime(performance.now()), true);
     });
     el.audioStart.addEventListener('input', () => {
-        state.audioStart = clamp(Number(el.audioStart.value) || 0, 0, state.duration);
-        el.audioStartValue.textContent = secondsLabel(state.audioStart);
+        const track = getSelectedAudioTrack();
+        if (!track) return;
+        track.start = clamp(Number(el.audioStart.value) || 0, 0, state.duration);
+        syncAudioAliases(track);
+        el.audioStartValue.textContent = secondsLabel(track.start);
         state.audioLastSync = 0;
         renderTimelineTracks();
         syncAudioPlayback(currentTime(performance.now()), true);
     });
     el.audioFadeIn.addEventListener('input', () => {
-        state.audioFadeIn = Number(el.audioFadeIn.value) || 0;
-        el.audioFadeInValue.textContent = secondsLabel(state.audioFadeIn);
+        const track = getSelectedAudioTrack();
+        if (!track) return;
+        track.fadeIn = Number(el.audioFadeIn.value) || 0;
+        syncAudioAliases(track);
+        el.audioFadeInValue.textContent = secondsLabel(track.fadeIn);
     });
     el.audioFadeOut.addEventListener('input', () => {
-        state.audioFadeOut = Number(el.audioFadeOut.value) || 0;
-        el.audioFadeOutValue.textContent = secondsLabel(state.audioFadeOut);
+        const track = getSelectedAudioTrack();
+        if (!track) return;
+        track.fadeOut = Number(el.audioFadeOut.value) || 0;
+        syncAudioAliases(track);
+        el.audioFadeOutValue.textContent = secondsLabel(track.fadeOut);
     });
     el.audioMode.addEventListener('change', () => {
-        state.audioLoop = el.audioMode.value === 'loop';
-        el.audioPreview.loop = state.audioLoop;
+        const track = getSelectedAudioTrack();
+        if (!track) return;
+        track.loop = el.audioMode.value === 'loop';
+        track.element.loop = track.loop;
+        syncAudioAliases(track);
+        renderAudioTrackList();
         renderTimelineTracks();
         syncAudioPlayback(currentTime(performance.now()), true);
     });
+    const handleLogoLayerSettingsEvent = event => {
+        const control = event.target.closest('[data-logo-layer-id][data-logo-layer-setting]');
+        if (control && el.logoLayerList.contains(control)) updateLogoLayerFromControl(control);
+    };
+    el.logoLayerList.addEventListener('input', handleLogoLayerSettingsEvent);
+    el.logoLayerList.addEventListener('change', handleLogoLayerSettingsEvent);
     el.keyframeTarget.addEventListener('change', () => {
         state.selectedKeyframeId = null;
         updateKeyframePropertyOptions();
@@ -3668,6 +4409,10 @@
         if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
         if (state.exportLogoUrl) URL.revokeObjectURL(state.exportLogoUrl);
         if (state.lastVideoUrl) URL.revokeObjectURL(state.lastVideoUrl);
+        state.audioTracks.forEach(track => {
+            try { track.element.pause(); } catch (error) {}
+            try { URL.revokeObjectURL(track.url); } catch (error) {}
+        });
         if (state.audioContext && state.audioContext.state !== 'closed') state.audioContext.close().catch(() => {});
         state.customFonts.forEach(font => {
             try { document.fonts.delete(font.face); } catch (error) {}
@@ -3682,6 +4427,8 @@
     renderMotionStyles();
     renderBackgroundAnimations();
     buildTextSettings();
+    renderLogoLayerList();
+    renderAudioTrackList();
     renderCustomFontList();
     configureFormatOptions();
     el.accentColor.value = state.accent;

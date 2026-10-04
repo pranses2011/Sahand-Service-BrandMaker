@@ -7,7 +7,7 @@
     <meta name="description" content="استودیوی ساخت لوگوموشن سهند سرویس؛ ۵۰ سبک حرکت، ۳۰ انیمیشن زمینه و خروجی حرفه‌ای تا 4K.">
     <title>استودیوی لوگوموشن | سهند سرویس</title>
     <link rel="stylesheet" href="assets/css/fonts.css?v=logo-motion-2">
-    <link rel="stylesheet" href="assets/css/logo-motion.css?v=10">
+    <link rel="stylesheet" href="assets/css/logo-motion.css?v=11">
 </head>
 <body>
 <div class="lm-app">
@@ -24,7 +24,7 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6M9 12h11"/></svg>
                 <span>بازگشت به پنل</span>
             </a>
-            <a class="lm-btn lm-btn-bundle" id="downloadBundle" href="downloads/Sahand-Logo-Motion-Studio.zip?v=timeline-audio-2" download hidden title="دانلود بسته‌ی کامل ZIP">
+            <a class="lm-btn lm-btn-bundle" id="downloadBundle" href="downloads/Sahand-Logo-Motion-Studio.zip?v=multi-layers-4" download hidden title="دانلود بسته‌ی کامل ZIP">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3"/></svg>
                 <span>دانلود ZIP</span>
             </a>
@@ -69,6 +69,11 @@
                         <label for="logoScale"><span>اندازه‌ی لوگو</span><b id="logoScaleValue">۱۰۰٪</b></label>
                         <input id="logoScale" type="range" min="55" max="145" value="100" aria-label="تغییر اندازه‌ی لوگو">
                     </div>
+                    <div class="lm-layer-toolbar lm-logo-layer-toolbar">
+                        <button type="button" class="lm-layer-add" id="addLogoLayer">＋ افزودن کپی لوگو</button>
+                        <small>هر کپی اندازه، موقعیت و زمان‌بندی مستقل دارد.</small>
+                    </div>
+                    <div class="lm-logo-layer-list" id="logoLayerList" aria-live="polite"></div>
                     <div class="lm-logo-actions"><button type="button" id="resetLogo" class="lm-reset-logo">بازگشت به لوگوی پیش‌فرض</button></div>
                     <div class="lm-card-footnote"><span class="lm-lock" aria-hidden="true">✓</span> فایل لوگو روی دستگاه شما می‌ماند و جایی بارگذاری نمی‌شود.</div>
                 </section>
@@ -102,8 +107,12 @@
                         <span class="lm-step">۰۳</span>
                         <div><h2>تنظیمات مستقل نوشته‌ها</h2><p>فونت، ظاهر، جایگاه و ورود و خروج هر متن جداگانه</p></div>
                     </div>
+                    <div class="lm-layer-toolbar">
+                        <button type="button" class="lm-layer-add" id="addTextLayer">＋ افزودن نوشته</button>
+                        <small>هر نمونه روی تایم‌لاین و با تنظیمات مستقل قرار می‌گیرد.</small>
+                    </div>
                     <div id="textSettings" class="lm-text-settings-list"></div>
-                    <p class="lm-text-settings-note">زمان‌ها براساس مدت کلیپ تنظیم می‌شوند؛ جابه‌جایی X و Y نسبت به جایگاه پیشنهادی هر نوشته است.</p>
+                    <p class="lm-text-settings-note">از دکمه‌ی «تکثیر» هر ردیف برای ساخت نمونه‌ی مستقل استفاده کنید. زمان‌ها براساس مدت کلیپ تنظیم می‌شوند.</p>
                 </section>
 
                 <section class="lm-card lm-logo-transition-card">
@@ -135,26 +144,31 @@
                 <section class="lm-card lm-audio-card">
                     <div class="lm-card-heading">
                         <span class="lm-step">۰۵</span>
-                        <div><h2>صدا و موسیقی</h2><p>موسیقی پس‌زمینه را به تایم‌لاین اضافه کنید</p></div>
+                        <div><h2>موسیقی و گفتار</h2><p>چند ترک مستقل اضافه کنید؛ هر ترک روی تایم‌لاین جداست</p></div>
                     </div>
-                    <input id="audioFile" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac" hidden>
-                    <div class="lm-audio-upload-row">
-                        <button class="lm-font-upload" id="audioUploadButton" type="button">＋ افزودن فایل صوتی</button>
-                        <button class="lm-font-remove" id="removeAudio" type="button" disabled>حذف صدا</button>
+                    <input id="audioFile" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac" multiple hidden>
+                    <input id="voiceFile" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac" multiple hidden>
+                    <div class="lm-audio-upload-row lm-audio-add-row">
+                        <button class="lm-font-upload" id="audioUploadButton" type="button">＋ افزودن موسیقی</button>
+                        <button class="lm-font-upload lm-voice-upload" id="voiceUploadButton" type="button">＋ افزودن گفتار</button>
                     </div>
-                    <div class="lm-audio-file-info"><b id="audioFileName">فایلی انتخاب نشده</b><small id="audioFileMeta">MP3، WAV، OGG، M4A یا AAC · حداکثر ۴۰ مگابایت</small></div>
-                    <canvas class="lm-audio-waveform" id="audioWaveform" width="720" height="68" aria-label="نمای موج موسیقی"></canvas>
+                    <div class="lm-audio-track-list" id="audioTrackList" aria-live="polite"></div>
+                    <div class="lm-audio-file-info"><b id="audioFileName">ترکی انتخاب نشده</b><small id="audioFileMeta">حداکثر ۱۲ ترک · هر فایل ۴۰ مگابایت · مجموع ذخیره‌ی پروژه ۵۰ مگابایت</small></div>
+                    <canvas class="lm-audio-waveform" id="audioWaveform" width="720" height="68" aria-label="نمای موج ترک انتخاب‌شده"></canvas>
                     <audio id="audioPreview" preload="metadata" hidden></audio>
-                    <div class="lm-audio-options">
-                        <label class="lm-select-wrap"><span>پخش در انتهای فایل</span><select id="audioMode" class="lm-select"><option value="once" selected>توقف</option><option value="loop">تکرار تا پایان ویدئو</option></select></label>
-                        <div class="lm-range-control"><label for="audioVolume"><span>بلندی صدا</span><b id="audioVolumeValue">۱۰۰٪</b></label><input id="audioVolume" type="range" min="0" max="150" value="100"></div>
+                    <div id="selectedAudioControls" class="lm-selected-audio-controls" hidden>
+                        <div class="lm-audio-options">
+                            <label class="lm-select-wrap"><span>رفتار پایان فایل</span><select id="audioMode" class="lm-select"><option value="once" selected>توقف</option><option value="loop">تکرار تا پایان ویدئو</option></select></label>
+                            <div class="lm-range-control"><label for="audioVolume"><span>بلندی صدا</span><b id="audioVolumeValue">۱۰۰٪</b></label><input id="audioVolume" type="range" min="0" max="150" value="100"></div>
+                        </div>
+                        <div class="lm-audio-options">
+                            <div class="lm-range-control"><label for="audioStart"><span>شروع صدا در کلیپ</span><b id="audioStartValue">۰ ثانیه</b></label><input id="audioStart" type="range" min="0" max="30" step="0.1" value="0"></div>
+                            <div class="lm-range-control"><label for="audioFadeIn"><span>محو ورود صدا</span><b id="audioFadeInValue">۰٫۵ ثانیه</b></label><input id="audioFadeIn" type="range" min="0" max="5" step="0.1" value="0.5"></div>
+                        </div>
+                        <div class="lm-range-control"><label for="audioFadeOut"><span>محو پایان صدا</span><b id="audioFadeOutValue">۱ ثانیه</b></label><input id="audioFadeOut" type="range" min="0" max="5" step="0.1" value="1"></div>
+                        <div class="lm-audio-selected-actions"><button class="lm-font-remove" id="removeAudio" type="button" disabled>حذف ترک انتخاب‌شده</button></div>
                     </div>
-                    <div class="lm-audio-options">
-                        <div class="lm-range-control"><label for="audioStart"><span>شروع صدا در کلیپ</span><b id="audioStartValue">۰ ثانیه</b></label><input id="audioStart" type="range" min="0" max="12" step="0.1" value="0"></div>
-                        <div class="lm-range-control"><label for="audioFadeIn"><span>محو ورود صدا</span><b id="audioFadeInValue">۰٫۵ ثانیه</b></label><input id="audioFadeIn" type="range" min="0" max="5" step="0.1" value="0.5"></div>
-                    </div>
-                    <div class="lm-range-control"><label for="audioFadeOut"><span>محو پایان صدا</span><b id="audioFadeOutValue">۱ ثانیه</b></label><input id="audioFadeOut" type="range" min="0" max="5" step="0.1" value="1"></div>
-                    <p class="lm-card-footnote"><span class="lm-lock" aria-hidden="true">✓</span> موسیقی در همین دستگاه می‌ماند و داخل ویدئوی نهایی ترکیب می‌شود.</p>
+                    <p class="lm-card-footnote"><span class="lm-lock" aria-hidden="true">✓</span> ترک‌های موسیقی و گفتار به‌صورت میکس‌شده در خروجی ویدئو ثبت می‌شوند.</p>
                 </section>
 
                 <section class="lm-card lm-picker-card">
@@ -293,10 +307,10 @@
                     <div class="lm-timeline-editor-heading">
                         <div><strong>تایم‌لاین چندلایه</strong><small>کشیدن صدا یا نشانگرهای ◆ برای زمان‌بندی · Space پخش/توقف</small></div>
                         <div class="lm-timeline-heading-actions">
-                            <button class="lm-timeline-add-audio" id="timelineAddAudio" type="button" aria-label="افزودن یا جایگزینی موسیقی در تایم‌لاین" aria-controls="audioFile">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13M9 9l12-2"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M4 5h2M3 8h3"/></svg>
-                                <span id="timelineAudioActionLabel">افزودن صدا</span>
-                            </button>
+                            <button class="lm-timeline-add-audio" id="timelineAddText" type="button" aria-label="افزودن لایه‌ی نوشته"><span>＋ متن</span></button>
+                            <button class="lm-timeline-add-audio" id="timelineAddLogo" type="button" aria-label="افزودن کپی لوگو"><span>＋ لوگو</span></button>
+                            <button class="lm-timeline-add-audio" id="timelineAddAudio" type="button" aria-label="افزودن موسیقی" aria-controls="audioFile"><span>＋ موسیقی</span></button>
+                            <button class="lm-timeline-add-audio lm-timeline-add-voice" id="timelineAddVoice" type="button" aria-label="افزودن گفتار" aria-controls="voiceFile"><span>＋ گفتار</span></button>
                             <span id="keyframeCount">۰ کی‌فریم</span>
                         </div>
                     </div>
@@ -304,7 +318,7 @@
                     <div class="lm-track-list" id="timelineTracks"></div>
                     <div class="lm-keyframe-tools">
                         <div class="lm-keyframe-selection">
-                            <label class="lm-select-wrap"><span>لایه</span><select id="keyframeTarget" class="lm-select"><option value="logo">لوگو</option><option value="title">نام برند</option><option value="tagline">شعار</option><option value="phone">تلفن</option><option value="website">وب‌سایت</option><option value="english">متن انگلیسی</option><option value="audio">صدا</option></select></label>
+                            <label class="lm-select-wrap"><span>لایه</span><select id="keyframeTarget" class="lm-select"><option value="logo">لوگوی اصلی</option><option value="title">نام برند</option><option value="tagline">شعار</option><option value="phone">تلفن</option><option value="website">وب‌سایت</option><option value="english">متن انگلیسی</option></select></label>
                             <label class="lm-select-wrap"><span>ویژگی متحرک</span><select id="keyframeProperty" class="lm-select"></select></label>
                             <label class="lm-select-wrap"><span>نرمی بین کی‌فریم‌ها</span><select id="keyframeEasing" class="lm-select"><option value="cinematic">سینمایی</option><option value="smooth">نرم</option><option value="spring">فنری</option><option value="linear">خطی</option><option value="sharp">سریع</option></select></label>
                         </div>
@@ -343,6 +357,6 @@
 
     <div class="lm-toast" id="toast" role="status" aria-live="polite" hidden></div>
 </div>
-<script src="assets/js/logo-motion.js?v=14" defer></script>
+<script src="assets/js/logo-motion.js?v=16" defer></script>
 </body>
 </html>
