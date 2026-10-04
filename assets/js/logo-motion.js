@@ -360,6 +360,7 @@
         exportLastFrameIndex: -1,
         exportDroppedFrames: 0,
         exportRenderScale: 1,
+        exportDetailScale: 1,
         exportRenderAverage: 0,
         exportSlowFrameStreak: 0,
         exportUiLastUpdate: 0,
@@ -544,7 +545,8 @@
 
     function minimumExportRenderScale() {
         const [outputWidth, outputHeight] = outputSizeForSettings();
-        return Math.min(1, Math.sqrt((1280 * 720) / (outputWidth * outputHeight)));
+        // Keep at least a Full-HD-equivalent render before sacrificing sharpness.
+        return Math.min(1, Math.sqrt((1920 * 1080) / (outputWidth * outputHeight)));
     }
 
     function updateCanvasResolution(forExport = false) {
@@ -1229,9 +1231,21 @@
         });
     }
 
-    function deterministic(value) {
+    const deterministicCache = Array.from({ length: 512 }, (_, value) => {
         const x = Math.sin(value * 127.1 + 311.7) * 43758.5453;
         return x - Math.floor(x);
+    });
+
+    function deterministic(value) {
+        const index = Number(value);
+        if (Number.isInteger(index) && index >= 0 && index < deterministicCache.length) return deterministicCache[index];
+        const x = Math.sin(index * 127.1 + 311.7) * 43758.5453;
+        return x - Math.floor(x);
+    }
+
+    function renderDetailCount(count, minimum = 2) {
+        const scale = state.exporting ? clamp(Number(state.exportDetailScale) || 1, .2, 1) : 1;
+        return Math.max(Math.min(minimum, count), Math.round(count * scale));
     }
 
     function drawBackgroundAnimation(progress, seconds, light) {
@@ -1271,7 +1285,7 @@
             }
             canvasContext.restore();
         } else if (family === 'particles') {
-            const count = 28 + variant * 12;
+            const count = renderDetailCount(28 + variant * 12, 12);
             canvasContext.save();
             for (let i = 0; i < count; i++) {
                 const x = (deterministic(i + 2) * WIDTH + Math.sin(motion * (.12 + (i % 4) * .03) + i) * WIDTH * .025 + WIDTH) % WIDTH;
@@ -1304,7 +1318,7 @@
             canvasContext.restore();
         } else if (family === 'rays') {
             canvasContext.save();
-            const rayCount = 12 + variant * 5;
+            const rayCount = renderDetailCount(12 + variant * 5, 6);
             const reach = Math.max(WIDTH, HEIGHT) * .72;
             for (let i = 0; i < rayCount; i++) {
                 const angle = i / rayCount * Math.PI * 2 + motion * .1;
@@ -1324,10 +1338,10 @@
         } else if (family === 'waves') {
             canvasContext.save();
             canvasContext.lineWidth = 1.4;
-            for (let line = 0; line < 4 + variant; line++) {
+            for (let line = 0; line < renderDetailCount(4 + variant, 2); line++) {
                 const yBase = HEIGHT * (.5 + line * .105);
                 canvasContext.beginPath();
-                for (let x = 0; x <= WIDTH; x += Math.max(14, WIDTH / 90)) {
+                for (let x = 0; x <= WIDTH; x += Math.max(14, WIDTH / (90 * Math.max(.45, state.exporting ? state.exportDetailScale : 1)))) {
                     const y = yBase + Math.sin(x * (.006 + variant * .0007) + motion * .7 + line * 1.6) * (12 + variant * 4);
                     if (x === 0) canvasContext.moveTo(x, y); else canvasContext.lineTo(x, y);
                 }
@@ -1337,7 +1351,7 @@
             canvasContext.restore();
         } else if (family === 'rain') {
             canvasContext.save();
-            const count = 25 + variant * 12;
+            const count = renderDetailCount(25 + variant * 12, 10);
             for (let i = 0; i < count; i++) {
                 const x = deterministic(i + 12) * WIDTH;
                 const trail = 22 + deterministic(i + 33) * (45 + variant * 18);
@@ -1353,7 +1367,7 @@
         } else if (family === 'orbits') {
             canvasContext.save();
             canvasContext.globalAlpha = .44 * strength;
-            for (let i = 0; i < 5 + variant; i++) {
+            for (let i = 0; i < renderDetailCount(5 + variant, 3); i++) {
                 const rx = Math.min(WIDTH * .47, 300 + i * Math.min(48, WIDTH * .042));
                 const ry = Math.min(HEIGHT * .34, rx * (.28 + variant * .02));
                 canvasContext.beginPath();
@@ -1386,7 +1400,7 @@
             }
         } else if (family === 'galaxy') {
             canvasContext.save();
-            const count = 50 + variant * 30;
+            const count = renderDetailCount(50 + variant * 30, 16);
             for (let i = 0; i < count; i++) {
                 const angle = deterministic(i + 2) * Math.PI * 2 + motion * (.035 + variant * .012);
                 const radius = Math.sqrt(deterministic(i + 55)) * Math.min(WIDTH, HEIGHT) * (.44 + variant * .025);
@@ -1402,7 +1416,7 @@
             canvasContext.restore();
         } else if (family === 'bokeh') {
             canvasContext.save();
-            const count = 18 + variant * 8;
+            const count = renderDetailCount(18 + variant * 8, 8);
             for (let i = 0; i < count; i++) {
                 const x = (deterministic(i + 18) * WIDTH + Math.sin(motion * .14 + i) * WIDTH * .035 + WIDTH) % WIDTH;
                 const y = (deterministic(i + 72) * HEIGHT + Math.sin(motion * .2 + i * .7) * HEIGHT * .08 + HEIGHT) % HEIGHT;
@@ -1420,7 +1434,7 @@
             canvasContext.restore();
         } else if (family === 'ribbons') {
             canvasContext.save();
-            const bands = 3 + variant;
+            const bands = renderDetailCount(3 + variant, 2);
             for (let band = 0; band < bands; band++) {
                 const baseline = HEIGHT * (.2 + band * .21);
                 const phase = motion * (.28 + band * .035) + band * 1.7;
@@ -1431,7 +1445,7 @@
                 canvasContext.strokeStyle = gradient;
                 canvasContext.lineWidth = 2 + variant * .8;
                 canvasContext.beginPath();
-                for (let x = 0; x <= WIDTH; x += Math.max(20, WIDTH / 32)) {
+                for (let x = 0; x <= WIDTH; x += Math.max(20, WIDTH / (32 * Math.max(.45, state.exporting ? state.exportDetailScale : 1)))) {
                     const y = baseline + Math.sin(x / WIDTH * Math.PI * (1.2 + variant * .2) + phase) * (38 + variant * 12) + Math.cos(x / WIDTH * Math.PI * 2 + phase * .7) * 16;
                     if (x === 0) canvasContext.moveTo(x, y); else canvasContext.lineTo(x, y);
                 }
@@ -1440,7 +1454,7 @@
             canvasContext.restore();
         } else if (family === 'confetti') {
             canvasContext.save();
-            const count = 32 + variant * 12;
+            const count = renderDetailCount(32 + variant * 12, 12);
             for (let i = 0; i < count; i++) {
                 const x = deterministic(i + 4) * WIDTH;
                 const fall = (seconds * (65 + deterministic(i + 19) * 65) + deterministic(i + 53) * HEIGHT * 2) % (HEIGHT + 40) - 20;
@@ -1456,7 +1470,7 @@
             canvasContext.restore();
         } else if (family === 'comets') {
             canvasContext.save();
-            const count = 4 + variant * 2;
+            const count = renderDetailCount(4 + variant * 2, 2);
             for (let i = 0; i < count; i++) {
                 const cycle = (seconds * (.12 + variant * .025) + deterministic(i + 2)) % 1.15;
                 const x = cycle * (WIDTH + 260) - 130;
@@ -1480,7 +1494,7 @@
             canvasContext.restore();
         } else if (family === 'ripples') {
             canvasContext.save();
-            const count = 4 + variant * 2;
+            const count = renderDetailCount(4 + variant * 2, 2);
             for (let i = 0; i < count; i++) {
                 const phase = (seconds * (.22 + variant * .035) + i / count) % 1;
                 const radius = 32 + phase * Math.max(WIDTH, HEIGHT) * .5;
@@ -1494,7 +1508,7 @@
             canvasContext.restore();
         } else if (family === 'prism') {
             canvasContext.save();
-            const count = 7 + variant * 4;
+            const count = renderDetailCount(7 + variant * 4, 3);
             for (let i = 0; i < count; i++) {
                 const x = deterministic(i + 12) * WIDTH;
                 const y = deterministic(i + 91) * HEIGHT;
@@ -1517,7 +1531,7 @@
             canvasContext.restore();
         } else if (family === 'petals') {
             canvasContext.save();
-            const count = 8 + variant * 4;
+            const count = renderDetailCount(8 + variant * 4, 3);
             for (let i = 0; i < count; i++) {
                 const angle = i / count * Math.PI * 2 + motion * .15;
                 const orbit = Math.min(WIDTH, HEIGHT) * (.2 + .07 * Math.sin(motion * .2 + i));
@@ -1536,7 +1550,7 @@
             canvasContext.restore();
         } else if (family === 'matrix') {
             canvasContext.save();
-            const columns = 18 + variant * 6;
+            const columns = renderDetailCount(18 + variant * 6, 8);
             for (let i = 0; i < columns; i++) {
                 const x = deterministic(i + 17) * WIDTH;
                 const cell = Math.max(14, HEIGHT / 34);
@@ -1569,7 +1583,7 @@
             canvasContext.fillRect(0, flareY - 1, WIDTH, 2 + variant);
         } else if (family === 'curtain') {
             canvasContext.save();
-            const count = 10 + variant * 5;
+            const count = renderDetailCount(10 + variant * 5, 4);
             for (let i = 0; i < count; i++) {
                 const x = (i / count * WIDTH + Math.sin(motion * .22 + i * .9) * 60 + WIDTH) % WIDTH;
                 const width = 7 + (i % 3) * 5;
@@ -2354,7 +2368,7 @@
     function drawFrame(seconds, destinationCanvas = null, destinationContext = null) {
         const time = clamp(seconds, 0, state.duration);
         const progress = state.duration > 0 ? time / state.duration : 0;
-        const renderingForExport = !destinationCanvas && state.exporting && !!exportRenderContext;
+        const renderingForExport = !destinationCanvas && state.exporting && !!exportRenderContext && state.exportRenderScale < .995;
         const targetCanvas = destinationCanvas || (renderingForExport ? exportRenderCanvas : canvas);
         canvasContext = destinationContext || (renderingForExport ? exportRenderContext : ctx);
         const scaleX = targetCanvas.width / WIDTH;
@@ -3042,7 +3056,7 @@
                 const progress = clamp(time / Math.max(.001, state.duration), 0, 1);
                 const percent = Math.round(progress * 100);
                 const currentFrame = Math.min(state.exportTotalFrames, Math.floor(progress * state.exportTotalFrames));
-                const dropped = state.exportDroppedFrames ? ` · ${state.exportDroppedFrames.toLocaleString('fa-IR')} فریم سبک‌سازی شد` : '';
+                const dropped = state.exportDroppedFrames ? ` · ${state.exportDroppedFrames.toLocaleString('fa-IR')} فریم از نرخ هدف جا افتاد` : '';
                 el.renderProgress.textContent = `${percent.toLocaleString('fa-IR')}٪ · ${currentFrame.toLocaleString('fa-IR')} از ${state.exportTotalFrames.toLocaleString('fa-IR')} فریم${dropped}`;
             }
             updateTransport(time);
@@ -3476,7 +3490,9 @@
         }
         if (codec === 'vp9') return ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
         if (codec === 'vp8') return ['video/webm;codecs=vp8', 'video/webm;codecs=vp9', 'video/webm'];
-        return ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+        // Prefer VP8 for automatic exports: it is substantially lighter to encode
+        // on many browsers/devices. Users can still select VP9 for compression.
+        return ['video/webm;codecs=vp8', 'video/webm;codecs=vp9', 'video/webm'];
     }
 
     function supportedRecorderType(format, codec) {
@@ -3527,10 +3543,10 @@
     }
 
     function computeBitrate() {
-        const base = state.bitrate === 'compact' ? 3.2 : (state.bitrate === 'standard' ? 5.8 : 9.5);
+        const base = state.bitrate === 'compact' ? 4 : (state.bitrate === 'standard' ? 7.5 : 12.5);
         const pixels = canvas.width * canvas.height;
         const scaled = base * (pixels / (1920 * 1080)) * (state.fps / 30) * 1000000;
-        return Math.round(clamp(scaled, 1800000, 45000000));
+        return Math.round(clamp(scaled, 2500000, 48000000));
     }
 
     function stopTracks() {
@@ -3551,6 +3567,7 @@
         state.exportLastFrameIndex = -1;
         state.exportDroppedFrames = 0;
         state.exportRenderScale = 1;
+        state.exportDetailScale = 1;
         state.exportRenderAverage = 0;
         state.exportSlowFrameStreak = 0;
         state.exportUiLastUpdate = 0;
@@ -3602,9 +3619,10 @@
         state.lastVideoUrl = url;
         el.videoDownloadLink.href = url;
         el.videoDownloadLink.download = fileName;
-        const droppedFrameNote = state.exportDroppedFrames ? ` · ${state.exportDroppedFrames.toLocaleString('fa-IR')} فریم برای حفظ مدت کلیپ سبک‌سازی شد` : '';
-        const adaptiveRenderNote = state.exportRenderScale < .995 ? ` · رندر تطبیقی ${Math.round(state.exportRenderScale * 100).toLocaleString('fa-IR')}٪` : '';
-        el.videoResultMeta.textContent = `${fileName} · ${state.duration.toLocaleString('fa-IR')} ثانیه · ${(blob.size / 1024 / 1024).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} مگابایت · ${state.fps} fps${droppedFrameNote}${adaptiveRenderNote}`;
+        const droppedFrameNote = state.exportDroppedFrames ? ` · ${state.exportDroppedFrames.toLocaleString('fa-IR')} فریم برای حفظ مدت کلیپ حذف شد` : '';
+        const adaptiveRenderNote = state.exportRenderScale < .995 ? ` · وضوح داخلی ${Math.round(state.exportRenderScale * 100).toLocaleString('fa-IR')}٪` : '';
+        const detailRenderNote = state.exportDetailScale < .995 ? ` · تراکم جلوه‌های پس‌زمینه ${Math.round(state.exportDetailScale * 100).toLocaleString('fa-IR')}٪` : '';
+        el.videoResultMeta.textContent = `${fileName} · ${state.duration.toLocaleString('fa-IR')} ثانیه · ${(blob.size / 1024 / 1024).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} مگابایت · ${state.fps} fps${droppedFrameNote}${adaptiveRenderNote}${detailRenderNote}`;
         el.videoResult.hidden = false;
         try {
             const autoDownload = document.createElement('a');
@@ -3617,20 +3635,41 @@
         } catch (downloadError) {
             // Keep the visible download link available when automatic downloads are blocked.
         }
+        const droppedFrames = state.exportDroppedFrames;
+        const totalFrames = Math.max(1, state.exportTotalFrames);
+        const severeFrameLoss = droppedFrames / totalFrames > .04;
         restoreAfterExport();
-        showToast(`ویدئو آماده است؛ اگر دریافت خودکار شروع نشد، روی «دانلود ویدئو» بزنید.`);
+        showToast(severeFrameLoss
+            ? `ویدئو آماده است، اما ${droppedFrames.toLocaleString('fa-IR')} فریم جا افتاد؛ برای حرکت روان‌تر 1080p و 30fps را انتخاب کنید.`
+            : 'ویدئو آماده است؛ اگر دریافت خودکار شروع نشد، روی «دانلود ویدئو» بزنید.', severeFrameLoss ? 'warning' : '');
     }
 
     function createExportStream(fps) {
         if (typeof canvas.captureStream !== 'function') throw new Error('Canvas capture is unavailable');
         state.frameTrack = null;
         state.manualFrameCapture = false;
+        let manualStream = null;
+        try {
+            // Request each frame after it is fully drawn. This avoids captureStream's
+            // independent sampling clock racing the renderer and recording duplicates.
+            manualStream = canvas.captureStream(0);
+            const manualTrack = manualStream && manualStream.getVideoTracks ? manualStream.getVideoTracks()[0] : null;
+            if (manualTrack && manualTrack.readyState !== 'ended' && typeof manualTrack.requestFrame === 'function') {
+                state.frameTrack = manualTrack;
+                state.manualFrameCapture = true;
+                return manualStream;
+            }
+        } catch (error) {
+            // Fall through to the browser's regular periodic canvas capture.
+        }
+        if (manualStream && manualStream.getTracks) manualStream.getTracks().forEach(track => track.stop());
         const stream = canvas.captureStream(clamp(Number(fps) || 30, 24, 60));
         const videoTrack = stream && stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
         if (!videoTrack || videoTrack.readyState === 'ended') {
             if (stream && stream.getTracks) stream.getTracks().forEach(track => track.stop());
             throw new Error('Canvas stream has no active video track');
         }
+        state.frameTrack = videoTrack;
         return stream;
     }
 
@@ -3705,20 +3744,30 @@
         const frameIndex = Math.min(state.exportTotalFrames - 1, Math.floor(elapsed * state.fps));
         if (frameIndex > state.exportLastFrameIndex) {
             try {
-                if (state.exportLastFrameIndex >= 0) state.exportDroppedFrames += Math.max(0, frameIndex - state.exportLastFrameIndex - 1);
+                const skippedFrames = state.exportLastFrameIndex >= 0 ? Math.max(0, frameIndex - state.exportLastFrameIndex - 1) : 0;
+                if (skippedFrames) state.exportDroppedFrames += skippedFrames;
                 const frameTime = Math.min(state.duration, frameIndex / state.fps);
                 if (state.audioTracks.length) syncAudioPlayback(frameTime, frameIndex === 0);
                 const renderStartedAt = performance.now();
                 drawFrame(frameTime);
                 const renderDuration = performance.now() - renderStartedAt;
                 state.exportRenderAverage = state.exportRenderAverage ? state.exportRenderAverage * .78 + renderDuration * .22 : renderDuration;
-                if (state.exportRenderAverage > (1000 / Math.max(1, state.fps)) * 1.35) state.exportSlowFrameStreak += 1;
+                const frameBudget = 1000 / Math.max(1, state.fps);
+                if (state.exportRenderAverage > frameBudget * 1.12 || skippedFrames > 0) state.exportSlowFrameStreak += 1;
                 else state.exportSlowFrameStreak = Math.max(0, state.exportSlowFrameStreak - 1);
-                const minScale = minimumExportRenderScale();
-                if (state.exportSlowFrameStreak >= 3 && state.exportRenderScale > minScale + .025) {
-                    resizeExportRenderCanvas(Math.max(minScale, state.exportRenderScale * .82));
-                    state.exportSlowFrameStreak = 0;
-                    showToast('برای حفظ زمان دقیق کلیپ، وضوح داخلی رندر با توان دستگاه تطبیق داده شد.', 'warning');
+                if (state.exportSlowFrameStreak >= 3) {
+                    if (state.exportDetailScale > .32) {
+                        state.exportDetailScale = Math.max(.32, state.exportDetailScale * .72);
+                        state.exportSlowFrameStreak = 0;
+                        showToast('برای روان‌ترشدن ضبط، فقط تراکم جلوه‌های پس‌زمینه کاهش یافت؛ وضوح لوگو حفظ شد.', 'warning');
+                    } else {
+                        const minScale = minimumExportRenderScale();
+                        if (state.exportRenderScale > minScale + .025) {
+                            resizeExportRenderCanvas(Math.max(minScale, state.exportRenderScale * .86));
+                            state.exportSlowFrameStreak = 0;
+                            showToast('برای حفظ نرخ فریم، وضوح رندر کمی کاهش یافت؛ جزئیات تا Full HD حفظ می‌شود.', 'warning');
+                        }
+                    }
                 }
                 if (state.manualFrameCapture && state.frameTrack) state.frameTrack.requestFrame();
                 state.exportLastFrameIndex = frameIndex;
@@ -3754,6 +3803,7 @@
             state.exportTotalFrames = Math.max(1, Math.ceil(state.duration * state.fps));
             state.exportLastFrameIndex = -1;
             state.exportDroppedFrames = 0;
+            state.exportDetailScale = 1;
             state.exportUiLastUpdate = 0;
             state.exportAudioLastSync = 0;
             state.exportStopRequested = false;
