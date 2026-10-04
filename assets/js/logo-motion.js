@@ -103,6 +103,8 @@
         safeGuides: document.getElementById('safeGuides'),
         audioFile: document.getElementById('audioFile'),
         audioUploadButton: document.getElementById('audioUploadButton'),
+        timelineAddAudio: document.getElementById('timelineAddAudio'),
+        timelineAudioActionLabel: document.getElementById('timelineAudioActionLabel'),
         removeAudio: document.getElementById('removeAudio'),
         audioFileName: document.getElementById('audioFileName'),
         audioFileMeta: document.getElementById('audioFileMeta'),
@@ -235,6 +237,9 @@
         audioUrl: null,
         audioDuration: 0,
         audioStart: 0,
+        audioPeaks: [],
+        timelinePointerDrag: null,
+        timelineRenderPending: false,
         audioVolume: 1,
         audioFadeIn: .5,
         audioFadeOut: 1,
@@ -1786,9 +1791,44 @@
 
     function renderTimelineTracks() {
         if (!el.timelineTracks || !el.timelineRuler) return;
+        if (state.timelinePointerDrag) {
+            state.timelineRenderPending = true;
+            return;
+        }
+        state.timelineRenderPending = false;
         renderTimelineRuler();
         el.timelineTracks.replaceChildren();
         const duration = Math.max(.1, state.duration);
+        if (el.timelineAudioActionLabel) el.timelineAudioActionLabel.textContent = state.audioFile ? 'جایگزینی صدا' : 'افزودن صدا';
+        if (el.timelineAddAudio) el.timelineAddAudio.classList.toggle('has-audio', !!state.audioFile);
+
+        const chooseAudioFile = () => {
+            if (!state.exporting && !state.exportPreparing && el.audioFile) el.audioFile.click();
+        };
+        const timelineTimeAt = (clientX, lane) => {
+            const rect = lane.getBoundingClientRect();
+            return rect.width ? clamp((clientX - rect.left) / rect.width * duration, 0, duration) : 0;
+        };
+        const setAudioStart = (value, commit) => {
+            state.audioStart = clamp(Number(value) || 0, 0, duration);
+            if (commit) state.audioStart = Math.round(state.audioStart * 10) / 10;
+            el.audioStart.max = String(state.duration);
+            el.audioStart.value = state.audioStart.toFixed(1);
+            el.audioStartValue.textContent = secondsLabel(state.audioStart);
+            if (commit) {
+                state.audioLastSync = 0;
+                syncAudioPlayback(currentTime(performance.now()), true);
+            }
+        };
+        const placeAudioClip = clip => {
+            const start = clamp(state.audioStart, 0, duration);
+            const end = state.audioFile && state.audioDuration && !state.audioLoop ? Math.min(duration, start + state.audioDuration) : duration;
+            clip.style.left = `${(start / duration) * 100}%`;
+            clip.style.width = `${Math.max(.6, ((end - start) / duration) * 100)}%`;
+            clip.setAttribute('aria-valuenow', state.audioStart.toFixed(1));
+            clip.setAttribute('aria-valuetext', `${secondsLabel(state.audioStart)}؛ شروع موسیقی`);
+        };
+
         KEYFRAME_TARGETS.forEach(target => {
             const row = document.createElement('div');
             row.className = `lm-track-row lm-track-row-${target.key}`;
@@ -1800,49 +1840,280 @@
             lane.dataset.target = target.key;
             lane.tabIndex = 0;
             lane.setAttribute('role', 'group');
-            lane.setAttribute('aria-label', `ترک ${target.label}؛ با Enter نشانگر را به میانه‌ی کلیپ ببرید`);
+            lane.setAttribute('aria-label', target.key === 'audio' && !state.audioFile
+                ? 'ترک موسیقی خالی؛ برای افزودن فایل کلیک کنید یا فایل صوتی را اینجا رها کنید'
+                : `ترک ${target.label}؛ برای جابه‌جایی نشانگر بکشید`);
+
             let clipStart = 0;
             let clipEnd = duration;
             if (target.key === 'logo') {
-                clipStart = clamp(state.logoEntryTime, 0, duration);
-                clipEnd = clamp(state.logoExitTime || duration, clipStart, duration);
-            } else if (target.key === 'audio') {
-                clipStart = clamp(state.audioStart, 0, duration);
-                clipEnd = state.audioFile && state.audioDuration && !state.audioLoop ? Math.min(duration, clipStart + state.audioDuration) : duration;
-            } else {
+                clipStart = clamp(Number.isFinite(Number(state.logoEntryTime)) ? Number(state.logoEntryTime) : 0, 0, duration);
+                const logoExit = Number.isFinite(Number(state.logoExitTime)) ? Number(state.logoExitTime) : duration;
+                clipEnd = clamp(logoExit, clipStart, duration);
+            } else if (target.key !== 'audio') {
                 const style = state.textStyles[target.key] || TEXT_ITEMS[0].defaults;
-                clipStart = clamp(Number(style.entryTime) || 0, 0, duration);
-                clipEnd = style.exitAuto === false ? duration : clamp(Number(style.exitTime) || duration, clipStart, duration);
+                clipStart = clamp(Number.isFinite(Number(style.entryTime)) ? Number(style.entryTime) : 0, 0, duration);
+                const textExit = style.exitAuto === false || !Number.isFinite(Number(style.exitTime)) ? duration : Number(style.exitTime);
+                clipEnd = clamp(textExit, clipStart, duration);
             }
-            const clip = document.createElement('span');
-            clip.className = `lm-track-clip lm-track-clip-${target.key}`;
-            clip.style.left = `${(clipStart / duration) * 100}%`;
-            clip.style.width = `${Math.max(.6, ((clipEnd - clipStart) / duration) * 100)}%`;
-            clip.setAttribute('aria-hidden', 'true');
-            lane.appendChild(clip);
+
+            if (target.key === 'audio' && !state.audioFile) {
+                const emptyAction = document.createElement('button');
+                emptyAction.type = 'button';
+                emptyAction.className = 'lm-audio-empty-cta';
+                emptyAction.setAttribute('aria-label', 'افزودن یا رهاکردن فایل موسیقی در ترک صدا');
+                const plus = document.createElement('span');
+                plus.className = 'lm-audio-empty-plus';
+                plus.setAttribute('aria-hidden', 'true');
+                plus.textContent = '+';
+                const emptyText = document.createElement('span');
+                emptyText.className = 'lm-audio-empty-copy';
+                const emptyTitle = document.createElement('b');
+                emptyTitle.textContent = 'افزودن موسیقی';
+                const emptyHint = document.createElement('small');
+                emptyHint.textContent = 'انتخاب فایل یا کشیدن و رهاکردن در این ترک';
+                emptyText.append(emptyTitle, emptyHint);
+                emptyAction.append(plus, emptyText);
+                emptyAction.addEventListener('click', event => {
+                    event.stopPropagation();
+                    chooseAudioFile();
+                });
+                lane.appendChild(emptyAction);
+            } else if (target.key === 'audio') {
+                const clip = document.createElement('span');
+                clip.className = 'lm-track-clip lm-track-clip-audio lm-audio-clip';
+                clip.tabIndex = 0;
+                clip.setAttribute('role', 'slider');
+                clip.setAttribute('aria-label', `موقعیت شروع موسیقی ${state.audioFile.name}؛ با کلیدهای جهت‌دار جابه‌جا کنید`);
+                clip.setAttribute('aria-valuemin', '0');
+                clip.setAttribute('aria-valuemax', String(state.duration));
+                clip.title = `${state.audioFile.name} · شروع در ${secondsLabel(state.audioStart)}${state.audioLoop ? ' · تکرار تا پایان کلیپ' : ''}`;
+                placeAudioClip(clip);
+
+                if (state.audioPeaks.length) {
+                    const waveform = document.createElement('span');
+                    waveform.className = 'lm-audio-clip-waveform';
+                    waveform.setAttribute('aria-hidden', 'true');
+                    const bars = Math.min(88, state.audioPeaks.length);
+                    for (let index = 0; index < bars; index += 1) {
+                        const bar = document.createElement('i');
+                        const peak = state.audioPeaks[Math.floor(index * state.audioPeaks.length / bars)] || 0;
+                        bar.style.height = `${Math.max(10, Math.round(peak * 86))}%`;
+                        waveform.appendChild(bar);
+                    }
+                    clip.appendChild(waveform);
+                }
+                const clipName = document.createElement('span');
+                clipName.className = 'lm-audio-clip-name';
+                clipName.textContent = `♫ ${state.audioFile.name} · ${state.audioDuration ? secondsLabel(state.audioDuration) : 'صدا'}`;
+                clip.appendChild(clipName);
+                lane.appendChild(clip);
+
+                clip.addEventListener('pointerdown', event => {
+                    if (event.button !== 0 || state.exporting || state.exportPreparing) return;
+                    event.stopPropagation();
+                    event.preventDefault();
+                    const rect = lane.getBoundingClientRect();
+                    state.timelinePointerDrag = {
+                        type: 'audio', pointerId: event.pointerId, clip, lane,
+                        startX: event.clientX, startTime: state.audioStart,
+                        laneWidth: Math.max(1, rect.width), moved: false
+                    };
+                    clip.classList.add('is-dragging');
+                    clip.focus({ preventScroll: true });
+                    if (clip.setPointerCapture) clip.setPointerCapture(event.pointerId);
+                });
+                clip.addEventListener('pointermove', event => {
+                    const drag = state.timelinePointerDrag;
+                    if (!drag || drag.type !== 'audio' || drag.pointerId !== event.pointerId) return;
+                    const delta = (event.clientX - drag.startX) / drag.laneWidth * duration;
+                    if (Math.abs(event.clientX - drag.startX) > 2) drag.moved = true;
+                    state.audioStart = clamp(drag.startTime + delta, 0, duration);
+                    placeAudioClip(clip);
+                    el.audioStart.value = state.audioStart.toFixed(1);
+                    el.audioStartValue.textContent = secondsLabel(state.audioStart);
+                });
+                const finishAudioDrag = (event, cancelled) => {
+                    const drag = state.timelinePointerDrag;
+                    if (!drag || drag.type !== 'audio' || drag.pointerId !== event.pointerId) return;
+                    state.timelinePointerDrag = null;
+                    clip.classList.remove('is-dragging');
+                    if (drag.moved) {
+                        setAudioStart(state.audioStart, true);
+                        renderTimelineTracks();
+                    } else if (!cancelled) {
+                        state.playing = false;
+                        seekToTime(timelineTimeAt(event.clientX, lane));
+                    }
+                    if (state.timelineRenderPending) renderTimelineTracks();
+                };
+                clip.addEventListener('pointerup', event => finishAudioDrag(event, false));
+                clip.addEventListener('pointercancel', event => finishAudioDrag(event, true));
+                clip.addEventListener('keydown', event => {
+                    if (state.exporting || state.exportPreparing || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const step = event.shiftKey ? 1 : .1;
+                    const next = event.key === 'Home' ? 0 : event.key === 'End' ? duration : state.audioStart + (event.key === 'ArrowRight' ? step : -step);
+                    setAudioStart(next, true);
+                    placeAudioClip(clip);
+                    clip.title = `${state.audioFile.name} · شروع در ${secondsLabel(state.audioStart)}${state.audioLoop ? ' · تکرار تا پایان کلیپ' : ''}`;
+                });
+            } else {
+                const clip = document.createElement('span');
+                clip.className = `lm-track-clip lm-track-clip-${target.key}`;
+                clip.style.left = `${(clipStart / duration) * 100}%`;
+                clip.style.width = `${Math.max(.6, ((clipEnd - clipStart) / duration) * 100)}%`;
+                clip.setAttribute('aria-hidden', 'true');
+                lane.appendChild(clip);
+            }
+
             state.keyframes.filter(frame => frame.target === target.key).sort((a, b) => a.time - b.time).forEach(frame => {
                 const marker = document.createElement('button');
                 const property = keyframeDefinition(frame.target, frame.property);
                 marker.type = 'button';
                 marker.className = 'lm-keyframe-marker' + (frame.id === state.selectedKeyframeId ? ' is-selected' : '');
+                marker.dataset.keyframeId = frame.id;
                 marker.style.left = `${(frame.time / duration) * 100}%`;
                 marker.textContent = '◆';
-                marker.setAttribute('aria-label', `${target.label}، ${property ? property.label : frame.property}، ${secondsLabel(frame.time)}`);
+                marker.setAttribute('aria-label', `${target.label}، ${property ? property.label : frame.property}، ${secondsLabel(frame.time)}؛ بکشید یا با کلیدهای جهت‌دار جابه‌جا کنید`);
                 marker.title = marker.getAttribute('aria-label');
+                marker.addEventListener('pointerdown', event => {
+                    if (event.button !== 0 || state.exporting || state.exportPreparing) return;
+                    event.stopPropagation();
+                    const rect = lane.getBoundingClientRect();
+                    state.timelinePointerDrag = {
+                        type: 'keyframe', pointerId: event.pointerId, marker, frame,
+                        startX: event.clientX, startTime: frame.time,
+                        laneWidth: Math.max(1, rect.width), moved: false
+                    };
+                    marker.classList.add('is-dragging');
+                    marker.focus({ preventScroll: true });
+                    if (marker.setPointerCapture) marker.setPointerCapture(event.pointerId);
+                });
+                marker.addEventListener('pointermove', event => {
+                    const drag = state.timelinePointerDrag;
+                    if (!drag || drag.type !== 'keyframe' || drag.pointerId !== event.pointerId) return;
+                    if (Math.abs(event.clientX - drag.startX) > 2) drag.moved = true;
+                    if (!drag.moved) return;
+                    frame.time = Math.round(clamp(drag.startTime + (event.clientX - drag.startX) / drag.laneWidth * duration, 0, duration) * 100) / 100;
+                    marker.style.left = `${(frame.time / duration) * 100}%`;
+                    marker.setAttribute('aria-label', `${target.label}، ${property ? property.label : frame.property}، ${secondsLabel(frame.time)}؛ بکشید یا با کلیدهای جهت‌دار جابه‌جا کنید`);
+                    marker.title = marker.getAttribute('aria-label');
+                    if (state.selectedKeyframeId === frame.id && el.keyframeTimeLabel) el.keyframeTimeLabel.textContent = `موقعیت: ${secondsLabel(frame.time)}`;
+                });
+                const finishKeyframeDrag = (event, cancelled) => {
+                    const drag = state.timelinePointerDrag;
+                    if (!drag || drag.type !== 'keyframe' || drag.pointerId !== event.pointerId) return;
+                    state.timelinePointerDrag = null;
+                    marker.classList.remove('is-dragging');
+                    if (drag.moved) {
+                        frame.time = Math.round(frame.time * 100) / 100;
+                        state.selectedKeyframeId = frame.id;
+                        selectKeyframe(frame.id, false);
+                    } else if (cancelled) {
+                        marker.blur();
+                    }
+                    if (state.timelineRenderPending && (drag.moved || cancelled)) renderTimelineTracks();
+                };
+                marker.addEventListener('pointerup', event => finishKeyframeDrag(event, false));
+                marker.addEventListener('pointercancel', event => finishKeyframeDrag(event, true));
+                marker.addEventListener('keydown', event => {
+                    if (state.exporting || state.exportPreparing) return;
+                    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const step = event.shiftKey ? 1 : .1;
+                        const next = event.key === 'Home' ? 0 : event.key === 'End' ? duration : frame.time + (event.key === 'ArrowRight' ? step : -step);
+                        frame.time = Math.round(clamp(next, 0, duration) * 100) / 100;
+                        state.selectedKeyframeId = frame.id;
+                        selectKeyframe(frame.id, false);
+                        const replacement = Array.from(el.timelineTracks.querySelectorAll('.lm-keyframe-marker')).find(item => item.dataset.keyframeId === frame.id);
+                        if (replacement) replacement.focus({ preventScroll: true });
+                    } else if (event.key === 'Delete' || event.key === 'Backspace') {
+                        event.preventDefault();
+                        state.selectedKeyframeId = frame.id;
+                        deleteSelectedKeyframe();
+                    }
+                });
                 marker.addEventListener('click', event => {
                     event.stopPropagation();
                     selectKeyframe(frame.id, true);
                 });
                 lane.appendChild(marker);
             });
-            lane.addEventListener('click', event => {
+
+            if (target.key === 'audio') {
+                lane.addEventListener('dragenter', event => {
+                    event.preventDefault();
+                    lane.classList.add('is-dragover');
+                });
+                lane.addEventListener('dragover', event => {
+                    event.preventDefault();
+                    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+                    lane.classList.add('is-dragover');
+                });
+                lane.addEventListener('dragleave', event => {
+                    if (!lane.contains(event.relatedTarget)) lane.classList.remove('is-dragover');
+                });
+                lane.addEventListener('drop', event => {
+                    event.preventDefault();
+                    lane.classList.remove('is-dragover');
+                    const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+                    if (file) handleAudioFile(file, false);
+                });
+            }
+
+            lane.addEventListener('pointerdown', event => {
+                if (event.button !== 0 || state.exporting || state.exportPreparing || (target.key === 'audio' && !state.audioFile)) return;
+                if (event.target.closest('button,.lm-audio-clip')) return;
                 const rect = lane.getBoundingClientRect();
-                if (rect.width) seekToTime(((event.clientX - rect.left) / rect.width) * duration);
+                state.playing = false;
+                state.timelinePointerDrag = { type: 'scrub', pointerId: event.pointerId, lane, duration, moved: false };
+                lane.classList.add('is-scrubbing');
+                lane.setPointerCapture && lane.setPointerCapture(event.pointerId);
+                seekToTime(rect.width ? clamp((event.clientX - rect.left) / rect.width * duration, 0, duration) : 0);
+            });
+            lane.addEventListener('pointermove', event => {
+                const drag = state.timelinePointerDrag;
+                if (!drag || drag.type !== 'scrub' || drag.pointerId !== event.pointerId || drag.lane !== lane) return;
+                drag.moved = true;
+                seekToTime(timelineTimeAt(event.clientX, lane));
+            });
+            const finishLaneScrub = event => {
+                const drag = state.timelinePointerDrag;
+                if (!drag || drag.type !== 'scrub' || drag.pointerId !== event.pointerId || drag.lane !== lane) return;
+                state.timelinePointerDrag = null;
+                lane.classList.remove('is-scrubbing');
+                if (state.timelineRenderPending) renderTimelineTracks();
+            };
+            lane.addEventListener('pointerup', finishLaneScrub);
+            lane.addEventListener('pointercancel', finishLaneScrub);
+            lane.addEventListener('click', event => {
+                if (event.target.closest('button,.lm-audio-clip,.lm-keyframe-marker')) return;
+                if (target.key === 'audio' && !state.audioFile) {
+                    chooseAudioFile();
+                    return;
+                }
+                seekToTime(timelineTimeAt(event.clientX, lane));
             });
             lane.addEventListener('keydown', event => {
-                if (event.key !== 'Enter' && event.key !== ' ') return;
-                event.preventDefault();
-                seekToTime(duration / 2);
+                if (target.key === 'audio' && !state.audioFile && event.key === 'Enter') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    chooseAudioFile();
+                    return;
+                }
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    seekToTime(duration / 2);
+                } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                    event.preventDefault();
+                    seekToTime(currentTime(performance.now()) + (event.key === 'ArrowRight' ? 1 : -1) * (event.shiftKey ? 1 : .1));
+                } else if (event.key === 'Home' || event.key === 'End') {
+                    event.preventDefault();
+                    seekToTime(event.key === 'Home' ? 0 : duration);
+                }
             });
             row.append(label, lane);
             el.timelineTracks.appendChild(row);
@@ -1913,7 +2184,7 @@
     }
 
     function seekToTime(value) {
-        if (state.exporting) return;
+        if (state.exporting || state.exportPreparing) return;
         const time = clamp(Number(value) || 0, 0, state.duration);
         state.offset = time;
         state.startedAt = performance.now();
@@ -2777,6 +3048,8 @@
             const samples = decoded.getChannelData(0);
             const bars = Math.min(480, waveform.width || 480);
             const step = Math.max(1, Math.floor(samples.length / bars));
+            const timelinePeaks = [];
+            const peakStride = Math.max(1, Math.floor(bars / 88));
             waveContext.clearRect(0, 0, waveform.width, waveform.height);
             waveContext.fillStyle = state.accent;
             const middle = waveform.height / 2;
@@ -2784,18 +3057,21 @@
                 let peak = 0;
                 const end = Math.min(samples.length, (bar + 1) * step);
                 for (let index = bar * step; index < end; index += 1) peak = Math.max(peak, Math.abs(samples[index]));
+                if (bar % peakStride === 0) timelinePeaks.push(peak);
                 const height = Math.max(2, peak * waveform.height * .84);
                 waveContext.globalAlpha = .35 + peak * .65;
                 waveContext.fillRect(bar * waveform.width / bars, middle - height / 2, Math.max(1, waveform.width / bars - 1), height);
             }
             waveContext.globalAlpha = 1;
+            state.audioPeaks = timelinePeaks;
+            renderTimelineTracks();
         } catch (error) {
             // Waveform decoration is optional; native audio playback and export remain available.
         }
     }
 
     async function handleAudioFile(file, quiet) {
-        if (!file) return;
+        if (!file || state.exporting || state.exportPreparing) return;
         if (!String(file.type || '').startsWith('audio/') && !/\.(mp3|wav|ogg|m4a|aac|flac|opus)$/i.test(file.name)) {
             showToast('فایل صوتی MP3، WAV، OGG، M4A، AAC یا FLAC انتخاب کنید.', 'warning');
             return;
@@ -2804,11 +3080,13 @@
             showToast('حجم فایل صوتی نباید بیشتر از ۴۰ مگابایت باشد.', 'warning');
             return;
         }
+        const previousStart = state.audioFile ? state.audioStart : 0;
         if (state.audioUrl) URL.revokeObjectURL(state.audioUrl);
         state.audioFile = file;
         state.audioUrl = URL.createObjectURL(file);
         state.audioDuration = 0;
-        state.audioStart = 0;
+        state.audioPeaks = [];
+        state.audioStart = clamp(previousStart, 0, state.duration);
         state.audioLastSync = 0;
         state.audioLastTimelineTime = -1;
         el.audioPreview.pause();
@@ -2820,8 +3098,8 @@
         ensureAudioGraph();
         el.audioPreview.load();
         el.audioStart.max = String(state.duration);
-        el.audioStart.value = '0';
-        el.audioStartValue.textContent = secondsLabel(0);
+        el.audioStart.value = state.audioStart.toFixed(1);
+        el.audioStartValue.textContent = secondsLabel(state.audioStart);
         renderTimelineTracks();
         drawAudioWaveform(file);
         syncAudioPlayback(currentTime(performance.now()), true);
@@ -2835,6 +3113,8 @@
         state.audioFile = null;
         state.audioDuration = 0;
         state.audioStart = 0;
+        state.audioPeaks = [];
+        state.timelinePointerDrag = null;
         state.audioLastSync = 0;
         state.audioLastTimelineTime = -1;
         state.audioSourceTrack = null;
@@ -3208,7 +3488,11 @@
     el.loadProject.addEventListener('click', () => el.projectFile.click());
     el.projectFile.addEventListener('change', event => loadProjectSettings(event.target.files && event.target.files[0]));
     el.previewGuides.addEventListener('change', () => { el.safeGuides.hidden = !el.previewGuides.checked; });
-    el.audioUploadButton.addEventListener('click', () => el.audioFile.click());
+    const openAudioPicker = () => {
+        if (!state.exporting && !state.exportPreparing) el.audioFile.click();
+    };
+    el.audioUploadButton.addEventListener('click', openAudioPicker);
+    el.timelineAddAudio.addEventListener('click', openAudioPicker);
     el.audioFile.addEventListener('change', event => {
         handleAudioFile(event.target.files && event.target.files[0], false);
         event.target.value = '';
@@ -3332,6 +3616,13 @@
     ['dragleave', 'drop'].forEach(type => el.uploadZone.addEventListener(type, event => { event.preventDefault(); el.uploadZone.classList.remove('is-dragging'); }));
     el.uploadZone.addEventListener('drop', event => handleLogoFile(event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0]));
 
+    document.addEventListener('keydown', event => {
+        if (event.code !== 'Space' || event.repeat || state.exporting || state.exportPreparing) return;
+        const target = event.target;
+        if (target && (target.isContentEditable || (target.closest && target.closest('input,textarea,select,button,a,[contenteditable="true"]')))) return;
+        event.preventDefault();
+        el.play.click();
+    });
     el.play.addEventListener('click', () => {
         if (state.exporting) return;
         if (state.playing) {

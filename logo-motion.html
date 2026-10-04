@@ -7,7 +7,7 @@
     <meta name="description" content="استودیوی ساخت لوگوموشن سهند سرویس؛ ۵۰ سبک حرکت، ۳۰ انیمیشن زمینه و خروجی حرفه‌ای تا 4K.">
     <title>استودیوی لوگوموشن | سهند سرویس</title>
     <link rel="stylesheet" href="assets/css/fonts.css?v=logo-motion-2">
-    <link rel="stylesheet" href="assets/css/logo-motion.css?v=9">
+    <link rel="stylesheet" href="assets/css/logo-motion.css?v=10">
 </head>
 <body>
 <div class="lm-app">
@@ -24,7 +24,7 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6M9 12h11"/></svg>
                 <span>بازگشت به پنل</span>
             </a>
-            <a class="lm-btn lm-btn-bundle" id="downloadBundle" href="downloads/Sahand-Logo-Motion-Studio.zip?v=origin-clean-fix-3" download hidden title="دانلود بسته‌ی کامل ZIP">
+            <a class="lm-btn lm-btn-bundle" id="downloadBundle" href="downloads/Sahand-Logo-Motion-Studio.zip?v=timeline-audio-2" download hidden title="دانلود بسته‌ی کامل ZIP">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3"/></svg>
                 <span>دانلود ZIP</span>
             </a>
@@ -290,7 +290,16 @@
                 </div>
 
                 <section class="lm-timeline-editor" aria-label="تایم‌لاین و کی‌فریم">
-                    <div class="lm-timeline-editor-heading"><div><strong>تایم‌لاین چندلایه</strong><small>روی هر ترک کلیک کنید تا به همان لحظه بروید</small></div><span id="keyframeCount">۰ کی‌فریم</span></div>
+                    <div class="lm-timeline-editor-heading">
+                        <div><strong>تایم‌لاین چندلایه</strong><small>کشیدن صدا یا نشانگرهای ◆ برای زمان‌بندی · Space پخش/توقف</small></div>
+                        <div class="lm-timeline-heading-actions">
+                            <button class="lm-timeline-add-audio" id="timelineAddAudio" type="button" aria-label="افزودن یا جایگزینی موسیقی در تایم‌لاین" aria-controls="audioFile">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13M9 9l12-2"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M4 5h2M3 8h3"/></svg>
+                                <span id="timelineAudioActionLabel">افزودن صدا</span>
+                            </button>
+                            <span id="keyframeCount">۰ کی‌فریم</span>
+                        </div>
+                    </div>
                     <div class="lm-timeline-ruler-wrap"><span></span><div class="lm-time-ruler" id="timelineRuler"></div></div>
                     <div class="lm-track-list" id="timelineTracks"></div>
                     <div class="lm-keyframe-tools">
@@ -334,6 +343,6 @@
 
     <div class="lm-toast" id="toast" role="status" aria-live="polite" hidden></div>
 </div>
-<script src="assets/js/logo-motion.js?v=13" defer></script>
+<script src="assets/js/logo-motion.js?v=14" defer></script>
 </body>
 </html>
