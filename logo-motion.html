@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f4f7fc">
+    <meta name="description" content="استودیوی ساخت لوگوموشن و ریلز سهند سرویس؛ پیش‌نمایش تطبیقی ۳۰ تا ۶۰ فریم، قالب‌های حرفه‌ای و خروجی تا 4K.">
+    <title>استودیوی لوگوموشن | سهند سرویس</title>
+    <link rel="stylesheet" href="assets/css/fonts.css?v=logo-motion-2">
+    <link rel="stylesheet" href="assets/css/logo-motion.css?v=13">
+</head>
+<body>
+<div class="lm-app">
+    <header class="lm-topbar">
+        <a class="lm-brand" href="logo-motion.html" aria-label="استودیوی لوگوموشن سهند سرویس">
+            <span class="lm-brand-mark"><img src="assets/images/defaults/logo.svg" alt=""></span>
+            <span class="lm-brand-copy">
+                <strong>استودیو خلاق سهند</strong>
+                <small>LOGO MOTION STUDIO</small>
+            </span>
+        </a>
+        <div class="lm-topbar-actions">
+            <a class="lm-back-link" href="./" title="بازگشت به صفحه‌ی اصلی پنل">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6M9 12h11"/></svg>
+                <span>بازگشت به پنل</span>
+            </a>
+            <a class="lm-btn lm-btn-bundle" id="downloadBundle" href="downloads/Sahand-Logo-Motion-Studio.zip?v=adaptive-catalog-2" download hidden title="دانلود بسته‌ی کامل ZIP">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3"/></svg>
+                <span>دانلود ZIP</span>
+            </a>
+            <button class="lm-btn lm-btn-primary" id="exportVideo" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3"/></svg>
+                <span>دریافت ویدئو</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="lm-shell">
+        <section class="lm-intro" aria-labelledby="page-title">
+            <div class="lm-intro-copy">
+                <span class="lm-eyebrow"><i></i> هویت برند، در حرکت</span>
+                <h1 id="page-title">یک ورود <span>به‌یادماندنی</span><br class="lm-title-break"> برای برندتان بسازید</h1>
+                <p>لوگو، تماس، وب‌سایت، صحنه و حرکت را تنظیم کنید؛ پیش‌نمایش زنده بگیرید و ویدئوی آماده‌ی انتشار بسازید.</p>
+            </div>
+            <div class="lm-intro-note">
+                <span class="lm-note-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M12 3v2m0 14v2M3 12h2m14 0h2M5.64 5.64l1.42 1.42m9.88 9.88 1.42 1.42m0-12.72-1.42 1.42m-9.88 9.88-1.42 1.42"/><circle cx="12" cy="12" r="4"/></svg>
+                </span>
+                <span><strong>۱۴۰ حرکت · ۸۴ زمینه‌ی متحرک</strong><small>از HD تا 4K · نسبت تصویرهای شبکه‌های اجتماعی</small></span>
+            </div>
+        </section>
+
+        <div class="lm-studio-grid">
+            <aside class="lm-controls" aria-label="تنظیمات لوگوموشن">
+                <section class="lm-card">
+                    <div class="lm-card-heading">
+                        <span class="lm-step">۰۱</span>
+                        <div><h2>لوگوی شما</h2><p>فایل لوگو را اضافه یا جایگزین کنید</p></div>
+                    </div>
+                    <button class="lm-upload-zone" id="uploadZone" type="button" aria-label="انتخاب فایل لوگو">
+                        <span class="lm-upload-thumb"><img id="logoThumb" src="assets/images/defaults/logo.svg" alt="پیش‌نمایش لوگو"></span>
+                        <span class="lm-upload-copy"><strong id="logoFileName">نماد پیش‌فرض سهند سرویس</strong><small>PNG، JPG، WebP یا SVG · حداکثر ۸ مگابایت</small></span>
+                        <span class="lm-upload-action" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5 5 5M5 15v4h14v-4"/></svg>
+                        </span>
+                    </button>
+                    <input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg" hidden>
+                    <div class="lm-logo-size lm-range-control">
+                        <label for="logoScale"><span>اندازه‌ی لوگو</span><b id="logoScaleValue">۱۰۰٪</b></label>
+                        <input id="logoScale" type="range" min="55" max="145" value="100" aria-label="تغییر اندازه‌ی لوگو">
+                    </div>
+                    <div class="lm-layer-toolbar lm-logo-layer-toolbar">
+                        <button type="button" class="lm-layer-add" id="addLogoLayer">＋ افزودن کپی لوگو</button>
+                        <small>هر کپی اندازه، موقعیت و زمان‌بندی مستقل دارد.</small>
+                    </div>
+                    <div class="lm-logo-layer-list" id="logoLayerList" aria-live="polite"></div>
+                    <div class="lm-logo-actions"><button type="button" id="resetLogo" class="lm-reset-logo">بازگشت به لوگوی پیش‌فرض</button></div>
+                    <div class="lm-card-footnote"><span class="lm-lock" aria-hidden="true">✓</span> فایل لوگو روی دستگاه شما می‌ماند و جایی بارگذاری نمی‌شود.</div>
+                </section>
+
+                <section class="lm-card">
+                    <div class="lm-card-heading">
+                        <span class="lm-step">۰۲</span>
+                        <div><h2>هویت برند</h2><p>اطلاعاتی که در پایان انیمیشن نمایش داده می‌شود</p></div>
+                    </div>
+                    <label class="lm-field-label" for="brandName">نام برند</label>
+                    <input class="lm-input" id="brandName" type="text" maxlength="32" value="سهند سرویس" autocomplete="off" placeholder="مثلاً: سهند سرویس">
+                    <label class="lm-field-label lm-label-spaced" for="brandTagline">شعار کوتاه <span>اختیاری</span></label>
+                    <textarea class="lm-input lm-textarea" id="brandTagline" rows="2" maxlength="56" placeholder="یک جمله‌ی کوتاه و ماندگار">خدمات مطمئن، آرامش ماندگار</textarea>
+                    <div class="lm-two-fields">
+                        <label class="lm-field-wrap" for="brandPhone"><span class="lm-field-label">شماره تلفن <small>اختیاری</small></span><input class="lm-input" id="brandPhone" type="tel" maxlength="28" autocomplete="tel" placeholder="مثلاً ۰۲۱-۱۲۳۴۵۶۷۸"></label>
+                        <label class="lm-field-wrap" for="brandWebsite"><span class="lm-field-label">وب‌سایت <small>اختیاری</small></span><input class="lm-input" id="brandWebsite" type="text" maxlength="48" autocomplete="url" placeholder="مثلاً sahandservice.ir"></label>
+                    </div>
+                    <label class="lm-field-label lm-label-spaced" for="brandEnglish">نوشته‌ی انگلیسی پایانی <span>اختیاری</span></label>
+                    <input class="lm-input" id="brandEnglish" type="text" maxlength="48" value="SAHAND • SERVICE CARE" placeholder="مثلاً SAHAND SERVICE">
+                    <div class="lm-font-library">
+                        <div class="lm-font-library-heading"><span>فونت‌های شخصی</span><small>قابل استفاده برای همه‌ی نوشته‌ها</small></div>
+                        <input id="customFontFiles" type="file" accept=".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf" multiple hidden>
+                        <button class="lm-font-upload" id="addCustomFont" type="button">＋ بارگذاری فونت سفارشی</button>
+                        <div class="lm-custom-font-list" id="customFontList" aria-live="polite"></div>
+                        <small class="lm-font-note" id="fontLibraryStatus">WOFF2، WOFF، TTF یا OTF · حداکثر ۸ مگابایت برای هر فایل؛ فقط روی دستگاه شما</small>
+                    </div>
+                </section>
+
+                <section class="lm-card lm-text-animation-card">
+                    <div class="lm-card-heading">
+                        <span class="lm-step">۰۳</span>
+                        <div><h2>تنظیمات مستقل نوشته‌ها</h2><p>فونت، ظاهر، جایگاه و ورود و خروج هر متن جداگانه</p></div>
+                    </div>
+                    <div class="lm-layer-toolbar">
+                        <button type="button" class="lm-layer-add" id="addTextLayer">＋ افزودن نوشته</button>
+                        <small>هر نمونه روی تایم‌لاین و با تنظیمات مستقل قرار می‌گیرد.</small>
+                    </div>
+                    <div id="textSettings" class="lm-text-settings-list"></div>
+                    <p class="lm-text-settings-note">از دکمه‌ی «تکثیر» هر ردیف برای ساخت نمونه‌ی مستقل استفاده کنید. زمان‌ها براساس مدت کلیپ تنظیم می‌شوند.</p>
+                </section>
+
+                <section class="lm-card lm-logo-transition-card">
+                    <div class="lm-card-heading">
+                        <span class="lm-step">۰۴</span>
+                        <div><h2>ترنزیشن و زمان‌بندی لوگو</h2><p>شروع، نرمی حرکت و خروج نشان را دقیق تنظیم کنید</p></div>
+                    </div>
+                    <div class="lm-text-effect-grid">
+                        <label class="lm-select-wrap"><span>منحنی حرکت لوگو</span><select id="logoEasing" class="lm-select"><option value="cinematic" selected>سینمایی · نرم</option><option value="smooth">شتاب/کاهش نرم</option><option value="spring">فنری</option><option value="sharp">سریع و دقیق</option><option value="linear">خطی</option></select></label>
+                        <label class="lm-select-wrap"><span>ترنزیشن خروج لوگو</span><select id="logoExitEffect" class="lm-select"><option value="none" selected>بدون خروج · نگه‌داشتن</option><option value="fade">محو تدریجی</option><option value="zoom">زوم به بیرون</option><option value="rise">محو رو به بالا</option><option value="rotate">چرخش خروج</option><option value="glitch">اختلال دیجیتال</option></select></label>
+                    </div>
+                    <div class="lm-timing-group">
+                        <div class="lm-timing-heading"><span class="lm-timing-dot lm-entry-dot"></span><b>ورود لوگو</b></div>
+                        <div class="lm-timing-fields">
+                            <div class="lm-range-control"><label for="logoEntryTime"><span>شروع ورود</span><b id="logoEntryTimeValue">۰٫۳ ثانیه</b></label><input id="logoEntryTime" type="range" min="0" max="5" step="0.1" value="0.3"></div>
+                            <div class="lm-range-control"><label for="logoEntryDuration"><span>مدت ورود</span><b id="logoEntryDurationValue">۱٫۳ ثانیه</b></label><input id="logoEntryDuration" type="range" min="0.4" max="2.6" step="0.1" value="1.3"></div>
+                        </div>
+                    </div>
+                    <div class="lm-timing-group">
+                        <div class="lm-timing-heading"><span class="lm-timing-dot lm-exit-dot"></span><b>خروج لوگو</b></div>
+                        <div class="lm-timing-fields">
+                            <div class="lm-range-control"><label for="logoExitTime"><span>شروع خروج</span><b id="logoExitTimeValue">۷٫۲ ثانیه</b></label><input id="logoExitTime" type="range" min="0" max="12" step="0.1" value="7.2"></div>
+                            <div class="lm-range-control"><label for="logoExitDuration"><span>مدت خروج</span><b id="logoExitDurationValue">۰٫۶ ثانیه</b></label><input id="logoExitDuration" type="range" min="0.2" max="2" step="0.1" value="0.6"></div>
+                        </div>
+                    </div>
+                    <div class="lm-range-control lm-motion-intensity"><label for="motionIntensity"><span>شدت حرکت لوگو</span><b id="motionIntensityValue">۱۰۰٪</b></label><input id="motionIntensity" type="range" min="0" max="150" value="100"></div>
+                </section>
+
+                <section class="lm-card lm-audio-card">
+                    <div class="lm-card-heading">
+                        <span class="lm-step">۰۵</span>
+                        <div><h2>موسیقی و گفتار</h2><p>چند ترک مستقل اضافه کنید؛ هر ترک روی تایم‌لاین جداست</p></div>
+                    </div>
+                    <input id="audioFile" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac" multiple hidden>
+                    <input id="voiceFile" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac" multiple hidden>
+                    <div class="lm-audio-upload-row lm-audio-add-row">
+                        <button class="lm-font-upload" id="audioUploadButton" type="button">＋ افزودن موسیقی</button>
+                        <button class="lm-font-upload lm-voice-upload" id="voiceUploadButton" type="button">＋ افزودن گفتار</button>
+                    </div>
+                    <div class="lm-audio-track-list" id="audioTrackList" aria-live="polite"></div>
+                    <div class="lm-audio-file-info"><b id="audioFileName">ترکی انتخاب نشده</b><small id="audioFileMeta">حداکثر ۱۲ ترک · هر فایل ۴۰ مگابایت · مجموع ذخیره‌ی پروژه ۵۰ مگابایت</small></div>
+                    <canvas class="lm-audio-waveform" id="audioWaveform" width="720" height="68" aria-label="نمای موج ترک انتخاب‌شده"></canvas>
+                    <audio id="audioPreview" preload="metadata" hidden></audio>
+                    <div id="selectedAudioControls" class="lm-selected-audio-controls" hidden>
+                        <div class="lm-audio-options">
+                            <label class="lm-select-wrap"><span>رفتار پایان فایل</span><select id="audioMode" class="lm-select"><option value="once" selected>توقف</option><option value="loop">تکرار تا پایان ویدئو</option></select></label>
+                            <div class="lm-range-control"><label for="audioVolume"><span>بلندی صدا</span><b id="audioVolumeValue">۱۰۰٪</b></label><input id="audioVolume" type="range" min="0" max="150" value="100"></div>
+                        </div>
+                        <div class="lm-audio-options">
+                            <div class="lm-range-control"><label for="audioStart"><span>شروع صدا در کلیپ</span><b id="audioStartValue">۰ ثانیه</b></label><input id="audioStart" type="range" min="0" max="30" step="0.1" value="0"></div>
+                            <div class="lm-range-control"><label for="audioFadeIn"><span>محو ورود صدا</span><b id="audioFadeInValue">۰٫۵ ثانیه</b></label><input id="audioFadeIn" type="range" min="0" max="5" step="0.1" value="0.5"></div>
+                        </div>
+                        <div class="lm-range-control"><label for="audioFadeOut"><span>محو پایان صدا</span><b id="audioFadeOutValue">۱ ثانیه</b></label><input id="audioFadeOut" type="range" min="0" max="5" step="0.1" value="1"></div>
+                        <div class="lm-audio-selected-actions"><button class="lm-font-remove" id="removeAudio" type="button" disabled>حذف ترک انتخاب‌شده</button></div>
+                    </div>
+                    <p class="lm-card-footnote"><span class="lm-lock" aria-hidden="true">✓</span> ترک‌های موسیقی و گفتار به‌صورت میکس‌شده در خروجی ویدئو ثبت می‌شوند.</p>
+                </section>
+
+                <section class="lm-card lm-reel-presets-card">
+                    <div class="lm-card-heading">
+                        <span class="lm-step">۰۶</span>
+                        <div><h2>قالب‌های آماده‌ی ریلز</h2><p>۲۰ شروع حرفه‌ای برای معرفی، فروش و شبکه‌های اجتماعی</p></div>
+                    </div>
+                    <div class="lm-reel-presets-grid" id="reelPresetGrid" role="group" aria-label="قالب‌های آماده‌ی ریلز"></div>
+                    <p class="lm-picker-footnote"><span>↗</span> قالب فقط نقطه‌ی شروع است؛ همه‌ی جزئیات را بعدش تغییر دهید.</p>
+                </section>
+
+                <section class="lm-card lm-picker-card">
+                    <div class="lm-card-heading">
+                        <span class="lm-step">۰۷</span>
+                        <div><h2>سبک حرکت لوگو</h2><p>۱۴۰ سبک متنوع برای ورود، چرخش، جهش و نمایش نشان</p></div>
+                    </div>
+                    <div class="lm-picker-toolbar">
+                        <label class="lm-search-wrap">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.4 4.4"/></svg>
+                            <input type="search" id="motionSearch" placeholder="جست‌وجوی سبک…" autocomplete="off" aria-label="جست‌وجو در سبک‌های حرکت">
+                        </label>
+                        <span class="lm-count-pill" id="motionStyleCount">۱۴۰ سبک</span>
+                    </div>
+                    <div class="lm-category-list" id="motionCategories" role="group" aria-label="دسته‌بندی سبک‌های حرکت"></div>
+                    <div class="lm-style-grid" id="motionStyles" role="listbox" aria-label="۱۴۰ سبک حرکت"></div>
+                    <p class="lm-picker-footnote"><span>✓</span> انتخاب فعلی: <b id="selectedMotionName">مدار آبی</b></p>
+                </section>
+
+                <section class="lm-card lm-picker-card">
+                    <div class="lm-card-heading">
+                        <span class="lm-step">۰۸</span>
+                        <div><h2>رنگ هویت</h2><p>۴۰ ترکیب رنگ آماده یا رنگ اختصاصی خودتان</p></div>
+                    </div>
+                    <div class="lm-palette" id="colorPalettes" role="group" aria-label="پالت‌های رنگ"></div>
+                    <div class="lm-custom-colors">
+                        <label class="lm-color-control"><span>رنگ اصلی</span><input id="accentColor" type="color" value="#64c8ff" aria-label="انتخاب رنگ اصلی"></label>
+                        <label class="lm-color-control"><span>رنگ تأکیدی</span><input id="goldColor" type="color" value="#f2c979" aria-label="انتخاب رنگ تأکیدی"></label>
+                    </div>
+                </section>
+
+                <section class="lm-card lm-picker-card">
+                    <div class="lm-card-heading">
+                        <span class="lm-step">۰۹</span>
+                        <div><h2>زمینه و حرکت زمینه</h2><p>رنگ صحنه، شدت نور و ۸۴ انیمیشن پس‌زمینه</p></div>
+                    </div>
+                    <div class="lm-background-colors" id="backgroundPalettes" role="group" aria-label="انتخاب رنگ زمینه"></div>
+                    <label class="lm-custom-background"><span>رنگ زمینه‌ی دلخواه</span><input id="backgroundColor" type="color" value="#07101f" aria-label="انتخاب رنگ زمینه‌ی دلخواه"></label>
+                    <div class="lm-picker-toolbar lm-background-toolbar">
+                        <label class="lm-search-wrap">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.4 4.4"/></svg>
+                            <input type="search" id="backgroundSearch" placeholder="جست‌وجوی حرکت زمینه…" autocomplete="off" aria-label="جست‌وجو در انیمیشن‌های زمینه">
+                        </label>
+                        <span class="lm-count-pill" id="backgroundAnimationCount">۸۴ زمینه</span>
+                    </div>
+                    <div class="lm-category-list" id="backgroundCategories" role="group" aria-label="دسته‌بندی انیمیشن زمینه"></div>
+                    <div class="lm-background-grid" id="backgroundAnimations" role="listbox" aria-label="۸۴ انیمیشن زمینه"></div>
+                    <div class="lm-range-control">
+                        <label for="backgroundIntensity"><span>شدت جلوه</span><b id="backgroundIntensityValue">۷۰٪</b></label>
+                        <input id="backgroundIntensity" type="range" min="0" max="100" value="70">
+                    </div>
+                    <div class="lm-range-control">
+                        <label for="backgroundSpeed"><span>سرعت زمینه</span><b id="backgroundSpeedValue">۱٫۰×</b></label>
+                        <input id="backgroundSpeed" type="range" min="25" max="200" value="100">
+                    </div>
+                    <p class="lm-picker-footnote"><span>✓</span> حرکت زمینه: <b id="selectedBackgroundName">مه‌نور آهسته</b></p>
+                </section>
+
+                <section class="lm-card lm-card-compact lm-output-card">
+                    <div class="lm-card-heading lm-card-heading-small">
+                        <span class="lm-step">۱۰</span>
+                        <div><h2>تنظیمات حرفه‌ای خروجی</h2><p>ابعاد، نرخ فریم، کدک و کیفیت ضبط</p></div>
+                    </div>
+                    <div class="lm-output-fields lm-output-grid">
+                        <label class="lm-select-wrap"><span>نسبت تصویر</span>
+                            <select id="aspectSelect" class="lm-select"><option value="16:9">افقی · 16:9</option><option value="9:16">عمودی · 9:16</option><option value="1:1">مربع · 1:1</option><option value="4:5">پرتره · 4:5</option></select>
+                        </label>
+                        <label class="lm-select-wrap"><span>وضوح تصویر</span>
+                            <select id="qualitySelect" class="lm-select"><option value="720">HD · 720</option><option value="1080" selected>Full HD · 1080</option><option value="1440">QHD · 1440</option><option value="2160">4K · 2160</option></select>
+                        </label>
+                        <label class="lm-select-wrap"><span>مدت انیمیشن</span>
+                            <select id="durationSelect" class="lm-select"><option value="6">۶ ثانیه</option><option value="8" selected>۸ ثانیه</option><option value="10">۱۰ ثانیه</option><option value="12">۱۲ ثانیه</option></select>
+                        </label>
+                        <label class="lm-select-wrap"><span>نرخ فریم</span>
+                            <select id="fpsSelect" class="lm-select"><option value="24">24 fps · سینمایی</option><option value="30" selected>30 fps · استاندارد</option><option value="60">60 fps · روان</option></select>
+                        </label>
+                        <label class="lm-select-wrap"><span>فرمت فایل</span>
+                            <select id="formatSelect" class="lm-select"><option value="webm" selected>WebM · پیشنهادشده</option><option value="mp4">MP4 · H.264</option></select>
+                        </label>
+                        <label class="lm-select-wrap"><span>کدک</span>
+                            <select id="codecSelect" class="lm-select"><option value="auto" selected>خودکار · سازگار</option><option value="vp9">VP9 · فشرده‌تر</option><option value="vp8">VP8 · ضبط سریع‌تر</option><option value="h264">H.264 · MP4</option></select>
+                        </label>
+                        <label class="lm-select-wrap"><span>بیت‌ریت</span>
+                            <select id="bitrateSelect" class="lm-select"><option value="standard">استاندارد</option><option value="high" selected>حرفه‌ای · بالا</option><option value="compact">کم‌حجم</option></select>
+                        </label>
+                    </div>
+                    <div class="lm-output-summary" id="outputSummary">1920 × 1080 · 30fps · 8 ثانیه</div>
+                    <div class="lm-project-actions">
+                        <button type="button" id="saveProject">ذخیره‌ی تنظیمات پروژه</button>
+                        <input id="projectFile" type="file" accept="application/json,.json" hidden>
+                        <button type="button" id="loadProject">بارگذاری پروژه</button>
+                    </div>
+                    <label class="lm-guides-toggle"><input id="previewGuides" type="checkbox"><span>خطوط امن و مرکز (فقط پیش‌نمایش)</span></label>
+                </section>
+            </aside>
+
+            <section class="lm-preview-panel" aria-label="پیش‌نمایش لوگوموشن">
+                <div class="lm-preview-header">
+                    <div class="lm-preview-title">
+                        <span class="lm-live-dot"></span>
+                        <div><h2>پیش‌نمایش زنده</h2><small>هر تغییر را همین‌جا ببینید</small></div>
+                    </div>
+                    <div class="lm-preview-header-status">
+                        <span class="lm-preview-health" id="previewHealth" aria-live="polite"><i></i>۳۰ FPS · ۱۰۰٪</span>
+                        <span class="lm-format-pill"><i></i> صحنه‌ی اصلی <b id="aspectLabel">16:9</b></span>
+                    </div>
+                </div>
+
+                <div class="lm-stage" id="stage">
+                    <canvas id="motionCanvas" width="1920" height="1080" aria-label="پیش‌نمایش انیمیشن لوگوی سهند سرویس"></canvas>
+                    <div class="lm-safe-guides" id="safeGuides" aria-hidden="true" hidden><span class="lm-safe-outer"></span><span class="lm-safe-inner"></span><i class="lm-safe-v"></i><i class="lm-safe-h"></i></div>
+                    <div class="lm-stage-corner lm-stage-corner-top"><span>PREVIEW</span><b>۰۱ / ۰۱</b></div>
+                    <div class="lm-stage-corner lm-stage-corner-bottom"><span>LOGO REVEAL</span><span id="stageResolution">1920 × 1080</span></div>
+                    <div class="lm-stage-vignette" aria-hidden="true"></div>
+                    <div class="lm-render-overlay" id="renderOverlay" aria-live="polite" hidden>
+                        <span class="lm-render-spinner"></span>
+                        <strong>در حال آماده‌سازی ویدئو…</strong>
+                        <small id="renderProgress">۰٪ · این پنجره را باز نگه دارید</small>
+                    </div>
+                </div>
+
+                <div class="lm-transport">
+                    <button class="lm-transport-btn" id="restartBtn" type="button" title="از ابتدا پخش کن" aria-label="از ابتدا پخش کن">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11a8 8 0 1 1 2.34 5.66M4 4v7h7"/></svg>
+                    </button>
+                    <button class="lm-play-btn" id="playBtn" type="button" title="توقف پخش" aria-label="توقف پخش">
+                        <svg class="lm-play-icon" id="playIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"/></svg>
+                        <svg class="lm-pause-icon" id="pauseIcon" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M8 5v14M16 5v14"/></svg>
+                    </button>
+                    <div class="lm-timeline">
+                        <div class="lm-timeline-time"><span id="currentTime">۰۰:۰۰</span><span id="totalTime">۰۰:۰۸</span></div>
+                        <input id="timelineRange" type="range" min="0" max="1000" value="0" aria-label="جابه‌جایی در زمان انیمیشن">
+                        <div class="lm-timeline-track" aria-hidden="true"><span id="timelineFill"></span></div>
+                    </div>
+                    <span class="lm-loop-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4m14-1v2a3 3 0 0 1-3 3H3"/></svg> تکرار خودکار</span>
+                </div>
+
+                <section class="lm-timeline-editor" aria-label="تایم‌لاین و کی‌فریم">
+                    <div class="lm-timeline-editor-heading">
+                        <div><strong>تایم‌لاین چندلایه</strong><small>کشیدن صدا یا نشانگرهای ◆ برای زمان‌بندی · Space پخش/توقف</small></div>
+                        <div class="lm-timeline-heading-actions">
+                            <button class="lm-timeline-add-audio" id="timelineAddText" type="button" aria-label="افزودن لایه‌ی نوشته"><span>＋ متن</span></button>
+                            <button class="lm-timeline-add-audio" id="timelineAddLogo" type="button" aria-label="افزودن کپی لوگو"><span>＋ لوگو</span></button>
+                            <button class="lm-timeline-add-audio" id="timelineAddAudio" type="button" aria-label="افزودن موسیقی" aria-controls="audioFile"><span>＋ موسیقی</span></button>
+                            <button class="lm-timeline-add-audio lm-timeline-add-voice" id="timelineAddVoice" type="button" aria-label="افزودن گفتار" aria-controls="voiceFile"><span>＋ گفتار</span></button>
+                            <span id="keyframeCount">۰ کی‌فریم</span>
+                        </div>
+                    </div>
+                    <div class="lm-timeline-ruler-wrap"><span></span><div class="lm-time-ruler" id="timelineRuler"></div></div>
+                    <div class="lm-track-list" id="timelineTracks"></div>
+                    <div class="lm-keyframe-tools">
+                        <div class="lm-keyframe-selection">
+                            <label class="lm-select-wrap"><span>لایه</span><select id="keyframeTarget" class="lm-select"><option value="logo">لوگوی اصلی</option><option value="title">نام برند</option><option value="tagline">شعار</option><option value="phone">تلفن</option><option value="website">وب‌سایت</option><option value="english">متن انگلیسی</option></select></label>
+                            <label class="lm-select-wrap"><span>ویژگی متحرک</span><select id="keyframeProperty" class="lm-select"></select></label>
+                            <label class="lm-select-wrap"><span>نرمی بین کی‌فریم‌ها</span><select id="keyframeEasing" class="lm-select"><option value="cinematic">سینمایی</option><option value="smooth">نرم</option><option value="spring">فنری</option><option value="linear">خطی</option><option value="sharp">سریع</option></select></label>
+                        </div>
+                        <div class="lm-keyframe-value-row"><label for="keyframeValue"><span id="keyframeValueName">مقدار</span><b id="keyframeValueLabel">—</b></label><input id="keyframeValue" type="range" min="0" max="100" value="50"></div>
+                        <div class="lm-keyframe-actions"><span id="keyframeTimeLabel">موقعیت: ۰٫۰ ثانیه</span><button type="button" id="addKeyframe">＋ ثبت کی‌فریم در نشانگر</button><button type="button" id="deleteKeyframe" disabled>حذف انتخاب‌شده</button></div>
+                    </div>
+                    <div class="lm-keyframe-list" id="keyframeList" aria-live="polite"></div>
+                </section>
+
+                <div class="lm-preview-footer">
+                    <div class="lm-specs">
+                        <span><i class="lm-spec-icon">◫</i><b id="specResolution">1920 × 1080</b></span>
+                        <span><i class="lm-spec-icon">◷</i><b id="specDuration">۸ ثانیه</b></span>
+                        <span><i class="lm-spec-icon">◉</i><b id="specFps">30 fps</b></span>
+                        <span><i class="lm-spec-icon">◌</i><b id="specFormat">WebM · بدون واترمارک</b></span>
+                    </div>
+                    <button class="lm-frame-btn" id="downloadFrame" type="button" title="ذخیره‌ی فریم فعلی به صورت PNG">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM8 5l1.5-2h5L16 5M8.5 14l2.2-2.2L15 16m-1.3-1.3 1.6-1.6L19 16"/></svg>
+                        ذخیره‌ی فریم
+                    </button>
+                </div>
+                <p class="lm-support-note" id="supportNote">برای خروجی روان و شارپ، 1080p/30fps و بیت‌ریت حرفه‌ای پیشنهاد می‌شود؛ WebM خودکار کدک سبک‌تر VP8 را ترجیح می‌دهد. خروجی 4K/60fps به توان دستگاه وابسته است.</p>
+                <div class="lm-video-result" id="videoResult" role="status" aria-live="polite" hidden>
+                    <div class="lm-video-result-copy"><strong>ویدئو آماده‌ی دریافت است</strong><small id="videoResultMeta">فایل خروجی</small></div>
+                    <a id="videoDownloadLink" href="#" download>دانلود ویدئو</a>
+                    <button id="videoResultClose" type="button" aria-label="بستن پیام دریافت">×</button>
+                </div>
+            </section>
+        </div>
+
+        <footer class="lm-footer">
+            <span>ساخته‌شده با دقت برای برند <b>سهند سرویس</b></span>
+            <span><i></i> پردازش محلی در مرورگر شما</span>
+        </footer>
+    </main>
+
+    <div class="lm-toast" id="toast" role="status" aria-live="polite" hidden></div>
+</div>
+<script src="assets/js/logo-motion.js?v=19" defer></script>
+</body>
+</html>

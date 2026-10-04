@@ -36,3 +36,6 @@ uploads/avatars/*
 !uploads/avatars/.gitkeep
 cache/migrations.state
 cache/migrations.state.lock
+
+# 📦 بسته‌ی دانلودی موردنیاز استودیوی لوگوموشن
+!downloads/Sahand-Logo-Motion-Studio.zip
