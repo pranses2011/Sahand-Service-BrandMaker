@@ -32,7 +32,15 @@
         { family: 'ripple', category: 'موج و هاله', names: ['موج دایره‌ای', 'هاله‌ی ضربانی', 'موج آب', 'پالس چندگانه', 'حلقه‌ی آرام'], descriptions: ['گسترش حلقه‌های روشن', 'پالس نرم از مرکز', 'موج سیال و سبک', 'چند ضربان هم‌زمان', 'حلقه‌ی مینیمال'] },
         { family: 'spotlight', category: 'نورافکن', names: ['نورافکن صحنه', 'نور دنبال‌کننده', 'هاله‌ی کانونی', 'ورود زیر نور', 'اسپات طلایی'], descriptions: ['نور موضعی و باشکوه', 'رد نور روی لوگو', 'کانون نور آرام', 'ورود به صحنه‌ی روشن', 'نور گرم و لوکس'] },
         { family: 'shatter', category: 'انرژی و شکست', names: ['انفجار کنترل‌شده', 'شکست کریستالی', 'موج انرژی', 'رهاسازی شعاعی', 'فروپاشی معکوس'], descriptions: ['انرژی بالا بدون شلوغی', 'تکه‌های نورین و ظریف', 'ضربه‌ی موجی', 'بازشدن شعاعی', 'جمع‌شدن و ظهور'] },
-        { family: 'stardust', category: 'ذرات درخشان', names: ['غبار ستاره‌ای', 'رد جرقه‌ها', 'بارش نور', 'دنباله‌ی درخشان', 'شکوفه‌ی ستاره‌ای'], descriptions: ['درخشش ریز و ظریف', 'ذرات دنبال‌کننده', 'بارش کوتاه نور', 'حرکت شهاب‌وار', 'شکوفایی روشن'] }
+        { family: 'stardust', category: 'ذرات درخشان', names: ['غبار ستاره‌ای', 'رد جرقه‌ها', 'بارش نور', 'دنباله‌ی درخشان', 'شکوفه‌ی ستاره‌ای'], descriptions: ['درخشش ریز و ظریف', 'ذرات دنبال‌کننده', 'بارش کوتاه نور', 'حرکت شهاب‌وار', 'شکوفایی روشن'] },
+        { family: 'bounce', category: 'جهش و فرود', names: ['جهش قهرمان', 'فرود ضربانی', 'پرش نرم', 'بازگشت فنری', 'ضربه‌ی پویا'], descriptions: ['جهش برجسته با فرود نرم', 'تپش کوتاه و کنترل‌شده', 'پرش ظریف و تمیز', 'بازگشت با حس کشسانی', 'ورود پرانرژی تبلیغاتی'] },
+        { family: 'spiral', category: 'مارپیچ و گردش', names: ['مارپیچ طلایی', 'گرداب آرام', 'چرخش مداری', 'پیچش سینمایی', 'مدار کهکشانی'], descriptions: ['ورود مارپیچی لوکس', 'گردش آرام از عمق', 'چرخش کوتاه مداری', 'پیچش و بازشدن لوگو', 'ظهور از مدار ستاره‌ای'] },
+        { family: 'drift', category: 'حرکت نرم', names: ['دریفت آبی', 'لغزش ابریشمی', 'شناوری مورب', 'نسیم آرام', 'حرکت موجی'], descriptions: ['لغزش کنترل‌شده از کناره', 'ورود نرم و بی‌شتاب', 'حرکت مورب با ظرافت', 'شناوری کوتاه سینمایی', 'ورود همراه با موج'] },
+        { family: 'fold', category: 'بازشدن و تاخوردن', names: ['بازشدن پنجره', 'تاخوردن عمودی', 'ورق لوگو', 'گشایش متقارن', 'فولد سه‌بعدی'], descriptions: ['بازشدن از مرکز صحنه', 'نمایش از یک خط باریک', 'ورق‌خوردن با عمق', 'گشایش هم‌زمان دو سویه', 'فولد کوتاه و تمیز'] },
+        { family: 'swoosh', category: 'ویپ و مسیر نور', names: ['ویپ نوری', 'مسیر مورب', 'ورود شتابان', 'برش ابریشمی', 'اسلاید پرانرژی'], descriptions: ['حرکت سریع با رد نور', 'ورود مورب و دقیق', 'شتاب اولیه و توقف نرم', 'برش نرم تبلیغاتی', 'اسلاید پویا از کناره'] },
+        { family: 'shimmer', category: 'درخشش و شاین', names: ['شاین شامپاینی', 'درخشش کرومی', 'موج براق', 'اسکن درخشان', 'بازتاب لوکس'], descriptions: ['انعکاس گرم و پریمیوم', 'شاین فلزی کنترل‌شده', 'موج نور روی لوگو', 'اسکن نوری کوتاه', 'بازتاب ظریف و تمیز'] },
+        { family: 'glow', category: 'نور و بلوم', names: ['بلوم سینمایی', 'هاله‌ی زنده', 'نور نرم', 'درخشش مرکزی', 'تابش لوکس'], descriptions: ['هاله‌ی عمیق و سینمایی', 'پالس نور با شدت کم', 'نور نرم و مینیمال', 'تابش از مرکز نشان', 'بلوم گرم و ظریف'] },
+        { family: 'reveal', category: 'آشکارسازی', names: ['پرده‌ی نور', 'آشکارسازی عمودی', 'اسلایس مورب', 'پنجره‌ی مرکزی', 'ریویل مینیمال'], descriptions: ['نمایش با پرده‌ی روشن', 'آشکارسازی خطی عمودی', 'برش مورب تمیز', 'گشایش از مرکز', 'ظهور ساده و شیک'] }
     ];
     const MOTION_STYLES = MOTION_GROUPS.flatMap(group => group.names.map((name, variant) => ({
         id: `${group.family}-${variant}`,
@@ -63,7 +71,15 @@
         { family: 'petals', category: 'طبیعت و ارگانیک', names: ['گلبرگ‌های نور', 'شکوفه‌ی نرم', 'گردش گلبرگ'] },
         { family: 'matrix', category: 'تکنولوژی', names: ['داده‌های جاری', 'بارش دیجیتال', 'مسیرهای نوری'] },
         { family: 'flare', category: 'هاله و نور', names: ['فلر لنز', 'پرتو سینمایی', 'بازتاب گرم'] },
-        { family: 'curtain', category: 'پرده و صحنه', names: ['پرده‌ی نور', 'ستون‌های متحرک', 'پرده‌ی افتتاحیه'] }
+        { family: 'curtain', category: 'پرده و صحنه', names: ['پرده‌ی نور', 'ستون‌های متحرک', 'پرده‌ی افتتاحیه'] },
+        { family: 'embers', category: 'جرقه و آتش', names: ['اخگرهای شناور', 'بارش اخگر طلایی', 'جرقه‌های گرم'] },
+        { family: 'contours', category: 'خطوط سیال', names: ['توپوگرافی آرام', 'خطوط موجی', 'نقشه‌ی خطوط نور'] },
+        { family: 'constellation', category: 'ستاره و کهکشان', names: ['صورت فلکی', 'شبکه‌ی ستاره‌ای', 'نقشه‌ی آسمان'] },
+        { family: 'smoke', category: 'مه و دود', names: ['مه‌ی رنگی', 'دود ابریشمی', 'ابرهای نرم'] },
+        { family: 'electric', category: 'انرژی و برق', names: ['رعد آبی', 'پالس الکتریکی', 'جرقه‌ی دیجیتال'] },
+        { family: 'spectrum', category: 'طیف و صدا', names: ['طیف‌های زنده', 'موج‌های رنگی', 'اکولایزر نرم'] },
+        { family: 'bubbles', category: 'حباب و آب', names: ['حباب‌های صدفی', 'حباب‌های شناور', 'قطره‌های نور'] },
+        { family: 'geometry', category: 'هندسه و فرم', names: ['چندضلعی شناور', 'مدارهای هندسی', 'فریم‌های مینیمال'] }
     ];
     const BACKGROUND_ANIMATIONS = BACKGROUND_GROUPS.flatMap(group => group.names.map((name, variant) => ({
         id: `${group.family}-${variant}`,
@@ -105,7 +121,15 @@
         { name: 'سبز نئونی', accent: '#95ed52', gold: '#f0ffbd' },
         { name: 'بنفش کیهانی', accent: '#8a68e8', gold: '#70d8f0' },
         { name: 'شن و دریا', accent: '#58b8aa', gold: '#e9c790' },
-        { name: 'یاقوت و مس', accent: '#bb3c65', gold: '#e9a879' }
+        { name: 'یاقوت و مس', accent: '#bb3c65', gold: '#e9a879' },
+        { name: 'عقیق و آتش', accent: '#ef476f', gold: '#ffd166' },
+        { name: 'دریای روشن', accent: '#4cc9f0', gold: '#a8dadc' },
+        { name: 'طبیعت گرم', accent: '#7fb069', gold: '#f2cc8f' },
+        { name: 'شامپاینی', accent: '#d6b36a', gold: '#f4e4bd' },
+        { name: 'آبنبات نئون', accent: '#ff4d9d', gold: '#67e8f9' },
+        { name: 'رز نرم', accent: '#dc8caa', gold: '#f7d6bf' },
+        { name: 'یاس یخی', accent: '#a5b4fc', gold: '#c4f1f9' },
+        { name: 'لاجورد شب', accent: '#4676e8', gold: '#a9d6e5' }
     ];
     const BACKGROUND_COLORS = [
         { name: 'نیمه‌شب', value: '#07101f' },
@@ -121,7 +145,13 @@
         { name: 'سبز زمردی', value: '#09291f' },
         { name: 'قهوه‌ای لوکس', value: '#241c19' },
         { name: 'خاکستری روشن', value: '#e9edf4' },
-        { name: 'سفید مه‌آلود', value: '#f5f7fb' }
+        { name: 'سفید مه‌آلود', value: '#f5f7fb' },
+        { name: 'شرابی', value: '#2a1023' },
+        { name: 'نیلی عمیق', value: '#0c0b2a' },
+        { name: 'سبز شبانه', value: '#071e1b' },
+        { name: 'آبی یخی روشن', value: '#eaf5fb' },
+        { name: 'خاکستری گرافیتی', value: '#323843' },
+        { name: 'آبی مه‌آلود', value: '#eaf1fa' }
     ];
     const REEL_PRESETS = [
         { id: 'luxe-story', name: 'لوکس طلایی', badge: '۹:۱۶ · معرفی برند', aspect: '9:16', duration: 8, motion: 'orbit-1', backgroundAnimation: 'aurora-2', palette: 'آبی طلایی', background: '#07101f', backgroundIntensity: .78, backgroundSpeed: .9, motionIntensity: 1, logoScale: 1, textEnter: 'rise', textExit: 'fade', easing: 'cinematic' },
@@ -135,7 +165,15 @@
         { id: 'personal-brand', name: 'برند شخصی', badge: '۹:۱۶ · پرتره', aspect: '9:16', duration: 12, motion: 'float-0', backgroundAnimation: 'bokeh-1', palette: 'رزگلد', background: '#171127', backgroundIntensity: .68, backgroundSpeed: .7, motionIntensity: .78, logoScale: 1, textEnter: 'fade', textExit: 'fade', easing: 'smooth' },
         { id: 'beauty-fashion', name: 'زیبایی و مد', badge: '۴:۵ · ظریف', aspect: '4:5', duration: 8, motion: 'prism-2', backgroundAnimation: 'petals-1', palette: 'بنفش شامپاینی', background: '#171127', backgroundIntensity: .58, backgroundSpeed: .78, motionIntensity: .88, logoScale: .98, textEnter: 'blur', textExit: 'fade', easing: 'cinematic' },
         { id: 'square-launch', name: 'معرفی مربعی', badge: '۱:۱ · شبکه اجتماعی', aspect: '1:1', duration: 8, motion: 'elastic-2', backgroundAnimation: 'prism-1', palette: 'لاجوردی', background: '#101c38', backgroundIntensity: .68, backgroundSpeed: 1, motionIntensity: 1, logoScale: 1, textEnter: 'zoom', textExit: 'fade', easing: 'spring' },
-        { id: 'warm-launch', name: 'طلوع گرم', badge: '۹:۱۶ · رونمایی', aspect: '9:16', duration: 10, motion: 'spotlight-4', backgroundAnimation: 'flare-2', palette: 'غروب', background: '#241c19', backgroundIntensity: .7, backgroundSpeed: .85, motionIntensity: .92, logoScale: 1.04, textEnter: 'rise', textExit: 'fade', easing: 'cinematic' }
+        { id: 'warm-launch', name: 'طلوع گرم', badge: '۹:۱۶ · رونمایی', aspect: '9:16', duration: 10, motion: 'spotlight-4', backgroundAnimation: 'flare-2', palette: 'غروب', background: '#241c19', backgroundIntensity: .7, backgroundSpeed: .85, motionIntensity: .92, logoScale: 1.04, textEnter: 'rise', textExit: 'fade', easing: 'cinematic' },
+        { id: 'ember-campaign', name: 'کمپین آتشین', badge: '۹:۱۶ · تبلیغاتی', aspect: '9:16', duration: 8, motion: 'spiral-0', backgroundAnimation: 'embers-1', palette: 'عقیق و آتش', background: '#2a1023', backgroundIntensity: .68, backgroundSpeed: 1.12, motionIntensity: 1.08, logoScale: 1.02, textEnter: 'zoom', textExit: 'fade', easing: 'spring' },
+        { id: 'calm-wellness', name: 'آرامش و تندرستی', badge: '۴:۵ · خدمات', aspect: '4:5', duration: 10, motion: 'drift-3', backgroundAnimation: 'smoke-0', palette: 'طبیعت گرم', background: '#071e1b', backgroundIntensity: .52, backgroundSpeed: .62, motionIntensity: .75, logoScale: 1.05, textEnter: 'fade', textExit: 'fade', easing: 'smooth' },
+        { id: 'chic-product', name: 'محصول شیک', badge: '۹:۱۶ · فروشگاه', aspect: '9:16', duration: 8, motion: 'shimmer-0', backgroundAnimation: 'contours-1', palette: 'شامپاینی', background: '#101317', backgroundIntensity: .58, backgroundSpeed: .68, motionIntensity: .82, logoScale: 1.1, textEnter: 'rise', textExit: 'fade', easing: 'cinematic' },
+        { id: 'festival-pop', name: 'جشن رنگی', badge: '۱:۱ · رویداد', aspect: '1:1', duration: 8, motion: 'bounce-2', backgroundAnimation: 'geometry-1', palette: 'آبنبات نئون', background: '#171127', backgroundIntensity: .75, backgroundSpeed: 1.2, motionIntensity: 1.12, logoScale: 1, textEnter: 'zoom', textExit: 'zoom', easing: 'spring' },
+        { id: 'corporate-reveal', name: 'معرفی رسمی', badge: '۱۶:۹ · سازمانی', aspect: '16:9', duration: 10, motion: 'reveal-4', backgroundAnimation: 'constellation-0', palette: 'دریای روشن', background: '#101c38', backgroundIntensity: .48, backgroundSpeed: .65, motionIntensity: .86, logoScale: 1.08, textEnter: 'wipe', textExit: 'fade', easing: 'smooth' },
+        { id: 'sport-swoosh', name: 'اسپرت و سریع', badge: '۹:۱۶ · ورزشی', aspect: '9:16', duration: 6, motion: 'swoosh-0', backgroundAnimation: 'electric-2', palette: 'لاجورد شب', background: '#07101f', backgroundIntensity: .8, backgroundSpeed: 1.5, motionIntensity: 1.22, logoScale: .98, textEnter: 'slide-left', textExit: 'wipe', easing: 'sharp' },
+        { id: 'beauty-glow', name: 'زیبایی درخشان', badge: '۴:۵ · زیبایی', aspect: '4:5', duration: 8, motion: 'glow-2', backgroundAnimation: 'spectrum-0', palette: 'رز نرم', background: '#171127', backgroundIntensity: .57, backgroundSpeed: .72, motionIntensity: .82, logoScale: 1.04, textEnter: 'blur', textExit: 'fade', easing: 'cinematic' },
+        { id: 'editorial-fold', name: 'پرتره‌ی ادیتوریال', badge: '۹:۱۶ · برند شخصی', aspect: '9:16', duration: 10, motion: 'fold-1', backgroundAnimation: 'bubbles-2', palette: 'یاس یخی', background: '#0c0b2a', backgroundIntensity: .54, backgroundSpeed: .8, motionIntensity: .78, logoScale: 1.08, textEnter: 'rise', textExit: 'fade', easing: 'smooth' }
     ];
 
     let canvasContext = ctx;
@@ -243,6 +281,7 @@
         outputSummary: document.getElementById('outputSummary'),
         stage: document.getElementById('stage'),
         aspectLabel: document.getElementById('aspectLabel'),
+        previewHealth: document.getElementById('previewHealth'),
         play: document.getElementById('playBtn'),
         playIcon: document.getElementById('playIcon'),
         pauseIcon: document.getElementById('pauseIcon'),
@@ -351,6 +390,19 @@
         playing: true,
         offset: 0,
         startedAt: performance.now(),
+        previewTargetFps: 30,
+        previewLastFrameAt: 0,
+        previewLastUiUpdate: 0,
+        previewLastAudioSync: 0,
+        previewFpsSampleStart: performance.now(),
+        previewFramesInSample: 0,
+        previewMeasuredFps: 30,
+        previewDirty: true,
+        previewRenderAverage: 0,
+        previewSlowFrameStreak: 0,
+        previewFastFrameStreak: 0,
+        previewRenderScale: 1,
+        previewDetailScale: 1,
         scrubbing: false,
         exporting: false,
         exportStart: 0,
@@ -558,7 +610,7 @@
             1920 / outputWidth,
             1080 / outputHeight,
             Math.sqrt((1920 * 1080) / (outputWidth * outputHeight))
-        );
+        ) * clamp(Number(state.previewRenderScale) || 1, .45, 1);
         const targetWidth = forExport ? outputWidth : Math.max(1, Math.round(outputWidth * previewScale));
         const targetHeight = forExport ? outputHeight : Math.max(1, Math.round(outputHeight * previewScale));
         if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
@@ -566,12 +618,9 @@
             canvas.height = targetHeight;
         }
         if (forExport) {
-            const renderScale = Math.min(
-                1,
-                2560 / Math.max(outputWidth, outputHeight),
-                Math.sqrt(3_686_400 / (outputWidth * outputHeight))
-            );
-            resizeExportRenderCanvas(renderScale);
+            // Begin at the exact requested output size. Use the smaller offscreen
+            // render target only after sustained frame pressure is measured.
+            state.exportRenderScale = 1;
             state.exportRenderAverage = 0;
             state.exportSlowFrameStreak = 0;
         }
@@ -753,6 +802,7 @@
         state.extraTextLayers = state.extraTextLayers.filter(item => item.key !== key);
         delete state.textStyles[key];
         state.keyframes = state.keyframes.filter(frame => frame.target !== key);
+        invalidateKeyframeIndex();
         if (state.selectedKeyframeId && !state.keyframes.some(frame => frame.id === state.selectedKeyframeId)) state.selectedKeyframeId = null;
         buildTextSettings();
         updateTextTimingControls();
@@ -972,6 +1022,7 @@
     function removeLogoLayer(id) {
         state.logoLayers = state.logoLayers.filter(layer => layer.id !== id);
         state.keyframes = state.keyframes.filter(frame => frame.target !== `logoLayer:${id}`);
+        invalidateKeyframeIndex();
         if (state.selectedKeyframeId && !state.keyframes.some(frame => frame.id === state.selectedKeyframeId)) state.selectedKeyframeId = null;
         renderLogoLayerList();
         renderTimelineTracks();
@@ -1244,7 +1295,9 @@
     }
 
     function renderDetailCount(count, minimum = 2) {
-        const scale = state.exporting ? clamp(Number(state.exportDetailScale) || 1, .2, 1) : 1;
+        const scale = state.exporting
+            ? clamp(Number(state.exportDetailScale) || 1, .2, 1)
+            : (state.playing ? clamp(Number(state.previewDetailScale) || 1, .2, 1) : 1);
         return Math.max(Math.min(minimum, count), Math.round(count * scale));
     }
 
@@ -1341,7 +1394,7 @@
             for (let line = 0; line < renderDetailCount(4 + variant, 2); line++) {
                 const yBase = HEIGHT * (.5 + line * .105);
                 canvasContext.beginPath();
-                for (let x = 0; x <= WIDTH; x += Math.max(14, WIDTH / (90 * Math.max(.45, state.exporting ? state.exportDetailScale : 1)))) {
+                for (let x = 0; x <= WIDTH; x += Math.max(14, WIDTH / (90 * Math.max(.45, state.exporting ? state.exportDetailScale : (state.playing ? state.previewDetailScale : 1))))) {
                     const y = yBase + Math.sin(x * (.006 + variant * .0007) + motion * .7 + line * 1.6) * (12 + variant * 4);
                     if (x === 0) canvasContext.moveTo(x, y); else canvasContext.lineTo(x, y);
                 }
@@ -1445,7 +1498,7 @@
                 canvasContext.strokeStyle = gradient;
                 canvasContext.lineWidth = 2 + variant * .8;
                 canvasContext.beginPath();
-                for (let x = 0; x <= WIDTH; x += Math.max(20, WIDTH / (32 * Math.max(.45, state.exporting ? state.exportDetailScale : 1)))) {
+                for (let x = 0; x <= WIDTH; x += Math.max(20, WIDTH / (32 * Math.max(.45, state.exporting ? state.exportDetailScale : (state.playing ? state.previewDetailScale : 1))))) {
                     const y = baseline + Math.sin(x / WIDTH * Math.PI * (1.2 + variant * .2) + phase) * (38 + variant * 12) + Math.cos(x / WIDTH * Math.PI * 2 + phase * .7) * 16;
                     if (x === 0) canvasContext.moveTo(x, y); else canvasContext.lineTo(x, y);
                 }
@@ -1595,6 +1648,202 @@
                 canvasContext.fillRect(x - width, 0, width * 2, HEIGHT);
             }
             canvasContext.restore();
+        } else if (family === 'embers') {
+            canvasContext.save();
+            const count = renderDetailCount(34 + variant * 16, 14);
+            for (let i = 0; i < count; i++) {
+                const cycle = (seconds * (17 + deterministic(i + 74) * 19) + deterministic(i + 21) * (HEIGHT + 100)) % (HEIGHT + 35);
+                const x = deterministic(i + 103) * WIDTH + Math.sin(seconds * .55 + i) * 18;
+                const y = HEIGHT - cycle;
+                const size = 1.1 + deterministic(i + 37) * (2.4 + variant * .65);
+                canvasContext.globalAlpha = (.12 + deterministic(i + 61) * .3) * strength;
+                canvasContext.fillStyle = i % 4 === 0 ? state.accent : state.gold;
+                canvasContext.beginPath();
+                canvasContext.arc(x, y, size, 0, Math.PI * 2);
+                canvasContext.fill();
+                if (i % 3 === 0) {
+                    canvasContext.globalAlpha *= .42;
+                    canvasContext.strokeStyle = state.gold;
+                    canvasContext.lineWidth = .8;
+                    canvasContext.beginPath();
+                    canvasContext.moveTo(x, y + size);
+                    canvasContext.lineTo(x - Math.sin(seconds + i) * 3, y + size * (2.2 + variant));
+                    canvasContext.stroke();
+                }
+            }
+            canvasContext.restore();
+        } else if (family === 'contours') {
+            canvasContext.save();
+            const bands = renderDetailCount(6 + variant * 2, 3);
+            const step = Math.max(28, WIDTH / 36);
+            for (let band = 0; band < bands; band++) {
+                const base = HEIGHT * (.12 + band / Math.max(1, bands - 1) * .76);
+                canvasContext.globalAlpha = (.12 - band % 3 * .018) * strength;
+                canvasContext.strokeStyle = band % 4 === 0 ? state.gold : faintColor;
+                canvasContext.lineWidth = band % 3 === 0 ? 1.35 : .8;
+                canvasContext.beginPath();
+                for (let x = 0; x <= WIDTH + step; x += step) {
+                    const wave = Math.sin(x / WIDTH * (4.4 + variant * .5) + motion * .22 + band * .7) * HEIGHT * (.018 + variant * .004);
+                    const y = base + wave + Math.sin(x / WIDTH * 8 + band) * HEIGHT * .008;
+                    if (x === 0) canvasContext.moveTo(x, y); else canvasContext.lineTo(x, y);
+                }
+                canvasContext.stroke();
+            }
+            canvasContext.restore();
+        } else if (family === 'constellation') {
+            const count = renderDetailCount(24 + variant * 10, 10);
+            const nodes = [];
+            for (let i = 0; i < count; i++) {
+                nodes.push({
+                    x: deterministic(i + 151) * WIDTH,
+                    y: deterministic(i + 201) * HEIGHT,
+                    radius: 1 + deterministic(i + 251) * 1.7,
+                    phase: deterministic(i + 301) * Math.PI * 2
+                });
+            }
+            canvasContext.save();
+            canvasContext.lineWidth = .8;
+            canvasContext.strokeStyle = rgba(faintColor, .12 * strength);
+            canvasContext.beginPath();
+            for (let i = 0; i < nodes.length; i++) {
+                let nearest = -1;
+                let nearestDistance = WIDTH * (.12 + variant * .018);
+                for (let j = i + 1; j < Math.min(nodes.length, i + 5); j++) {
+                    const dx = nodes[i].x - nodes[j].x;
+                    const dy = nodes[i].y - nodes[j].y;
+                    const distance = Math.hypot(dx, dy);
+                    if (distance < nearestDistance) { nearest = j; nearestDistance = distance; }
+                }
+                if (nearest >= 0) {
+                    canvasContext.moveTo(nodes[i].x, nodes[i].y);
+                    canvasContext.lineTo(nodes[nearest].x, nodes[nearest].y);
+                }
+            }
+            canvasContext.stroke();
+            nodes.forEach((node, i) => {
+                const pulse = .65 + (Math.sin(seconds * .9 + node.phase) + 1) * .17;
+                canvasContext.globalAlpha = pulse * strength;
+                canvasContext.fillStyle = i % 5 === 0 ? state.gold : faintColor;
+                canvasContext.beginPath();
+                canvasContext.arc(node.x, node.y, node.radius * (i % 5 === 0 ? 1.25 : 1), 0, Math.PI * 2);
+                canvasContext.fill();
+            });
+            canvasContext.restore();
+        } else if (family === 'smoke') {
+            canvasContext.save();
+            const clouds = renderDetailCount(5 + variant * 2, 3);
+            for (let i = 0; i < clouds; i++) {
+                const phase = motion * (.12 + i * .009) + i * 1.71;
+                const x = WIDTH * (.14 + deterministic(i + 350) * .72) + Math.sin(phase) * WIDTH * .08;
+                const y = HEIGHT * (.18 + deterministic(i + 370) * .68) + Math.cos(phase * .7) * HEIGHT * .05;
+                const radius = Math.max(WIDTH, HEIGHT) * (.18 + deterministic(i + 390) * .17);
+                const gradient = canvasContext.createRadialGradient(x, y, radius * .04, x, y, radius);
+                gradient.addColorStop(0, rgba(i % 3 === 0 ? state.gold : state.accent, .075 * strength));
+                gradient.addColorStop(.42, rgba(i % 3 === 0 ? state.accent : state.gold, .035 * strength));
+                gradient.addColorStop(1, rgba(state.accent, 0));
+                canvasContext.fillStyle = gradient;
+                canvasContext.fillRect(0, 0, WIDTH, HEIGHT);
+            }
+            canvasContext.restore();
+        } else if (family === 'electric') {
+            canvasContext.save();
+            const bolts = renderDetailCount(2 + variant, 1);
+            for (let bolt = 0; bolt < bolts; bolt++) {
+                const seed = bolt * 17 + variant * 9;
+                const originX = WIDTH * (.2 + deterministic(seed + 405) * .6);
+                const originY = (bolt % 2 ? HEIGHT : 0) + Math.sin(motion + bolt) * HEIGHT * .15;
+                const direction = bolt % 2 ? -1 : 1;
+                const segments = 9 + variant * 3;
+                canvasContext.globalAlpha = .15 * strength * (.7 + (Math.sin(seconds * 7 + bolt * 3) + 1) * .15);
+                canvasContext.strokeStyle = bolt % 2 ? state.gold : state.accent;
+                canvasContext.lineWidth = 1.1 + variant * .28;
+                canvasContext.shadowColor = canvasContext.strokeStyle;
+                canvasContext.shadowBlur = 9 + variant * 2;
+                canvasContext.beginPath();
+                canvasContext.moveTo(originX, originY);
+                for (let point = 1; point <= segments; point++) {
+                    const x = originX + (deterministic(seed + point * 11) - .5) * WIDTH * .24 + Math.sin(motion + point) * WIDTH * .025;
+                    const y = originY + direction * point / segments * HEIGHT * (.55 + variant * .07);
+                    canvasContext.lineTo(x, y);
+                }
+                canvasContext.stroke();
+            }
+            canvasContext.restore();
+        } else if (family === 'spectrum') {
+            canvasContext.save();
+            const bands = renderDetailCount(4 + variant * 2, 3);
+            const segments = 30;
+            for (let band = 0; band < bands; band++) {
+                const phase = motion * .45 + band * .78;
+                const base = HEIGHT * (.27 + band / Math.max(1, bands - 1) * .48);
+                const amplitude = HEIGHT * (.018 + variant * .007);
+                const gradient = canvasContext.createLinearGradient(0, base, WIDTH, base);
+                gradient.addColorStop(0, rgba(state.accent, 0));
+                gradient.addColorStop(.28, rgba(state.accent, .28 * strength));
+                gradient.addColorStop(.7, rgba(state.gold, .2 * strength));
+                gradient.addColorStop(1, rgba(state.gold, 0));
+                canvasContext.strokeStyle = gradient;
+                canvasContext.lineWidth = 1 + (band % 3) * .45;
+                canvasContext.beginPath();
+                for (let point = 0; point <= segments; point++) {
+                    const x = point / segments * WIDTH;
+                    const y = base + Math.sin(point / segments * Math.PI * (3 + variant) + phase) * amplitude
+                        + Math.sin(point / segments * Math.PI * 9 - phase * .6) * amplitude * .24;
+                    if (point === 0) canvasContext.moveTo(x, y); else canvasContext.lineTo(x, y);
+                }
+                canvasContext.stroke();
+            }
+            canvasContext.restore();
+        } else if (family === 'bubbles') {
+            canvasContext.save();
+            const count = renderDetailCount(22 + variant * 9, 10);
+            for (let i = 0; i < count; i++) {
+                const radius = 3 + deterministic(i + 420) * (8 + variant * 3);
+                const cycle = (seconds * (14 + deterministic(i + 440) * 20) + deterministic(i + 460) * (HEIGHT + 2 * radius)) % (HEIGHT + 2 * radius);
+                const x = deterministic(i + 480) * WIDTH + Math.sin(seconds * .55 + i) * 16;
+                const y = HEIGHT - cycle;
+                canvasContext.globalAlpha = (.08 + deterministic(i + 500) * .13) * strength;
+                canvasContext.strokeStyle = i % 4 === 0 ? state.gold : faintColor;
+                canvasContext.lineWidth = .8 + variant * .12;
+                canvasContext.beginPath();
+                canvasContext.arc(x, y, radius, 0, Math.PI * 2);
+                canvasContext.stroke();
+                canvasContext.globalAlpha *= .7;
+                canvasContext.fillStyle = rgba(state.accent, .04 * strength);
+                canvasContext.fill();
+                canvasContext.beginPath();
+                canvasContext.arc(x - radius * .28, y - radius * .3, Math.max(.6, radius * .11), 0, Math.PI * 2);
+                canvasContext.fillStyle = rgba('#ffffff', .42 * strength);
+                canvasContext.fill();
+            }
+            canvasContext.restore();
+        } else if (family === 'geometry') {
+            canvasContext.save();
+            const count = renderDetailCount(12 + variant * 8, 6);
+            for (let i = 0; i < count; i++) {
+                const x = deterministic(i + 520) * WIDTH;
+                const y = deterministic(i + 540) * HEIGHT;
+                const radius = 7 + deterministic(i + 560) * (22 + variant * 5);
+                const sides = 3 + (i + variant) % 5;
+                const angle = motion * (.04 + deterministic(i + 580) * .08) + i;
+                canvasContext.save();
+                canvasContext.translate(x, y);
+                canvasContext.rotate(angle);
+                canvasContext.globalAlpha = (.055 + deterministic(i + 600) * .07) * strength;
+                canvasContext.strokeStyle = i % 5 === 0 ? state.gold : faintColor;
+                canvasContext.lineWidth = i % 4 === 0 ? 1.2 : .75;
+                canvasContext.beginPath();
+                for (let side = 0; side < sides; side++) {
+                    const point = side / sides * Math.PI * 2;
+                    const px = Math.cos(point) * radius;
+                    const py = Math.sin(point) * radius;
+                    if (side === 0) canvasContext.moveTo(px, py); else canvasContext.lineTo(px, py);
+                }
+                canvasContext.closePath();
+                canvasContext.stroke();
+                canvasContext.restore();
+            }
+            canvasContext.restore();
         }
     }
 
@@ -1613,7 +1862,7 @@
         const cx = WIDTH / 2;
         const cy = centerY;
         const unit = Math.min(1, WIDTH / 1380);
-        const familyWeight = ['orbit', 'pulse', 'burst', 'mask', 'portal', 'ripple', 'prism', 'stardust'].includes(style.family) ? 1 : .52;
+        const familyWeight = ['orbit', 'pulse', 'burst', 'mask', 'portal', 'ripple', 'prism', 'stardust', 'spiral', 'glow'].includes(style.family) ? 1 : .52;
         const offsetDirection = variant % 2 === 0 ? 1 : -1;
 
         canvasContext.save();
@@ -1820,6 +2069,44 @@
             yShift = (1 - pop) * 28 * unit;
             rotation = (1 - reveal) * .08;
             glow = .4;
+        } else if (family === 'bounce') {
+            scale = .68 + .32 * easeOutBack(revealRaw);
+            yShift = (1 - pop) * 36 * unit;
+            rotation = Math.sin((1 - revealRaw) * Math.PI * 3 + variant) * .045 * (1 - revealRaw);
+            glow = .34;
+        } else if (family === 'spiral') {
+            scale = .24 + .76 * pop;
+            rotation = (1 - reveal) * Math.PI * 2 * (.38 + variant * .075) * (variant % 2 ? -1 : 1);
+            glow = .47;
+        } else if (family === 'drift') {
+            const direction = variant % 2 ? -1 : 1;
+            xShift = direction * (1 - pop) * Math.min(250, WIDTH * (.1 + variant * .018));
+            yShift = (1 - pop) * (variant % 3 === 0 ? 24 : -20) * unit + Math.sin(seconds * .8 + variant) * 5 * reveal * unit;
+            rotation = (1 - reveal) * direction * .055;
+            glow = .25;
+        } else if (family === 'fold') {
+            scaleX = Math.max(.06, .14 + .86 * pop);
+            scaleY = .86 + .14 * pop;
+            rotation = (1 - reveal) * (variant % 2 ? -.12 : .12);
+            glow = .3;
+        } else if (family === 'swoosh') {
+            const direction = variant % 2 ? -1 : 1;
+            xShift = -direction * (1 - pop) * Math.min(480, WIDTH * .28);
+            yShift = Math.sin((1 - revealRaw) * Math.PI + variant) * 18 * unit * (1 - revealRaw);
+            rotation = direction * (1 - reveal) * .075;
+            scale = .91 + .09 * pop;
+            glow = .43;
+        } else if (family === 'shimmer') {
+            scale = .9 + .1 * pop;
+            rotation = (1 - reveal) * (variant % 2 ? -.045 : .045);
+            glow = .66 + Math.sin(seconds * 2.3 + variant) * .08;
+        } else if (family === 'glow') {
+            scale = .86 + .14 * pop;
+            glow = .7 + Math.sin(seconds * (1.5 + variant * .15)) * .12 * reveal;
+        } else if (family === 'reveal') {
+            scale = .96 + .04 * pop;
+            xShift = variant % 2 ? -(1 - pop) * 28 * unit : (1 - pop) * 28 * unit;
+            glow = .31;
         }
 
         const keyedScale = evaluateKeyframes('logo', 'scale', seconds, 100) / 100;
@@ -1892,7 +2179,7 @@
         if (state.logo && state.logo.complete && state.logo.naturalWidth > 0) {
             const imgWidth = Math.min(imageSize, imageSize * (state.logo.naturalWidth / Math.max(state.logo.naturalWidth, state.logo.naturalHeight)));
             const imgHeight = Math.min(imageSize, imageSize * (state.logo.naturalHeight / Math.max(state.logo.naturalWidth, state.logo.naturalHeight)));
-            const revealFamily = ['sweep', 'scan', 'mask'].includes(family);
+            const revealFamily = ['sweep', 'scan', 'mask', 'reveal'].includes(family);
             const drawGhosts = family === 'glitch' && revealRaw < .72;
 
             canvasContext.save();
@@ -1901,7 +2188,7 @@
             canvasContext.scale(scale * scaleX, scale * scaleY);
             canvasContext.shadowColor = rgba(state.accent, glow);
             canvasContext.shadowBlur = (family === 'zoom' || family === 'pulse' ? 35 : 20) * unit;
-            canvasContext.globalAlpha = logoAlpha * (family === 'sweep' || family === 'scan' || family === 'mask' ? 1 : reveal);
+            canvasContext.globalAlpha = logoAlpha * (family === 'sweep' || family === 'scan' || family === 'mask' || family === 'reveal' ? 1 : reveal);
             if (revealFamily) {
                 canvasContext.save();
                 clipReveal(canvasContext, imgWidth, imgHeight, reveal, family, variant);
@@ -1922,7 +2209,7 @@
             }
             canvasContext.restore();
 
-            if (['sweep', 'scan', 'prism', 'spotlight'].includes(family)) drawBeam(cx + xShift, cy + yShift, imgWidth, imgHeight, reveal, variant, cardAlpha);
+            if (['sweep', 'scan', 'prism', 'spotlight', 'shimmer', 'swoosh', 'reveal'].includes(family)) drawBeam(cx + xShift, cy + yShift, imgWidth, imgHeight, reveal, variant, cardAlpha);
             if (family === 'glitch' && revealRaw < .75) {
                 canvasContext.save();
                 canvasContext.globalAlpha = logoAlpha * (1 - reveal) * .2;
@@ -2112,11 +2399,27 @@
         return { entry, exit, alpha: entry * (1 - exit) };
     }
 
+    const textSegmenters = new Map();
+    const graphemeCache = new Map();
+
     function graphemes(text, locale) {
+        const value = String(text || '');
+        const language = locale || 'und';
+        const cacheKey = `${language}\u0000${value}`;
+        const cached = graphemeCache.get(cacheKey);
+        if (cached) return cached;
+        let result;
         if (typeof Intl !== 'undefined' && Intl.Segmenter) {
-            return Array.from(new Intl.Segmenter(locale || 'und', { granularity: 'grapheme' }).segment(text), item => item.segment);
-        }
-        return Array.from(text);
+            let segmenter = textSegmenters.get(language);
+            if (!segmenter) {
+                segmenter = new Intl.Segmenter(language, { granularity: 'grapheme' });
+                textSegmenters.set(language, segmenter);
+            }
+            result = Array.from(segmenter.segment(value), item => item.segment);
+        } else result = Array.from(value);
+        if (graphemeCache.size > 256) graphemeCache.clear();
+        graphemeCache.set(cacheKey, result);
+        return result;
     }
 
     function typewriterText(text, progress, locale) {
@@ -2394,6 +2697,10 @@
                 ctx.drawImage(exportRenderCanvas, 0, 0, canvas.width, canvas.height);
             }
             canvasContext = ctx;
+            if (!state.exporting && !destinationCanvas) {
+                state.previewDirty = false;
+                state.previewLastFrameAt = performance.now();
+            }
         }
     }
 
@@ -2402,6 +2709,11 @@
         const minutes = Math.floor(whole / 60).toLocaleString('fa-IR', { minimumIntegerDigits: 2, useGrouping: false });
         const rest = (whole % 60).toLocaleString('fa-IR', { minimumIntegerDigits: 2, useGrouping: false });
         return `${minutes}:${rest}`;
+    }
+
+    function resetPreviewFpsSample(now = performance.now()) {
+        state.previewFpsSampleStart = now;
+        state.previewFramesInSample = 0;
     }
 
     function currentTime(now) {
@@ -2452,22 +2764,47 @@
         return 0;
     }
 
+    let keyframeIndex = new Map();
+    let keyframeIndexDirty = true;
+
+    function invalidateKeyframeIndex() {
+        keyframeIndexDirty = true;
+    }
+
+    function rebuildKeyframeIndex() {
+        keyframeIndex = new Map();
+        state.keyframes.forEach(frame => {
+            const key = `${frame.target}\u0000${frame.property}`;
+            if (!keyframeIndex.has(key)) keyframeIndex.set(key, []);
+            keyframeIndex.get(key).push(frame);
+        });
+        keyframeIndex.forEach(frames => frames.sort((a, b) => a.time - b.time));
+        keyframeIndexDirty = false;
+    }
+
     function evaluateKeyframes(target, property, time, baseValue) {
-        const frames = state.keyframes.filter(frame => frame.target === target && frame.property === property).sort((a, b) => a.time - b.time);
+        if (keyframeIndexDirty) rebuildKeyframeIndex();
+        const frames = keyframeIndex.get(`${target}\u0000${property}`) || [];
         if (!frames.length) return Number(baseValue) || 0;
         const position = clamp(Number(time) || 0, 0, state.duration);
         if (position < frames[0].time) return Number(baseValue) || 0;
-        if (position === frames[0].time || frames.length === 1) return frames[0].value;
-        for (let index = 0; index < frames.length - 1; index += 1) {
-            const from = frames[index];
-            const to = frames[index + 1];
-            if (position <= to.time) {
-                const span = Math.max(.001, to.time - from.time);
-                const progress = easeBySetting((position - from.time) / span, to.easing || 'cinematic');
-                return from.value + (to.value - from.value) * progress;
-            }
+        if (frames.length === 1) return frames[0].value;
+
+        // Find the first keyframe at or after the playhead in logarithmic time.
+        let low = 0;
+        let high = frames.length;
+        while (low < high) {
+            const middle = (low + high) >>> 1;
+            if (frames[middle].time < position) low = middle + 1;
+            else high = middle;
         }
-        return frames[frames.length - 1].value;
+        if (low === 0) return frames[0].value;
+        if (low >= frames.length) return frames[frames.length - 1].value;
+        const from = frames[low - 1];
+        const to = frames[low];
+        const span = Math.max(.001, to.time - from.time);
+        const progress = easeBySetting((position - from.time) / span, to.easing || 'cinematic');
+        return from.value + (to.value - from.value) * progress;
     }
 
     function sanitizeImportedKeyframes(value, duration) {
@@ -2794,6 +3131,7 @@
                     if (Math.abs(event.clientX - drag.startX) > 2) drag.moved = true;
                     if (!drag.moved) return;
                     frame.time = Math.round(clamp(drag.startTime + (event.clientX - drag.startX) / drag.laneWidth * duration, 0, duration) * 100) / 100;
+                    invalidateKeyframeIndex();
                     marker.style.left = `${(frame.time / duration) * 100}%`;
                     marker.setAttribute('aria-label', `${target.label}، ${property ? property.label : frame.property}، ${secondsLabel(frame.time)}؛ بکشید یا با کلیدهای جهت‌دار جابه‌جا کنید`);
                     marker.title = marker.getAttribute('aria-label');
@@ -2821,6 +3159,7 @@
                         const step = event.shiftKey ? 1 : .1;
                         const next = event.key === 'Home' ? 0 : event.key === 'End' ? duration : frame.time + (event.key === 'ArrowRight' ? step : -step);
                         frame.time = Math.round(clamp(next, 0, duration) * 100) / 100;
+                        invalidateKeyframeIndex();
                         state.selectedKeyframeId = frame.id;
                         selectKeyframe(frame.id, false);
                         const replacement = Array.from(el.timelineTracks.querySelectorAll('.lm-keyframe-marker')).find(item => item.dataset.keyframeId === frame.id);
@@ -3004,6 +3343,7 @@
             frame = { id: `kf-${Date.now().toString(36)}-${state.keyframeSequence.toString(36)}`, target, property, time, value, easing };
             state.keyframes.push(frame);
         }
+        invalidateKeyframeIndex();
         state.selectedKeyframeId = frame.id;
         renderTimelineTracks();
         syncKeyframeValueControl();
@@ -3021,6 +3361,7 @@
         el.keyframeValueLabel.textContent = formatKeyframeValue(amount, definition);
         if (selected) {
             selected.value = amount;
+            invalidateKeyframeIndex();
             renderTimelineTracks();
             const time = currentTime(performance.now());
             drawFrame(time);
@@ -3031,6 +3372,7 @@
     function deleteSelectedKeyframe() {
         if (!state.selectedKeyframeId) return;
         state.keyframes = state.keyframes.filter(frame => frame.id !== state.selectedKeyframeId);
+        invalidateKeyframeIndex();
         state.selectedKeyframeId = null;
         renderTimelineTracks();
         syncKeyframeValueControl();
@@ -3041,16 +3383,97 @@
 
     function renderTimelineTracksForDurationChange() {
         state.keyframes = state.keyframes.map(frame => ({ ...frame, time: clamp(frame.time, 0, state.duration) }));
+        invalidateKeyframeIndex();
         renderTimelineTracks();
         syncKeyframeValueControl();
     }
 
     function frameLoop(now) {
         const time = currentTime(now);
-        if (!state.exporting && !state.exportPreparing) {
-            drawFrame(time);
-            updateTransport(time);
-            updateTimelinePlayhead(time);
+        const previewActive = !state.exporting && !state.exportPreparing;
+        if (previewActive) {
+            const previewInterval = 1000 / Math.max(1, state.previewTargetFps);
+            const shouldDraw = state.playing
+                ? (state.previewDirty || now - state.previewLastFrameAt >= previewInterval)
+                : state.previewDirty;
+            if (shouldDraw) {
+                const startedAt = performance.now();
+                drawFrame(time);
+                const renderTime = performance.now() - startedAt;
+                state.previewLastFrameAt = performance.now();
+                state.previewDirty = false;
+                state.previewFramesInSample += 1;
+                const fpsSampleElapsed = now - state.previewFpsSampleStart;
+                if (fpsSampleElapsed >= 750) {
+                    state.previewMeasuredFps = Math.round(state.previewFramesInSample * 1000 / fpsSampleElapsed);
+                    state.previewFramesInSample = 0;
+                    state.previewFpsSampleStart = now;
+                }
+                state.previewRenderAverage = state.previewRenderAverage ? state.previewRenderAverage * .82 + renderTime * .18 : renderTime;
+                const budget = 1000 / Math.max(1, state.previewTargetFps);
+                if (state.previewRenderAverage > budget * .86) {
+                    state.previewSlowFrameStreak += 1;
+                    state.previewFastFrameStreak = 0;
+                } else {
+                    state.previewSlowFrameStreak = Math.max(0, state.previewSlowFrameStreak - 1);
+                    state.previewFastFrameStreak += 1;
+                }
+
+                if (state.previewTargetFps === 60 && state.previewRenderAverage > 18 && state.previewSlowFrameStreak >= 3) {
+                    state.previewTargetFps = 30;
+                    state.previewSlowFrameStreak = 0;
+                } else if (state.previewTargetFps === 30 && state.previewFastFrameStreak >= 90 && state.previewRenderAverage < 8) {
+                    state.previewTargetFps = 60;
+                    state.previewFastFrameStreak = 0;
+                }
+
+                if (state.previewSlowFrameStreak >= 4) {
+                    if (state.previewDetailScale > .32) {
+                        state.previewDetailScale = Math.max(.32, state.previewDetailScale * .76);
+                        state.previewSlowFrameStreak = 0;
+                        state.previewDirty = true;
+                    } else if (state.previewRenderScale > .48) {
+                        state.previewRenderScale = Math.max(.48, state.previewRenderScale * .84);
+                        state.previewSlowFrameStreak = 0;
+                        updateCanvasResolution();
+                        state.previewDirty = true;
+                    }
+                } else if (state.previewFastFrameStreak >= 90) {
+                    if (state.previewDetailScale < .99) {
+                        state.previewDetailScale = Math.min(1, state.previewDetailScale + .12);
+                        state.previewFastFrameStreak = 0;
+                    } else if (state.previewRenderScale < .99) {
+                        state.previewRenderScale = Math.min(1, state.previewRenderScale + .08);
+                        state.previewFastFrameStreak = 0;
+                        updateCanvasResolution();
+                        state.previewDirty = true;
+                    }
+                }
+            }
+
+            if (now - state.previewLastUiUpdate >= 120) {
+                updateTransport(time);
+                updateTimelinePlayhead(time);
+                if (el.previewHealth) {
+                    const fpsValue = Math.round(state.previewMeasuredFps || state.previewTargetFps);
+                    const qualityValue = Math.round(Math.min(state.previewRenderScale, state.previewDetailScale) * 100);
+                    const fps = fpsValue.toLocaleString('fa-IR');
+                    const quality = qualityValue.toLocaleString('fa-IR');
+                    const statusLabel = `${fps} FPS · ${quality}٪`;
+                    const statusDescription = `نرخ واقعی تقریبی پیش‌نمایش: ${fpsValue} فریم‌برثانیه؛ مقیاس تطبیقی رندر و جزئیات: ${qualityValue}٪`;
+                    if (el.previewHealth.textContent !== statusLabel) el.previewHealth.textContent = statusLabel;
+                    if (el.previewHealth.title !== statusDescription) {
+                        el.previewHealth.title = statusDescription;
+                        el.previewHealth.setAttribute('aria-label', statusDescription);
+                    }
+                    el.previewHealth.classList.toggle('is-adaptive', qualityValue < 100);
+                }
+                state.previewLastUiUpdate = now;
+            }
+            if (state.playing && now - state.previewLastAudioSync >= 120) {
+                syncAudioPlayback(time, false);
+                state.previewLastAudioSync = now;
+            }
         } else if (now - state.exportUiLastUpdate >= 120) {
             if (el.renderProgress && state.exportTotalFrames > 0) {
                 const progress = clamp(time / Math.max(.001, state.duration), 0, 1);
@@ -3063,9 +3486,9 @@
             updateTimelinePlayhead(time);
             state.exportUiLastUpdate = now;
         }
-        if (!state.exporting || now - state.exportAudioLastSync >= 180) {
+        if (state.exporting && now - state.exportAudioLastSync >= 180) {
             syncAudioPlayback(time, false);
-            if (state.exporting) state.exportAudioLastSync = now;
+            state.exportAudioLastSync = now;
         }
         window.requestAnimationFrame(frameLoop);
     }
@@ -3568,6 +3991,10 @@
         state.exportDroppedFrames = 0;
         state.exportRenderScale = 1;
         state.exportDetailScale = 1;
+        if (exportRenderCanvas.width !== 1 || exportRenderCanvas.height !== 1) {
+            exportRenderCanvas.width = 1;
+            exportRenderCanvas.height = 1;
+        }
         state.exportRenderAverage = 0;
         state.exportSlowFrameStreak = 0;
         state.exportUiLastUpdate = 0;
@@ -3589,6 +4016,7 @@
         state.playing = state.restorePlaying;
         state.offset = state.restoreOffset;
         state.startedAt = performance.now();
+        resetPreviewFpsSample(state.startedAt);
         updateCanvasResolution();
         updateTransport(state.offset);
         state.audioLastSync = 0;
@@ -4283,6 +4711,7 @@
         try { track.element.load(); } catch (error) {}
         state.audioTracks = state.audioTracks.filter(item => item.id !== id);
         state.keyframes = state.keyframes.filter(frame => frame.target !== `audioTrack:${id}`);
+        invalidateKeyframeIndex();
         if (state.selectedKeyframeId && !state.keyframes.some(frame => frame.id === state.selectedKeyframeId)) state.selectedKeyframeId = null;
         if (state.selectedAudioTrackId === id) state.selectedAudioTrackId = state.audioTracks[0] ? state.audioTracks[0].id : null;
         state.timelinePointerDrag = null;
@@ -4684,6 +5113,7 @@
                 ? (Array.isArray(project.keyframes) ? project.keyframes.map(frame => frame && frame.target === 'audio' ? { ...frame, target: `audioTrack:${state.audioTracks[0].id}` } : frame) : project.keyframes)
                 : project.keyframes;
             state.keyframes = sanitizeImportedKeyframes(importedKeyframes, state.duration);
+            invalidateKeyframeIndex();
             state.selectedKeyframeId = null;
             renderCustomFontList();
             buildTextSettings();
@@ -4853,6 +5283,7 @@
         const selected = state.keyframes.find(frame => frame.id === state.selectedKeyframeId);
         if (!selected) return;
         selected.easing = el.keyframeEasing.value;
+        invalidateKeyframeIndex();
         renderTimelineTracks();
         drawFrame(currentTime(performance.now()));
     });
@@ -4942,6 +5373,7 @@
             state.startedAt = performance.now();
             state.playing = true;
         }
+        resetPreviewFpsSample();
         updateTransport(state.offset);
         updateTimelinePlayhead(state.offset);
         syncAudioPlayback(state.offset, true);
@@ -4951,6 +5383,7 @@
         state.offset = 0;
         state.startedAt = performance.now();
         state.playing = true;
+        resetPreviewFpsSample(state.startedAt);
         state.audioLastSync = 0;
         updateTransport(0);
         updateTimelinePlayhead(0);
@@ -5024,5 +5457,9 @@
     if (document.fonts && document.fonts.load) {
         Promise.all([document.fonts.load('800 76px Vazirmatn'), document.fonts.load('500 30px Vazirmatn')]).catch(() => {});
     }
+    ['input', 'change', 'click', 'drop'].forEach(type => document.addEventListener(type, event => {
+        const target = event.target;
+        if (target && target.closest && target.closest('.lm-controls,.lm-timeline-editor,.lm-preview-panel')) state.previewDirty = true;
+    }));
     window.requestAnimationFrame(frameLoop);
 })();
